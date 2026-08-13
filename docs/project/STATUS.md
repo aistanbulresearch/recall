@@ -5,14 +5,14 @@
 | Field | Current truth |
 |---|---|
 | Updated | 2026-08-14 |
-| Phase | Phase 0, foundation and project control |
-| Overall state | In progress |
+| Phase | Phase 0 verified; Phase 1 awaiting owner review |
+| Overall state | Foundation complete, product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Not started |
-| GitHub | Empty private repository verified before baseline push |
+| GitHub | Private repository with verified documentation baseline on `main` |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -23,12 +23,12 @@
 - Contest target architecture and guardrail direction were previously designed and are being normalized into Recall documentation.
 - Owner supplied mandatory lessons, engineering principles, authorship constraints, hosting target, and documentation requirements.
 - Initial living plan, documentation protocol, operating principles, and evidence-ledger structure drafted.
+- Documentation baseline pushed and read back at `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer are `aistanbulresearch`.
+- Recall Obsidian project memory bootstrapped and synthesized; local absolute paths remain Git-ignored.
 
 ## In progress
 
-- Phase 0 repository foundation.
-- Git identity and authorship enforcement.
-- Documentation-only baseline commit and push.
+- Owner review of the Phase 0 plan and open decisions.
 
 ## Blocked
 
@@ -58,6 +58,6 @@
 
 ## Next three actions
 
-1. Complete and push the documentation-only Phase 0 baseline.
-2. Confirm hostname spelling and review the master schedule with the owner.
-3. Run Phase 1 eligibility, platform-access, secret, license, and Gemma feasibility gates.
+1. Confirm hostname spelling and review the master schedule with the owner.
+2. Run Phase 1 eligibility, platform-access, secret, license, and Gemma feasibility gates.
+3. Freeze architecture contracts, evaluation protocols, and demo storyboard before code implementation.

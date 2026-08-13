@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Phase 0: foundation and planning**
+**Phase 0 complete; awaiting owner review before Phase 1**
 
 ## Phase checklist
 
@@ -26,7 +26,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Review Phase 0 documents, resolve the public hostname spelling, then begin `RCL-101` through `RCL-108` in the master plan.
+Obtain owner review of the Phase 0 plan, resolve the public hostname spelling, then begin `RCL-101` through `RCL-109` in the master plan.
 
 ## Errors encountered
 

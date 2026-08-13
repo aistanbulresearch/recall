@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Active, Phase 0 |
+| Status | Phase 0 verified; awaiting owner review before Phase 1 |
 | Baseline date | 2026-08-14 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
 | Internal submission target | 2026-08-31 18:00 Europe/Istanbul |
@@ -117,7 +117,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-006 | Record engineering, scientific, demo, and authorship rules | verified | `AGENTS.md` and governance documents exist |
 | RCL-007 | Add baseline repository hygiene and PR templates | verified | Ignore rules, line endings, ownership, security, and PR template verified |
 | RCL-008 | Bind Recall to a local Obsidian project memory | verified | Local binding and canonical project notes verified; machine paths excluded from Git |
-| RCL-009 | Commit and push documentation-only baseline as aistanbulresearch | in-progress | GitHub shows correct author/committer and no co-author trailers |
+| RCL-009 | Commit and push documentation-only baseline as aistanbulresearch | verified | Remote SHA `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer both `aistanbulresearch`; no co-author trailers |
 
 **Phase gate:** another contributor can answer what, why, where, current status, next task, known errors, and proof requirements from repository documents alone.
 
@@ -308,4 +308,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-Commit and push the Phase 0 documentation baseline, verify remote authorship and content, then stop for owner review before starting platform or product implementation.
+Stop for owner review of the Phase 0 baseline. After approval and hostname clarification, begin Phase 1 eligibility, access, security, license, and Gemma feasibility gates without starting product implementation prematurely.

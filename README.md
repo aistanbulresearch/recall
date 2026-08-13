@@ -8,7 +8,7 @@ Recall does not autonomously classify variants, change clinical reports, or cont
 
 ## Project state
 
-The project is in **Phase 0: foundation and planning**. No clinical-performance, privacy-accuracy, or production-readiness claims have been established.
+**Phase 0: foundation and planning** is complete. Phase 1 feasibility work has not started. No clinical-performance, privacy-accuracy, or production-readiness claims have been established.
 
 - Current status: [`docs/project/STATUS.md`](docs/project/STATUS.md)
 - Living execution plan: [`docs/project/MASTER_PLAN.md`](docs/project/MASTER_PLAN.md)

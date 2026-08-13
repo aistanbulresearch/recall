@@ -32,3 +32,21 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - Git local state remained documentation-only and uncommitted.
   - `.claude/project-memory/` is ignored and will not publish local absolute paths.
 - Result: documentation and local knowledge structure verified; canonical Obsidian synthesis and initial Git commit remain.
+
+## WORK-2026-08-14-003: Phase 0 commit, push, and remote read-back
+
+- Task ID: RCL-009
+- Actions:
+  - Configured repository-local author and committer as `aistanbulresearch` using the account's GitHub noreply address.
+  - Staged 28 documentation and repository-control files.
+  - Ran whitespace, secret-pattern, prior-project-reference, local-memory-ignore, operating-contract-tracking, identity, and attribution-trailer gates.
+  - Created the documentation-only root commit and pushed `main`.
+  - Read the commit back through GitHub.
+- Verification:
+  - Remote SHA: `5336432a3e353261813443f41a217388b68d585d`.
+  - GitHub author login: `aistanbulresearch`.
+  - GitHub committer login: `aistanbulresearch`.
+  - Author and committer names and noreply emails belong to `aistanbulresearch`.
+  - No co-author or generated-by trailer is present.
+  - Local `main` tracks `origin/main` with no uncommitted tracked change at read-back.
+- Result: Phase 0 repository baseline verified.

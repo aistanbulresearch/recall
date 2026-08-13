@@ -17,12 +17,12 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 ## Current state
 
 - Date: 2026-08-14.
-- Phase: Phase 0, foundation and planning.
+- Phase: Phase 0 verified; awaiting owner review before Phase 1.
 - GitHub: `https://github.com/aistanbulresearch/recall`, private and initially empty.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
 - No privacy, scientific, reliability, or production claim has been validated.
-- Documentation baseline has passed local structure, link, identity, and ignore-rule checks; commit/push/read-back is the active work unit.
+- Documentation baseline passed local structure, link, identity, ignore-rule, commit, push, and remote read-back checks.
 
 ## Locked decisions
 
@@ -41,7 +41,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Finish Phase 0 controls and push the documentation-only baseline. Then stop for owner review before product implementation.
+Wait for owner review, confirm the hostname spelling, and then execute Phase 1 feasibility gates. Do not start product implementation before the architecture and evaluation gate.
 
 ## Known blocker
 

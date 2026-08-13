@@ -93,10 +93,9 @@ Append-only. Log errors even when a retry succeeds.
 | Impact | Push was stopped before remote mutation. |
 | Diagnosis | `git log --format` returned a multiline PowerShell array because the commit body contained a newline; one anchored regex was incorrectly applied to that array. |
 | Resolution | Read author name, author email, committer name, committer email, and body as separate values; join only the body for trailer inspection. |
-| Verification | Pending corrected push gate and remote read-back. |
-| Status | In progress |
+| Verification | Corrected gate passed and GitHub read-back returned SHA `5336432a3e353261813443f41a217388b68d585d` with author and committer login `aistanbulresearch`. |
+| Status | Resolved |
 
 ## Open errors
 
-- ERR-2026-08-14-007 remains open until corrected push-gate and remote read-back verification.
-- The hostname spelling issue is a pending decision, not an execution error.
+None. The hostname spelling issue is a pending decision, not an execution error.
