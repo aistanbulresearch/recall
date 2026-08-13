@@ -96,6 +96,20 @@ Append-only. Log errors even when a retry succeeds.
 | Verification | Corrected gate passed and GitHub read-back returned SHA `5336432a3e353261813443f41a217388b68d585d` with author and committer login `aistanbulresearch`. |
 | Status | Resolved |
 
+## ERR-2026-08-14-008: Private repository rulesets unavailable
+
+| Field | Value |
+|---|---|
+| Task | RCL-110 |
+| Severity | Medium |
+| Observed | GitHub rulesets API returned HTTP 403: upgrade to GitHub Pro or make the repository public. |
+| Impact | The server cannot yet enforce pull-request-only changes, deletion protection, or non-fast-forward protection on `main`. |
+| Diagnosis | Account-plan/visibility limitation, not a malformed ruleset request. |
+| Mitigation | Keep private visibility, enforce feature-branch PR workflow by process, allow squash merges only, and delete merged branches automatically. |
+| Resolution condition | Enable and verify the protected-main ruleset when the repository becomes public or the account plan permits it. |
+| Status | Open, externally constrained |
+
 ## Open errors
 
-None. The hostname spelling issue is a pending decision, not an execution error.
+- ERR-2026-08-14-008 remains externally constrained.
+- The hostname spelling issue is a pending decision, not an execution error.

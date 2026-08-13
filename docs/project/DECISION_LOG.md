@@ -44,3 +44,10 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Status: pending owner clarification
 - Context: The product is Recall, while the supplied hostname was `racall.aistanbulresearch.com`.
 - Decision: Do not mutate DNS or deployment configuration until the owner confirms the spelling.
+
+## DEC-2026-08-14-008: Private-repository branch governance fallback
+
+- Status: accepted with a pending platform upgrade gate
+- Context: GitHub returned HTTP 403 because repository rulesets require GitHub Pro or a public repository in the current account configuration.
+- Decision: Keep the repository private, use feature branches and pull requests by process, allow squash merges only, delete merged branches automatically, and activate a protected-main ruleset as soon as visibility or account capabilities permit it.
+- Consequence: Until RCL-110 is complete, branch protection is a documented process control rather than a server-enforced control.

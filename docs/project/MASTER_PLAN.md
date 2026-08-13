@@ -134,6 +134,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | not-started | Reproducible synthetic smoke report |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | blocked | Owner confirms `recall` or `racall` before external mutation |
 | RCL-109 | Check product-name collision and discoverability risk | not-started | Naming decision records search, branding, and URL consequences |
+| RCL-110 | Activate a protected-main ruleset when repository visibility or account plan permits it | blocked | Ruleset requires pull requests and prevents deletion/non-fast-forward updates; current private plan returns HTTP 403 |
 
 **Phase gate:** every mandatory platform dependency has a working smoke path or an explicit fallback; no secret, license, or eligibility ambiguity is silently carried into implementation.
 

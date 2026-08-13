@@ -53,6 +53,7 @@ The owner wrote `racall.aistanbulresearch.com` while the product and repository 
 - An initial sandboxed `gh` preflight failed because the restricted process could not read the GitHub CLI config; the approved retry succeeded.
 - Do not expose GitHub tokens, cloud credentials, SSH material, or Hetzner host details in logs or committed files.
 - Domain creation remains an owner action when the deployment phase is reached.
+- GitHub currently rejects repository rulesets for this private repository without Pro. Squash-only merge, automatic merged-branch deletion, PR branch updates, and Issues are enabled; direct-push avoidance is process-enforced until a ruleset can be activated.
 
 ## Stop conditions
 

@@ -55,6 +55,7 @@
 | UI values may drift from backend artifacts | Critical | Maintain derived-value lineage and prohibit hand-entered result values. |
 | Schedule may leave insufficient demo time | Critical | Build the web surface with each slice and freeze features on August 28. |
 | Product name may have discoverability/confusion risk | Medium | Run naming-collision review before public launch. |
+| Private repository plan does not permit branch rulesets | Medium | Use feature branches and PRs by process; enable protected-main ruleset immediately when the repo becomes public or the plan permits it. |
 
 ## Next three actions
 

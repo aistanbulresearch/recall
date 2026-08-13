@@ -50,3 +50,21 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - No co-author or generated-by trailer is present.
   - Local `main` tracks `origin/main` with no uncommitted tracked change at read-back.
 - Result: Phase 0 repository baseline verified.
+
+## WORK-2026-08-14-004: GitHub repository workflow settings
+
+- Task IDs: RCL-007 and RCL-110
+- Actions:
+  - Queried the repository ruleset endpoint.
+  - Preserved private visibility after GitHub reported that rulesets require Pro or a public repository.
+  - Enabled Issues, squash merge only, branch update support, and automatic deletion of merged branches.
+  - Disabled merge commits, rebase merges, and the repository wiki so repository documentation remains canonical.
+- Verification:
+  - `allow_squash_merge=true`
+  - `allow_merge_commit=false`
+  - `allow_rebase_merge=false`
+  - `delete_branch_on_merge=true`
+  - `allow_update_branch=true`
+  - `has_issues=true`
+  - `has_wiki=false`
+- Result: PR workflow settings are active; server-enforced protected main remains blocked until RCL-110.
