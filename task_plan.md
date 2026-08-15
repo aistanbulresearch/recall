@@ -8,15 +8,23 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Phase 0 complete; awaiting owner review before Phase 1**
+**Phase 2 design package frozen and locally audited; GitHub auditor package remains**
 
 ## Phase checklist
 
 - [x] Confirm remote and local repositories.
 - [x] Record project operating principles and documentation protocol.
 - [x] Create the initial master plan and evidence ledgers.
+- [x] Approve the Fleet target architecture and record ADR-0001 through ADR-0007.
 - [ ] Complete access, eligibility, secret, license, and Gemma feasibility gates.
-- [ ] Approve architecture contracts and demo storyboard.
+- [x] Freeze independent implementation: pattern inspection allowed, direct prior-project component reuse prohibited.
+- [x] Create the hash-pinned official Rules eligibility checklist.
+- [x] Record owner eligibility assertions and `individual/solo` entry capacity without sensitive details.
+- [x] Verify RCL-102 with owner-approved Apache-2.0, policy, register, source notes, and license file.
+- [x] Freeze the 3:45 storyboard, web information architecture, and derived-value registry.
+- [x] Freeze threat model, architecture contracts, lifecycle tables, deterministic policy, and evaluation protocols as design artifacts.
+- [x] Select and freeze one historical replay case and at least two negative controls.
+- [ ] Commit and push the complete Phase 2 package, notify the owner, and pass the GitHub auditor-agent gate before implementation.
 - [ ] Implement the deterministic vertical skeleton with TDD.
 - [ ] Implement and measure the local privacy boundary.
 - [ ] Implement evidence monitoring and historical replay.
@@ -26,7 +34,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Obtain owner review of the Phase 0 plan, resolve the public hostname spelling, then begin `RCL-101` through `RCL-109` in the master plan.
+Run attribution preflight, commit and push the complete Phase 2 package, and read back remote authorship. Stop and notify the owner when the GitHub auditor-agent gate is ready. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 

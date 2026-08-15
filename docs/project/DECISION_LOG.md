@@ -51,3 +51,144 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Context: GitHub returned HTTP 403 because repository rulesets require GitHub Pro or a public repository in the current account configuration.
 - Decision: Keep the repository private, use feature branches and pull requests by process, allow squash merges only, delete merged branches automatically, and activate a protected-main ruleset as soon as visibility or account capabilities permit it.
 - Consequence: Until RCL-110 is complete, branch protection is a documented process control rather than a server-enforced control.
+
+## DEC-2026-08-15-009: Durable weeks-long lifecycle
+
+- Status: accepted
+- Decision: Represent institutional continuity with a durable `WatchCase`, bounded event-driven `ScanRun` units, and a separate `ReviewTask` lifecycle.
+- Reason: A multi-week process must survive without one continuously running model execution and remain idempotent, replayable, and auditable.
+- Consequence: Scheduler, lease, stale-write, duplicate, crash-resume, and accelerated-time proof become mandatory.
+- ADR: `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md`
+
+## DEC-2026-08-15-010: Firestore and model-memory authority boundary
+
+- Status: accepted
+- Decision: Keep Firestore authoritative and permit Memory Bank only for admitted non-clinical operational context.
+- Reason: Long-term memory can support Fleet continuity but cannot safely become clinical evidence, workflow state, or policy input.
+- Consequence: Memory writes and retrievals require scope, provenance, TTL, contradiction, poisoning, and unavailable-service controls.
+- ADR: `docs/adr/ADR-0002-firestore-authority-and-memory-bank-boundary.md`
+
+## DEC-2026-08-15-011: Managed agent platform control plane
+
+- Status: accepted with Phase 1 feasibility gates
+- Decision: Put Agent Runtime and Agent Registry on the target critical path and give Memory Bank, Identity, Gateway, Model Armor, and observability explicit governed roles where access passes.
+- Reason: Fleet proof requires cataloged, managed, identity-scoped capabilities rather than decorative agent cards.
+- Consequence: Every managed component needs an authenticated smoke artifact, authority limit, denied action, outage behavior, and deterministic fallback or stop condition.
+- ADR: `docs/adr/ADR-0003-managed-agent-platform-control-plane.md`
+
+## DEC-2026-08-15-012: Separate local privacy and cloud content-security models
+
+- Status: accepted
+- Decision: Use local Gemma only to propose residual identifier spans before deterministic redaction and egress approval; use Model Armor only for untrusted cloud-side source/tool content when feasible.
+- Reason: Raw identity must never reach cloud services and neither model may become authoritative.
+- Consequence: Gemma and Model Armor have separate metrics, failure tests, receipts, and fallback behavior.
+- ADR: `docs/adr/ADR-0004-local-gemma-and-model-armor-separation.md`
+
+## DEC-2026-08-15-013: Explicit data modes
+
+- Status: accepted
+- Decision: Require `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` on every artifact and product surface.
+- Reason: Demo reliability cannot justify presenting replay, cache, synthetic, or mock data as live or production patient data.
+- Consequence: Data mode becomes a schema, API, UI, capture, and claim-evidence requirement.
+- ADR: `docs/adr/ADR-0005-explicit-data-modes-and-demo-authenticity.md`
+
+## DEC-2026-08-15-014: Independent implementation and pattern-reference boundary
+
+- Status: accepted
+- Decision: Build Recall independently in this repository. Other codebases may be inspected only for abstract engineering patterns, handled failure modes, and lessons; no source code, tests, fixtures, schemas, prompts, configuration, UI, documentation, generated artifact, or commit history may be copied.
+- Reason: Recall is a distinct hackathon product with a different system objective, architecture, scope, and evidence burden. Learning from a problem-handling pattern is not component reuse.
+- Submission consequence: Do not add a voluntary public `pre-existing work` section when no component is imported or reused. If a binding rule or submission field explicitly asks about prior work, inspiration, or reuse, review the exact wording and answer truthfully and narrowly.
+- Engineering consequence: Every Recall component requires repository-local requirements, acceptance tests, implementation, provenance, and verification evidence.
+
+## DEC-2026-08-15-015: Eligibility gate proceeds with conditions
+
+- Status: accepted pending owner assertions
+- Decision: Continue architecture, contract, evaluation, and demo-storyboard work under the owner-supplied official Rules snapshot. Do not begin product implementation until owner eligibility assertions and RCL-102 dependency/license policy are closed.
+- Reason: The repository was created inside the Submission Period, contains no tracked product code, and enforces independent implementation. Personal eligibility, entry capacity, and live Rules currency remain unverified.
+- Consequence: `docs/governance/ELIGIBILITY_CHECKLIST.md` is the RCL-101 gate. Any direct prior-project import, mandatory-field change, or Rules change reopens this decision.
+
+## DEC-2026-08-15-016: Personal eligibility and entry capacity verified
+
+- Status: accepted
+- Decision: Record RCL-101 as verified based on the owner's confirmation that all personal eligibility conditions are met, no prohibited conflict applies, entry capacity is `individual/solo`, and the owner is authorized to use the `aistanbulresearch` identity and repository.
+- Privacy consequence: Persist only the pass/fail assertions and entry capacity, not age, residence, identity-document, or sanctions-screening details.
+- Remaining condition: Recheck the live Devpost Rules before feature freeze and final submission; this is a source-currentness control, not an open personal-eligibility question.
+
+## DEC-2026-08-15-017: Non-clinical contest deployment boundary
+
+- Status: accepted
+- Decision: Implement and present Recall as a non-clinical research prototype using synthetic institutional records and source-attributed public evidence.
+- Reason: Current Google Cloud Service Specific Terms prohibit Generative AI Services for clinical purposes. De-identification changes privacy risk but does not change the deployment purpose.
+- Consequence: No real patient data or clinical-production claim is allowed. Future laboratory deployment requires a separate provider-terms, regulatory, privacy, security, validation, and institutional-approval gate.
+- ADR: `docs/adr/ADR-0006-non-clinical-contest-deployment-boundary.md`
+
+## DEC-2026-08-15-018: Conservative third-party admission policy and proposed repository license
+
+- Status: accepted policy; repository license pending owner approval
+- Decision: Admit only exact, locked, inventoried dependencies and separately governed model/data artifacts; block unknown and restrictive licenses by default. Propose Apache-2.0 for Recall because it is permissive and includes an explicit patent grant.
+- Consequence: No `LICENSE` file is added until the owner approves the IP decision. RCL-301 must produce the exact transitive inventory, notices, and CycloneDX or SPDX SBOM; RCL-902 repeats the gate at feature freeze.
+- Evidence: `docs/governance/DEPENDENCY_LICENSE_POLICY.md`, `docs/governance/THIRD_PARTY_REGISTER.md`, and `docs/governance/TERMS_SOURCE_NOTES.md`.
+
+## DEC-2026-08-15-019: GitHub auditor gate before implementation
+
+- Status: accepted
+- Decision: After the complete Phase 2 architecture, contracts, threat model, evaluation protocol, storyboard, and derived-value registry are committed and pushed by `aistanbulresearch`, notify the owner that the GitHub auditor-agent review is ready. Do not start Phase 3 until findings are logged and triaged.
+- Reason: The auditor must review the same remote state that implementation will use, while findings can still change architecture without code rework.
+- Consequence: RCL-211 is a mandatory Phase 2 exit gate. A final follow-up remains part of RCL-902 if material changes occur.
+
+## DEC-2026-08-15-020: Apache-2.0 repository license
+
+- Status: accepted
+- Decision: License the Recall repository under Apache License 2.0.
+- Rules basis: The binding Rules snapshot imposes no special repository license or open-source-publication requirement. It permits open-source components when their licenses are followed and requires the entrant to own the submission and hold necessary third-party rights.
+- Owner approval: Approved 2026-08-15, conditional on the absence of a special Rules license requirement; that condition passed against the hash-pinned snapshot.
+- Consequence: `LICENSE` is present. Dependencies, models, APIs, data, and assets retain their separate terms and inventory gates.
+
+## DEC-2026-08-15-021: One-screen demo critical path
+
+- Status: accepted design
+- Decision: Use one Mission Control screen for a 3:45 video: workload hook, conditional Gemma privacy proof, 75-second uninterrupted managed success run, combined mismatched-citation and forbidden-tool fault run, correlated Google Cloud proof, and bounded close.
+- Reason: The three scoring axes must be visible in one coherent flow. Extra controls that do not replace a score-bearing moment are excluded from the video.
+- Consequence: Memory poisoning and untrusted-source tests remain supporting evidence unless they replace another proof moment. The final script cannot introduce an unverified numerical claim.
+- Evidence: `docs/demo/FOUR_MINUTE_STORYBOARD.md` and `docs/demo/WEB_INFORMATION_ARCHITECTURE.md`.
+
+## DEC-2026-08-15-022: Deterministic UI lineage contract
+
+- Status: accepted design
+- Decision: Build every result-bearing web field through a deterministic View Model Builder with artifact IDs, JSON paths, hashes, and explicit missing-data status. Fixture names select inputs only and cannot map to outcomes or presentation badges.
+- Reason: This prevents hard-coded demo results, preset-to-label drift, timer-driven fake progress, and empty-equals-clean failures.
+- Consequence: RCL-202 schemas must satisfy the field paths in the registry. A new UI result requires registry and missing-source tests before merge.
+- Evidence: `docs/demo/DERIVED_VALUE_REGISTRY.md`.
+
+## DEC-2026-08-16-023: Strict flat artifact envelope and shared UI paths
+
+- Status: accepted design
+- Decision: Use one strict flat common envelope for all artifacts, reject unknown fields recursively, and change contract and derived-value paths in the same work unit.
+- Reason: A nested UI path and flat contract path had diverged before implementation. One canonical shape prevents silent frontend/backend disagreement.
+- Consequence: Executable schemas in RCL-302 must implement the frozen catalog and mutation tests. UI code cannot introduce a result path outside the registry.
+- Evidence: `docs/contracts/ARTIFACT_CONTRACTS.md` and `docs/demo/DERIVED_VALUE_REGISTRY.md`.
+
+## DEC-2026-08-16-024: Semantic policy outcomes versus technical halt
+
+- Status: accepted design correction
+- Decision: Keep privacy quarantine outside cloud `ScanRun`; route no-change evidence through Policy Gate; reserve `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` for Policy Gate; use Controller `HALTED` only when trustworthy policy execution or ledger integrity is impossible.
+- Reason: Allowing Controller to fabricate `ABSTAIN` during policy outage would violate the sole-authority rule.
+- Consequence: UI, tests, failure receipts, and operations views distinguish `HALTED` from `ABSTAIN`; neither state creates a task.
+- ADR: `docs/adr/ADR-0007-policy-outcomes-and-technical-halt.md`.
+
+## DEC-2026-08-16-025: Preregistered mechanism-activation evaluation
+
+- Status: accepted design
+- Decision: Freeze privacy, citation, reliability, UI integrity, historical replay, and managed-fleet metrics and stop rules before implementation and evaluation.
+- Reason: A safe-looking output is not evidence that its guardrail ran, and a post-hoc metric invites cherry-picking.
+- Consequence: Every safety result needs an activation counter plus forbidden-downstream read-back. Historical replay selection is logged before the product run.
+- Evidence: `docs/evaluation/EVALUATION_PROTOCOLS.md`.
+
+## DEC-2026-08-16-026: Frozen BRCA2 historical replay geometry
+
+- Status: accepted design
+- Decision: Freeze BRCA2 `NM_000059.4:c.7522G>C (p.Gly2508Arg)` as the RCL-205 positive case and BRCA2 `c.425+3A>G` plus `c.1315T>G (p.Phe439Val)` as same-gene negative controls.
+- Reason: Versioned ClinVar records retain an aggregate VUS through `VCV002895953.4`; the 2025 qualifying paper has an exact official GEO row; and `VCV002895953.5` later adds a likely-pathogenic submission that cites the studies. The controls are outside the paper's exons 15 through 26 scope and expose gene-only false attribution.
+- Claim boundary: The 472-day interval is specific to this case. Chronology and citation do not prove that the paper caused the later assertion. Recall does not classify the variant.
+- Consequence: Protocol version `1.0.0` cannot silently replace the case or controls after product results are observed. RCL-503 must halt on source/hash mismatch and keep the live-current smoke separate from captured replay.
+- Evidence: `docs/evaluation/HISTORICAL_REPLAY_CASE.md`, `docs/evaluation/HISTORICAL_REPLAY_CANDIDATE_LEDGER.md`, and `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`.

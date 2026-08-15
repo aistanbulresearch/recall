@@ -5,8 +5,9 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Phase 0 verified; awaiting owner review before Phase 1 |
+| Status | Phase 2 design package frozen and locally audited; GitHub auditor package remains; billing selection blocked |
 | Baseline date | 2026-08-14 |
+| Architecture baseline | Accepted 2026-08-16; ADR-0001 through ADR-0007 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
 | Internal submission target | 2026-08-31 18:00 Europe/Istanbul |
 | Feature freeze | 2026-08-28 18:00 Europe/Istanbul |
@@ -18,7 +19,7 @@ This is a living plan. Any change to scope, sequencing, dates, acceptance gates,
 
 ## 1. Outcome
 
-Deliver **Recall**, a privacy-preserving multi-agent system that monitors changing public evidence for previously uncertain genetic results, independently audits material claims, and creates a clinician-review task only when deterministic policy allows it.
+Deliver **Recall**, a privacy-preserving multi-agent research prototype that monitors changing public evidence for previously uncertain genetic results, independently audits material claims, and creates a simulated clinician-review task for a synthetic case only when deterministic policy allows it.
 
 The submission must be understandable without clinical-genetics knowledge and must visibly prove:
 
@@ -54,7 +55,7 @@ Do not claim that longitudinal monitoring is new. The defensible distinction is:
 | Architecture | 30% | Four separated roles, Registry discovery, bounded typed routing, separate tool scopes, append-only artifacts, deterministic controller and policy, denied action, loop recovery, and independent citation audit. |
 | Demo and readiness | 30% | Four-minute coherent flow, managed runtime revision, Registry entries, Firestore transitions, one trace, derived UI values, fault injection, synthetic-data labels, and a clinician-facing result. |
 | Model bonus | Unscored upside | Local Gemma performs measured residual identifier detection and visibly adds value beyond deterministic rules. |
-| Platform consideration | Unscored upside | Agent Runtime, Agent Registry, and observability are part of the critical path, without assuming a numerical bonus. |
+| Platform consideration | Unscored upside | Agent Runtime, Agent Registry, and observability are target critical-path controls; Memory Bank is a targeted Fleet proof; Identity, Gateway, and Model Armor are feasibility-gated governed extensions, without assuming a numerical bonus. |
 
 ## 3. Non-negotiable product invariants
 
@@ -66,11 +67,15 @@ Do not claim that longitudinal monitoring is new. The defensible distinction is:
 - Agents cannot write Firestore directly and cannot emit terminal outcomes.
 - The Citation Auditor is independent and cannot be skipped for a trusted review recommendation.
 - Only deterministic policy emits `NO_ACTION`, `ABSTAIN`, or `REVIEW_REQUIRED`.
+- Technical `HALTED` is distinct from policy abstention and is used only when trusted policy execution or ledger integrity is unavailable.
 - `REVIEW_REQUIRED` is a review-priority signal, not a reclassification.
 - A clinician remains the final authority.
 - Missing or failed evidence is never converted into benign evidence or a positive clinical criterion.
 - Every displayed result is derived from the authoritative run artifact.
 - Every safety claim has positive, negative, and guardrail-activation proof.
+- ADK Sessions and Memory Bank are non-authoritative and cannot satisfy evidence, audit, policy, or state-transition prerequisites.
+- Multi-week continuity is represented by a durable `WatchCase`; each `ScanRun` is short, bounded, idempotent, and independently auditable.
+- Every artifact and product surface declares `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` data mode.
 
 ## 4. Delivery strategy
 
@@ -118,6 +123,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-007 | Add baseline repository hygiene and PR templates | verified | Ignore rules, line endings, ownership, security, and PR template verified |
 | RCL-008 | Bind Recall to a local Obsidian project memory | verified | Local binding and canonical project notes verified; machine paths excluded from Git |
 | RCL-009 | Commit and push documentation-only baseline as aistanbulresearch | verified | Remote SHA `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer both `aistanbulresearch`; no co-author trailers |
+| RCL-010 | Review and approve the Fleet architecture direction | verified | Owner approval; updated target architecture and accepted ADR-0001 through ADR-0005 |
 
 **Phase gate:** another contributor can answer what, why, where, current status, next task, known errors, and proof requirements from repository documents alone.
 
@@ -125,13 +131,13 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
-| RCL-101 | Re-read binding rules and freeze an eligibility checklist | not-started | Rule text, interpretation, uncertainty, and owner action recorded |
-| RCL-102 | Decide license and third-party dependency policy | not-started | License decision and dependency inventory protocol |
-| RCL-103 | Confirm actual reuse scope and any required submission disclosure | not-started | Owner-approved eligibility decision based only on components actually reused |
-| RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, region, quota, and billing | not-started | Minimal authenticated smoke artifacts with no product logic |
-| RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | not-started | Named resource plan and read-back proof |
+| RCL-101 | Re-read binding rules and freeze an eligibility checklist | verified | Hash-pinned checklist, owner eligibility attestation, `individual/solo` entry capacity, and repository authority recorded; live Devpost recheck remains a final-submission control |
+| RCL-102 | Decide license and third-party dependency policy | verified | Rules impose no special repo license; owner approved Apache-2.0; policy, register, source notes, and `LICENSE` are present |
+| RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
+| RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor, region, quota, and billing | blocked | Dedicated project, local CLI/SDK/auth passed; billing account selection blocks project-scoped smoke |
+| RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await billing linkage |
 | RCL-106 | Rotate known exposed credentials and run repository/history secret scans | not-started | Rotation confirmation without secret values; scanner artifacts |
-| RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | not-started | Reproducible synthetic smoke report |
+| RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | blocked | No checked local runtime command or GGUF model is installed; select/install artifacts before benchmark |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | blocked | Owner confirms `recall` or `racall` before external mutation |
 | RCL-109 | Check product-name collision and discoverability risk | not-started | Naming decision records search, branding, and URL consequences |
 | RCL-110 | Activate a protected-main ruleset when repository visibility or account plan permits it | blocked | Ruleset requires pull requests and prevents deletion/non-fast-forward updates; current private plan returns HTTP 403 |
@@ -142,22 +148,25 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
-| RCL-201 | Review and approve trust zones, authority hierarchy, and four agent roles | not-started | Architecture ADRs and threat model |
-| RCL-202 | Define strict versioned contracts and common provenance envelope | not-started | Schemas with unknown-field rejection and examples |
-| RCL-203 | Define the state machine, idempotency, retry/hop/time/token budgets, and failure codes | not-started | Transition table and invariant tests written first |
-| RCL-204 | Define deterministic policy inputs and outcomes | not-started | Truth table for `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` |
-| RCL-205 | Select a source-attributed historical replay case and negative controls | not-started | Evidence timeline, licensing, and expected signal preregistered |
-| RCL-206 | Freeze privacy, citation, reliability, and utility metrics before runs | not-started | Evaluation protocols and failure criteria committed |
-| RCL-207 | Design the four-minute storyboard and web information architecture | not-started | Timed storyboard and UI wireframe linked to score rows |
-| RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | not-started | UI value registry has no manual result values |
+| RCL-201 | Review and approve trust zones, authority hierarchy, four agent roles, and managed control-plane boundaries | verified design | Threat model, authority graph, component denied-action matrix, and activation-proof requirements frozen |
+| RCL-202 | Define strict versioned contracts and common provenance envelope | verified design | Strict envelope, catalog, unknown-field/version behavior, and examples frozen; executable schemas remain RCL-302 |
+| RCL-203 | Define `WatchCase`, `ScanRun`, and `ReviewTask` state machines plus idempotency, lease, retry/hop/time/token budgets, and failure codes | verified design | Transition tables, invariants, budgets, idempotency, leases, and stable failure codes frozen; executable tests remain Phase 3 |
+| RCL-204 | Define deterministic policy inputs and outcomes | verified design | Policy authority, precedence, abstention predicates, truth table, reason codes, and task protocol frozen |
+| RCL-205 | Select a source-attributed historical replay case, negative controls, and a separately labeled live public smoke | verified design | BRCA2 `c.7522G>C` positive, two same-gene scope controls, candidate ledger, exact source manifest, rights notes, and separate `LIVE_PUBLIC` smoke rule frozen before product execution |
+| RCL-206 | Freeze privacy, citation, reliability, and utility metrics before runs | verified design | Six preregistered protocols, thresholds, stop rules, rollback, counts, confidence intervals, and mechanism-activation gates frozen |
+| RCL-207 | Design the four-minute storyboard and web information architecture | verified design | 3:45 storyboard, uninterrupted Proof of Action, fault run, cloud proof, single-screen wireframe, and cut rules recorded under `docs/demo/` |
+| RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
+| RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
+| RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; architecture, contracts, threat model, evaluation protocol, replay package, storyboard, and derived-value registry must be committed and pushed by `aistanbulresearch`; auditor findings are logged and triaged before Phase 3 |
 
-**Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation.
+**Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. The owner is explicitly notified that the GitHub auditor gate is ready, and its findings are resolved, accepted with a recorded risk, or shown not to apply before Phase 3 begins.
 
 ### Phase 3: Deterministic vertical skeleton plus web surface, 2026-08-17 to 2026-08-19
 
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
-| RCL-301 | Initialize Python/uv and web workspaces with locked dependencies | not-started | Clean-clone install succeeds |
+| RCL-301 | Initialize Python/uv and web workspaces with locked dependencies | not-started | Clean-clone install succeeds; exact direct/transitive inventory, license gate, notices, and CycloneDX or SPDX SBOM pass |
 | RCL-302 | Implement common contracts and provenance hashing with TDD | not-started | Unit tests include malformed and unknown fields |
 | RCL-303 | Implement Ledger API and Firestore emulator adapter | not-started | Append-only and compare-and-set tests |
 | RCL-304 | Implement deterministic Workflow Controller | not-started | Transition, duplicate, budget, loop, and terminal-failure tests |
@@ -165,6 +174,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-306 | Implement deterministic Policy Gate truth table | not-started | Identical artifacts always produce identical outcomes |
 | RCL-307 | Build the initial Recall web shell and live run timeline | not-started | UI reads backend artifacts and shows fixture labels |
 | RCL-308 | Demonstrate fixture-driven `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` without LLMs | not-started | Three visible end-to-end runs and manifests |
+| RCL-309 | Implement durable `WatchCase` scheduling, short `ScanRun` leases, and separate `ReviewTask` lifecycle | not-started | Week-sequence replay, crash resume, stale-write rejection, and paused/closed-case tests |
 
 **Phase gate:** the full authority path runs locally without models, all three terminal outcomes are visible, and no displayed result is hard-coded.
 
@@ -191,6 +201,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-504 | Implement observation, snapshot, and temporal delta artifacts | not-started | Hash/provenance and no-change tests |
 | RCL-505 | Render previous/current evidence and delta in the web timeline | not-started | UI values trace to artifact IDs |
 | RCL-506 | Verify one evidence signal and negative controls | not-started | Preregistered comparison report, no cherry-picking |
+| RCL-507 | Enforce and display `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, and `MOCK` modes | not-started | Schema, API, artifact, and UI mode assertions |
 
 **Phase gate:** the same historical replay reliably produces a source-attributed delta, while negative controls remain `NO_ACTION`.
 
@@ -206,6 +217,8 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-606 | Publish manifests to Agent Registry and resolve them dynamically | not-started | Registry catalog and selected-version receipt |
 | RCL-607 | Implement sanitized cross-service tracing | not-started | One trace without clinical content |
 | RCL-608 | Show fleet roles, versions, scopes, and live route on the web surface | not-started | UI reads catalog/run receipts, no decorative hard-coding |
+| RCL-609 | Implement Memory Bank admission, retrieval, expiry, scope, and Firestore-conflict controls | not-started | Poisoning rejection, isolation, TTL, retrieval receipt, and disabled-memory parity tests |
+| RCL-610 | Integrate feasible Identity, Gateway, and Model Armor controls without widening authority | not-started | Allowed/denied tool receipts, source-injection control, and unavailable-service behavior |
 
 **Phase gate:** a Registry-resolved managed run produces typed artifacts and one trace; a forbidden capability is visibly denied.
 
@@ -218,6 +231,8 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-703 | Complete duplicate suppression and notification outbox | not-started | Zero duplicate review tasks under repeated delivery |
 | RCL-704 | Complete loop and repeated-state recovery | not-started | Worker loop terminates within budget with no task |
 | RCL-705 | Add fault-injection controls and proof states to the web surface | not-started | Jury can see cause, blocked action, and terminal result |
+| RCL-706 | Complete memory poisoning, stale-memory, and cross-scope recovery | not-started | Memory is rejected or ignored; Firestore remains authoritative; no unsafe task is created |
+| RCL-707 | Complete untrusted-source injection and Model Armor outage recovery | not-started | Attack is blocked or structured-only fallback/`ABSTAIN` activates with a typed receipt |
 
 **Phase gate:** every critical guardrail has visible activation evidence and all dangerous incomplete paths end without a clinical task.
 
@@ -239,7 +254,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
 | RCL-901 | Freeze features on 2026-08-28 18:00 Istanbul | not-started | Freeze commit and open-risk list |
-| RCL-902 | Perform security, secret, dependency, license, and repository-history audit | not-started | Signed checklist and scan artifacts |
+| RCL-902 | Perform security, secret, dependency, license, and repository-history audit | not-started | Signed checklist and scan artifacts; Phase 2 auditor findings have final disposition and material changes receive follow-up review |
 | RCL-903 | Perform clean-clone install and full local/cloud rehearsal | not-started | Exact commands and timings from a clean environment |
 | RCL-904 | Write and time the English four-minute script | not-started | Script maps every segment to a score criterion |
 | RCL-905 | Record the unedited critical path and supporting screenshots | not-started | Video ledger with artifact references |
@@ -272,15 +287,16 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 
 Cut in this order when schedule slips:
 
-1. Memory Bank demonstration.
-2. Agent Gateway, managed Agent Identity, and Model Armor integration.
-3. Remote A2A invocation; retain Registry-resolved Controller invocation.
-4. Second live evidence connector; retain source-attributed replay.
-5. Advanced reviewer filters, accounts, and administration.
-6. Cloud object versioning beyond normalized snapshots and hashes.
-7. Multiple historical cases beyond the minimum proof set.
-8. Larger local Gemma comparison.
-9. Visual polish that does not increase comprehension.
+1. Remote A2A invocation; retain Registry-resolved Controller invocation.
+2. Advanced Agent Gateway integration; retain Controller allowlists and separate service accounts.
+3. Model Armor integration if access or reliability fails; retain structured-only source restriction and `ABSTAIN`.
+4. Advanced Memory Bank search or visualization; retain the minimal admission/rejection proof if access passes.
+5. Second live evidence connector; retain source-attributed replay and one separately labeled live smoke.
+6. Advanced reviewer filters, accounts, and administration.
+7. Cloud object versioning beyond normalized snapshots and hashes.
+8. Multiple historical cases beyond the minimum proof set.
+9. Larger local Gemma comparison.
+10. Visual polish that does not increase comprehension.
 
 Never cut privacy enforcement, strict authority separation, Firestore state, independent audit, deterministic policy, abstention, fault-injection proof, derived UI values, secret hygiene, synthetic-data labeling, or clean-clone rehearsal.
 
@@ -304,9 +320,9 @@ Recall is submission-ready only when:
 
 1. Confirm whether the hostname is `recall.aistanbulresearch.com` or `racall.aistanbulresearch.com`.
 2. Approve or revise the internal feature-freeze and submission target times.
-3. Select the final repository license after dependency and submission requirements are reviewed.
-4. Approve the exact disclosure language only after the actual reused component set is known.
+3. Audit the frozen historical replay package and exact public evidence rights under RCL-205.
+4. Review exact wording only if a binding submission field explicitly asks about prior work, inspiration, or reuse; do not create a voluntary pre-existing-work section when no component is imported.
 
 ## 10. Current next action
 
-Stop for owner review of the Phase 0 baseline. After approval and hostname clarification, begin Phase 1 eligibility, access, security, license, and Gemma feasibility gates without starting product implementation prematurely.
+Perform the Phase 2 consistency audit across architecture, contracts, policy, UI paths, historical replay, links, and security. Then commit and push the complete package as `aistanbulresearch` and notify the owner that the mandatory GitHub auditor-agent gate is ready. Billing-dependent smoke remains paused.

@@ -45,6 +45,14 @@ Stop and report at each gate. Do not hide a failed gate by continuing into later
 - Prefer one clear, visible, end-to-end action over several invisible capabilities.
 - The demo must be understandable without genetics expertise.
 
+## Independent implementation boundary
+
+- Recall is a new project implemented independently in this repository.
+- Do not copy source code, tests, fixtures, schemas, prompts, configuration, UI, documentation, generated artifacts, or commit history from another project.
+- Other codebases may be inspected only to understand abstract engineering patterns, failure modes, or lessons. Re-derive the Recall design and implementation from its own requirements and acceptance tests.
+- Do not create a voluntary public `pre-existing work` section when no component is imported or reused.
+- If a binding rule or submission field explicitly asks about prior work, inspiration, or reuse, stop and review its exact wording before answering truthfully and narrowly.
+
 ## Documentation protocol
 
 Before work, read:
@@ -78,10 +86,13 @@ Do not claim completion based on an accepted write, a green UI, or a zero-findin
 
 ## Current product invariants
 
+- The hackathon deployment is a non-clinical research prototype using synthetic institutional records and approved public evidence.
+- Anonymization or pseudonymization does not by itself authorize a prohibited clinical use. Future clinical deployment requires a separate provider-terms, regulatory, privacy, security, and validation gate.
 - Lab-local privacy approval precedes any cloud-bound payload.
 - The deterministic Workflow Controller owns state, budgets, retries, loop detection, and agent invocation.
 - Agents use narrow tools and append-only typed artifacts. They do not write authoritative state directly.
 - The independent Citation Auditor cannot be skipped for a trusted review recommendation.
 - Only the deterministic Policy Gate may emit `NO_ACTION`, `ABSTAIN`, or `REVIEW_REQUIRED`.
+- If trusted policy execution or ledger integrity is unavailable, the Controller records technical `HALTED`; it must not fabricate a Policy Gate outcome.
 - Firestore is authoritative; model memory is not clinical evidence.
 - Clinicians retain final decision authority.

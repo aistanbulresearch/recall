@@ -4,14 +4,14 @@
 
 | Field | Current truth |
 |---|---|
-| Updated | 2026-08-14 |
-| Phase | Phase 0 verified; Phase 1 awaiting owner review |
-| Overall state | Foundation complete, product work not started |
+| Updated | 2026-08-16 |
+| Phase | Phase 0 verified; Phase 1 blocked in part; Phase 2 design package frozen |
+| Overall state | RCL-201 through RCL-208 have verified design artifacts; local Phase 2 audit passed; commit/push and auditor review remain; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
-| Demo surface | Not started |
+| Demo surface | Storyboard, information architecture, and value-lineage design verified; implementation not started |
 | GitHub | Private repository with verified documentation baseline on `main` |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
@@ -25,20 +25,46 @@
 - Initial living plan, documentation protocol, operating principles, and evidence-ledger structure drafted.
 - Documentation baseline pushed and read back at `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer are `aistanbulresearch`.
 - Recall Obsidian project memory bootstrapped and synthesized; local absolute paths remain Git-ignored.
+- Owner approved the Fleet architecture direction on 2026-08-15.
+- Target architecture now separates durable `WatchCase`, short `ScanRun`, and human `ReviewTask` lifecycles.
+- ADR-0001 through ADR-0007 record lifecycle, memory authority, managed control plane, model separation, data modes, the non-clinical deployment boundary, and the semantic-outcome versus technical-halt correction.
+- Phase 1 smoke plan was preregistered before execution.
+- Google Cloud CLI, user authentication, ADC, and five required SDK imports passed local smoke checks.
+- The initial pre-project smoke stage created zero cloud resources; the subsequent owner-authorized step created one dedicated project and no service resources.
+- One dedicated Recall GCP project was created under the single organization and verified `ACTIVE`; CLI and ADC target it.
+- The owner accepted an independent-implementation boundary: abstract pattern inspection is allowed, but no prior-project component or artifact may be copied into Recall.
+- A hash-pinned eligibility checklist was completed from the owner-supplied official Rules snapshot; project timing and independent-work boundary pass, subject to continuous provenance.
+- Owner confirmed all personal eligibility requirements, no prohibited conflict, `individual/solo` entry capacity, and authority to use the `aistanbulresearch` identity and repository. RCL-101 is verified without storing sensitive personal details.
+- RCL-102 is verified. The Rules snapshot imposes no special repository license; the owner approved Apache-2.0 and `LICENSE`, policy, register, and source notes are present.
+- Current Google Cloud terms require the contest deployment to remain a non-clinical research prototype. Synthetic institutional data and approved public evidence are the only contest inputs; future clinical deployment is a separate gate.
+- A GitHub auditor-agent checkpoint is now mandatory after the Phase 2 package is committed and pushed and before Phase 3 implementation. The owner must be notified when that gate is ready.
+- RCL-207 is verified as a design gate: the video targets 3:45, includes a 75-second uninterrupted managed run, a combined citation/tool-denial fault run, visible Google Cloud proof, and explicit cut rules.
+- RCL-208 is verified as a design gate: every planned result field has a source artifact/path, deterministic derivation, missing-data behavior, and required test. No UI implementation claim exists yet.
+- RCL-201 is verified as a design gate: the threat model freezes assets, actors, trust zones, authority graph, component-level denied actions, 20 threat classes, and activation-proof tests.
+- RCL-202 is verified as a design gate: the strict common envelope, artifact catalog, compatibility behavior, producer authority, examples, and UI paths agree. Executable schemas remain RCL-302.
+- RCL-203 is verified as a design gate: separate lifecycle transition tables, CAS/idempotency/lease rules, budgets, failure codes, and invariant tests are frozen.
+- ADR-0007 corrects the original lifecycle sketch: privacy quarantine creates no cloud run, no-change still passes through Policy Gate, and technical `HALTED` is distinct from semantic `ABSTAIN`.
+- RCL-204 is verified as a design gate: deterministic facts, outcome precedence, abstention predicates, representative truth table, ordered reason codes, and transactional task protocol are frozen.
+- RCL-206 is verified as a design gate: privacy, citation, reliability, UI integrity, historical replay, and managed-fleet protocols include preregistered metrics, failure criteria, activation checks, stop rules, and rollback.
+- RCL-205 is verified as a design gate: BRCA2 `c.7522G>C (p.Gly2508Arg)` is frozen as the positive replay, two same-gene out-of-scope variants are frozen as negative controls, and exact source versions, hashes, rights, chronology, expected signals, and limitations are recorded before product execution.
+- The complete local Phase 2 design package passed link, JSON, source-manifest, chronology, UI-field, UI-contract, stale-state, secret-pattern, and project-memory consistency checks. RCL-211 remains in progress until remote packaging and auditor triage.
 
 ## In progress
 
-- Owner review of the Phase 0 plan and open decisions.
+- Phase 1 access, security, and local Gemma feasibility gates.
+- Project-scoped API discovery after the owner selects the correct billing account.
+- RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
 
 ## Blocked
 
 - Final hostname configuration: `recall` versus the written `racall` spelling requires owner confirmation.
 - No external deployment work should begin before access and security gates.
+- Google Cloud billing: the dedicated Recall project is active but billing-disabled; two open billing accounts have no safe automatic match, so owner selection is required.
+- Local Gemma benchmark: no checked runtime command or GGUF model is installed.
 
 ## Not started
 
-- Platform smoke tests.
-- Local Gemma benchmark.
+- Project-scoped platform discovery and temporary-resource roundtrip smoke tests.
 - Product implementation and TDD.
 - Privacy/evidence/reliability evaluation.
 - Reviewer web application.
@@ -56,9 +82,13 @@
 | Schedule may leave insufficient demo time | Critical | Build the web surface with each slice and freeze features on August 28. |
 | Product name may have discoverability/confusion risk | Medium | Run naming-collision review before public launch. |
 | Private repository plan does not permit branch rulesets | Medium | Use feature branches and PRs by process; enable protected-main ruleset immediately when the repo becomes public or the plan permits it. |
+| Managed Agent Platform components may be preview-, region-, quota-, or account-limited | Critical | Run component-level authenticated smoke tests before product logic; record exact fallback or category impact. |
+| Memory Bank could contaminate later runs with stale or poisoned context | High | Keep Firestore authoritative; enforce admission, scope, TTL, provenance, contradiction, and disabled-memory parity tests. |
+| Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
+| Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
 
 ## Next three actions
 
-1. Confirm hostname spelling and review the master schedule with the owner.
-2. Run Phase 1 eligibility, platform-access, secret, license, and Gemma feasibility gates.
-3. Freeze architecture contracts, evaluation protocols, and demo storyboard before code implementation.
+1. Re-verify local Git author/committer configuration and active GitHub account as `aistanbulresearch`.
+2. Commit and push the complete Phase 2 package, then read back remote SHA, authorship, and changed-file scope.
+3. Stop and notify the owner that the GitHub auditor-agent gate is ready; triage its findings before Phase 3.
