@@ -6,13 +6,13 @@
 |---|---|
 | Updated | 2026-08-16 |
 | Phase | Phase 0 verified; Phase 1 blocked in part; Phase 2 design package frozen |
-| Overall state | RCL-201 through RCL-208 have verified design artifacts; local Phase 2 audit passed; commit/push and auditor review remain; product work not started |
+| Overall state | RCL-201 through RCL-208 have verified design artifacts; local audit and remote package read-back passed; external audit review remains; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and value-lineage design verified; implementation not started |
-| GitHub | Private repository with verified documentation baseline on `main` |
+| GitHub | Private repository; Phase 2 package pushed to `feature/rcl-010-fleet-architecture` at `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -47,7 +47,8 @@
 - RCL-204 is verified as a design gate: deterministic facts, outcome precedence, abstention predicates, representative truth table, ordered reason codes, and transactional task protocol are frozen.
 - RCL-206 is verified as a design gate: privacy, citation, reliability, UI integrity, historical replay, and managed-fleet protocols include preregistered metrics, failure criteria, activation checks, stop rules, and rollback.
 - RCL-205 is verified as a design gate: BRCA2 `c.7522G>C (p.Gly2508Arg)` is frozen as the positive replay, two same-gene out-of-scope variants are frozen as negative controls, and exact source versions, hashes, rights, chronology, expected signals, and limitations are recorded before product execution.
-- The complete local Phase 2 design package passed link, JSON, source-manifest, chronology, UI-field, UI-contract, stale-state, secret-pattern, and project-memory consistency checks. RCL-211 remains in progress until remote packaging and auditor triage.
+- The complete local Phase 2 design package passed link, JSON, source-manifest, chronology, UI-field, UI-contract, stale-state, secret-pattern, and project-memory consistency checks. Remote packaging also passed; RCL-211 remains in progress until external findings are triaged.
+- Phase 2 package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` was pushed and independently read back. Active GitHub login, GitHub author, GitHub committer, commit author, and commit committer all resolve to `aistanbulresearch`; the commit has no body, trailer, Git note, or prohibited authorship marker.
 
 ## In progress
 
@@ -89,6 +90,6 @@
 
 ## Next three actions
 
-1. Re-verify local Git author/committer configuration and active GitHub account as `aistanbulresearch`.
-2. Commit and push the complete Phase 2 package, then read back remote SHA, authorship, and changed-file scope.
-3. Stop and notify the owner that the GitHub auditor-agent gate is ready; triage its findings before Phase 3.
+1. Open the Phase 2 pull request using only the `aistanbulresearch` GitHub identity and verify its author and metadata.
+2. Notify the owner that the GitHub auditor gate is ready.
+3. Log and triage every external finding before Phase 3.

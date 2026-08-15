@@ -49,7 +49,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - RCL-201 through RCL-204 and RCL-206 are verified design gates. Threats, denied actions, contracts, lifecycle transitions, budgets, failure codes, deterministic policy, and evaluation protocols are frozen but not implemented.
 - ADR-0007 separates technical `HALTED` from Policy Gate `ABSTAIN`, routes no-change through Policy Gate, and keeps privacy quarantine outside the cloud run lifecycle.
 - RCL-205 is verified as a design gate. The frozen positive is BRCA2 `NM_000059.4:c.7522G>C`; the two same-gene negative controls test exact allele and source-scope matching. The 472-day public-source interval is case-specific, and no product detection claim exists yet.
-- RCL-211 is in progress. The local Phase 2 audit passed; commit/push, remote authorship read-back, owner notification, and GitHub auditor finding triage remain.
+- RCL-211 is in progress. The local Phase 2 audit passed and package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` was pushed. Remote login, author, and committer read-back all resolve to `aistanbulresearch`; owner notification and external finding triage remain.
 
 ## Locked decisions
 
@@ -77,7 +77,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Run the Git/GitHub attribution preflight, commit and push the complete Phase 2 package as `aistanbulresearch`, and read back the remote SHA and authorship. Stop and tell the owner that the GitHub auditor-agent review is ready. Product implementation must wait for that review gate and finding triage.
+Open and verify the Phase 2 pull request as `aistanbulresearch`, then tell the owner that the GitHub auditor review is ready. Product implementation must wait for external finding triage.
 
 ## Known blocker
 

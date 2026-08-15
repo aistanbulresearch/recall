@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Phase 2 design package frozen and locally audited; GitHub auditor package remains; billing selection blocked |
+| Status | Phase 2 design package frozen, locally audited, and pushed; external audit triage remains; billing selection blocked |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Accepted 2026-08-16; ADR-0001 through ADR-0007 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -158,7 +158,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; architecture, contracts, threat model, evaluation protocol, replay package, storyboard, and derived-value registry must be committed and pushed by `aistanbulresearch`; auditor findings are logged and triaged before Phase 3 |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` is pushed with GitHub author and committer `aistanbulresearch`; external findings must be logged and triaged before Phase 3 |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. The owner is explicitly notified that the GitHub auditor gate is ready, and its findings are resolved, accepted with a recorded risk, or shown not to apply before Phase 3 begins.
 
@@ -325,4 +325,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-Perform the Phase 2 consistency audit across architecture, contracts, policy, UI paths, historical replay, links, and security. Then commit and push the complete package as `aistanbulresearch` and notify the owner that the mandatory GitHub auditor-agent gate is ready. Billing-dependent smoke remains paused.
+Open the Phase 2 review surface, notify the owner that the mandatory GitHub auditor gate is ready, and log and triage every finding before Phase 3. Package commit and remote authorship have been verified as `aistanbulresearch`. Billing-dependent smoke remains paused.

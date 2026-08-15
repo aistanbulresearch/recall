@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Phase 2 design package frozen and locally audited; GitHub auditor package remains**
+**Phase 2 design package frozen, audited, and pushed; external audit triage remains**
 
 ## Phase checklist
 
@@ -24,7 +24,8 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 - [x] Freeze the 3:45 storyboard, web information architecture, and derived-value registry.
 - [x] Freeze threat model, architecture contracts, lifecycle tables, deterministic policy, and evaluation protocols as design artifacts.
 - [x] Select and freeze one historical replay case and at least two negative controls.
-- [ ] Commit and push the complete Phase 2 package, notify the owner, and pass the GitHub auditor-agent gate before implementation.
+- [x] Commit and push the complete Phase 2 package with remote authorship read-back as `aistanbulresearch`.
+- [ ] Notify the owner and pass the GitHub auditor-agent gate before implementation.
 - [ ] Implement the deterministic vertical skeleton with TDD.
 - [ ] Implement and measure the local privacy boundary.
 - [ ] Implement evidence monitoring and historical replay.
@@ -34,7 +35,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Run attribution preflight, commit and push the complete Phase 2 package, and read back remote authorship. Stop and notify the owner when the GitHub auditor-agent gate is ready. Billing-dependent RCL-104 and RCL-105 remain paused.
+Open and verify the Phase 2 pull request as `aistanbulresearch`, then notify the owner that the GitHub auditor gate is ready. Do not begin Phase 3 until findings are triaged. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 
