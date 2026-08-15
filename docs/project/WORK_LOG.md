@@ -348,12 +348,15 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - Staged 44 files and reran whitespace, secret-pattern, binary, machine-memory, identity, and commit-message gates.
   - Created the trailers-free Conventional Commit `docs(architecture): freeze phase 2 design`.
   - Pushed `feature/rcl-010-fleet-architecture` and independently read the branch and commit through Git and GitHub APIs.
+  - Recorded the remote gate in a second owner-only commit, pushed it, and independently verified the new remote branch tip.
+  - Opened PR #2 from the feature branch to `main` and read back PR author, branches, commit authors, and text metadata.
 - Evidence:
   - Package commit: `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4`.
   - Local and remote branch SHAs matched exactly.
   - Active login, GitHub author login, GitHub committer login, commit author name, and commit committer name all equaled `aistanbulresearch`.
   - Commit message matched exactly and contained no `Co-authored-by`, generated-by, model, tool, or agent authorship marker.
+  - PR #2 is open at `https://github.com/aistanbulresearch/recall/pull/2`; PR author and all included commit author names/logins equal `aistanbulresearch`, with no prohibited authorship marker in title or body.
 - Result:
   - Phase 2 package is present on GitHub with owner-only authorship metadata.
-  - RCL-211 remains in progress until the review surface is opened, the owner is notified, and external findings are triaged.
+  - RCL-211 remains in progress until external findings are recorded and triaged.
   - No product implementation or merge was performed.

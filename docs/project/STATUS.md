@@ -12,7 +12,7 @@
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and value-lineage design verified; implementation not started |
-| GitHub | Private repository; Phase 2 package pushed to `feature/rcl-010-fleet-architecture` at `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` |
+| GitHub | Private repository; Phase 2 package pushed to `feature/rcl-010-fleet-architecture`; PR #2 open for external audit |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -49,6 +49,7 @@
 - RCL-205 is verified as a design gate: BRCA2 `c.7522G>C (p.Gly2508Arg)` is frozen as the positive replay, two same-gene out-of-scope variants are frozen as negative controls, and exact source versions, hashes, rights, chronology, expected signals, and limitations are recorded before product execution.
 - The complete local Phase 2 design package passed link, JSON, source-manifest, chronology, UI-field, UI-contract, stale-state, secret-pattern, and project-memory consistency checks. Remote packaging also passed; RCL-211 remains in progress until external findings are triaged.
 - Phase 2 package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` was pushed and independently read back. Active GitHub login, GitHub author, GitHub committer, commit author, and commit committer all resolve to `aistanbulresearch`; the commit has no body, trailer, Git note, or prohibited authorship marker.
+- PR #2 was opened from `feature/rcl-010-fleet-architecture` to `main` and independently read back. PR author and both included commit author names/logins resolve only to `aistanbulresearch`; PR title/body contain no prohibited authorship marker. The PR remains open and unmerged for external audit.
 
 ## In progress
 
@@ -90,6 +91,6 @@
 
 ## Next three actions
 
-1. Open the Phase 2 pull request using only the `aistanbulresearch` GitHub identity and verify its author and metadata.
-2. Notify the owner that the GitHub auditor gate is ready.
-3. Log and triage every external finding before Phase 3.
+1. Run the GitHub audit against PR #2.
+2. Record every finding, severity, disposition, and verification evidence.
+3. Do not merge or begin Phase 3 until material findings are resolved and triaged.

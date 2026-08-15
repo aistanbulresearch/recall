@@ -158,7 +158,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` is pushed with GitHub author and committer `aistanbulresearch`; external findings must be logged and triaged before Phase 3 |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` is pushed; PR #2 is open with owner-only PR and commit authorship; external findings must be logged and triaged before Phase 3 |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. The owner is explicitly notified that the GitHub auditor gate is ready, and its findings are resolved, accepted with a recorded risk, or shown not to apply before Phase 3 begins.
 
@@ -325,4 +325,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-Open the Phase 2 review surface, notify the owner that the mandatory GitHub auditor gate is ready, and log and triage every finding before Phase 3. Package commit and remote authorship have been verified as `aistanbulresearch`. Billing-dependent smoke remains paused.
+The Phase 2 review surface is open at PR #2 and ready for the mandatory GitHub audit. Log and triage every finding before Phase 3. Package commits, PR author, and remote authorship have been verified as `aistanbulresearch`. Billing-dependent smoke remains paused.

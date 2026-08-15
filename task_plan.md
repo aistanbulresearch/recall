@@ -35,7 +35,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Open and verify the Phase 2 pull request as `aistanbulresearch`, then notify the owner that the GitHub auditor gate is ready. Do not begin Phase 3 until findings are triaged. Billing-dependent RCL-104 and RCL-105 remain paused.
+PR #2 is open and verified with owner-only authorship. Run the GitHub audit and triage every finding before merge or Phase 3. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 
