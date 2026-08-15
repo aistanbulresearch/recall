@@ -92,6 +92,7 @@ The dedicated Recall project is active, but two open billing accounts are availa
 - Do not expose GitHub tokens, cloud credentials, SSH material, or Hetzner host details in logs or committed files.
 - Domain creation remains an owner action when the deployment phase is reached.
 - GitHub currently rejects repository rulesets for this private repository without Pro. Squash-only merge, automatic merged-branch deletion, PR branch updates, and Issues are enabled; direct-push avoidance is process-enforced until a ruleset can be activated.
+- Cursor's GitHub integration added one unsolicited disabled-Bugbot upsell comment to PR #2. The exact comment was deleted and the PR is visibly clean. Recheck comments, reviews, checks, and commit actors after every push; if it recurs, stop and ask the owner to disable the Cursor integration for Recall.
 
 ## Stop conditions
 

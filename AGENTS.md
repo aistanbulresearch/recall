@@ -80,6 +80,7 @@ Do not claim completion based on an accepted write, a green UI, or a zero-findin
 - Before every commit and push, verify the local Git author/committer and active GitHub account.
 - Do not add `Co-authored-by`, generated-by, assistant attribution, or automated authorship trailers.
 - Commit and PR authorship must resolve to `aistanbulresearch`.
+- Do not request or retain automated assistant/bot review comments, review records, authorship badges, or generated-by notices on GitHub. Inspect PR comments and reviews after creation and every push; remove unsolicited assistant/bot attribution when repository permissions allow it, and report any recurrence.
 - Use Conventional Commits and small, single-purpose commits.
 - Never commit secrets, local model weights, real clinical data, token maps, private keys, raw traces, or unreviewed generated artifacts.
 - Do not rewrite published history or force-push without explicit owner approval.

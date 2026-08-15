@@ -50,6 +50,7 @@
 - The complete local Phase 2 design package passed link, JSON, source-manifest, chronology, UI-field, UI-contract, stale-state, secret-pattern, and project-memory consistency checks. Remote packaging also passed; RCL-211 remains in progress until external findings are triaged.
 - Phase 2 package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` was pushed and independently read back. Active GitHub login, GitHub author, GitHub committer, commit author, and commit committer all resolve to `aistanbulresearch`; the commit has no body, trailer, Git note, or prohibited authorship marker.
 - PR #2 was opened from `feature/rcl-010-fleet-architecture` to `main` and independently read back. PR author and both included commit author names/logins resolve only to `aistanbulresearch`; PR title/body contain no prohibited authorship marker. The PR remains open and unmerged for external audit.
+- An unsolicited `cursor[bot]` upsell comment appeared on PR #2. It was identified, deleted by exact comment ID, and logged as ERR-2026-08-16-040. Post-delete read-back shows zero visible comments, zero visible reviews, and zero non-owner or prohibited commit/PR authorship metadata.
 
 ## In progress
 

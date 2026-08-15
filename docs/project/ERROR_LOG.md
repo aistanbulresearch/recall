@@ -485,3 +485,29 @@ Append-only. Log errors even when a retry succeeds.
 | Verification | 20 UI-referenced artifact types were extracted and zero were missing from the contract catalog. |
 | Prevent recurrence | Avoid shell-significant Markdown characters in nested commands; print the compiled pattern and require a nonzero expected reference count. |
 | Status | Resolved |
+
+## ERR-2026-08-16-040: Cursor bot added an unsolicited PR upsell comment
+
+| Field | Value |
+|---|---|
+| Task | RCL-211 PR metadata verification |
+| Severity | High |
+| Observed | Immediately after PR #2 creation, GitHub read-back found one visible comment from `cursor[bot]`. The comment stated that Bugbot was disabled and advertised enabling it; no actual review was performed. |
+| Impact | Commit and PR authorship remained owner-only, but the visible repository surface contained an external automated assistant/bot signature, violating the owner's stricter no-assistant-signature rule. |
+| Resolution | Identified exact issue-comment ID `5304443775`, deleted only that comment through the GitHub API, and did not alter any human review content. |
+| Verification | Post-delete read-back found zero visible PR comments, zero visible PR reviews, zero commits with non-owner author/committer or forbidden metadata, and no forbidden marker in PR title/body. |
+| Prevent recurrence | PR creation and every push now require comment/review/actor read-back. Do not request an automated assistant reviewer. If the bot recurs, stop and ask the owner to remove or disable the Cursor GitHub integration for this repository. |
+| Status | Resolved; recurrence watch active |
+
+## ERR-2026-08-16-041: Combined staged audit overwrote the diff-check exit code
+
+| Field | Value |
+|---|---|
+| Task | Post-PR governance commit audit |
+| Severity | Low |
+| Observed | A combined PowerShell probe ran `git diff --cached --check`, then a no-match secret `git grep`. The report read `$LASTEXITCODE` only after grep and incorrectly labeled the staged diff as failed. |
+| Impact | No commit or push occurred under the incorrect label. The raw diff command had emitted no error, but its exit code was not captured immediately. |
+| Resolution | Reran the probe while capturing each command's exit code immediately. |
+| Verification | Staged diff exit was `0` and secret grep exit was `1`, correctly meaning whitespace PASS and zero credential-pattern files. |
+| Prevent recurrence | Store every command exit immediately; never reuse a shared `$LASTEXITCODE` after another probe. |
+| Status | Resolved |
