@@ -20,9 +20,10 @@
 16. `docs/evaluation/HISTORICAL_REPLAY_CASE.md`
 17. `docs/evaluation/HISTORICAL_REPLAY_CANDIDATE_LEDGER.md`
 18. `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
-19. `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md` through `ADR-0007-policy-outcomes-and-technical-halt.md`
-20. `docs/project/ERROR_LOG.md`
-21. relevant evidence ledgers
+19. `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md` through `ADR-0008-external-audit-corrections.md`
+20. `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`
+21. `docs/project/ERROR_LOG.md`
+22. relevant evidence ledgers
 
 ## Current objective
 
@@ -30,8 +31,8 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Current state
 
-- Date: 2026-08-16.
-- Phase: Phase 0 verified; Phase 1 smoke is partial and stopped at billing selection; the Phase 2 design package is frozen and passed its local consistency audit.
+- Date: 2026-08-17.
+- Phase: Phase 0 verified; Phase 1 smoke is partial and stopped at billing selection; F-01 through F-08 are corrected and the complete local follow-up audit passes.
 - GitHub: `https://github.com/aistanbulresearch/recall`, private and initially empty.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
@@ -44,12 +45,12 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - RCL-101 is verified: owner eligibility and authority are confirmed, entry capacity is `individual/solo`, and no sensitive personal details are stored. A live Devpost recheck remains only as a final-submission control.
 - RCL-102 is verified. The Rules require rights and license compliance but no special repository license; the owner approved Apache-2.0 and `LICENSE` is present.
 - Current Google Cloud terms prohibit Generative AI Services for clinical purposes. The contest build is therefore a synthetic, non-clinical research prototype; future clinical deployment is blocked behind a separate terms and regulatory gate.
-- Phase 3 cannot start until the Phase 2 package has been committed and pushed by `aistanbulresearch`, the owner has been notified that the GitHub auditor-agent gate is ready, and findings are triaged.
+- Phase 3 and merge are `NO-GO`. The eight accepted P1 issues are corrected locally: F-01 through F-06 pass at document level, F-07/F-08 pass at frozen-source-package level, and the complete local follow-up audit passes. External re-review remains.
 - RCL-207 and RCL-208 are verified design gates. The implementation must follow the 3:45 storyboard, single-screen evidence surface, and deterministic derived-value registry.
-- RCL-201 through RCL-204 and RCL-206 are verified design gates. Threats, denied actions, contracts, lifecycle transitions, budgets, failure codes, deterministic policy, and evaluation protocols are frozen but not implemented.
+- RCL-201 through RCL-204 and RCL-206 are verified corrected-design gates for F-01 through F-06. Candidate authority, memory parity, citation failure, evaluated policy reasons, mode composition, cursor recovery, and their executable test obligations are synchronized but not implemented.
 - ADR-0007 separates technical `HALTED` from Policy Gate `ABSTAIN`, routes no-change through Policy Gate, and keeps privacy quarantine outside the cloud run lifecycle.
-- RCL-205 is verified as a design gate. The frozen positive is BRCA2 `NM_000059.4:c.7522G>C`; the two same-gene negative controls test exact allele and source-scope matching. The 472-day public-source interval is case-specific, and no product detection claim exists yet.
-- RCL-211 is in progress. The local Phase 2 audit passed, the package was pushed, and PR #2 is open. Remote login, commit authorship, and PR authorship read-back all resolve only to `aistanbulresearch`; external finding triage remains.
+- RCL-205 is verified at frozen-source-package level. Ten exact captures, corrected GEO chronology/linkage, one exact XLSX row, clean-copy verification, mutated-byte rejection, and path-boundary rejection pass offline. Product replay remains unimplemented.
+- RCL-211 is in progress. Audit triage, F-01 through F-08 correction, and complete local follow-up are done. Cursor disablement confirmation, safe owner-only push/read-back, and auditor re-review remain.
 
 ## Locked decisions
 
@@ -70,14 +71,15 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - A durable `WatchCase` carries multi-week continuity; each `ScanRun` is short, bounded, idempotent, and independently auditable; `ReviewTask` has a separate human lifecycle.
 - Firestore remains authoritative. ADK Sessions and Memory Bank are explicitly non-authoritative.
 - Memory Bank is allowed only for admitted operational context with provenance, scope, TTL, contradiction checks, and retrieval receipts.
+- Rejected or conflicting memory is ignored and receipted; it is absent from Policy Gate inputs and cannot change outcome or task count.
 - Agent Runtime and Agent Registry are target critical-path components. Identity, Gateway, Memory Bank, and Model Armor require Phase 1 access and failure-behavior gates.
 - Local Gemma proposes residual identifier spans; deterministic local logic approves redaction and egress. Model Armor screens untrusted cloud-side source content when feasible.
-- All artifacts and surfaces declare `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK`.
+- Each artifact declares one atomic mode; each run declares its transitive mode set. The core synthetic-case plus captured-replay composition is explicit, not a silent mismatch.
 - The contest deployment is non-clinical and synthetic-only for institutional records. De-identification does not itself authorize clinical-purpose use.
 
 ## Immediate next step
 
-Audit PR #2 and record every finding and disposition. Product implementation and merge must wait for external finding triage.
+Await explicit owner confirmation that the Cursor GitHub integration is disabled for Recall. Then run attribution preflight, owner-only commit/push, remote read-back, visible actor scan, and GitHub auditor re-review. Product implementation and merge remain blocked.
 
 ## Known blocker
 
@@ -93,6 +95,7 @@ The dedicated Recall project is active, but two open billing accounts are availa
 - Domain creation remains an owner action when the deployment phase is reached.
 - GitHub currently rejects repository rulesets for this private repository without Pro. Squash-only merge, automatic merged-branch deletion, PR branch updates, and Issues are enabled; direct-push avoidance is process-enforced until a ruleset can be activated.
 - Cursor's GitHub integration added one unsolicited disabled-Bugbot upsell comment to PR #2. The exact comment was deleted and the PR is visibly clean. Recheck comments, reviews, checks, and commit actors after every push; if it recurs, stop and ask the owner to disable the Cursor integration for Recall.
+- Do not push the correction package until the owner explicitly confirms that the Cursor GitHub integration is disabled for Recall.
 
 ## Stop conditions
 

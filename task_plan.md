@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Phase 2 design package frozen, audited, and pushed; external audit triage remains**
+**F-01 through F-08 and complete local follow-up pass; external re-review pending; merge and Phase 3 are NO-GO**
 
 ## Phase checklist
 
@@ -25,7 +25,10 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 - [x] Freeze threat model, architecture contracts, lifecycle tables, deterministic policy, and evaluation protocols as design artifacts.
 - [x] Select and freeze one historical replay case and at least two negative controls.
 - [x] Commit and push the complete Phase 2 package with remote authorship read-back as `aistanbulresearch`.
-- [ ] Notify the owner and pass the GitHub auditor-agent gate before implementation.
+- [x] Receive and triage the read-only GitHub auditor report.
+- [x] Resolve F-01 through F-06 across all normative documents and pass the scoped local consistency audit.
+- [x] Create replay protocol 1.0.1 for F-07 and F-08 with offline hash, chronology, exact-row, mutation, and path-boundary verification.
+- [x] Pass follow-up audit before implementation.
 - [ ] Implement the deterministic vertical skeleton with TDD.
 - [ ] Implement and measure the local privacy boundary.
 - [ ] Implement evidence monitoring and historical replay.
@@ -35,7 +38,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-PR #2 is open and verified with owner-only authorship. Run the GitHub audit and triage every finding before merge or Phase 3. Billing-dependent RCL-104 and RCL-105 remain paused.
+Await owner confirmation that the Cursor integration is disabled. Then run attribution preflight, owner-only commit/push, remote read-back, actor scan, and GitHub auditor re-review. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 

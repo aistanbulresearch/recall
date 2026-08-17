@@ -1,8 +1,9 @@
 # Recall Lifecycle State Machines
 
-- Status: frozen design baseline
-- Date: 2026-08-16
+- Status: corrected design baseline; implementation not started
+- Date: 2026-08-17
 - Related tasks: RCL-203, RCL-209, RCL-304, RCL-309
+- Correction authority: ADR-0008
 
 ## Separation rule
 
@@ -17,13 +18,27 @@ Privacy quarantine occurs inside the laboratory before a cloud `ScanRun` exists.
 | none | `watch_case_create` | Accepted privacy receipt, valid mode, no duplicate case key | `ACTIVE` | Persist version 1 and schedule `next_scan_at` | Agent-created case |
 | `ACTIVE` | `pause` | Authorized operator | `PAUSED` | Cancel future due marker | Scheduling a new run |
 | `PAUSED` | `resume` | Authorized operator, no open terminal closure | `ACTIVE` | Recalculate due time from policy | Backdating silent scans |
-| `ACTIVE` | `review_task_created` | One committed task for current decision | `AWAITING_HUMAN` | Link task ID by CAS | Agent request as guard |
+| `ACTIVE` | `scan_no_action_committed` | Valid `NO_ACTION` without `duplicate_suppressed`; complete verified snapshot | `ACTIVE` | Advance cursors and last verified snapshot exactly to decision inputs; clear resolved pending hashes/attention; schedule next scan | Advancing to an unaudited snapshot |
+| `ACTIVE` | `scan_abstained` | Valid `ABSTAIN` PolicyDecision | `ACTIVE` | Preserve verified cursors/snapshot; retain pending observation hashes; set attention marker; schedule bounded retry | Marking pending evidence as seen or clean |
+| `ACTIVE` | `scan_halted` | Technical `HALTED` receipt | `ATTENTION_REQUIRED` | Preserve verified cursors/snapshot and pending hashes; set operator-required attention; clear `next_scan_at` | Automatic retry without an explicit recovery rule |
+| `ACTIVE` | `review_task_created` | One committed task for current verified decision | `AWAITING_HUMAN` | Advance exactly to the audited snapshot, clear its pending hashes, and link task ID by CAS | Agent request as guard or advancement beyond audited inputs |
+| `ACTIVE` | `duplicate_suppressed` | Existing open task matches exact case, decision, and verified-delta hash | `AWAITING_HUMAN` | Link existing task; do not advance beyond its already verified snapshot | Consuming a newer unaudited observation |
 | `AWAITING_HUMAN` | `review_resolved_continue` | Valid `HumanDecisionReceipt` | `ACTIVE` | Clear open task and set next scan | Model-generated human action |
 | `AWAITING_HUMAN` | `review_resolved_close` | Valid `HumanDecisionReceipt` | `CLOSED` | Clear schedule and retain audit history | Deleting history |
+| `ATTENTION_REQUIRED` | `recover` | Authorized operator or preregistered deterministic recovery receipt; prerequisite restored | `ACTIVE` | Preserve pending hashes, calculate retry due time, clear operator-required flag only | Clearing evidence backlog |
+| `ATTENTION_REQUIRED` | `close` | Authorized operator | `CLOSED` | Clear schedule and retain attention/failure history | Silent close by agent |
 | `PAUSED` | `close` | Authorized operator | `CLOSED` | Clear schedule | Reopen without a new explicit case version |
 | `ACTIVE` | `close` | Authorized operator and no open task | `CLOSED` | Clear schedule | Silent close by agent |
 
-`CLOSED` is terminal. `AWAITING_HUMAN` cannot be scheduled. One case has at most one open review task.
+`CLOSED` is terminal. `AWAITING_HUMAN`, `ATTENTION_REQUIRED`, `PAUSED`, and `CLOSED` cannot be scheduled. One case has at most one open review task.
+
+### Cursor and backlog invariants
+
+1. `source_cursors`, `last_verified_snapshot_id`, and `last_verified_scan` advance only after a valid PolicyDecision of `NO_ACTION` without duplicate suppression or `REVIEW_REQUIRED` over the exact snapshot.
+2. `ABSTAIN` and `HALTED` never advance verified cursors or snapshots. Their unverified observation hashes remain in `pending_observation_hashes`.
+3. `duplicate_suppressed` never advances beyond the snapshot already referenced by the existing task and decision.
+4. Restoring a failed source or prerequisite must expose the same pending observation hash to the next eligible run.
+5. Empty pending hashes mean no recorded backlog only when the last transition explicitly cleared them after verified completion; missing is invalid.
 
 ## ScanRun lifecycle
 
@@ -35,16 +50,18 @@ Policy outcomes and technical execution states are different. `NO_ACTION`, `ABST
 | `CREATED` | Outbox publish committed | `QUEUED` | Publish run request once |
 | `QUEUED` | Lease acquired by expected version | `ROUTING` | Lease owner, epoch, and expiry recorded |
 | `ROUTING` | Valid route and Registry resolution | `WATCHING` | `RoutingPlan` plus `RegistryResolutionReceipt` |
-| `WATCHING` | Complete no-material-change snapshot | `POLICY_EVALUATION` | Snapshot completeness and no-change fact, not a terminal result |
-| `WATCHING` | Complete candidate change | `ASSESSING` | Current snapshot and candidate delta inputs |
+| `WATCHING` | Valid `CandidateDeltaReceipt: ABSENT` from complete snapshots | `POLICY_EVALUATION` | Candidate receipt and snapshot completeness, not a terminal result |
+| `WATCHING` | Valid `CandidateDeltaReceipt: PRESENT` | `ASSESSING` | Current snapshot plus deterministic candidate receipt; Assessor cannot suppress route |
+| `WATCHING` | Valid `CandidateDeltaReceipt: UNKNOWN` | `POLICY_EVALUATION` | Candidate receipt projects fail-closed policy facts; no Assessor invocation |
 | `ASSESSING` | Valid assessment proposal | `AUDITING` | `EvidenceDelta` and `AssessmentReceipt` |
 | `AUDITING` | Audit completed or failed with typed facts | `POLICY_EVALUATION` | `CitationAuditReceipt` including completeness |
 | Any nonterminal state | Recoverable failure within budget | same logical state, next attempt | `FailureReceipt`, incremented attempt, renewed lease |
 | Any nonterminal state | Prerequisite failure expressible as policy facts | `POLICY_EVALUATION` | Typed failure and complete policy input fact projection |
-| `POLICY_EVALUATION` | Valid `PolicyDecision: NO_ACTION` | `NO_ACTION` | Decision appended; schedule next eligible scan |
-| `POLICY_EVALUATION` | Valid `PolicyDecision: ABSTAIN` | `ABSTAIN` | Decision and operations receipt appended; no task |
+| `POLICY_EVALUATION` | Valid `PolicyDecision: NO_ACTION` without duplicate suppression | `NO_ACTION` | Decision appended; verified WatchCase cursor action committed; schedule next eligible scan |
+| `POLICY_EVALUATION` | Valid `PolicyDecision: NO_ACTION` with `duplicate_suppressed` | `NO_ACTION` | Return existing task reference; no new task and no cursor advance beyond existing verified snapshot |
+| `POLICY_EVALUATION` | Valid `PolicyDecision: ABSTAIN` | `ABSTAIN` | Decision and operations receipt appended; preserve cursors and pending observations; set attention; no task |
 | `POLICY_EVALUATION` | Valid `PolicyDecision: REVIEW_REQUIRED` | `REVIEW_REQUIRED` | Decision appended; task created through transactional outbox |
-| Any nonterminal state | Ledger integrity, Policy Gate availability, or unrecoverable Controller failure prevents trustworthy evaluation | `HALTED` | Technical failure receipt only; operator intervention required |
+| Any nonterminal state | Ledger integrity, Policy Gate availability, or unrecoverable Controller failure prevents trustworthy evaluation | `HALTED` | Technical failure receipt only; preserve cursors/pending observations; WatchCase enters attention-required behavior |
 
 Terminal states are `NO_ACTION`, `ABSTAIN`, `REVIEW_REQUIRED`, and `HALTED`. `NO_CHANGE_FOUND` is an event/fact, not a state. This preserves the invariant that Policy Gate owns every semantic terminal outcome.
 
@@ -94,7 +111,9 @@ Exact step deadlines and token ceilings are selected after Phase 1 capability an
 
 ## Stable failure codes
 
-`privacy_not_accepted`, `contract_unknown_field`, `contract_required_field_missing`, `artifact_integrity_failed`, `producer_not_authorized`, `data_mode_conflict`, `registry_unavailable`, `registry_revision_rejected`, `route_invalid`, `tool_denied`, `source_unavailable`, `source_schema_drift`, `agent_schema_invalid`, `citation_mismatch`, `counter_evidence_incomplete`, `audit_incomplete`, `memory_rejected`, `memory_authority_conflict`, `duplicate_suppressed`, `lease_expired`, `stale_write_rejected`, `loop_detected`, `budget_exhausted`, `policy_unavailable`, `ledger_integrity_failed`, and `controller_failed`.
+`privacy_not_accepted`, `contract_unknown_field`, `contract_required_field_missing`, `artifact_integrity_failed`, `producer_not_authorized`, `data_mode_conflict`, `registry_unavailable`, `registry_revision_rejected`, `route_invalid`, `tool_denied`, `source_unavailable`, `source_schema_drift`, `candidate_delta_unknown`, `agent_schema_invalid`, `citation_mismatch`, `counter_evidence_incomplete`, `audit_incomplete`, `memory_rejected`, `duplicate_suppressed`, `lease_expired`, `stale_write_rejected`, `loop_detected`, `budget_exhausted`, `policy_unavailable`, `ledger_integrity_failed`, and `controller_failed`.
+
+`memory_rejected` is an operational receipt code only. It does not project a memory-specific PolicyDecision fact or reason. Policy reasons are defined solely in `docs/policy/DETERMINISTIC_POLICY_SPEC.md`.
 
 ## Invariant tests required before implementation gate
 
@@ -108,3 +127,6 @@ Exact step deadlines and token ceilings are selected after Phase 1 capability an
 8. Prove only `REVIEW_REQUIRED` can feed task creation and that one decision creates at most one task.
 9. Prove an agent identity cannot perform any lifecycle transition.
 10. Prove every terminal run contains either one valid `PolicyDecision` or a technical `FailureReceipt` for `HALTED`, never both semantic authorities.
+11. Prove `ABSTAIN`, `HALTED`, and `duplicate_suppressed` do not advance beyond unaudited evidence.
+12. Run outage, `ABSTAIN`, restore, and retry; prove the previously pending observation hash is observed again.
+13. Prove a deterministic candidate cannot reach `NO_ACTION` because of an Assessor proposal.

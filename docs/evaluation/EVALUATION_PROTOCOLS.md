@@ -1,7 +1,7 @@
 # Recall Preregistered Evaluation Protocols
 
-- Status: frozen protocol baseline, execution not started
-- Date: 2026-08-16
+- Status: corrected protocol baseline, execution not started
+- Date: 2026-08-17
 - Related tasks: RCL-205, RCL-206, RCL-404, RCL-405, RCL-506, RCL-801 through RCL-803
 
 ## Purpose and claim boundary
@@ -74,10 +74,11 @@ A frozen source-attributed fixture set with valid claim/source pairs, fake ident
 
 ### Gates
 
-- Every frozen fake, mismatched, unsupported, and omission fault must block `REVIEW_REQUIRED`.
+- Every frozen fake, mismatched, unsupported, and omission fault on a material claim must make the current immutable assessment ineligible and block `REVIEW_REQUIRED`.
 - Zero review tasks may exist when audit completeness is false.
 - A green outcome without a nonzero auditor/refetch activation count is invalid evidence.
 - If the auditor cannot independently retrieve the required metadata, the policy result is `ABSTAIN`, not a passed audit.
+- One mismatched material claim among otherwise verified claims must produce `material_claim_unverified`, zero tasks, and no rescue by removing the claim from the same assessment.
 
 ## Protocol P3: Workflow reliability and recovery
 
@@ -93,7 +94,9 @@ Duplicate delivery, crash after state commit, crash before outbox delivery, expi
 | Crash recovery | Resume preserves committed history and does not repeat a logical transition |
 | Stale-write safety | Every expired-lease or wrong-version mutation is rejected |
 | Loop safety | Repeated state hash stops within the frozen hop budget and creates no task |
-| Policy authority | Identical authoritative artifacts yield identical outcome with memory on and off |
+| Candidate authority | Exact allele, scope, completeness, and new-hash geometry is derived by `CandidateDeltaReceipt`; an Assessor dismissal cannot produce `NO_ACTION` |
+| Policy authority | Identical authoritative artifacts yield byte-identical outcome and reasons plus zero task-count delta with memory on and off |
+| Cursor safety | `ABSTAIN`, `HALTED`, and duplicate suppression do not consume unaudited observation hashes; recovery observes them again |
 | Managed outage | No outage path widens identity, tool, endpoint, or policy authority |
 | Notification isolation | Delivery retry does not re-run policy or duplicate a task |
 | Mechanism proof | Each safe result has a nonzero guardrail activation counter and forbidden-downstream read-back |
@@ -111,7 +114,7 @@ Use every Field ID in `docs/demo/DERIVED_VALUE_REGISTRY.md`. For each result fie
 - Zero unregistered result-bearing UI fields.
 - Every artifact mutation changes only the values that depend on that path.
 - Missing required data renders `UNKNOWN` or blocks the panel, never a clean/default value.
-- Data-mode deletion or mismatch fails schema/API/UI assertions.
+- Atomic mode or run `mode_set` deletion fails schema/API/UI assertions. Registered synthetic-plus-captured-replay composition passes; mock-plus-product and live-public-inside-replay compositions fail.
 - No outcome, metric, counter, badge, elapsed time, or threshold label derives from fixture name, URL route, timer, or preset.
 
 ## Protocol P5: Historical evidence replay and utility
@@ -134,10 +137,10 @@ Use every Field ID in `docs/demo/DERIVED_VALUE_REGISTRY.md`. For each result fie
 
 ### Gates and wording
 
-- The positive case must be detected under the frozen rule and both negative controls must complete without a fabricated material delta.
+- The positive case must produce a deterministic candidate receipt under the frozen exact-allele/scope/new-hash rule and both negative controls must complete without a fabricated candidate delta.
 - Lead time is reported for this case only. It is not generalized to all variants or laboratories.
 - If the case fails, report it and select no replacement after seeing the result unless a new protocol version records why. No cherry-picking.
-- RCL-205 remains open until the candidate-screening ledger and frozen source package exist.
+- RCL-205 is verified at frozen-source-package level under protocol 1.0.1: ten exact captures, corrected chronology/linkage, one exact XLSX row, clean-copy verification, mutated-byte rejection, and path-boundary rejection pass offline. Product replay and utility remain unverified until RCL-503, RCL-506, and RCL-801 execute this package.
 
 ## Protocol P6: Managed fleet proof
 
@@ -161,4 +164,4 @@ Rollback removes the failing optional component from the critical path, preserve
 
 ## Phase 2 exit status
 
-RCL-206 can be marked verified as a design gate after this protocol is linked from the canonical plan and ledgers and passes document audit. No empirical claim becomes verified until RCL-801 executes the frozen protocols. RCL-205 remains in progress until the historical case and controls are selected and frozen.
+RCL-206 is verified as a corrected design gate, and RCL-205 is verified at frozen-source-package level after protocol 1.0.1 passed offline integrity and chronology/linkage checks. This is not external follow-up approval, product replay evidence, or an empirical utility claim. No empirical claim becomes verified until RCL-801 executes the frozen protocols.

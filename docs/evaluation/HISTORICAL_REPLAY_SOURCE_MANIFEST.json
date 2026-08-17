@@ -1,13 +1,18 @@
 {
-  "manifest_version": "1.0.0",
-  "frozen_at": "2026-08-16T00:33:12+03:00",
-  "purpose": "RCL-205 historical replay selection package",
-  "claim_scope": "One bounded non-clinical historical case; no generalized clinical or lead-time claim",
-  "hash_methods": {
-    "web_response": "SHA-256 of LF-normalized UTF-8 response text",
-    "binary_file": "SHA-256 of exact downloaded bytes"
+  "manifest_version": "1.0.1",
+  "protocol_id": "RCL-205",
+  "frozen_at": "2026-08-16T23:19:30Z",
+  "capture_root": "artifacts/evidence/rcl-205",
+  "purpose": "Offline-verifiable historical replay package corrected under ADR-0008",
+  "claim_scope": "One bounded non-clinical historical case; no generalized clinical, causation, or lead-time claim",
+  "integrity": {
+    "algorithm": "SHA-256",
+    "hash_input": "Exact repository file bytes with no normalization",
+    "path_policy": "Every CAPTURED_REPLAY path is relative, resolves inside capture_root, and is committed with the manifest",
+    "expected_capture_count": 10,
+    "mutation_test_required": true,
+    "live_public_rule": "LIVE_PUBLIC sources have no frozen capture path or expected hash; each runtime observation hashes its own timestamped response"
   },
-  "semantic_anchor_rule": "ClinVar VCV accession.version is primary for record semantics; retrieval hashes identify fetched bytes and may drift for dynamic HTML",
   "positive_case": {
     "gene": "BRCA2",
     "transcript_hgvs": "NM_000059.4:c.7522G>C",
@@ -15,11 +20,24 @@
     "genomic_hgvs": "NC_000013.11:g.32356514G>C",
     "variation_id": "2895953",
     "vcv": "VCV002895953",
-    "qualifying_evidence_date": "2025-01-08",
+    "qualifying_publication_date": "2025-01-08",
     "later_evaluator_date": "2026-02-03",
     "later_public_classification_appearance": "2026-04-25",
     "derived_days_to_evaluator_date": 391,
     "derived_days_to_public_appearance": 472
+  },
+  "chronology": {
+    "geo_submission_date": "2023-11-22",
+    "geo_public_date": "2024-09-27",
+    "qualifying_publication_date": "2025-01-08",
+    "later_evaluator_date": "2026-02-03",
+    "clinvar_v4_update_date": "2026-04-13",
+    "later_public_clinvar_appearance": "2026-04-25",
+    "geo_last_update_date_as_captured": "2026-07-29",
+    "geo_current_linked_pmid_as_captured": "41957374",
+    "qualifying_nature_pmid": "39779848",
+    "publication_to_geo_linkage_rule": "Verify PMID 39779848 and DOI 10.1038/s41586-024-08349-1, then verify the Nature Data availability statement names GSE248438; do not require the GEO page current linked PMID to equal the qualifying PMID",
+    "exact_row_temporal_boundary": "The exact XLSX row is verified only as present in bytes captured at 2026-08-16T23:18:35Z. No claim is made that the same row-level file existed on the GEO public date."
   },
   "negative_controls": [
     {
@@ -27,7 +45,7 @@
       "transcript_hgvs": "NM_000059.4:c.425+3A>G",
       "variation_id": "495460",
       "vcv_version": "VCV000495460.24",
-      "negative_geometry": "outside exons 15-26; no exact source-row match"
+      "negative_geometry": "Outside exons 15-26; no exact source-row match"
     },
     {
       "gene": "BRCA2",
@@ -35,7 +53,7 @@
       "protein_hgvs": "NP_000050.2:p.Phe439Val",
       "variation_id": "51100",
       "vcv_version": "VCV000051100.33",
-      "negative_geometry": "exon 10, outside exons 15-26; no exact source-row match"
+      "negative_geometry": "Exon 10, outside exons 15-26; no exact source-row match"
     }
   ],
   "exact_functional_row": {
@@ -47,111 +65,171 @@
     "amino_acid_change": "G2508R",
     "transcript_hgvs": "NM_000059.4(BRCA2):c.7522G>C",
     "genomic_hgvs": "NC_000013.11:g.32356514G>C",
-    "classification": "Pathogenic Strong",
+    "source_classification": "Pathogenic Strong",
     "function_score": -1.44817784674576,
     "probability": 0.999500335148772,
-    "note": "Captured source value, not a Recall classification or threshold"
+    "status": "AS_CAPTURED_2026-08-16T23:18:35Z",
+    "temporal_limitation": "The captured workbook proves current row presence only; it does not prove row-level availability on 2024-09-27.",
+    "authority_limitation": "These are source values, not a Recall classification, threshold, or clinical decision."
   },
-  "sources": [
+  "captured_sources": [
     {
       "source_id": "clinvar_positive_v1",
-      "role": "historical VUS baseline",
+      "role": "Historical VUS baseline",
       "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.1/?report=printable",
-      "accession_version": "VCV002895953.1",
-      "response_characters": 128627,
-      "sha256": "86184f270b99baeb14e15b385584d607296d3aacab6dd275c19181afee6caa37",
-      "hash_method": "web_response"
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.1/?report=printable",
+      "semantic_anchor": "VCV002895953.1",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.1.printable.html",
+      "retrieved_at": "2026-08-16T23:18:21Z",
+      "bytes": 128637,
+      "sha256": "f26600a16912d4473a4dd9af2af2628fa8feb5be3d037e1da02b482824a034aa",
+      "media_type": "text/html",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
     },
     {
       "source_id": "clinvar_positive_v4",
-      "role": "post-publication aggregate VUS comparison",
+      "role": "Post-publication aggregate VUS comparison",
       "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.4/?report=printable",
-      "accession_version": "VCV002895953.4",
-      "response_characters": 129211,
-      "sha256": "2db0c78de612b851c969265476e925bebcccf87d37ae112106c0e36a72aab7e1",
-      "hash_method": "web_response"
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.4/?report=printable",
+      "semantic_anchor": "VCV002895953.4",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.4.printable.html",
+      "retrieved_at": "2026-08-16T23:18:23Z",
+      "bytes": 129221,
+      "sha256": "a7b670532215705d2106ce9ffdf252341468d3f0fe34dbe9134ddd3e8582ddf6",
+      "media_type": "text/html",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
     },
     {
       "source_id": "clinvar_positive_v5",
-      "role": "later conflicting aggregate with likely-pathogenic submission",
+      "role": "Later conflicting aggregate with likely-pathogenic submission",
       "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.5/?report=printable",
-      "accession_version": "VCV002895953.5",
-      "response_characters": 141971,
-      "sha256": "041fab881c7123c975c2ac49a3cee8f9e8a0cfda7178c603c0dcbe274d104ee6",
-      "hash_method": "web_response"
-    },
-    {
-      "source_id": "clinvar_positive_current_xml",
-      "role": "current live-public connector reference",
-      "data_mode": "LIVE_PUBLIC",
-      "locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=clinvar&id=2895953&rettype=vcv&is_variationid&retmode=xml",
-      "variation_id": "2895953",
-      "response_characters": 44700,
-      "sha256": "092efa48b48a802e80033b0de580579a3713072bc40b8fec7cf7545021c8b68d",
-      "hash_method": "web_response",
-      "note": "Reference hash only; later live smoke must label and timestamp its own response"
-    },
-    {
-      "source_id": "sahu_pubmed_xml",
-      "role": "qualifying publication metadata",
-      "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=39779848&retmode=xml",
-      "pmid": "39779848",
-      "doi": "10.1038/s41586-024-08349-1",
-      "response_characters": 31460,
-      "sha256": "4fd3cf85a8bfa2c95727a94078e06dd9401ad1b2ffa8f7bdad091e7b8d4e7136",
-      "hash_method": "web_response"
-    },
-    {
-      "source_id": "huang_pubmed_xml",
-      "role": "corroborating publication metadata",
-      "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=39779857&retmode=xml",
-      "pmid": "39779857",
-      "doi": "10.1038/s41586-024-08388-8",
-      "response_characters": 33484,
-      "sha256": "233cea71c74529c9d62c938330a1bdbdd48b9dd73d272eeb7a94064be4573446",
-      "hash_method": "web_response"
-    },
-    {
-      "source_id": "geo_gse248438_results_xlsx",
-      "role": "exact qualifying functional row",
-      "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE248438&file=GSE248438_SGE_BRCA2_results.xlsx&format=file",
-      "accession": "GSE248438",
-      "file_name": "GSE248438_SGE_BRCA2_results.xlsx",
-      "bytes": 570186,
-      "sha256": "91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f",
-      "hash_method": "binary_file"
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.5/?report=printable",
+      "semantic_anchor": "VCV002895953.5",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.5.printable.html",
+      "retrieved_at": "2026-08-16T23:18:25Z",
+      "bytes": 141981,
+      "sha256": "d8d4eb4b9ab0a6bd3be9d740a0fb4aebb5911a8384113e6a037728f0688b7fbc",
+      "media_type": "text/html",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
     },
     {
       "source_id": "clinvar_negative_splice",
-      "role": "negative control 1 anchor",
+      "role": "Negative control 1 anchor",
       "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000495460.24/?report=printable",
-      "accession_version": "VCV000495460.24",
-      "response_characters": 205292,
-      "sha256": "9d9654b02b254a7d617962c7ecc9f713f49b68e7d9c2b5e451af392a2c5b582d",
-      "hash_method": "web_response"
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000495460.24/?report=printable",
+      "semantic_anchor": "VCV000495460.24",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV000495460.24.printable.html",
+      "retrieved_at": "2026-08-16T23:18:27Z",
+      "bytes": 205303,
+      "sha256": "7c5122b67ff0808d9d0aa300a089b12160d100a8a3f59739c74bae837974889c",
+      "media_type": "text/html",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
     },
     {
       "source_id": "clinvar_negative_missense",
-      "role": "negative control 2 anchor",
+      "role": "Negative control 2 anchor",
       "data_mode": "CAPTURED_REPLAY",
-      "locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000051100.33/?report=printable",
-      "accession_version": "VCV000051100.33",
-      "response_characters": 203855,
-      "sha256": "c28c6866396ca6e98c3812af0863fe39a420ee7019061ce2807079b154d627ba",
-      "hash_method": "web_response"
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000051100.33/?report=printable",
+      "semantic_anchor": "VCV000051100.33",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV000051100.33.printable.html",
+      "retrieved_at": "2026-08-16T23:18:29Z",
+      "bytes": 203867,
+      "sha256": "1d413a022d63aa68bf87a314f4beb6ac2fbed73a86d888784c18e3af55f9033d",
+      "media_type": "text/html",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
+    },
+    {
+      "source_id": "sahu_pubmed_esummary",
+      "role": "Qualifying publication bibliographic metadata",
+      "data_mode": "CAPTURED_REPLAY",
+      "source_locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=39779848&retmode=json&tool=recall_hackathon",
+      "semantic_anchor": "PMID:39779848; DOI:10.1038/s41586-024-08349-1",
+      "capture_path": "artifacts/evidence/rcl-205/pubmed/PMID39779848.esummary.json",
+      "retrieved_at": "2026-08-16T23:18:30Z",
+      "bytes": 2238,
+      "sha256": "6d1d7058525d9ff55a9afe1f633078ea4f274050af9450301735f6346d313d17",
+      "media_type": "application/json",
+      "transformation": "NONE",
+      "redistribution_boundary": "Bibliographic ESummary metadata only; no abstract or full text"
+    },
+    {
+      "source_id": "huang_pubmed_esummary",
+      "role": "Corroborating publication bibliographic metadata",
+      "data_mode": "CAPTURED_REPLAY",
+      "source_locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=39779857&retmode=json&tool=recall_hackathon",
+      "semantic_anchor": "PMID:39779857; DOI:10.1038/s41586-024-08388-8",
+      "capture_path": "artifacts/evidence/rcl-205/pubmed/PMID39779857.esummary.json",
+      "retrieved_at": "2026-08-16T23:18:32Z",
+      "bytes": 3161,
+      "sha256": "8a801634768291cfe3feed575f8f827f819a4b80e481521e469b3a06aa31cf61",
+      "media_type": "application/json",
+      "transformation": "NONE",
+      "redistribution_boundary": "Bibliographic ESummary metadata only; no abstract or full text"
+    },
+    {
+      "source_id": "geo_gse248438_metadata",
+      "role": "GEO chronology, scope, contributor, and current linked-PMID metadata",
+      "data_mode": "CAPTURED_REPLAY",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE248438&targ=self&view=brief&form=text",
+      "semantic_anchor": "GSE248438",
+      "capture_path": "artifacts/evidence/rcl-205/geo/GSE248438.brief.soft.txt",
+      "retrieved_at": "2026-08-16T23:18:33Z",
+      "bytes": 15449,
+      "sha256": "0723093ee8ec72ab3277b113e7fb8d2219674928792771413794bf64a3b902ef",
+      "media_type": "text/plain",
+      "transformation": "NONE",
+      "redistribution_boundary": "Attributed public NCBI GEO metadata capture"
+    },
+    {
+      "source_id": "geo_gse248438_results_xlsx",
+      "role": "Exact qualifying functional row as captured",
+      "data_mode": "CAPTURED_REPLAY",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE248438&file=GSE248438_SGE_BRCA2_results.xlsx&format=file",
+      "semantic_anchor": "GSE248438; GSE248438_SGE_BRCA2_results.xlsx; Sheet 1",
+      "capture_path": "artifacts/evidence/rcl-205/geo/GSE248438_SGE_BRCA2_results.xlsx",
+      "retrieved_at": "2026-08-16T23:18:35Z",
+      "bytes": 570186,
+      "sha256": "91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f",
+      "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "transformation": "NONE",
+      "redistribution_boundary": "Public NCBI GEO deposit; exact file retained with accession and attribution"
+    },
+    {
+      "source_id": "nature_sahu_data_availability_linkage",
+      "role": "Minimal publication-to-GEO accession linkage evidence",
+      "data_mode": "CAPTURED_REPLAY",
+      "source_locator": "https://www.nature.com/articles/s41586-024-08349-1#data-availability",
+      "semantic_anchor": "PMID:39779848; DOI:10.1038/s41586-024-08349-1; GSE248438",
+      "capture_path": "artifacts/evidence/rcl-205/nature/PMID39779848.data-availability-linkage.json",
+      "retrieved_at": "2026-08-16T23:19:30Z",
+      "bytes": 826,
+      "sha256": "1c240bf22c987330d114ddf7c258d83d90b5d6a50781e3ee6f96833cae6d8fe1",
+      "media_type": "application/json",
+      "transformation": "A 15-word verbatim linkage excerpt was retained with tags removed; the remainder of the sentence and article were discarded",
+      "redistribution_boundary": "Short linkage excerpt only; no article, abstract, figure, table, or supplement"
+    }
+  ],
+  "live_public_sources": [
+    {
+      "source_id": "clinvar_positive_current_xml",
+      "role": "Current connector smoke reference only",
+      "data_mode": "LIVE_PUBLIC",
+      "source_locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=clinvar&id=2895953&rettype=vcv&is_variationid&retmode=xml",
+      "semantic_anchor": "Variation ID 2895953",
+      "capture_path": null,
+      "expected_sha256": null,
+      "integrity_rule": "Hash and timestamp each runtime response; never compare it with a CAPTURED_REPLAY hash"
     }
   ],
   "rights": {
-    "clinvar": "Public NCBI archive; attribute NCBI ClinVar and cite accession.version",
-    "geo": "Public NCBI GEO deposit; preserve accession, locator, and exact file hash",
-    "pubmed": "Bibliographic metadata only; do not redistribute third-party full text or abstract corpora without rights",
-    "nature": "DOI and publication metadata are locators; article and supplementary content are not redistributed"
+    "clinvar": "Public NCBI archive; preserve accession.version, NCBI attribution, and professional-review disclaimer",
+    "geo": "Public NCBI GEO deposit; preserve accession, locator, exact byte hash, and as-captured limitation",
+    "pubmed": "ESummary bibliographic metadata only; no abstract or full text is captured",
+    "nature": "Only a 15-word Data availability linkage excerpt and identifiers are retained; full article and supplementary content are not redistributed"
   }
 }

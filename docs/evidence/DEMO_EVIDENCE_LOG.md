@@ -6,10 +6,10 @@ Append evidence at the moment it is produced. Do not rely on recreating a transi
 |---|---|---|---|---|---|---|---|---|
 | DEMO-001 | TBD | Gemma catches a residual identifier and cloud payload stays clean | Bonus, Demo | Synthetic | TBD | TBD | planned | Metrics not established |
 | DEMO-002 | TBD | Coordinator discovers approved agent versions | Innovation, Architecture | Synthetic/replay | TBD | TBD | planned | Platform access unverified |
-| DEMO-003 | TBD | Historical evidence delta appears before classification change | Innovation | Captured public replay | `docs/evaluation/HISTORICAL_REPLAY_CASE.md`; execution TBD | TBD | planned | Case frozen; product route not executed |
+| DEMO-003 | 2026-08-17 | Historical evidence delta appears before classification change | Innovation | Captured public replay | Frozen source package and offline verifier; product execution TBD | `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md` | source package verified; demo planned | Ten captures, chronology, exact row, mutation rejection, and path rejection verified; product route not executed |
 | DEMO-004 | TBD | Auditor rejects a fake or mismatched citation | Architecture | Fault injection | TBD | TBD | planned | Auditor not implemented |
-| DEMO-005 | TBD | Incomplete audit produces `ABSTAIN` and no clinical task | Architecture, Demo | Fault injection | TBD | TBD | planned | Policy path absent |
-| DEMO-006 | TBD | Valid audited change creates exactly one clinician task | Demo | Synthetic/replay | TBD | TBD | planned | End-to-end path absent |
+| DEMO-005 | TBD | Actual failed/not-evaluated facts produce lexical reasons, `ABSTAIN`, preserved pending evidence, and no simulated task | Architecture, Demo | Fault injection | TBD | TBD | planned | Policy path absent |
+| DEMO-006 | TBD | Valid audited change creates exactly one simulated review task | Demo | Synthetic plus captured replay | TBD | TBD | planned | End-to-end path absent |
 | DEMO-007 | TBD | One durable WatchCase shows separately receipted Week 0, Week 3, and Week 6 scans | Innovation, Fleet, Demo | Synthetic plus captured replay | TBD | TBD | planned | Lifecycle and scheduler absent |
 | DEMO-008 | TBD | Poisoned or contradictory memory is rejected and Firestore remains authoritative | Architecture, Fleet | Fault injection | TBD | TBD | planned | Memory access and admission gate absent |
 | DEMO-009 | TBD | Untrusted source instruction is blocked or forces structured-only fallback/`ABSTAIN` | Architecture, Fleet | Fault injection | TBD | TBD | planned | Model Armor access and fallback absent |
@@ -21,7 +21,7 @@ Append evidence at the moment it is produced. Do not rely on recreating a transi
 
 - exact commit and deployed revision;
 - exact run ID;
-- data mode label;
+- atomic data modes, run `mode_set`, and declared composition;
 - source artifact hashes;
 - screen recording or screenshot path;
 - criterion supported;

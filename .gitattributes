@@ -9,3 +9,4 @@
 *.webp binary
 *.pdf binary
 *.mp4 binary
+artifacts/evidence/rcl-205/** binary -eol

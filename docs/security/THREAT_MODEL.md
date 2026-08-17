@@ -1,7 +1,8 @@
 # Recall Threat Model
 
-- Status: frozen design baseline
-- Date: 2026-08-16
+- Status: corrected design baseline; implementation not started
+- Date: 2026-08-17
+- Correction authority: ADR-0008
 - Scope: non-clinical hackathon deployment and future laboratory boundary
 - Related tasks: RCL-201, RCL-209, RCL-210
 
@@ -71,7 +72,7 @@ These denials are normative. A prompt instruction is not an enforcement mechanis
 | Scheduler | Request due scans | Schedule paused/closed cases or mutate evidence | Deny request and record scheduler reason |
 | Fleet Coordinator | Propose a typed route using approved catalog metadata | Invoke agents/tools, search evidence, write state, choose outcome | One schema repair, deterministic fallback, then policy-bound abstention path |
 | Evidence Watcher | Call allowlisted structured evidence connectors | Follow arbitrary URLs, interpret clinical meaning, suppress counter-evidence | Connector failure receipt and incomplete evidence state |
-| Evidence Assessor | Compare verified snapshots and propose a material delta | Classify, invent sources, create a task, write authoritative state | Invalid proposal is rejected; no downstream trust |
+| Evidence Assessor | Interpret a deterministic candidate receipt and propose relevance, material claims, uncertainty, and counter-evidence | Classify, invent sources, create a task, write authoritative state, suppress candidate routing, or select `NO_ACTION` | Invalid proposal is rejected; deterministic candidate path remains; no downstream trust |
 | Citation Auditor | Independently refetch and verify material claims and counter-evidence coverage | Trust assessor prose, alter assessment, policy, or task | Incomplete or failed audit blocks review eligibility |
 | Agent Registry | Publish and resolve catalog metadata | Grant workflow authority or override Controller validation | Pinned approved fallback only if policy permits; otherwise blocked |
 | Agent Identity | Authenticate one role | Mint broader permissions or impersonate another role | Denial is final; no credential escalation |
@@ -92,17 +93,17 @@ These denials are normative. A prompt instruction is not an enforcement mechanis
 | TM-01 | Raw identifier or free text leaves the laboratory | Critical confidentiality breach | Local-only minimization, deterministic detectors, span-only Gemma, deterministic redaction, outbound scan | Seeded identifier activation receipt and proof of zero cloud event | Any uncertainty quarantines |
 | TM-02 | Pseudonyms remain linkable across unauthorized scopes | High re-identification risk | Tenant/case scoped tokens, separate token vault, no token map in cloud | Cross-scope fixture and field audit | Future lab deployment requires formal privacy review |
 | TM-03 | Prompt injection in public-source content expands tool authority | Critical arbitrary action | Structured connectors, content/data separation, Model Armor where available, Gateway allowlists | Hostile-source fixture, denied tool receipt, zero unapproved invocation | Structured-only fallback or abstention |
-| TM-04 | Agent fabricates or mismatches a citation | Critical false prioritization | Independent auditor refetches identifiers and metadata | Fake ID, wrong title, unsupported claim fixtures | All material claims must verify |
+| TM-04 | Agent fabricates or mismatches a citation | Critical false prioritization | Independent auditor refetches identifiers and metadata; any rejected material claim fails the current assessment | Fake ID, wrong title, unsupported claim fixtures; exact `material_claim_unverified` reason; zero tasks | All material claims in one immutable assessment must verify |
 | TM-05 | Material counter-evidence is omitted | High biased result | Required counter-evidence set and completeness assertion | Omission fixture and audit-incomplete reason | No review task |
 | TM-06 | Coordinator invokes an unapproved agent or revision | High authority bypass | Controller-only invocation and exact manifest digest validation | Forbidden version fixture and zero runtime call | Approved pinned fallback or abstention |
 | TM-07 | Agent writes workflow state or creates a task directly | Critical authority violation | Separate IAM, Ledger schema, Controller-only transitions and outbox | Denied write/read-back tests | No alternate credential path |
 | TM-08 | Duplicate delivery creates duplicate run/task | High operational harm | Inbox idempotency key, unique run key, transactional outbox | Repeated-delivery test and authoritative count | Existing object returned |
 | TM-09 | Retry or agent loop exhausts resources | High availability/cost risk | Hop, retry, token, deadline, and repeated-state-hash budgets | Fault fixture with activation counter and terminal receipt | Policy abstention if reachable; otherwise `HALTED` |
 | TM-10 | Stale worker overwrites a newer snapshot | Critical integrity loss | Lease epoch, expected-version CAS, immutable artifacts | Crash/resume and stale-write fixtures | Stale write rejected |
-| TM-11 | Poisoned, stale, or cross-scope memory changes policy | Critical hidden authority | Admission allowlist, provenance, TTL, scope, contradiction checks; memory excluded from policy inputs | Poisoning fixtures and memory-on/off policy parity | Memory rejected or ignored |
+| TM-11 | Poisoned, stale, or cross-scope memory changes policy | Critical hidden authority | Admission allowlist, provenance, TTL, scope, contradiction checks; rejected memory ignored before policy projection; memory excluded from policy inputs | Rejection receipt plus byte-identical PolicyDecision reasons/outcome and zero task-count delta with memory enabled/disabled | Memory rejected or ignored; unavailable authoritative facts remain independently `NOT_EVALUATED` |
 | TM-12 | Missing data is displayed as clean | Critical false reassurance | Required-field schema and explicit completeness enum | Field-removal mutation test | Render `UNKNOWN` or block outcome |
 | TM-13 | UI result is hard-coded or fixture-mapped | High demo and product integrity failure | Derived-value registry and backend artifact paths only | Mutate artifact without renaming fixture; UI must change | Build fails on unregistered result field |
-| TM-14 | Replay or mock is presented as live | High misleading claim | Required `data_mode` in artifact/API/view envelope | Mode deletion/mismatch tests and screenshot audit | Unlabeled content cannot enter demo build |
+| TM-14 | Replay, synthetic, live, or mock provenance is collapsed or mislabeled | High misleading claim | Atomic artifact mode plus deterministic run `mode_set` and registered composition | Accept synthetic plus captured replay; reject mock plus product evidence and live-public injection into replay; screenshot audit | Unlabeled or disallowed composition cannot enter demo build |
 | TM-15 | Telemetry captures raw text, secrets, or chain-of-thought | High disclosure | Sanitized event schema, allowlist logging, no prompt/body export | Trace field audit and secret scan | Disable unsafe exporter |
 | TM-16 | Registry, Gateway, Identity, Memory, Armor, or Runtime outage silently widens access | Critical fail-open | Per-component unavailable contract | Outage fixture and typed degraded receipt | No unrecorded bypass |
 | TM-17 | Artifact content or provenance is tampered with | Critical audit failure | Canonical serialization, content hash, producer identity, input hashes | Tamper fixture and hash-chain verification | Reject artifact and halt affected run |
@@ -116,14 +117,16 @@ A threat is not controlled merely because a safe final state appears. Each test 
 
 1. Seed one identifier after the first privacy pass, observe the residual detector or outbound scanner activate, and prove no cloud intake event exists.
 2. Request a forbidden tool with the Watcher identity, observe authorization denial, and prove no alternate endpoint or identity was used.
-3. Supply a mismatched citation and omitted counter-evidence, observe independent audit failure, and prove zero `ReviewTask` records.
+3. Supply one mismatched material citation among verified claims and omitted counter-evidence, observe independent audit failure, exact lexical reasons, and zero `ReviewTask` records. The current assessment cannot recover by dropping the rejected claim.
 4. Deliver the same event repeatedly, observe one idempotency record, one run, and at most one task.
 5. Repeat one state hash until the configured limit, observe `loop_detected`, and prove no further model/tool call.
 6. Attempt stale CAS and expired-lease writes, observe rejection, and read back the unchanged authoritative version.
-7. Admit poisoned and cross-tenant memory, observe rejection, and prove identical policy output with Memory Bank enabled and disabled.
+7. Admit poisoned and cross-tenant memory, observe rejection, and prove byte-identical policy output and zero task-count delta with Memory Bank enabled and disabled.
 8. Remove a required UI source field and change an artifact value without renaming the fixture; the view must show `UNKNOWN` or fail and must update only from the artifact.
-9. Remove or alter `data_mode`; schema, API, and demo-build assertions must fail.
+9. Remove an atomic mode or run-level `mode_set`; schema, API, and demo-build assertions must fail. The registered synthetic-plus-replay composition must pass, while disallowed mixed compositions fail.
 10. Make each managed component unavailable; the configured failure contract must run without expanded access.
+11. Present a deterministic candidate and an Assessor dismissal proposal; prove the candidate still reaches Auditor and cannot become `NO_ACTION`.
+12. Produce `ABSTAIN` and `HALTED`; prove verified cursors do not advance and the pending observation is visible after recovery.
 
 ## Review triggers
 

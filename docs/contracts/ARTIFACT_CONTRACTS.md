@@ -1,8 +1,9 @@
 # Recall Artifact Contracts
 
-- Status: frozen design baseline
-- Date: 2026-08-16
+- Status: corrected design baseline; implementation not started
+- Date: 2026-08-17
 - Related tasks: RCL-202, RCL-209, RCL-210
+- Correction authority: ADR-0008
 
 ## Normative rules
 
@@ -38,12 +39,26 @@
 
 Each warning has exactly `code`, `message_key`, and `related_artifact_ids`. Free-form sensitive text is prohibited.
 
+## Corrected payload contract versions
+
+The common envelope remains version `1.0.0`. ADR-0008 changes several payload meanings before implementation, so their contract versions follow the major-version rule instead of silently retaining the earlier draft version:
+
+| Contract | Version | Reason |
+|---|---|---|
+| `CandidateDeltaReceipt` | `1.0.0` | New deterministic candidate-routing artifact |
+| `WatchCase` | `2.0.0` | Adds pending observations and typed attention state |
+| `EvidenceDelta` | `2.0.0` | Requires deterministic candidate receipt linkage |
+| `DataModeReceipt` | `2.0.0` | Replaces scalar mode fields with mode set and composition |
+| `PolicyDecision` | `2.0.0` | Replaces Boolean facts with evaluated-state enums and removes memory fact |
+
+All unchanged payload contracts remain at `1.0.0` until an executable schema records a later compatible revision.
+
 ## Contract catalog
 
 | Contract | Required payload fields | Authoritative producer | Consumers | Forbidden content or authority |
 |---|---|---|---|---|
 | `PrivacyReceipt` | `decision`, `detector_versions`, `identifier_classes_checked`, `detectors`, `outbound`, `payload_hash`, `signature_ref` | Local Privacy Gate | Intake, UI | Raw/redacted values, token map, proof that data is clinically anonymous |
-| `WatchCase` | `tenant_id`, `region`, `state`, `monitoring_started_at`, `monitoring_policy`, `next_scan_at`, `source_cursors`, `last_verified_snapshot_id`, `last_verified_scan`, `open_review_task_id`, `retention_policy` | Controller through Ledger | Scheduler, Controller, UI | Identity, model prose, clinical classification |
+| `WatchCase` | `tenant_id`, `region`, `state`, `monitoring_started_at`, `monitoring_policy`, `next_scan_at`, `source_cursors`, `last_verified_snapshot_id`, `last_verified_scan`, `pending_observation_hashes`, `attention_marker`, `open_review_task_id`, `retention_policy` | Controller through Ledger | Scheduler, Controller, UI | Identity, model prose, clinical classification |
 | `ScanRun` | `watch_case_id`, `state`, `scheduled_for`, `attempt`, `lease_epoch`, `deadline_at`, `budget_snapshot`, `idempotency_key`, `trace_id`, `terminal_policy_decision_id`, `failure_receipt_ids` | Controller through Ledger | Controller, Policy, UI | Agent-written transition, hidden retries |
 | `ScanRunEvent` | `event_id`, `sequence`, `from_state`, `to_state`, `event_code`, `agent_id`, `lease_epoch` | Controller through Ledger | Controller, UI, evaluation | Model-authored state transition |
 | `RoutingPlan` | `requested_capabilities`, `proposed_bindings`, `route_order`, `validation_status`, `rationale_codes` | Fleet Coordinator | Controller | Endpoint credentials, arbitrary URL, direct invocation command, outcome |
@@ -51,12 +66,13 @@ Each warning has exactly `code`, `message_key`, and `related_artifact_ids`. Free
 | `ToolAuthorizationReceipt` | `agent_role`, `tool_id`, `requested_action`, `decision`, `policy_version`, `reason_codes`, `invocation_id` | Gateway or Controller authorizer | Controller, Auditor, UI | Secret token, alternate credential instructions |
 | `EvidenceObservation` | `source`, `source_record_id`, `retrieved_at`, `source_version`, `source_locator`, `source_content_hash`, `structured_fields`, `retrieval_status` | Evidence connector | Watcher, Ledger | Raw hostile instructions as executable text, unsupported interpretation |
 | `EvidenceSnapshot` | `effective_at`, `observation_ids`, `coverage_status`, `source_cursors`, `normalized_facts`, `conflicts`, `snapshot_hash` | Evidence Watcher | Assessor, Policy completeness, UI | Classification or review recommendation |
-| `EvidenceDelta` | `previous_snapshot_id`, `current_snapshot_id`, `added_observation_refs`, `removed_observation_refs`, `change_items`, `comparison`, `materiality_proposal`, `uncertainties`, `counter_evidence_refs` | Evidence Assessor | Auditor, Policy, UI | Final clinical class, unreferenced claim |
+| `CandidateDeltaReceipt` | `previous_snapshot_id`, `current_snapshot_id`, `exact_allele_match`, `scope_match`, `snapshot_complete`, `new_observation_hashes`, `candidate_delta_state`, `reason_codes` | Deterministic Evidence Normalizer | Controller, Assessor, Policy, UI | Agent proposal, clinical interpretation, model materiality decision |
+| `EvidenceDelta` | `candidate_receipt_id`, `previous_snapshot_id`, `current_snapshot_id`, `added_observation_refs`, `removed_observation_refs`, `change_items`, `comparison`, `materiality_proposal`, `uncertainties`, `counter_evidence_refs` | Evidence Assessor | Auditor, Policy, UI | Final clinical class, unreferenced claim, candidate-path suppression |
 | `AssessmentReceipt` | `delta_id`, `material_claims`, `counter_evidence_set`, `uncertainty_codes`, `schema_validation_status` | Evidence Assessor | Auditor | Policy outcome, task request |
 | `CitationAuditReceipt` | `assessment_id`, `audit_status`, `claim_verdicts`, `metadata_refetches`, `counter_evidence_coverage`, `audit_completeness`, `rejected_claim_ids` | Citation Auditor | Policy, UI | Trust based solely on assessor text, task creation |
 | `MemoryAdmissionReceipt` | `memory_candidate_hash`, `scope`, `topic`, `source_refs`, `expires_at`, `decision`, `reason_codes` | MemoryAdmissionGate | Memory adapter, UI | Identity, classification, policy outcome, unsupported evidence |
 | `MemoryRetrievalReceipt` | `query_hash`, `scope`, `returned_memory_refs`, `expiry_check`, `contradiction_check`, `decision`, `reason_codes` | Memory retrieval gate | Agent adapter, UI | Memory body in telemetry, evidence-complete assertion |
-| `DataModeReceipt` | `subject_artifact_ids`, `declared_mode`, `source_mode`, `propagation_status`, `reason_codes` | Deterministic mode gate | API, UI, release audit | Silent mode conversion |
+| `DataModeReceipt` | `subject_artifact_ids`, `mode_set`, `declared_composition`, `propagation_status`, `reason_codes` | Deterministic mode gate | API, UI, Policy completeness, release audit | Silent mode conversion, scalar trust ordering |
 | `PolicyDecision` | `policy_version`, `input_facts`, `outcome`, `reason_codes`, `missing_prerequisites`, `review_trigger`, `existing_task_id` | Deterministic Policy Gate | Controller, Ledger, UI | Model prose as input, notification side effect |
 | `ReviewTask` | `watch_case_id`, `trigger_decision_id`, `state`, `priority_band`, `claim_ids`, `audit_receipt_id`, `simulation`, `deduplication_key` | Controller transactional outbox | Reviewer UI | Patient contact, autonomous clinical action, unlabeled real task |
 | `HumanDecisionReceipt` | `review_task_id`, `actor_role`, `action`, `reason_code`, `decided_at` | Authenticated reviewer workflow | Controller, Ledger | Agent identity as reviewer, free-text patient content |
@@ -77,10 +93,15 @@ The catalog field names above are not open objects. These nested structures are 
 | `PrivacyReceipt.detectors.gemma` | `version`, `invoked`, `schema_valid`, `approved_residual_spans` with the same span shape; no raw span text |
 | `PrivacyReceipt.outbound` | `scan_status`, `allowed_field_paths`, `raw_text_field_count` |
 | `WatchCase.last_verified_scan` | `run_id`, `completed_at`; both null together when no verified scan exists |
+| `WatchCase.pending_observation_hashes` | Sorted unique array of unverified observation hashes; empty is valid only after an explicit verified transition cleared the backlog |
+| `WatchCase.attention_marker` | Null or exactly `reason_codes`, `first_seen_at`, `last_seen_at`, `related_run_ids`, `operator_action_required`; null only when no unresolved attention exists |
 | `ScanRun.budget_snapshot` | `delegation_depth`, `specialist_invocations`, `model_calls_per_role`, `schema_repairs`, `agent_retries`, `connector_retries`, `repeated_state_limit`, `wall_time_seconds`, `step_deadlines`, `token_ceilings` |
 | `RegistryResolutionReceipt.bindings[]` | `capability`, `agent_id`, `role`, `revision`, `manifest_digest`, `binding_id`, `region`, `validation_status` |
+| `CandidateDeltaReceipt.new_observation_hashes` | Sorted unique array; non-empty when `candidate_delta_state = PRESENT`, empty only when complete comparison proves `ABSENT`, and retained with failure reasons when determination is `UNKNOWN` |
 | `EvidenceDelta.comparison` | `classification_changed`, `classification_source_refs`; missing comparison evidence is not false |
 | `CitationAuditReceipt.claim_verdicts[]` | `claim_id`, `verdict`, `reason_codes`, `refetched_source` where source contains `identifier`, `title`, `locator`, `content_hash` |
+| `DataModeReceipt.mode_set` | Sorted unique non-empty array containing only `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` from the transitive input closure |
+| `DataModeReceipt.declared_composition` | `SYNTHETIC_ONLY`, `CAPTURED_REPLAY_ONLY`, `LIVE_PUBLIC_ONLY`, `MOCK_ONLY`, or `SYNTHETIC_WITH_CAPTURED_REPLAY`; exact deterministic projection from `mode_set` |
 | `FailureReceipt.details` | Registered failure-code-specific object; `loop_detected` permits only `hop_count` and `repeated_state_hash` |
 | `DeploymentReceipt.runtime` | `service`, `revision`, `region`, `resource_name`, `read_back_at` |
 
@@ -88,7 +109,9 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
 
 ## Policy input fact schema
 
-`PolicyDecision.input_facts` is the only policy payload. It contains booleans and closed enums computed from validated artifacts, never agent prose:
+`PolicyDecision.input_facts` is the only policy payload. It contains closed evaluated states computed from validated authoritative artifacts, never agent prose or memory state.
+
+`FactState` fields allow only `PASS`, `FAIL`, or `NOT_EVALUATED`:
 
 - `privacy_accepted`
 - `registry_resolution_valid`
@@ -98,15 +121,19 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
 - `source_schema_valid`
 - `data_mode_valid`
 - `snapshot_integrity_valid`
-- `material_delta_present`
 - `assessment_valid`
 - `citation_audit_complete`
 - `all_material_claims_verified`
 - `counter_evidence_complete`
-- `unresolved_conflict_present`
-- `budget_or_loop_failure`
-- `memory_authority_conflict`
-- `existing_open_task_present`
+
+`PresenceState` fields allow only `PRESENT`, `ABSENT`, or `UNKNOWN`:
+
+- `candidate_delta_state`
+- `unresolved_conflict_state`
+- `budget_or_loop_failure_state`
+- `existing_open_task_state`
+
+`candidate_delta_state` is projected only from a valid `CandidateDeltaReceipt`. `EvidenceDelta.materiality_proposal` is non-authoritative and cannot change it. Memory receipts and memory-conflict state are forbidden policy fields.
 
 ## Unknown-field and compatibility behavior
 
@@ -119,7 +146,8 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
 | Empty value where completeness is required | Mark `INCOMPLETE` or reject, never infer clean |
 | Invalid hash or input reference | Reject with `artifact_integrity_failed` |
 | Producer identity not authorized for contract | Reject with `producer_not_authorized` |
-| Data-mode mismatch across inputs | Reject with `data_mode_conflict` |
+| Input modes form an allowed registered composition | Accept and record the exact sorted `mode_set` and `declared_composition` |
+| Input modes form an unregistered composition, including `MOCK` plus product evidence or `LIVE_PUBLIC` inside a captured replay timeline | Reject with `data_mode_conflict` |
 
 ## Valid examples
 
@@ -130,7 +158,7 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
   "artifact_id": "cbb18422-a25c-4dc1-bc41-0dcb45e025a5",
   "case_id": "2bddc33c-25a8-4578-93d3-e286837e718d",
   "run_id": "f0fd6a3e-5897-4894-b5f6-d3ec18be1823",
-  "producer": {"component": "tool-authorizer", "version": "0.1.0", "identity": "watcher-runtime"},
+  "producer": {"component": "tool-authorizer", "version": "0.1.0", "identity": "gateway-authorizer"},
   "created_at": "2026-08-16T09:00:00Z",
   "input_artifact_ids": [],
   "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -142,7 +170,7 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
   "tool_id": "unregistered-browser",
   "requested_action": "open_arbitrary_url",
   "decision": "DENIED",
-  "policy_version": "1.0.0",
+  "policy_version": "1.0.1",
   "reason_codes": ["tool_not_allowlisted"],
   "invocation_id": "fdc016c8-21c3-4e59-95de-5ca8710796e1"
 }
@@ -151,11 +179,11 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
 ```json
 {
   "schema_name": "PolicyDecision",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "artifact_id": "0a651403-8226-4072-9240-344542b0c5fb",
   "case_id": "2bddc33c-25a8-4578-93d3-e286837e718d",
   "run_id": "f0fd6a3e-5897-4894-b5f6-d3ec18be1823",
-  "producer": {"component": "policy-gate", "version": "1.0.0", "identity": "policy-service"},
+  "producer": {"component": "policy-gate", "version": "1.0.1", "identity": "policy-service"},
   "created_at": "2026-08-16T09:01:00Z",
   "input_artifact_ids": ["cbb18422-a25c-4dc1-bc41-0dcb45e025a5"],
   "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -163,29 +191,28 @@ Fields marked nullable in the eventual machine schema still remain present. `nul
   "status": "VALID",
   "warnings": [],
   "extensions": {},
-  "policy_version": "1.0.0",
+  "policy_version": "1.0.1",
   "input_facts": {
-    "privacy_accepted": true,
-    "registry_resolution_valid": true,
-    "route_valid": true,
-    "tool_authorization_complete": false,
-    "source_retrieval_complete": true,
-    "source_schema_valid": true,
-    "data_mode_valid": true,
-    "snapshot_integrity_valid": true,
-    "material_delta_present": true,
-    "assessment_valid": true,
-    "citation_audit_complete": false,
-    "all_material_claims_verified": false,
-    "counter_evidence_complete": false,
-    "unresolved_conflict_present": true,
-    "budget_or_loop_failure": false,
-    "memory_authority_conflict": false,
-    "existing_open_task_present": false
+    "privacy_accepted": "PASS",
+    "registry_resolution_valid": "PASS",
+    "route_valid": "PASS",
+    "tool_authorization_complete": "FAIL",
+    "source_retrieval_complete": "PASS",
+    "source_schema_valid": "PASS",
+    "data_mode_valid": "PASS",
+    "snapshot_integrity_valid": "PASS",
+    "candidate_delta_state": "PRESENT",
+    "assessment_valid": "PASS",
+    "citation_audit_complete": "NOT_EVALUATED",
+    "all_material_claims_verified": "NOT_EVALUATED",
+    "counter_evidence_complete": "NOT_EVALUATED",
+    "unresolved_conflict_state": "PRESENT",
+    "budget_or_loop_failure_state": "ABSENT",
+    "existing_open_task_state": "UNKNOWN"
   },
   "outcome": "ABSTAIN",
-  "reason_codes": ["citation_audit_incomplete", "tool_authorization_incomplete"],
-  "missing_prerequisites": ["citation_audit_complete", "tool_authorization_complete"],
+  "reason_codes": ["citation_audit_not_evaluated", "counter_evidence_not_evaluated", "material_claims_not_evaluated", "tool_authorization_incomplete", "unresolved_evidence_conflict"],
+  "missing_prerequisites": ["all_material_claims_verified", "citation_audit_complete", "counter_evidence_complete", "tool_authorization_complete"],
   "review_trigger": false,
   "existing_task_id": null
 }

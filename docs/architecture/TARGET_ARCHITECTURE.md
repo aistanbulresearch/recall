@@ -1,8 +1,10 @@
 # Recall Target Architecture
 
-- Status: accepted design baseline
-- Updated: 2026-08-16
-- Related ADRs: `ADR-0001` through `ADR-0007`
+- Status: corrected design baseline; implementation not started
+- Date: 2026-08-17
+- Correction authority: ADR-0008
+- Updated: 2026-08-17
+- Related ADRs: `ADR-0001` through `ADR-0008`
 
 ## Product boundary
 
@@ -73,14 +75,16 @@ flowchart LR
         J --> K["Short ADK scan graph"]
         K --> L["Fleet Coordinator"]
         K --> M["Evidence Watcher"]
-        K --> N["Evidence Assessor"]
+        M --> CDR["Deterministic candidate normalizer"]
+        CDR --> N["Evidence Assessor"]
         K --> O["Citation Auditor"]
         L --> R["Agent Registry"]
         M --> P["Ledger API"]
         N --> P
         O --> P
         P --> S["Firestore Evidence Ledger"]
-        J --> T["Deterministic Policy Gate"]
+        CDR --> T["Deterministic Policy Gate"]
+        J --> T
         T -->|NO_ACTION| S
         T -->|ABSTAIN| U["Failure or operations receipt"]
         T -->|REVIEW_REQUIRED| V["Simulated clinician review task"]
@@ -101,7 +105,7 @@ The diagram shows the target managed path. Phase 1 smoke tests must confirm each
 |---|---|---|
 | Fleet Coordinator | Query approved Registry metadata and propose a typed bounded route | Search evidence, interpret clinical meaning, write state, invoke arbitrary endpoints, or decide outcome |
 | Evidence Watcher | Use allowlisted evidence connectors and create observations/snapshots | Assign clinical criteria, suppress counter-evidence, notify, or follow arbitrary URLs |
-| Evidence Assessor | Compare snapshots and propose an evidence delta with uncertainty and counter-evidence | Access identity, invent citations, classify, or request clinician review |
+| Evidence Assessor | Interpret a deterministic candidate receipt and propose an evidence delta with uncertainty and counter-evidence | Access identity, invent citations, classify, request clinician review, suppress the candidate route, or select `NO_ACTION` |
 | Citation Auditor | Independently refetch metadata and verify every material claim/source relationship | Treat assessor prose as proof, change policy, or create a review task |
 
 The deterministic Controller, not the Coordinator, invokes the Registry-resolved resource and records the selected version.
@@ -133,6 +137,7 @@ Remote A2A is optional and preview-gated. Registry-resolved Controller invocatio
 - `ToolAuthorizationReceipt`
 - `EvidenceObservation`
 - `EvidenceSnapshot`
+- `CandidateDeltaReceipt`
 - `EvidenceDelta`
 - `AssessmentReceipt`
 - `CitationAuditReceipt`
@@ -155,11 +160,13 @@ All contracts are versioned, reject unknown fields, and contain the common prove
 
 ### WatchCase lifecycle
 
-`WatchCase` is the weeks-long institutional object. It contains the monitoring policy, `next_scan_at`, source cursors, last verified snapshot reference, tenant, region, retention policy, and any open review-task reference.
+`WatchCase` is the weeks-long institutional object. It contains the monitoring policy, `next_scan_at`, verified source cursors, last verified snapshot reference, pending observation hashes, an attention marker, tenant, region, retention policy, and any open review-task reference.
 
 ```text
 ACTIVE <-> PAUSED
 ACTIVE -> AWAITING_HUMAN
+ACTIVE -> ATTENTION_REQUIRED
+ATTENTION_REQUIRED -> ACTIVE | CLOSED
 AWAITING_HUMAN -> ACTIVE | CLOSED
 PAUSED -> CLOSED
 ```
@@ -172,13 +179,13 @@ Each cloud `ScanRun` is created only after a valid accepted `PrivacyReceipt`. Pr
 
 ```text
 CREATED -> QUEUED -> ROUTING -> WATCHING
-WATCHING -> POLICY_EVALUATION                         (complete no-change snapshot)
-WATCHING -> ASSESSING -> AUDITING -> POLICY_EVALUATION  (candidate change)
+WATCHING -> POLICY_EVALUATION                         (deterministic candidate ABSENT or UNKNOWN)
+WATCHING -> ASSESSING -> AUDITING -> POLICY_EVALUATION  (deterministic candidate PRESENT)
 POLICY_EVALUATION -> NO_ACTION | ABSTAIN | REVIEW_REQUIRED
 Any nonterminal state -> HALTED                       (trusted policy execution or ledger integrity impossible)
 ```
 
-`NO_CHANGE_FOUND` is an evidence fact, not a state. It still enters `POLICY_EVALUATION` so only Policy Gate can emit `NO_ACTION`. `HALTED` is a technical Controller terminal, not a policy outcome, and never creates a task. See `ADR-0007` and `docs/contracts/LIFECYCLE_STATE_MACHINES.md`.
+`CandidateDeltaReceipt` is produced by the deterministic Evidence Normalizer from exact allele, declared scope, snapshot completeness, and observation-hash novelty. Assessor output cannot alter the candidate state. `NO_CHANGE_FOUND` is an evidence fact, not a state. It still enters `POLICY_EVALUATION` so only Policy Gate can emit `NO_ACTION`. `HALTED` is a technical Controller terminal, not a policy outcome, and never creates a task. See ADR-0007, ADR-0008, and `docs/contracts/LIFECYCLE_STATE_MACHINES.md`.
 
 ### ReviewTask lifecycle
 
@@ -203,11 +210,11 @@ A deterministic `MemoryAdmissionGate` enforces:
 - contradiction checks against authoritative ledger facts;
 - explicit rejection of proposed classifications, policy outcomes, patient identity, and unsupported evidence claims.
 
-Memory retrieval always creates a receipt. A retrieved memory can influence an agent proposal but cannot satisfy evidence completeness, citation verification, policy, or state-transition requirements.
+Memory retrieval always creates a receipt. A retrieved memory can influence an agent proposal but cannot satisfy evidence completeness, citation verification, policy, or state-transition requirements. Rejected or conflicting memory is ignored before policy projection; memory state is absent from PolicyDecision inputs. If an authoritative fact remains unavailable, that fact is `NOT_EVALUATED` on its own terms.
 
 ## Data modes
 
-Every connector result, artifact, API response, UI view, screenshot, and metric must carry one of these modes:
+Every source artifact must carry one atomic mode:
 
 | Mode | Meaning | Permitted claim |
 |---|---|---|
@@ -216,7 +223,9 @@ Every connector result, artifact, API response, UI view, screenshot, and metric 
 | `LIVE_PUBLIC` | Current query to an approved public source | Current connector behavior at the recorded time |
 | `MOCK` | Interface substitute used only in tests | No production or live-data claim |
 
-Real patient data is prohibited. The target demo combines synthetic institutional watch records with source-attributed public evidence. No synthetic dataset is described as production data.
+Every run and result surface also carries a deterministic `DataModeReceipt` with a sorted transitive `mode_set` and closed `declared_composition`. The allowed core composition is `SYNTHETIC_WITH_CAPTURED_REPLAY`. Modes are provenance classes, not a scalar ordering. `MOCK` mixed with product evidence and `LIVE_PUBLIC` inserted into a captured replay timeline are invalid.
+
+Real patient data is prohibited. The target demo combines synthetic institutional watch records with source-attributed public evidence and displays both provenance classes. No synthetic dataset is described as production data.
 
 ## Hard execution limits
 
@@ -240,16 +249,18 @@ Real patient data is prohibited. The target demo combines synthetic institutiona
 | Invalid or forbidden route | Reject, one repair, deterministic fallback, then `ABSTAIN` |
 | Source unavailable or schema drift | `ABSTAIN` plus operations receipt |
 | Invalid agent artifact | One repair, then `ABSTAIN` |
-| Fabricated or mismatched citation | Remove/flag; continue only if all remaining material claims verify |
+| Fabricated or mismatched material citation | Current assessment becomes ineligible; `all_material_claims_verified = FAIL`; `ABSTAIN`; continuing requires a new immutable assessment and complete new audit |
 | Omitted counter-evidence or incomplete audit | `ABSTAIN`; no clinician task |
 | Worker loop or budget exhaustion | `ABSTAIN`; no clinician task |
-| Duplicate delivery | Existing run returned; no duplicate task |
+| Duplicate delivery or open matching task | Existing object returned; no duplicate task; no cursor advance beyond the existing verified decision snapshot |
 | Notification failure | Outbox retry without repeating policy evaluation |
 | Registry unavailable or selected revision fails validation | Use only a pre-approved pinned fallback when policy permits; otherwise `ABSTAIN` |
-| Memory poisoning, stale memory, or authority conflict | Reject memory, record receipt, continue from Firestore or `ABSTAIN` if required context is unavailable |
+| Memory poisoning, stale memory, or authority conflict | Reject or ignore memory and record receipt; continue from authoritative artifacts; any unavailable required fact becomes its own `NOT_EVALUATED` policy fact |
 | Model Armor unavailable | Do not silently pass untrusted free text; use a preregistered local deterministic restriction or `ABSTAIN` |
 | Identity or Gateway denial | Record denial; no alternate credential or endpoint escalation |
 | Policy Gate unavailable or ledger integrity failure | Technical `HALTED`; zero fabricated PolicyDecision and zero task |
+| Policy `ABSTAIN` | Preserve verified cursors and snapshot; retain pending observation hashes; set attention and bounded retry; zero task |
+| Technical `HALTED` | Preserve verified cursors and pending hashes; enter attention-required behavior; no automatic schedule until explicit recovery |
 
 ## Web product surfaces
 

@@ -75,7 +75,9 @@ Do not claim that longitudinal monitoring is new. The defensible distinction is:
 - Every safety claim has positive, negative, and guardrail-activation proof.
 - ADK Sessions and Memory Bank are non-authoritative and cannot satisfy evidence, audit, policy, or state-transition prerequisites.
 - Multi-week continuity is represented by a durable `WatchCase`; each `ScanRun` is short, bounded, idempotent, and independently auditable.
-- Every artifact and product surface declares `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` data mode.
+- A deterministic `CandidateDeltaReceipt`, not an Assessor proposal, selects the candidate versus no-candidate route.
+- Unsafe terminals preserve verified cursors and pending observation hashes; no missing evidence is consumed as seen.
+- Every source artifact declares one atomic mode, and every run/product surface declares its transitive `mode_set` plus registered composition.
 
 ## 4. Delivery strategy
 
@@ -149,18 +151,18 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
 | RCL-201 | Review and approve trust zones, authority hierarchy, four agent roles, and managed control-plane boundaries | verified design | Threat model, authority graph, component denied-action matrix, and activation-proof requirements frozen |
-| RCL-202 | Define strict versioned contracts and common provenance envelope | verified design | Strict envelope, catalog, unknown-field/version behavior, and examples frozen; executable schemas remain RCL-302 |
-| RCL-203 | Define `WatchCase`, `ScanRun`, and `ReviewTask` state machines plus idempotency, lease, retry/hop/time/token budgets, and failure codes | verified design | Transition tables, invariants, budgets, idempotency, leases, and stable failure codes frozen; executable tests remain Phase 3 |
-| RCL-204 | Define deterministic policy inputs and outcomes | verified design | Policy authority, precedence, abstention predicates, truth table, reason codes, and task protocol frozen |
-| RCL-205 | Select a source-attributed historical replay case, negative controls, and a separately labeled live public smoke | verified design | BRCA2 `c.7522G>C` positive, two same-gene scope controls, candidate ledger, exact source manifest, rights notes, and separate `LIVE_PUBLIC` smoke rule frozen before product execution |
+| RCL-202 | Define strict versioned contracts and common provenance envelope | verified corrected design | PolicyDecision, WatchCase, EvidenceDelta, and DataModeReceipt breaking changes are versioned; evaluated-state facts, candidate receipt, mode composition, and examples pass the local document audit |
+| RCL-203 | Define `WatchCase`, `ScanRun`, and `ReviewTask` state machines plus idempotency, lease, retry/hop/time/token budgets, and failure codes | verified corrected design | Per-terminal cursor, backlog, attention, retry, scheduling, duplicate, and recovery actions pass the local document audit |
+| RCL-204 | Define deterministic policy inputs and outcomes | verified corrected design | Deterministic candidate routing, memory exclusion, immutable material-claim blocking, evaluated states, and complete lexical reason sets pass the local document audit |
+| RCL-205 | Select a source-attributed historical replay case, negative controls, and a separately labeled live public smoke | verified frozen source package | Protocol 1.0.1 binds ten exact captures, corrected GEO chronology/linkage, one exact XLSX row, clean-copy verification, mutated-byte rejection, and path-boundary rejection; product replay remains RCL-503/RCL-506 |
 | RCL-206 | Freeze privacy, citation, reliability, and utility metrics before runs | verified design | Six preregistered protocols, thresholds, stop rules, rollback, counts, confidence intervals, and mechanism-activation gates frozen |
 | RCL-207 | Design the four-minute storyboard and web information architecture | verified design | 3:45 storyboard, uninterrupted Proof of Action, fault run, cloud proof, single-screen wireframe, and cut rules recorded under `docs/demo/` |
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Local audit passed; package commit `9ab9fa9a59aa92ce9cf9b4a9a6ca7e8e7446c4f4` is pushed; PR #2 is open with owner-only PR and commit authorship; external findings must be logged and triaged before Phase 3 |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | F-01 through F-08 and the complete local follow-up pass; Cursor disablement confirmation, safe owner-only push/read-back, and auditor re-review remain |
 
-**Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. The owner is explicitly notified that the GitHub auditor gate is ready, and its findings are resolved, accepted with a recorded risk, or shown not to apply before Phase 3 begins.
+**Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. F-01 through F-08 must be resolved, the replay package must verify offline, and follow-up audit must pass before Phase 3 begins.
 
 ### Phase 3: Deterministic vertical skeleton plus web surface, 2026-08-17 to 2026-08-19
 
@@ -320,9 +322,9 @@ Recall is submission-ready only when:
 
 1. Confirm whether the hostname is `recall.aistanbulresearch.com` or `racall.aistanbulresearch.com`.
 2. Approve or revise the internal feature-freeze and submission target times.
-3. Audit the frozen historical replay package and exact public evidence rights under RCL-205.
+3. Review the completed protocol 1.0.1 verification report before the safe-push gate; technical offline verification has passed locally.
 4. Review exact wording only if a binding submission field explicitly asks about prior work, inspiration, or reuse; do not create a voluntary pre-existing-work section when no component is imported.
 
 ## 10. Current next action
 
-The Phase 2 review surface is open at PR #2 and ready for the mandatory GitHub audit. Log and triage every finding before Phase 3. Package commits, PR author, and remote authorship have been verified as `aistanbulresearch`. Billing-dependent smoke remains paused.
+The PR #2 corrections, replay protocol 1.0.1, and complete F-01 through F-08 local follow-up audit pass within their stated boundaries. The GitHub auditor re-review gate has arrived. Do not push until the owner confirms the Cursor integration is disabled. Billing-dependent smoke remains paused.

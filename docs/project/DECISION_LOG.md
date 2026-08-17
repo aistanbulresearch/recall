@@ -86,10 +86,10 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 
 ## DEC-2026-08-15-013: Explicit data modes
 
-- Status: accepted
-- Decision: Require `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` on every artifact and product surface.
+- Status: accepted with ADR-0008 correction
+- Decision: Require one atomic `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` mode on every source artifact, plus a deterministic run/result `mode_set` and registered composition. Permit `SYNTHETIC_WITH_CAPTURED_REPLAY`; reject mock-plus-product and live-public-inside-replay compositions.
 - Reason: Demo reliability cannot justify presenting replay, cache, synthetic, or mock data as live or production patient data.
-- Consequence: Data mode becomes a schema, API, UI, capture, and claim-evidence requirement.
+- Consequence: Atomic modes and run composition become schema, API, UI, capture, and claim-evidence requirements; modes are not a scalar trust ordering.
 - ADR: `docs/adr/ADR-0005-explicit-data-modes-and-demo-authenticity.md`
 
 ## DEC-2026-08-15-014: Independent implementation and pattern-reference boundary
@@ -192,3 +192,22 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Claim boundary: The 472-day interval is specific to this case. Chronology and citation do not prove that the paper caused the later assertion. Recall does not classify the variant.
 - Consequence: Protocol version `1.0.0` cannot silently replace the case or controls after product results are observed. RCL-503 must halt on source/hash mismatch and keep the live-current smoke separate from captured replay.
 - Evidence: `docs/evaluation/HISTORICAL_REPLAY_CASE.md`, `docs/evaluation/HISTORICAL_REPLAY_CANDIDATE_LEDGER.md`, and `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`.
+
+## DEC-2026-08-17-027: Accept PR #2 audit findings and block implementation
+
+- Status: accepted correction package
+- Decision: Accept F-01 through F-08 as required changes. F-01 through F-06 block merge and Phase 3; F-07 and F-08 block merge plus RCL-205/RCL-503/RCL-506 acceptance. Track F-09 through F-18 before their affected tasks and F-19 through F-29 as explicit completeness debt.
+- Reason: The audit found no P0 architectural failure, but it demonstrated that undefined candidate routing, contradictory memory/citation rules, Boolean missing-state collapse, mixed-mode rejection, undefined cursor advancement, dynamic HTML hashes, and incomplete GEO chronology could silently violate core invariants.
+- Independent confirmation: Two same-URL ClinVar printable downloads produced different hashes because `ncbi_phid` changed. NCBI GEO reports public date 2024-09-27 and current PMID `41957374`; the qualifying Nature paper PMID `39779848` names `GSE248438` in its data-availability statement.
+- Consequence: RCL-202 through RCL-205 return to correction/in-progress status. Product code, merge, and push remain blocked until the stated gates pass.
+- ADR: `docs/adr/ADR-0008-external-audit-corrections.md`.
+- Evidence: `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`.
+
+## DEC-2026-08-17-028: Freeze replay protocol 1.0.1 as an offline-verifiable source package
+
+- Status: accepted and locally verified at source-package level
+- Decision: Replace dynamic-page hash assumptions with ten exact repository captures, per-capture bytes and SHA256, bounded semantic anchors, corrected chronology/linkage predicates, an offline verifier, and mutation plus path-boundary fault tests. Keep `LIVE_PUBLIC` ClinVar retrieval outside the frozen replay package.
+- Rights boundary: Store PubMed ESummary JSON rather than abstracts, one minimal Nature data-availability linkage excerpt rather than article content, and attributed public NCBI ClinVar/GEO captures. Do not infer that the captured workbook row existed on GEO's original public date.
+- Reason: Replay evidence must remain reproducible if upstream pages drift, while public-source chronology, publication-to-dataset linkage, and as-captured facts remain distinct.
+- Consequence: F-07 and F-08 are locally closed at source-package level. This decision does not prove Recall detection, operational utility, a managed run, a policy outcome, or a demo claim.
+- Evidence: `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json` and `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`.

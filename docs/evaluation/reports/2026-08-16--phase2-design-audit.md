@@ -2,9 +2,11 @@
 
 - Date: 2026-08-16
 - Scope: local Phase 2 design package, including RCL-205
-- Result: passed locally with two corrected audit-probe errors
+- Historical result: passed locally with two corrected audit-probe errors; superseded by the 2026-08-17 external audit
 - Product execution: not started
 - Commit and push: not performed
+
+> Correction notice, 2026-08-17: the external PR #2 audit found material contradictions and replay-package defects that this local check did not detect. In particular, dynamic ClinVar HTML hashes were not reproducible and the RCL-205 `verified design` state was unsupported. This report remains as historical evidence of what the earlier probes did, not as the current Phase 2 gate result. See ADR-0008 and the external-audit triage report.
 
 ## Gate question
 
@@ -23,7 +25,7 @@ Is the complete local Phase 2 design package internally consistent, source-pinne
 | RCL-205 exact row | Manifest assertion and prior official GEO read-back | Exact row points to `geo_gse248438_results_xlsx` |
 | UI Field IDs | Case-sensitive table extraction and duplicate grouping | 49 total, 49 unique, 0 duplicates |
 | UI/contract coverage | Independent extraction of UI artifact references and contract catalog | 20 referenced artifact types, 0 missing contracts |
-| Canonical RCL-205 state | Cross-file stale-marker scan | 0 stale selection markers; exactly one `verified design` Master Plan row |
+| Canonical RCL-205 state | Cross-file stale-marker scan | Historical probe passed its narrow assertion; external audit later invalidated the `verified design` state |
 | Auditor gate state | Master Plan assertion | Exactly one RCL-211 `not-started` row during audit; no false readiness claim |
 | Source package presence | Filesystem read-back | Case, candidate ledger, and source manifest all present |
 | Secret-shaped files | Filename scan | 0 `.env`, private-key, certificate, or credential-named files |

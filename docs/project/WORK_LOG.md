@@ -363,3 +363,109 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - Phase 2 package is present on GitHub with owner-only authorship metadata.
   - RCL-211 remains in progress until external findings are recorded and triaged.
   - No product implementation or merge was performed.
+
+## WORK-2026-08-17-018: PR #2 external audit triage and correction decision
+
+- Task ID: RCL-211
+- Actions:
+  - Read and checked the read-only PR #2 audit against the local Phase 2 documents.
+  - Independently confirmed ClinVar printable hash drift, GEO public/update metadata, current linked PMID, and the qualifying Nature paper's data-availability link to `GSE248438`.
+  - Accepted F-01 through F-08, scheduled F-09 through F-18 before affected tasks, and retained F-19 through F-29 as explicit completeness debt.
+  - Created ADR-0008 and the canonical external-audit triage report.
+  - Corrected RCL-202 through RCL-205 and RCL-211 status across Status, Master Plan, Handoff, Decision Log, Error Log, compact plan, and project memory.
+  - Marked Phase 3, merge, and push as blocked under their separate gates.
+- Evidence:
+  - `docs/adr/ADR-0008-external-audit-corrections.md`.
+  - `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`.
+  - ERR-2026-08-17-042 through ERR-2026-08-17-051.
+- Result:
+  - The external audit and triage are complete, but the correction package is not implemented or verified.
+  - RCL-205 is `in-progress`; the frozen case/control geometry remains, while replay protocol 1.0.1 is required.
+  - No product code, cloud resource, commit, push, PR comment, review, or merge was created.
+
+## WORK-2026-08-17-019: ADR-0008 F-01 through F-06 normative correction
+
+- Task IDs: RCL-201 through RCL-204, RCL-206 through RCL-208, RCL-211
+- Actions:
+  - Added deterministic `CandidateDeltaReceipt` routing and prohibited Assessor suppression or `NO_ACTION` authority.
+  - Removed memory state from PolicyDecision inputs and required byte-identical policy/task parity with rejected memory enabled or disabled.
+  - Made any rejected material claim block the immutable assessment and require a new fully audited assessment before continuation.
+  - Replaced Boolean policy prerequisites with `FactState` and `PresenceState`, projected every applicable reason, and sorted complete reason sets lexically.
+  - Versioned breaking payload corrections and replaced scalar data-mode ordering with atomic artifact modes plus deterministic run-level mode set/composition.
+  - Defined exact WatchCase cursor, pending-evidence, attention, scheduling, duplicate, and recovery behavior for every terminal path.
+  - Synchronized architecture, contracts, lifecycle, policy, threat model, evaluation, replay design, demo narrative, derived UI, plans, and evidence ledgers.
+- Verification:
+  - 11 representative policy rows had zero lexical-order or duplicate-code errors.
+  - Three fenced JSON blocks and 71 repository JSON files parsed with zero errors.
+  - The registry contains 52 unique UI Field IDs and zero duplicates; all 21 actual UI artifact types are present in the contract catalog.
+  - Canonical scope contained 50 Markdown files and 15 local links; full workspace scope contained 88 Markdown files and 22 local links. Both scans completed with zero scanner errors and zero broken links.
+  - `git diff --check`, trailing-whitespace scan, and credential-shaped-content scan were clean.
+  - Two policy-order probes and one JSON batch probe failed before execution and are retained as ERR-2026-08-17-052, ERR-2026-08-17-054, and ERR-2026-08-17-055; corrected independent probes supplied the stated results.
+- Evidence:
+  - `docs/adr/ADR-0008-external-audit-corrections.md`
+  - `docs/evaluation/reports/2026-08-17--adr-0008-normative-consistency-audit.md`
+- Result:
+  - F-01 through F-06 are closed at corrected-document level. No executable guardrail behavior is claimed.
+  - F-07/F-08, RCL-205, complete follow-up audit, safe push, external auditor re-review, merge, and Phase 3 remain pending or blocked.
+  - Graphify refresh did not complete and the graph remains stale; ERR-2026-08-17-053 records the non-blocking tooling issue.
+  - No product code, cloud resource, commit, push, PR write, review, or merge was created.
+
+## WORK-2026-08-17-020: RCL-205 replay protocol 1.0.1 source-package verification
+
+- Task IDs: RCL-205, RCL-211
+- Actions:
+  - Captured ten exact official public-source artifacts for the positive case, two same-gene controls, publication metadata, GEO metadata/workbook, and bounded publication-to-dataset linkage.
+  - Replaced dynamic-page assumptions with exact repository paths, byte counts, SHA256 values, retrieval timestamps, media types, semantic anchors, transformations, and rights boundaries.
+  - Corrected chronology by separating GEO submission, GEO public date, qualifying publication date, later evaluator publication, ClinVar v4/v5 dates, GEO last update, and current GEO-linked PMID.
+  - Implemented a zero-network verifier, exact XLSX row reader, mutated-byte test, and manifest path-escape test.
+  - Kept the current `LIVE_PUBLIC` ClinVar connector outside the frozen replay package and removed PubMed abstract capture in favor of ESummary JSON.
+- Verification:
+  - Clean result: `PASS`, 10 captures, 1,400,869 bytes, 7 chronology checks, 1 exact XLSX row, 1 separate live-public source, and 0 network calls.
+  - Fault result: clean copy verified, mutated byte rejected, path traversal rejected, and 0 network calls.
+  - Exact workbook SHA256 remained `91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f` over 570186 bytes.
+- Evidence:
+  - `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
+  - `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`
+  - `scripts/evidence/verify-rcl-205-captures.ps1`
+  - `scripts/evidence/test-rcl-205-captures.ps1`
+- Errors: ERR-2026-08-17-056 through ERR-2026-08-17-063.
+- Result:
+  - F-07 and F-08 pass locally at frozen-source-package level.
+  - Recall product execution, operational-utility claims, managed deployment, and demo evidence remain unverified.
+  - No product code, cloud resource, commit, push, PR write, review, or merge was created.
+
+## WORK-2026-08-17-021: Complete F-01 through F-08 local follow-up audit
+
+- Task ID: RCL-211
+- Actions:
+  - Rechecked all eight accepted P1 findings against the corrected architecture, contracts, lifecycle, policy, evaluation, demo, replay, governance, and evidence records.
+  - Re-ran the evidence-script parser, clean offline verifier, mutation/path fault test, policy-row ordering, JSON parsing, UI/contract reconciliation, Markdown-link audit, whitespace checks, credential-signature scan, authorship-marker scan, capture inventory, article-rights boundary, Graphify coverage, and Git identity/state checks.
+  - Updated Status, Master Plan, Handoff, compact plan, evidence ledgers, decision/error/work logs, repo-local memory, daily note, Obsidian plan/hub, and a durable result note.
+- Verification:
+  - F-01 through F-06: PASS at corrected-document level.
+  - F-07 and F-08: PASS at frozen-source-package level.
+  - Three evidence scripts parsed; ten captures and 1,400,869 bytes verified; mutation and path escape rejected; eleven policy rows ordered; 52 UI IDs and 21 artifact types reconciled; JSON, links, whitespace, secret, and authorship-marker checks passed.
+  - HEAD remained `c4e2b02d7e596ee99879686b3f53b214809d4673`; no commit or push occurred.
+- Evidence: `docs/evaluation/reports/2026-08-17--phase2-f01-f08-follow-up-audit.md`.
+- Errors: ERR-2026-08-17-064 through ERR-2026-08-17-069.
+- Result:
+  - The correction package is locally ready for the GitHub auditor re-review gate.
+  - Push remains blocked until the owner explicitly confirms the Cursor GitHub integration is disabled for Recall.
+  - Product implementation, merge, managed deployment, and empirical claims remain blocked.
+
+## WORK-2026-08-17-022: Recall Graphify no-stamp runner recovery
+
+- Task: Graphify traversal reliability
+- Actions:
+  - Confirmed the repository-local `AGENTS.md` already prohibits raw `graphify query`, `graphify explain`, and `graphify path` on the Recall OneDrive checkout and records the exact no-stamp runner.
+  - Identified three stuck Recall raw-command shells and their three direct `graphify.exe` children; stopped only those six exact processes and left an unrelated global-graph process untouched.
+  - Re-ran architecture traversal through `graphify_agent_runner.py` using the dedicated Graphify virtual environment.
+- Verification:
+  - `query` completed with exit code 0 and returned a 61-node BFS subgraph.
+  - `explain CandidateDeltaReceipt` completed with exit code 0 and returned its source plus two extracted incoming references.
+  - Directed `path` completed normally and reported no directed path; `--undirected` completed with a three-hop extracted path to Policy Gate.
+  - No raw Recall Graphify traversal process remained after cleanup.
+- Error: ERR-2026-08-17-070; ERR-2026-08-17-057 is closed by the resolution checkpoint.
+- Result:
+  - Future Recall graph traversal must use the no-stamp runner only.
+  - No graph rebuild, commit, push, PR write, product execution, or cloud mutation occurred.

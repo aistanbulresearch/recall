@@ -1,7 +1,7 @@
 # ADR-0005: Explicit data modes and demo authenticity
 
-- Status: accepted
-- Date: 2026-08-15
+- Status: accepted with ADR-0008 correction
+- Date: 2026-08-17
 - Owners: aistanbulresearch
 - Related tasks: RCL-205, RCL-208, RCL-404, RCL-503, RCL-506, RCL-802, RCL-904 through RCL-906
 - Supersedes:
@@ -26,7 +26,11 @@ Recall needs a reliable four-minute demonstration without real patient data or m
 
 ## Decision
 
-Every artifact and product surface carries exactly one mode: `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK`. The core demo uses synthetic case identity and a deterministic public-evidence replay. A separate labeled live smoke proves current connector behavior.
+Every source artifact carries exactly one atomic mode: `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK`. A deterministic `DataModeReceipt` derives a sorted transitive `mode_set` and one closed `declared_composition` for each run or result surface.
+
+The core demo composition is explicitly `SYNTHETIC_WITH_CAPTURED_REPLAY`: a synthetic institutional `WatchCase` plus frozen source-attributed public evidence. This composition is allowed and displays both provenance classes. A separate labeled live smoke proves current connector behavior and cannot enter the captured replay timeline.
+
+Modes are provenance classes, not a scalar trust or "stricter" ordering. `MOCK` plus product evidence and `LIVE_PUBLIC` inside a captured replay timeline are rejected with `data_mode_conflict`.
 
 All result-bearing UI fields resolve through the derived-value registry to an artifact ID and JSON path.
 
@@ -35,6 +39,7 @@ All result-bearing UI fields resolve through the derived-value registry to an ar
 - The main demo remains stable and honest.
 - Replay capture, source hashes, and licensing records are required.
 - Live source results cannot silently populate replay screens.
+- Mixed provenance is accepted only through a registered composition and an exact `DataModeReceipt`.
 - Jargon-free labels must still preserve mode precision.
 
 ## Failure modes
@@ -43,12 +48,15 @@ All result-bearing UI fields resolve through the derived-value registry to an ar
 - synthetic data presented as production patient data;
 - UI badge remains unchanged when the source artifact changes;
 - cached fallback is used without a mode change;
+- a run collapses multiple input modes into one misleading scalar label;
+- `MOCK` or `LIVE_PUBLIC` enters the frozen replay composition;
 - demo timestamp implies real elapsed weeks.
 
 ## Verification and evidence
 
-- mode required by schemas and API responses;
-- UI mode badge derived from `DataModeReceipt`;
+- atomic mode required by source schemas and API responses;
+- UI provenance badges derived from `DataModeReceipt.mode_set` and `declared_composition`;
+- canonical `SYNTHETIC` plus `CAPTURED_REPLAY` composition passes, while `MOCK` plus replay and `LIVE_PUBLIC` inside replay fail;
 - artifact mutation test updates every dependent screen value;
 - replay manifest with source URLs, timestamps, hashes, and license notes;
 - video audit confirms all accelerated and non-live moments are labeled.

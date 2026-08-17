@@ -30,6 +30,8 @@ Firestore is authoritative for cases, scans, snapshots, deltas, decisions, tasks
 
 Every memory write passes `MemoryAdmissionGate`; every retrieval creates a provenance receipt. Memory cannot satisfy evidence, citation, state-transition, or policy prerequisites.
 
+Poisoned, stale, cross-scope, or ledger-conflicting memory is rejected or ignored and receipted before policy-fact projection. Memory content and conflict state are absent from `PolicyDecision.input_facts`. If removing memory leaves a required authoritative fact unavailable, that fact is independently `NOT_EVALUATED`; memory itself does not choose the outcome.
+
 ## Consequences
 
 - Recall can demonstrate managed multi-week memory without assigning it clinical authority.
@@ -51,6 +53,7 @@ Every memory write passes `MemoryAdmissionGate`; every retrieval creates a prove
 - TTL and deletion tests;
 - retrieval receipt linked to the resulting proposal;
 - identical policy outcome with Memory Bank disabled when authoritative inputs are unchanged.
+- byte-identical reason codes and zero task-count delta with Memory Bank enabled and disabled on poisoning fixtures.
 
 ## Rollback or supersession
 

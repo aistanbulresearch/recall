@@ -1,8 +1,8 @@
 # Recall Derived-Value Registry
 
-- Status: verified design; implementation tests pending
+- Status: corrected design; implementation tests pending
 - Task: RCL-208
-- Updated: 2026-08-16
+- Updated: 2026-08-17
 
 ## Purpose
 
@@ -38,7 +38,7 @@ Every rendered field uses this structure:
 
 | Field ID | UI label | Source artifact and path | Deterministic rule | Missing behavior |
 |---|---|---|---|---|
-| UI-GLOBAL-MODE | Data mode | `DataModeReceipt $.declared_mode` | Render exact enum only | Block result surface as `UNKNOWN MODE` |
+| UI-GLOBAL-MODE | Data provenance | `DataModeReceipt $.mode_set` plus `$.declared_composition` | Render the exact sorted atomic modes and registered composition; never collapse to one scalar trust label | Block result surface as `UNKNOWN MODE` |
 | UI-GLOBAL-RUN-ID | Run | `ScanRun $.run_id` | Exact value, shortened visually without altering copy value | Hide run detail and show `UNKNOWN` |
 | UI-GLOBAL-RUN-STATE | Run state | `ScanRun $.state` | Render exact lifecycle enum, preserving the distinction between `ABSTAIN` and technical `HALTED` | `UNKNOWN`; no terminal badge |
 | UI-GLOBAL-TRACE-ID | Trace | `ScanRun $.trace_id` | Exact correlation ID | Show `UNAVAILABLE`; cloud-proof claim disabled |
@@ -58,6 +58,8 @@ Every rendered field uses this structure:
 | UI-WATCH-WEEK-LABEL | Relative week | `WatchCase $.monitoring_started_at` plus `ScanRun $.scheduled_for` | Floor elapsed calendar days divided by 7; prefix `Week` | Hide relative label and show absolute date |
 | UI-WATCH-SCAN-COUNT | Scans | authoritative `ScanRun[]` for case | Count unique run IDs after read-back | `UNKNOWN`, never zero |
 | UI-WATCH-OPEN-TASK | Open simulated task | `WatchCase $.open_review_task_id` plus `ReviewTask $.state` | Show only if referenced task exists and belongs to same case | `INCOMPLETE` on broken reference |
+| UI-WATCH-PENDING | Pending evidence | `WatchCase $.pending_observation_hashes[*]` | Count unique hashes; zero is rendered only when a verified terminal transition explicitly cleared the array | `UNKNOWN`, never zero |
+| UI-WATCH-ATTENTION | Attention | `WatchCase $.attention_marker` | Render exact reason codes and operator-action flag from the typed marker | Hide only when explicit null; missing is `INCOMPLETE` |
 
 ## Privacy fields
 
@@ -90,6 +92,7 @@ Raw input, original spans, and token mappings are never available to the public 
 | UI-EVIDENCE-OBSERVATIONS | Observations | `EvidenceObservation[]` referenced by current snapshot | Count unique observation artifact IDs | `UNKNOWN` |
 | UI-EVIDENCE-ADDED | New evidence | `EvidenceDelta $.added_observation_refs[*]` | Count unique refs that resolve and hash-match | `INCOMPLETE`; no zero default |
 | UI-EVIDENCE-REMOVED | Removed evidence | `EvidenceDelta $.removed_observation_refs[*]` | Count unique refs that resolve and hash-match | `INCOMPLETE` |
+| UI-EVIDENCE-CANDIDATE | Candidate state | `CandidateDeltaReceipt $.candidate_delta_state` | Render exact `PRESENT`, `ABSENT`, or `UNKNOWN`; Assessor output is not a source | `UNKNOWN`; assessment lane cannot appear successful |
 | UI-EVIDENCE-CLASS-UNCHANGED | Classification snapshot | `EvidenceDelta $.comparison.classification_changed` | Render `unchanged` only when exact Boolean is false and both snapshots resolve | `UNKNOWN`; no lead-time wording |
 | UI-CITATION-TOTAL | Material claims | `CitationAuditReceipt $.claim_verdicts[*]` | Count unique material claim IDs | `UNKNOWN` |
 | UI-CITATION-VERIFIED | Verified claims | same, filtered `$.verdict == "VERIFIED"` | Count from receipt | `UNKNOWN`; never inferred from total |
@@ -108,7 +111,7 @@ Raw input, original spans, and token mappings are never available to the public 
 | UI-TASK-COUNT-QUEUE | Open simulated queue | authoritative `ReviewTask[]` filtered by state | Count unique task IDs at query read time | `UNAVAILABLE`, never zero |
 | UI-TASK-ID | Simulated task | `ReviewTask $.artifact_id` | Exact ID and explicit simulated label | Hide if no task; broken ref is `INCOMPLETE` |
 | UI-TASK-STATE | Task state | `ReviewTask $.state` | Exact state enum | `UNKNOWN` |
-| UI-TASK-DATA-MODE | Task data mode | `ReviewTask $.data_mode` | Must equal source run mode or stricter | Block task surface on mismatch |
+| UI-TASK-DATA-MODE | Task provenance | `DataModeReceipt $.mode_set` plus `$.declared_composition` for the trigger decision and task | Require the task and trigger decision in `subject_artifact_ids`; render exact composition | Block task surface on missing or disallowed composition |
 
 ## Evaluation-only fields
 
@@ -145,9 +148,10 @@ Fixture names and buttons are allowed input metadata. They cannot map directly t
 5. Change authoritative artifacts while keeping the fixture name identical and confirm the UI changes.
 6. Attempt to render a result field without `source_refs` and fail the build or response.
 7. Verify task counts through authoritative Firestore read-back after success, duplicate delivery, audit failure, and policy abstention.
-8. Verify replay, live, synthetic, and mock modes propagate from connector artifacts to every related surface.
-9. Run a static scan for unregistered result labels and numeric literals in result components, then review findings manually.
-10. Capture the final video frames and compare displayed values to the exact committed run artifacts.
+8. Verify atomic replay, live, synthetic, and mock modes propagate into the exact run `mode_set`; accept the registered synthetic-plus-replay composition and reject disallowed mixed compositions.
+9. Drive `ABSTAIN`, `HALTED`, and duplicate suppression; verify pending counts, attention state, and verified cursor fields from authoritative WatchCase artifacts.
+10. Run a static scan for unregistered result labels and numeric literals in result components, then review findings manually.
+11. Capture the final video frames and compare displayed values to the exact committed run artifacts.
 
 ## Change control
 

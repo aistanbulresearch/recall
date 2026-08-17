@@ -1,6 +1,8 @@
 # Recall Web Information Architecture
 
-- Status: verified design; implementation not started
+- Status: corrected design baseline; implementation not started
+- Date: 2026-08-17
+- Correction authority: ADR-0008
 - Task: RCL-207
 - Updated: 2026-08-15
 
@@ -51,7 +53,7 @@ The public application is read-only except for explicitly labeled synthetic demo
 ### Run audited replay
 
 1. The user selects a source-attributed captured replay fixture.
-2. The UI displays the fixture ID and data mode before execution.
+2. The UI displays the fixture ID, atomic input modes, and registered run composition before execution.
 3. The backend creates a new `ScanRun`; the UI follows authoritative state events.
 4. The UI never predicts the next state or advances on a timer.
 5. On completion, the result panel renders the deterministic `PolicyDecision` and any simulated `ReviewTask` read back from Firestore.
@@ -71,7 +73,7 @@ Every result-bearing value has an adjacent or expandable source control. Selecti
 - JSON path or deterministic derivation;
 - content hash;
 - producer and version;
-- data mode;
+- atomic data mode plus run `mode_set` and declared composition;
 - creation time;
 - run and trace correlation.
 
