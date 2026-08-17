@@ -906,3 +906,22 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - The prior 224-node graph remains the last successful snapshot and is stale for the final remediations.
   - This does not affect the exact source diff, validator, mutation harness, Git metadata, or remote checkpoint evidence.
   - A future owner-approved Recall-root task may refresh after explicitly authorizing the private payload and destination.
+
+## WORK-2026-08-17-047: Documentation successor remote verification
+
+- Task IDs: RCL-011, RCL-211
+- Owner-only successor:
+  - Commit `2881ef1bf4a5f328911b9e3aea8ee0a682cb21b2`, subject `docs(project): record collaboration publish`.
+  - Git author and committer are `aistanbulresearch`; body length 0; no trailers or Git notes.
+  - Push passed and local, origin, and PR head hashes matched.
+- Corrected immediate and delayed read-back:
+  - Active GitHub login, PR author, all commit author logins, all commit committer logins, Git author names, and Git committer names resolved only to `aistanbulresearch`.
+  - PR association is `OWNER`; total PR commit count is ten.
+  - Trailer-bearing commit messages: 0.
+  - Issue comments: 0; review comments: 0; reviews: 0; statuses: 0; check runs: 0.
+  - PR body retains the collaboration structural PASS and explicit `REPORT_DERIVED` / `NOT VERIFIED` boundary.
+  - Worktree remained clean in both snapshots.
+- Boundary and next gate:
+  - The exact current origin head must be read again after this audit-record successor is published.
+  - The external GitHub auditor is now due under both the architecture-change trigger and the three-remote-commit cadence.
+  - Merge, Phase 3, and product implementation remain blocked by their existing owner, audit, and RCL-011 runtime gates.

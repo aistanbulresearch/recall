@@ -1211,3 +1211,15 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | Do not bypass or substitute another Graphify command. Treat the existing graph as stale navigation evidence. Request explicit owner authorization for the private-repository payload and Gemini destination in a future Recall-root task if refresh is still desired. |
 | Verification | Command was rejected before execution; no Graphify success or quality-gate claim is made for the final remediation state. |
 | Status | Open authorization boundary; non-blocking for the Git/GitHub publish artifact |
+
+## ERR-2026-08-17-100: Complex jq expressions lost quoting in delayed actor scan
+
+| Field | Value |
+|---|---|
+| Task | Final owner-only GitHub actor and surface verification |
+| Severity | Low |
+| Observed | PowerShell removed quoting inside complex `jq` expressions for unique actor lists and trailer matching. GitHub CLI rejected the expressions and the attempt produced no verification result. |
+| Impact | The failed attempt was not accepted as evidence and made no external change. |
+| Resolution | Parse the commit JSON in PowerShell, use only simple JSON `length` queries for endpoint counts, and rerun immediate plus delayed snapshots. |
+| Verification | Corrected snapshots agreed on exact PR head, owner-only author/committer/actor values, zero trailer-bearing messages, zero comments/reviews/statuses/checks, and the expected PR-body boundaries. A separate simple `length` query returned ten PR commits. |
+| Status | Resolved |
