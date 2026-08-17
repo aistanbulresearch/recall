@@ -5,9 +5,9 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Phase 2 design package frozen, locally audited, and pushed; external audit triage remains; billing selection blocked |
+| Status | Phase 2 final exact-head audit passed; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under explicit owner risk acceptance; billing selection blocked |
 | Baseline date | 2026-08-14 |
-| Architecture baseline | Accepted 2026-08-16; ADR-0001 through ADR-0007 |
+| Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
 | Internal submission target | 2026-08-31 18:00 Europe/Istanbul |
 | Feature freeze | 2026-08-28 18:00 Europe/Istanbul |
@@ -126,6 +126,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-008 | Bind Recall to a local Obsidian project memory | verified | Local binding and canonical project notes verified; machine paths excluded from Git |
 | RCL-009 | Commit and push documentation-only baseline as aistanbulresearch | verified | Remote SHA `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer both `aistanbulresearch`; no co-author trailers |
 | RCL-010 | Review and approve the Fleet architecture direction | verified | Owner approval; updated target architecture and accepted ADR-0001 through ADR-0005 |
+| RCL-011 | Establish repo-scoped Codex coordinator, custom subagents, Master Judge, and external-auditor cadence | in-progress | Structural validation passes; nested runtime observations are `REPORT_DERIVED`; the complete Recall-root per-profile, permission, effort, protected-action, and concurrency matrix remains |
 
 **Phase gate:** another contributor can answer what, why, where, current status, next task, known errors, and proof requirements from repository documents alone.
 
@@ -138,7 +139,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
 | RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor, region, quota, and billing | blocked | Dedicated project, local CLI/SDK/auth passed; billing account selection blocks project-scoped smoke |
 | RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await billing linkage |
-| RCL-106 | Rotate known exposed credentials and run repository/history secret scans | not-started | Rotation confirmation without secret values; scanner artifacts |
+| RCL-106 | Rotate known exposed credentials and run repository/history secret scans | in-progress, owner-deferred risk | ERR-2026-08-17-086 records a newly exposed GitHub credential without its value. Rotation remains recommended; on 2026-08-17 the owner accepted the risk and authorized only the exact collaboration-infrastructure commit/push before rotation. |
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | blocked | No checked local runtime command or GGUF model is installed; select/install artifacts before benchmark |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | blocked | Owner confirms `recall` or `racall` before external mutation |
 | RCL-109 | Check product-name collision and discoverability risk | not-started | Naming decision records search, branding, and URL consequences |
@@ -160,7 +161,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | `9cfee558` is the owner-only remediation checkpoint; clean-clone/read-back pass and PR body is corrected; final documentation publish, delayed actor scan, and final remote re-review remain |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | verified | Final exact-head external audit passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; owner-only metadata and zero bot surfaces; PR remains open/unmerged |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. F-01 through F-08 must be resolved, the replay package must verify offline, and follow-up audit must pass before Phase 3 begins.
 
@@ -327,4 +328,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The owner confirmed Cursor disablement and the owner-only remediation checkpoint `9cfee558` plus documentation successor passed staged-tree, clean-clone, remote identity, and delayed actor checks. Repeated GitHub API writes returned HTTP 503, but the authenticated owner web fallback corrected the PR body and API read-back passed. Publish this final status correction, repeat the delayed actor scan, and request final remote review against the final head. Billing-dependent smoke remains paused.
+The Phase 2 exact-head external audit passed. The owner explicitly authorized publication of the collaboration infrastructure despite deferring RCL-106 credential rotation. Publish with owner-only attribution, verify the exact remote head and GitHub surfaces, then request the external GitHub auditor before merge or Phase 3. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.

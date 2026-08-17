@@ -24,6 +24,21 @@ Every non-trivial change follows:
 
 Stop and report at each gate. Do not hide a failed gate by continuing into later work.
 
+## Codex collaboration protocol
+
+- Use `$recall-collaboration` for every non-trivial Recall task that benefits from delegation, parallel discovery, specialized implementation, or an independent gate.
+- The primary session remains the coordinator and owner-facing control point. Keep at most three spawned threads active.
+- Use the repo profiles in `.codex/agents/`: `recall-scout`, `recall-worker`, `recall-smart-worker`, and `recall-master-judge`.
+- Give each writing agent exclusive ownership of exact files or modules. Never run overlapping mutable assignments in parallel.
+- Treat each writing assignment as a lease that ends only after coordinator diff/test inspection. Keep status, master plan, handoff, logs, evidence ledgers, and lockfiles coordinator-owned unless one finalizer has explicit exclusive ownership.
+- Every leaf agent must complete its assignment directly, preserve others' work, and must not spawn agents.
+- Do not trust an agent summary as evidence. The coordinator and Master Judge inspect the exact diff, source, tests, logs, and artifacts.
+- Run Master Judge after design, after implementation/tests, after each pair of completed writing assignments in a long task, on disagreement, on high-risk boundary changes, and before commit, push, merge, release, or phase exit.
+- Run Master Judge only against a stable worktree after all in-scope writer leases are released.
+- Keep scope expansion, destructive actions, GitHub writes, commits, pushes, merges, cloud changes, billing, and publication behind explicit owner approval.
+- Request the separate external GitHub auditor only against a stable owner-published head on the cadence in `docs/project/COLLABORATION_SYSTEM.md`.
+- A judge or external-auditor verdict never replaces owner approval.
+
 ## Scientific and safety rules
 
 - Scientific consistency is not negotiable.

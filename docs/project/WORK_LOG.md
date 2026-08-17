@@ -642,3 +642,227 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Result:
   - Both remote-audit metadata findings are remediated locally/at the remote PR surface.
   - Final owner-only documentation publish, delayed actor scan, and exact-head auditor re-review remain mandatory. Merge and Phase 3 remain `NO-GO`.
+
+## WORK-2026-08-17-033: Final exact-head remote re-review
+
+- Task ID: RCL-211
+- Auditor result:
+  - `PASS` with no actionable findings against exact remote head `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`.
+  - PR #2 head, local clean head, and origin head matched; the PR body used current 87/52/21/10-derived counts and explicit non-proof boundaries.
+  - Eight commit author/committer identities and GitHub actors resolved only to `aistanbulresearch`; comments, review comments, reviews, statuses, and check runs were zero.
+  - PowerShell 5.1 parser, clean verifier, and full mutation/path harness passed on the exact clean checkout.
+- Evidence boundary:
+  - F-01 through F-06 are document-level only; F-07/F-08 are frozen source-package executable only.
+  - Live connector, Recall product, cloud, clinical, and contest metrics remain unverified.
+- Result:
+  - The Phase 2 external re-review gate passes. PR #2 remains open and unmerged pending owner action.
+
+## WORK-2026-08-17-034: Repo-scoped Codex collaboration infrastructure
+
+- Task ID: RCL-011
+- Actions:
+  - Initialized and implemented `$recall-collaboration` with a separate Master Judge rubric.
+  - Added project config and four custom profiles with a three-thread spawned-agent cap, exclusive writer leases, leaf no-spawn rules, and owner-protected external actions.
+  - Added ADR-0009, the collaboration system contract, a deterministic validator, and AGENTS.md activation rules.
+  - Ran an independent architecture review and incorporated writer-lease, shared-file ownership, owner-checkpoint, stable-worktree judge, permission-boundary, and smoke-test requirements.
+- Verification so far:
+  - Deterministic validator: PASS; 4 profiles, thread cap 3, 2 read-only profiles, 2 workspace-write profiles, Judge default effort high.
+  - Official skill validator: PASS.
+  - `multi_agent` feature discovery: stable and enabled.
+  - A fresh ephemeral session produced a coordinator-normalized report of `$recall-collaboration` and `recall-scout` discovery. Because no literal transcript was retained, this is `REPORT_DERIVED`, not runtime proof.
+  - `git diff --check` passed; skill/config paths are not ignored; scoped secret-signature and prohibited-authorship scans returned no matches.
+- Evidence boundary:
+  - Worker temporary-write, Scout enforced write denial, Master Judge runtime verdict, and three-thread/fourth-thread behavior remain pending until the final functional smoke.
+  - No commit, push, merge, cloud change, billing action, or product implementation occurred.
+
+## WORK-2026-08-17-035: Custom profile functional smoke and fail-closed gate
+
+- Task ID: RCL-011
+- Actions:
+  - Started an ephemeral Codex process with project config strictness and global user config disabled.
+  - Dispatched `recall-worker`, `recall-scout`, and `recall-master-judge` sequentially with one child active at a time and no child spawning.
+  - Limited all writes to ignored `temp/collaboration-smoke/` paths and prohibited external systems, secrets, GitHub, cloud, commits, and pushes.
+- Verification:
+  - The retained normalized report says Worker was denied by inherited parent read-only permission, Scout returned `policy_refusal`, both target files were absent, and Master Judge returned `FAIL` without repair.
+  - These historical runtime observations are `REPORT_DERIVED`; they are not independently raw-verified or mechanism proof.
+- Evidence boundary:
+  - Custom profile discovery, leaf no-spawn, Scout policy denial, inherited permission, and exact Judge verdict behavior remain `REPORT_DERIVED`.
+  - Worker write capability and three-thread/fourth-thread enforcement remain `NOT VERIFIED` until a fresh session has Recall as its primary writable workspace.
+- Result:
+  - RCL-011 remains in progress. The runtime gate is honest `FAIL` for the current parent context, not an infrastructure rollback.
+
+## WORK-2026-08-17-036: Independent collaboration code review and validator hardening
+
+- Task ID: RCL-011
+- Independent verdict:
+  - `FAIL` with four High and three Warning findings.
+  - The initial validator falsely passed an unknown Judge key, invalid `openai.yaml`, and a broken judge-rubric link; protected-action wording and runtime evidence were incomplete.
+- Remediation:
+  - Rebuilt the validator with exact top-level/config/profile key sets and types, strict supported-subset YAML parsing, frontmatter parsing, local Markdown link containment/resolution, and exhaustive protected-action assertions.
+  - Added a five-mutation harness covering unknown profile key, invalid YAML, missing link, missing protected action, and unknown config key.
+  - Expanded every leaf profile to prohibit destructive actions, every GitHub write class, protected Git operations, external publication, cloud changes, billing decisions, escalation, and child spawning; each must return control to the coordinator.
+  - Added a per-profile runtime acceptance matrix and a sanitized report-derived smoke record with process flags, checkout identity, exit codes, normalized excerpts, file hashes, and explicit remaining boundaries.
+  - Clarified that Judge effort and thread cap are configured but runtime `NOT VERIFIED`, and corrected the Master Plan architecture baseline metadata.
+- Verification:
+  - Clean structural validator: PASS with runtime limits explicitly `NOT VERIFIED`.
+  - Mutation harness: PASS; all five invalid variants rejected.
+  - Evidence report hash binding: PASS; all eleven validator inputs match.
+  - Two-file Python AST parse: PASS.
+  - Evidence: `docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md`.
+- Result:
+  - Initial green validator evidence in WORK-2026-08-17-034 is superseded by the mutation-tested validator.
+  - Independent follow-up review remains mandatory before RCL-011 can pass its local code-review gate.
+
+## WORK-2026-08-17-037: Second collaboration review and prohibition-polarity hardening
+
+- Task ID: RCL-011
+- Independent verdict:
+  - `FAIL` with one High and three Warning findings.
+  - The validator required protected-action nouns but did not prove negative polarity; a hash-consistent `Do not` to affirmative mutation still passed.
+- Remediation:
+  - Replaced fragment checks with canonical negative clauses repeated verbatim in every profile.
+  - Added a polarity-reversal mutation that also updates the temporary evidence hash, ensuring rejection comes from the prohibition clause rather than hash mismatch.
+  - Expanded the evidence manifest from nine to eleven inputs by adding `openai.yaml` and `AGENTS.md`.
+  - Corrected the STATUS snapshot to reference every remaining Recall-root matrix row.
+  - Reclassified historical terminal excerpts as sanitized `REPORT_DERIVED` evidence and required literal transcript plus before/after status in the future Recall-root smoke.
+- Verification:
+  - Structural validator: PASS; eleven hashes verified.
+  - Mutation harness: PASS; six mutations rejected, including hash-consistent polarity reversal.
+- Result:
+  - The second-review findings are remediated locally. Another independent follow-up remains mandatory.
+
+## WORK-2026-08-17-038: Final collaboration infrastructure follow-up review
+
+- Task ID: RCL-011
+- Independent verdict:
+  - `PASS`; no actionable findings remain.
+- Independently verified:
+  - Smoke evidence consistently uses `REPORT_DERIVED_PARTIAL_FAIL_CLOSED` and no longer claims historical mechanism proof.
+  - Structural validator passes with eleven evidence hashes.
+  - Mutation harness rejects all six defects, including hash-consistent prohibition-polarity reversal.
+  - `git diff --check` passes.
+  - Review created no repository or smoke-temporary change.
+- Result:
+  - RCL-011's local design/config/validator/code-review gate passes.
+  - RCL-011 remains in progress because every Recall-root runtime matrix row is still unverified.
+  - No commit, push, merge, external GitHub write, cloud change, billing action, or product implementation occurred.
+
+## WORK-2026-08-17-039: Final Recall Graphify refresh
+
+- Task ID: RCL-011
+- Actions:
+  - Ran only the approved `refresh-repo.ps1 recall` path after the collaboration files and final independent review were stable.
+  - Did not run raw `graphify query`, `graphify explain`, or `graphify path`.
+- Verification:
+  - Exit code: 0.
+  - Recall graph quality gate: PASS.
+  - Final graph: 224 nodes, 231 edges, 44 communities, 74 represented/tracked sources, 0 broken edges, and no missing manifest sources.
+  - Global graph received the refreshed Recall subgraph.
+- Limitation:
+  - Graphify still warns that four replay JSON sources produce zero semantic nodes; the quality gate reports no missing source coverage. Graph nodes remain design/navigation evidence, not runtime proof.
+- Result:
+  - Collaboration documents are represented in the refreshed graph.
+  - No Git, GitHub, cloud, billing, or product mutation occurred.
+
+## WORK-2026-08-17-040: Pre-publish Master Judge failure and profile-name TDD remediation
+
+- Task IDs: RCL-011, RCL-106
+- Gate result before remediation:
+  - Master Judge returned `FAIL` with three High findings.
+  - Four TOML profile names did not match the identifiers invoked by `AGENTS.md` and the skill.
+  - Runtime-discovery wording was stronger or internally stale in ADR-0009, STATUS, and HANDOFF.
+  - The exact publish artifact was not staged, so staged-tree and remote claims were correctly not verified.
+- TDD remediation:
+  - Added a hash-adjusted wrong/duplicate profile-name mutation and observed it fail before validator enforcement.
+  - Changed every TOML `name` to its exact stable identifier.
+  - Added exact filename-to-name mapping plus uniqueness enforcement.
+  - Reclassified discovery as `REPORT_DERIVED`, removed stale follow-up contradictions, and kept every Recall-root runtime row open.
+- Coordinator verification:
+  - Structural validator PASS with eleven evidence hashes.
+  - Mutation harness PASS with seven rejected defects.
+  - `git diff --check` PASS.
+- Boundary:
+  - The owner accepted the still-open credential risk only for this exact publication attempt.
+  - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred.
+  - A fresh independent pre-publish verdict and exact staged-tree gate remain mandatory.
+
+## WORK-2026-08-17-041: Runtime-classification false-pass TDD remediation
+
+- Task ID: RCL-011
+- Independent code-review result:
+  - `FAIL` with one High finding.
+  - A hash-preserving smoke-report promotion from `REPORT_DERIVED` to `EXECUTED` still passed because the validator returned a constant aggregate label.
+- TDD remediation:
+  - Added `smoke_classification_promotion` and observed the prior validator accept it.
+  - Added exact parsing of seven required runtime evidence classifications.
+  - Derived `functional_smoke` from the parsed classifications rather than a constant.
+  - Required ADR-0009, STATUS, and HANDOFF to retain report-derived wording and explicitly open Recall-root runtime boundaries.
+- Coordinator verification:
+  - Structural validator PASS with three `REPORT_DERIVED` and four `NOT VERIFIED` classifications.
+  - Mutation harness PASS with eight rejected defects, including typed classification-promotion rejection.
+  - Two-file Python AST parse PASS.
+  - `git diff --check` PASS.
+- Boundary:
+  - Configuration and documentation remain structural evidence only.
+  - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred.
+  - Independent re-review and Master Judge remain required before staging and publication.
+
+## WORK-2026-08-17-042: Displayed smoke-summary binding TDD remediation
+
+- Task ID: RCL-011
+- Independent code-review result:
+  - `FAIL` with one High finding.
+  - Detailed runtime rows were parsed, but a displayed `functional_smoke=EXECUTED` promotion still passed because the report summary was not bound to the derived value.
+- TDD remediation:
+  - Added displayed aggregate-promotion and displayed classification-count-drift mutations and observed the previous validator accept both.
+  - Required exactly one sanitized-results block.
+  - Bound displayed `functional_smoke` to the aggregate derived from seven detailed rows.
+  - Bound displayed classification counts to counts derived from those same rows.
+- Coordinator verification:
+  - Structural validator PASS with displayed and derived `REPORT_DERIVED_PARTIAL_FAIL_CLOSED` agreement.
+  - Displayed counts agree at three `REPORT_DERIVED` and four `NOT VERIFIED`.
+  - Mutation harness PASS with ten rejected defects and typed summary mismatches.
+  - Two-file Python AST parse PASS.
+  - `git diff --check` PASS.
+- Boundary:
+  - Runtime mechanisms remain unverified in this VUS-root task.
+  - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred.
+  - Independent re-review and Master Judge remain required.
+
+## WORK-2026-08-17-043: Complete sanitized-summary classification binding
+
+- Task ID: RCL-011
+- Independent code-review result:
+  - `FAIL` with one High finding.
+  - `thread_cap_runtime` and `judge_effective_effort_runtime` could still be promoted independently while the validator passed.
+- TDD remediation:
+  - Added separate promotion mutations for both runtime keys and observed the previous validator accept them.
+  - Replaced partial summary checks with one exact expected map for every classification-bearing key.
+  - Bound thread-cap and Judge-effort summary values to their corresponding detailed runtime rows.
+  - Added fail-closed handling for missing, duplicate, unknown, and mismatched runtime summary keys.
+- Coordinator verification:
+  - Structural validator PASS with four displayed summary keys bound to derived evidence.
+  - Mutation harness PASS with twelve rejected defects.
+  - Two-file Python AST parse PASS.
+  - `git diff --check` PASS.
+- Boundary:
+  - All bound runtime values remain `REPORT_DERIVED` or `NOT VERIFIED`; no runtime mechanism was promoted.
+  - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred.
+  - Independent re-review and Master Judge remain required.
+
+## WORK-2026-08-17-044: Final RCL-011 code re-review
+
+- Task ID: RCL-011
+- Independent verdict: `PASS`; no actionable findings remain.
+- Independently verified:
+  - Exact stable names and uniqueness for all four profiles.
+  - Structural validator PASS with eleven evidence hashes.
+  - Twelve-mutation harness PASS.
+  - Detailed and displayed smoke classifications agree at three `REPORT_DERIVED` and four `NOT VERIFIED`.
+  - Thread-cap and Judge-effort remain `NOT_VERIFIED`.
+  - Two-file Python AST parse and `git diff --check` PASS.
+  - ERR-093 through ERR-096 and WORK-040 through WORK-043 accurately preserve the failed gates and remediation sequence.
+- Boundary:
+  - The Recall-root runtime matrix remains open.
+  - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred during the independent review.
+  - Exact staged-tree verification and a new pre-publish Master Judge verdict remain mandatory.

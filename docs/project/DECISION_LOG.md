@@ -211,3 +211,22 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Reason: Replay evidence must remain reproducible if upstream pages drift, while public-source chronology, publication-to-dataset linkage, and as-captured facts remain distinct.
 - Consequence: F-07 and F-08 are locally closed at source-package level. This decision does not prove Recall detection, operational utility, a managed run, a policy outcome, or a demo claim.
 - Evidence: `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json` and `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`.
+
+## DEC-2026-08-17-029: Repo-scoped Codex collaboration and two independent review layers
+
+- Status: accepted; local implementation under verification
+- Decision: Keep the primary Codex session as Recall's owner-facing coordinator and use the repo-scoped `$recall-collaboration` skill to dispatch four short-lived custom profiles: Scout, Worker, Smart Worker, and Master Judge. Limit spawned concurrency to three, require exclusive writer leases, and keep protected actions behind owner approval.
+- Independent-review boundary: Master Judge is an internal read-only event-based gate. The external GitHub auditor remains outside the Codex hierarchy, reviews only stable owner-published heads, and cannot be controlled by the coordinator. Neither verdict replaces owner approval.
+- External cadence: Request the external auditor after this infrastructure is owner-published, after every two completed writing assignments or three remote commits when that produces a new stable head, immediately after published high-risk changes, before merge/phase exit, and at RCL-902 feature freeze.
+- Consequence: Runtime discovery and permission behavior require fresh-session smoke evidence. The credential incident in ERR-2026-08-17-086 remains open; DEC-2026-08-17-030 records the owner's one-operation publication exception.
+- ADR: `docs/adr/ADR-0009-repo-scoped-codex-collaboration.md`.
+- Evidence: `docs/project/COLLABORATION_SYSTEM.md`.
+
+## DEC-2026-08-17-030: Owner risk acceptance for one collaboration-infrastructure publish
+
+- Status: accepted owner exception; security remediation remains open
+- Decision: The owner cannot rotate the exposed shared GitHub credential while it is concurrently used by other agents. The owner explicitly accepts that risk and authorizes the exact Recall collaboration-infrastructure commit and push on 2026-08-17.
+- Boundary: This decision does not make the credential safe, close RCL-106, disclose its value, or authorize later GitHub writes. Every later commit, push, merge, PR mutation, cloud action, or publication still requires its own owner approval.
+- Required controls: Verify local Git author and committer as `aistanbulresearch`, verify the active GitHub account without printing credentials, scan the staged tree, use no attribution trailers, read back the exact remote head, and inspect PR comments, reviews, statuses, checks, and actors for prohibited bot or assistant surfaces.
+- Consequence: The collaboration infrastructure may be published before the fresh Recall-root runtime matrix. It remains `IMPLEMENTED` and structurally verified, not runtime-verified, until RCL-011 passes in a new Recall-root task.
+- Evidence: Owner instruction dated 2026-08-17, ERR-2026-08-17-086, and the eventual exact-head read-back recorded in `WORK_LOG.md`.

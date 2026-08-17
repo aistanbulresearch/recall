@@ -5,26 +5,27 @@
 1. `AGENTS.md`
 2. `docs/project/STATUS.md`
 3. `docs/project/MASTER_PLAN.md`
-4. `docs/project/OPERATING_PRINCIPLES.md`
-5. `docs/architecture/TARGET_ARCHITECTURE.md`
-6. `docs/governance/DEPENDENCY_LICENSE_POLICY.md`
-7. `docs/governance/THIRD_PARTY_REGISTER.md`
-8. `docs/demo/FOUR_MINUTE_STORYBOARD.md`
-9. `docs/demo/WEB_INFORMATION_ARCHITECTURE.md`
-10. `docs/demo/DERIVED_VALUE_REGISTRY.md`
-11. `docs/security/THREAT_MODEL.md`
-12. `docs/contracts/ARTIFACT_CONTRACTS.md`
-13. `docs/contracts/LIFECYCLE_STATE_MACHINES.md`
-14. `docs/policy/DETERMINISTIC_POLICY_SPEC.md`
-15. `docs/evaluation/EVALUATION_PROTOCOLS.md`
-16. `docs/evaluation/HISTORICAL_REPLAY_CASE.md`
-17. `docs/evaluation/HISTORICAL_REPLAY_CANDIDATE_LEDGER.md`
-18. `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
-19. `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md` through `ADR-0008-external-audit-corrections.md`
-20. `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`
-21. `docs/evaluation/reports/2026-08-17--github-auditor-rereview.md`
-22. `docs/project/ERROR_LOG.md`
-23. relevant evidence ledgers
+4. `docs/project/COLLABORATION_SYSTEM.md`
+5. `docs/project/OPERATING_PRINCIPLES.md`
+6. `docs/architecture/TARGET_ARCHITECTURE.md`
+7. `docs/governance/DEPENDENCY_LICENSE_POLICY.md`
+8. `docs/governance/THIRD_PARTY_REGISTER.md`
+9. `docs/demo/FOUR_MINUTE_STORYBOARD.md`
+10. `docs/demo/WEB_INFORMATION_ARCHITECTURE.md`
+11. `docs/demo/DERIVED_VALUE_REGISTRY.md`
+12. `docs/security/THREAT_MODEL.md`
+13. `docs/contracts/ARTIFACT_CONTRACTS.md`
+14. `docs/contracts/LIFECYCLE_STATE_MACHINES.md`
+15. `docs/policy/DETERMINISTIC_POLICY_SPEC.md`
+16. `docs/evaluation/EVALUATION_PROTOCOLS.md`
+17. `docs/evaluation/HISTORICAL_REPLAY_CASE.md`
+18. `docs/evaluation/HISTORICAL_REPLAY_CANDIDATE_LEDGER.md`
+19. `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
+20. `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md` through `ADR-0009-repo-scoped-codex-collaboration.md`
+21. `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`
+22. `docs/evaluation/reports/2026-08-17--github-auditor-rereview.md`
+23. `docs/project/ERROR_LOG.md`
+24. relevant evidence ledgers
 
 ## Current objective
 
@@ -33,8 +34,8 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 ## Current state
 
 - Date: 2026-08-17.
-- Phase: Phase 0 verified; Phase 1 smoke is partial and stopped at billing selection; the first external re-review failed and all four findings are remediated locally pending second review.
-- GitHub: `https://github.com/aistanbulresearch/recall`, private and initially empty.
+- Phase: Phase 2 final exact-head external re-review passed; Phase 1 smoke is partial and stopped at billing selection; Phase 0 collaboration control is being extended under RCL-011.
+- GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
 - No privacy, scientific, reliability, or production claim has been validated.
@@ -46,12 +47,17 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - RCL-101 is verified: owner eligibility and authority are confirmed, entry capacity is `individual/solo`, and no sensitive personal details are stored. A live Devpost recheck remains only as a final-submission control.
 - RCL-102 is verified. The Rules require rights and license compliance but no special repository license; the owner approved Apache-2.0 and `LICENSE` is present.
 - Current Google Cloud terms prohibit Generative AI Services for clinical purposes. The contest build is therefore a synthetic, non-clinical research prototype; future clinical deployment is blocked behind a separate terms and regulatory gate.
-- Phase 3 and merge are `NO-GO`. Remote commit `05ff0b59` was owner-only, but the first re-review found four bounded defects. Citation scope, source-derived verification, path containment, and per-source rights metadata are now corrected locally.
+- Final GitHub auditor re-review passed at exact remote head `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. PR #2 remains open and unmerged; product and cloud behavior remain unverified.
 - RCL-207 and RCL-208 are verified design gates. The implementation must follow the 3:45 storyboard, single-screen evidence surface, and deterministic derived-value registry.
 - RCL-201 through RCL-204 and RCL-206 are verified corrected-design gates for F-01 through F-06. Candidate authority, memory parity, citation failure, evaluated policy reasons, mode composition, cursor recovery, and their executable test obligations are synchronized but not implemented.
 - ADR-0007 separates technical `HALTED` from Policy Gate `ABSTAIN`, routes no-change through Policy Gate, and keeps privacy quarantine outside the cloud run lifecycle.
 - RCL-205 is verified locally at frozen-source-package level. Ten exact captures, seven source-derived chronology checks, twelve semantic checks, eleven rights checks, one exact XLSX row, and byte/semantic/root/traversal/rights/hash-role/junction fault rejection pass offline. Product replay remains unimplemented.
-- RCL-211 is in progress. The first four reviews found eight total issues; all are remediated locally and the fifth local review passed with no actionable findings. Proven Cursor disablement, owner-only republish/read-back, and final remote re-review remain.
+- RCL-211 is verified. The first four local reviews found eight total issues; remediation, final exact-head remote re-review, owner-only metadata, and clean surfaces passed.
+- RCL-011 is in progress. `$recall-collaboration`, four custom profiles with exact stable identifier names, a three-thread cap, ADR-0009, and mutation-tested structural validation are implemented. The VUS-root nested observations are `REPORT_DERIVED`, not runtime proof. Every Recall-root row in `COLLABORATION_SYSTEM.md` must pass before verification.
+- The first two independent collaboration reviews returned `FAIL`; exact-schema, YAML, link, canonical negative-action, evidence classification, acceptance-matrix, baseline-metadata, and profile-name remediations are implemented. The harness now rejects twelve injected defects, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion.
+- An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge superseded it with `FAIL`. Four independent code-review cycles then found and closed profile-name, detailed-row, displayed aggregate/count, thread-cap, Judge-effort, and current-state count defects. The final code re-review returned `PASS` with twelve mutation controls; a new pre-publish Master Judge verdict remains required. RCL-011 remains in progress and every Recall-root runtime row is still open.
+- Final approved Recall Graphify refresh passed with 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges; raw Graphify traversal remains prohibited.
+- ERR-2026-08-17-086 records an exposed GitHub credential without its value. Rotation remains recommended, but the owner explicitly deferred it and accepted the risk for the exact collaboration-infrastructure commit/push on 2026-08-17.
 
 ## Locked decisions
 
@@ -80,7 +86,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Owner-only remediation checkpoint `9cfee558` and its documentation successor passed staged-tree, clean-clone, remote identity, and delayed actor checks. The stale PR summary was corrected through the authenticated owner web interface and read back. Publish this final documentation correction, repeat the delayed actor scan, and request final GitHub auditor re-review against the final remote head. Product implementation and merge remain blocked.
+Publish the explicitly authorized collaboration infrastructure with owner-only attribution, verify the exact remote head and GitHub surfaces, and request the external GitHub auditor against that head before merge or Phase 3. Then open a fresh Codex task rooted at the Recall checkout and complete every remaining RCL-011 runtime row. RCL-106 credential rotation remains recommended and open.
 
 ## Known blocker
 
@@ -98,6 +104,8 @@ The dedicated Recall project is active, but two open billing accounts are availa
 - Cursor's GitHub integration added an unsolicited disabled-Bugbot upsell comment again immediately after the `05ff0b59` push. The exact comment was deleted; two bounded rereads were visibly clean. Recurrence is proof that disablement was not established.
 - Owner confirmed Cursor disablement on 2026-08-17. The remediation push is permitted only with owner-only identity, clean staged-tree evidence, remote read-back, and delayed post-push actor/surface scans; recurrence fails the gate.
 - ERR-080 records repeated HTTP 503 failures while refreshing the stale PR #2 verification summary. The owner web-interface fallback succeeded and API read-back confirmed the corrected current body.
+- The final exact-head GitHub auditor re-review passed with no actionable findings; PR #2 remains unmerged.
+- A design-review subagent exposed a GitHub PAT from global Codex config in its private tool log. Do not repeat the value or inspect credential-bearing config. The owner deferred rotation and accepted the risk for the exact 2026-08-17 collaboration-infrastructure publish; this is not remediation or standing authorization for later Git writes.
 
 ## Stop conditions
 

@@ -5,14 +5,14 @@
 | Field | Current truth |
 |---|---|
 | Updated | 2026-08-17 |
-| Phase | Phase 0 verified; Phase 1 blocked in part; Phase 2 first external re-review failed and its four findings are remediated locally |
-| Overall state | Fifth local auditor review passed; owner confirmed Cursor disablement and publish verification is in progress; merge and Phase 3 remain `NO-GO`; product work not started |
+| Phase | Phase 0 collaboration control is being extended; Phase 1 blocked in part; Phase 2 final exact-head external re-review passed |
+| Overall state | PR #2 exact-head audit passed and remains unmerged; repo-scoped Codex collaboration is implemented and structurally verified; nested-smoke claims are `REPORT_DERIVED`; every Recall-root runtime matrix row remains; exposed GitHub credential rotation is deferred under explicit owner risk acceptance; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged; `9cfee558` is the remediation checkpoint and its owner-only documentation successor is the current remote head; PR body is corrected and bot surfaces remain clean |
+| GitHub | Private repository; PR #2 remains open and unmerged; final audited remote head is `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; external auditor reported owner-only metadata and zero bot/comment/review/check surfaces |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -27,7 +27,7 @@
 - Recall Obsidian project memory bootstrapped and synthesized; local absolute paths remain Git-ignored.
 - Owner approved the Fleet architecture direction on 2026-08-15.
 - Target architecture now separates durable `WatchCase`, short `ScanRun`, and human `ReviewTask` lifecycles.
-- ADR-0001 through ADR-0007 record the Phase 2 baseline. ADR-0008 accepts the external-audit correction package; decisions 1 through 8 and replay protocol 1.0.1 are synchronized, and the complete local follow-up audit passes. External re-review remains pending.
+- ADR-0001 through ADR-0008 record the corrected Phase 2 baseline. The final external re-review passed at exact remote head `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; its evidence boundary remains design and frozen source-package verification, not product behavior.
 - Phase 1 smoke plan was preregistered before execution.
 - Google Cloud CLI, user authentication, ADC, and five required SDK imports passed local smoke checks.
 - The initial pre-project smoke stage created zero cloud resources; the subsequent owner-authorized step created one dedicated project and no service resources.
@@ -60,13 +60,21 @@
 - Owner-only remediation commit `9cfee55883fc67cc48e79745ae8d73e3e4a21b3a` was pushed and read back with only `aistanbulresearch` author, committer, and PR ownership metadata. Staged-tree and clean-clone verifier/harness checks pass; immediate and first delayed actor scans are clean.
 - Eight findings across the first four reviews are remediated locally. The clean verifier reports 10 captures, 1,400,869 bytes, 7 source-derived chronology checks, 12 exact-ID semantic checks, 11 exact-ID rights checks, 1 exact-ID live-spec check, 1 declared live source, 1 parsed XLSX row, and 0 network calls. The expanded harness rejects byte, semantic, path, root, rights, live-runtime, duplicate-live, hash-role, and junction faults.
 - The fifth read-only local auditor review returned `PASS` with no actionable findings and independently confirmed duplicate/cross-class source rejection and all prior remediations. This is not remote committed-state evidence.
+- The final exact-head GitHub auditor re-review returned `PASS` with no actionable findings. PR body counts and evidence boundaries, owner-only author/committer/actor metadata, zero bot surfaces, PowerShell 5.1 parser checks, clean verifier, and the full fault harness passed against the exact remote head.
+- RCL-211 is verified. PR #2 remains open and unmerged; merge is an owner action.
+- ADR-0009 and `$recall-collaboration` now define a repo-scoped coordinator, Scout, Worker, Smart Worker, and read-only Master Judge with a three-thread spawned-agent cap, exclusive writer leases, stable-worktree gates, and owner-protected external actions.
+- Collaboration structural validation and official skill validation pass. The four configured profile names are exact stable identifiers and are checked for filename mapping and uniqueness. The earlier Scout/Worker/Judge nested-session observations are retained only as `REPORT_DERIVED`, not runtime proof.
+- The first independent collaboration code review found a green-but-dead validator. Its false-pass classes and twelve control mutations, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion, are now rejected. Exact runtime evidence and remaining `NOT VERIFIED` boundaries are parsed from the sanitized smoke report.
+- An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge correctly superseded it with `FAIL`. Four independent code-review cycles then found and closed profile-name, detailed-row, displayed aggregate/count, thread-cap, Judge-effort, and current-state count defects. The final code re-review returned `PASS` with twelve mutation controls; a new pre-publish Master Judge verdict remains required. Recall-root runtime rows remain open.
+- Recall Graphify was incrementally refreshed after the stable collaboration review: quality gate PASS, 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges. It remains navigation/design evidence only.
 
 ## In progress
 
 - Phase 1 access, security, and local Gemma feasibility gates.
 - Project-scoped API discovery after the owner selects the correct billing account.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
-- RCL-211: owner-only republish/read-back and clean-clone verification pass; PR-body refresh was completed through the owner web session and read back; STATUS correction, another delayed actor scan, and final remote re-review remain.
+- RCL-011: nested Worker/Scout/Judge discovery, refusal, denial, and Judge behavior are `REPORT_DERIVED`. Every Recall-root matrix row remains, including Scout sandbox denial, Worker exact write, Smart Worker dry smoke, Judge read-only/effective-effort evidence, thread-cap behavior, leaf no-spawn, and protected-operation stops.
+- RCL-106: revoke or rotate the GitHub credential exposed in a private subagent tool log; the owner explicitly deferred rotation on 2026-08-17 and accepted the risk for the exact collaboration-infrastructure commit/push only. Do not store or report its value.
 
 ## Blocked
 
@@ -74,8 +82,8 @@
 - No external deployment work should begin before access and security gates.
 - Google Cloud billing: the dedicated Recall project is active but billing-disabled; two open billing accounts have no safe automatic match, so owner selection is required.
 - Local Gemma benchmark: no checked runtime command or GGUF model is installed.
-- Phase 3 and merge: blocked until the remediated package passes local and final remote auditor re-review.
-- GitHub push: authorized only for the preregistered owner-only remediation publish after the owner confirmed Cursor disablement; any bot recurrence fails the gate.
+- Phase 3 and merge: Phase 2 audit is passed, but owner merge approval and the collaboration runtime gate are still required before product implementation. RCL-106 remains an accepted open security risk, not a verified remediation.
+- GitHub commit/push: the owner explicitly authorized the exact collaboration-infrastructure commit and push on 2026-08-17 despite deferred credential rotation. Any later Git operation still requires fresh owner approval; prohibited authorship or bot recurrence fails the gate.
 
 ## Not started
 
@@ -101,11 +109,12 @@
 | Memory Bank could contaminate later runs with stale or poisoned context | High | Keep Firestore authoritative; enforce admission, scope, TTL, provenance, contradiction, and disabled-memory parity tests. |
 | Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
 | Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
-| First external re-review failed and remediation is not yet independently accepted | High | Keep implementation blocked until second local review, safe owner-only republish/read-back, and final remote review pass. |
+| A GitHub credential was rendered in a private subagent tool log | Critical | Treat as exposed and never store the value in project records. Rotation remains recommended; the owner accepted the risk and granted a one-operation exception for the collaboration-infrastructure publish. |
+| Collaboration config could be mistaken for enforced runtime behavior | High | Keep untested profile behaviors `NOT VERIFIED`; require fresh-session permission, Worker, Judge, and concurrency smokes. |
 | Frozen source package could be mistaken for product replay evidence | High | Keep RCL-503/RCL-506/RCL-801 unverified and label every source-package result as offline capture integrity only. |
 
 ## Next three actions
 
-1. Complete final local and staged-tree verification for the remediation package.
-2. Run owner-only commit/push, clean-clone verification, remote read-back, delayed actor scan, and final remote auditor re-review.
-3. Review all 27 scheduled/cleanup findings against their affected future tasks so none silently disappear.
+1. Publish the owner-approved collaboration infrastructure with owner-only attribution and verify the exact remote head and GitHub surfaces.
+2. Request the external GitHub auditor against that new exact head before merge or Phase 3.
+3. In a fresh Recall-root Codex task, complete every remaining row in the RCL-011 runtime matrix and pass the independent implementation gate. RCL-106 rotation remains recommended and open.

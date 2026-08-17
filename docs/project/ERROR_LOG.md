@@ -984,3 +984,206 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | Stopped repeated API retries, used the authenticated owner web interface to replace the body with the exact derived text, and read the updated body back through the GitHub API. |
 | Verification | The remote body now reports 10 captures, 1,400,869 bytes, 7 chronology checks, 12 semantic checks, 11 rights checks, 1 live-spec check, 1 live source, 1 XLSX row, 0 network calls, 87 Markdown files, 22 local links, 52 UI IDs, and 21 artifact types; old counts are absent. |
 | Status | Resolved through owner web interface; final audit still required |
+
+## ERR-2026-08-17-081: Project plan was queried at a nonexistent path
+
+| Field | Value |
+|---|---|
+| Task | Collaboration-system repository preflight |
+| Severity | Low |
+| Observed | A read-only command requested `docs/project/task_plan.md`, which does not exist. Recall uses `docs/project/MASTER_PLAN.md` as its living work plan. |
+| Impact | That probe returned no plan evidence and changed no files. |
+| Resolution | Continued from `MASTER_PLAN.md` and retained it as the canonical task plan. |
+| Status | Resolved |
+
+## ERR-2026-08-17-082: First architecture-review spawn used an incompatible fork option
+
+| Field | Value |
+|---|---|
+| Task | Independent collaboration design review |
+| Severity | Low |
+| Observed | The first spawn requested a custom agent type with a full-history fork, which the collaboration runtime rejects. |
+| Impact | No subagent started and no file changed. |
+| Resolution | Reissued the bounded read-only assignment with `fork_turns = none`. |
+| Status | Resolved |
+
+## ERR-2026-08-17-083: Direct Codex CLI discovery was blocked by Windows execution controls
+
+| Field | Value |
+|---|---|
+| Task | Collaboration runtime smoke |
+| Severity | Low |
+| Observed | Direct `codex` and direct WindowsApps `codex.exe` invocations returned access or execution-policy errors. |
+| Impact | Those attempts supplied no feature-discovery evidence and changed no files. |
+| Resolution | Used a process-scoped `powershell.exe -ExecutionPolicy Bypass` wrapper without changing machine policy. |
+| Verification | `codex features list` completed and reported `multi_agent` stable and enabled. |
+| Status | Resolved |
+
+## ERR-2026-08-17-084: Skill initializer expanded the invocation token
+
+| Field | Value |
+|---|---|
+| Task | Recall collaboration skill initialization |
+| Severity | Medium |
+| Observed | PowerShell expanded `$recall` in the initializer argument, producing `Use -collaboration` in `agents/openai.yaml`. |
+| Impact | The generated default prompt would not explicitly invoke the repo skill. |
+| Resolution | Replaced it with the literal `$recall-collaboration` token and added a deterministic assertion. |
+| Verification | Skill validator and repository validator pass. |
+| Status | Resolved |
+
+## ERR-2026-08-17-085: Initial multi-file patch could not create the Codex parent directory
+
+| Field | Value |
+|---|---|
+| Task | Custom agent profile creation |
+| Severity | Low |
+| Observed | The first multi-file patch could not create `.codex/` on the OneDrive checkout and stopped before adding profile files. An earlier exact-context replacement attempt also changed nothing. |
+| Impact | Skill files were present, but config/profiles were temporarily absent. No existing file was corrupted. |
+| Resolution | Created the exact `.codex/agents` directory, added each profile through a bounded patch, and read every file back. |
+| Verification | Deterministic TOML/profile validation passes for the exact four-file set. |
+| Status | Resolved |
+
+## ERR-2026-08-17-086: GitHub credential rendered in a subagent tool log
+
+| Field | Value |
+|---|---|
+| Task | Independent collaboration design review |
+| Severity | Critical |
+| Observed | A read-only subagent inspected a global Codex config while looking for custom-agent examples and rendered a stored GitHub personal access token into its private tool log. The value is intentionally not reproduced here. |
+| Impact | The credential must be treated as exposed even though it was not written into the Recall worktree or repository records. Future GitHub writes are unsafe until rotation. |
+| Containment | The subagent was instructed to stop reading global or credential-bearing config and never repeat the value. Subsequent ephemeral smoke used `--ignore-user-config`. Scoped repository scans found no credential signature. |
+| Required owner action | Revoke or rotate the affected GitHub credential and confirm completion without sharing the replacement value. The owner deferred this action because the same GitHub API credential is concurrently used by other agents. |
+| Owner exception | On 2026-08-17 the owner explicitly accepted the risk and authorized only the exact Recall collaboration-infrastructure commit/push with owner-only identity and remote surface verification. |
+| Status | Open security risk; one explicitly bounded publish exception granted, not remediated |
+
+## ERR-2026-08-17-087: Ephemeral Codex smoke emitted non-blocking cache and hook warnings
+
+| Field | Value |
+|---|---|
+| Task | Fresh-session Recall Scout smoke |
+| Severity | Low |
+| Observed | The ephemeral process reported a stale model-cache schema warning, unsupported PowerShell shell snapshot, and an unavailable ephemeral parent-transcript hook path. |
+| Impact | The warnings did not prevent skill discovery, custom Scout spawn, bounded read, or successful exit. They do not prove other custom profiles. |
+| Resolution | Kept the smoke ephemeral and read-only; recorded the warnings rather than treating the green exit alone as proof. |
+| Verification | Scout returned the exact `AGENTS.md` heading, no write, no child spawn, no external system, and process exit code 0. |
+| Status | Resolved for Scout discovery; broader runtime smoke remains pending |
+
+## ERR-2026-08-17-088: Nested parent permission blocked Worker functional smoke
+
+| Field | Value |
+|---|---|
+| Task | Custom Worker, Scout, and Master Judge runtime smoke |
+| Severity | Medium |
+| Observed | Although the nested CLI request selected `workspace-write`, the process inherited the VUS-root parent session's read-only permission boundary. The first full-history custom-agent spawn form was also rejected and immediately retried with a bounded independent context. |
+| Impact | `recall-worker` could not create the ignored temporary artifact, so Worker write capability and exact bytes remain `NOT VERIFIED`. |
+| Safe behavior | Worker stopped without retry/escalation, Scout refused its controlled write, both target files remained absent, and Master Judge returned `FAIL` rather than accepting missing evidence. |
+| Resolution | Run the remaining Worker and concurrency smokes only from a fresh Codex session whose primary writable workspace is the Recall repository. Do not weaken or bypass the inherited sandbox. |
+| Status | Open runtime-context requirement; blocks RCL-011 verification but not structural implementation |
+
+## ERR-2026-08-17-089: Python compile probe could not create a cache directory
+
+| Field | Value |
+|---|---|
+| Task | Collaboration validator syntax check |
+| Severity | Low |
+| Observed | `python -m py_compile` attempted to create `scripts/validation/__pycache__` and received Windows access denied in the current sandbox. |
+| Impact | That command supplied no syntax evidence and changed no tracked file. |
+| Resolution | Parsed both validator files through Python `ast.parse` without filesystem writes. |
+| Verification | `python_ast_parse=PASS files=2`; both executable validator commands also completed successfully. |
+| Status | Resolved |
+
+## ERR-2026-08-17-090: Initial collaboration validator had three false-pass classes
+
+| Field | Value |
+|---|---|
+| Task | Independent RCL-011 code review |
+| Severity | High |
+| Observed | Read-only in-memory mutations showed the first validator still returned `PASS` for an unknown Judge key, syntactically invalid `openai.yaml`, and a broken Master Judge rubric link. |
+| Impact | The initial structural green result did not prove exact schema or reference integrity and is superseded. |
+| Resolution | Added exact schema/key/type rejection, strict supported-subset YAML parsing, actual Markdown link containment/resolution, exhaustive protected-action checks, and a dedicated mutation harness. |
+| Verification | Clean validator PASS; all five invalid variants, including the original three, are rejected with typed errors. |
+| Status | Resolved; final independent follow-up passed |
+
+## ERR-2026-08-17-091: First smoke-report hash probe checked zero rows
+
+| Field | Value |
+|---|---|
+| Task | Sanitized smoke-evidence hash verification |
+| Severity | Medium |
+| Observed | The first ad hoc regex did not account for line endings and returned a misleading `PASS` with `evidence_hashes_checked=0`. A second shell form lost Markdown backticks during PowerShell parsing and correctly failed its required row-count assertion. |
+| Impact | Neither attempt supplied hash-integrity evidence. |
+| Resolution | Added repository validator logic that parses the exact table, requires the complete nine-path set, rejects duplicates/missing paths, and verifies every SHA-256. The mutation harness copies the report and hashed files into its isolated root. |
+| Verification | Structural validator reports `evidence_hashes_verified=9`; clean and five-mutation runs pass. |
+| Status | Resolved |
+
+## ERR-2026-08-17-092: Protected-action validator ignored prohibition polarity
+
+| Field | Value |
+|---|---|
+| Task | Second independent RCL-011 review |
+| Severity | High |
+| Observed | A temporary Worker mutation changed `Do not perform destructive actions` to the affirmative `Perform destructive actions`, updated the temporary evidence hash, and the fragment-based validator still returned `PASS`. |
+| Impact | The five-mutation green result did not prove that protected operations were actually prohibited. |
+| Resolution | Defined canonical negative clauses, required every clause in every profile, and added a hash-consistent polarity-reversal fault test. |
+| Verification | Clean structural validator PASS with eleven hashes; six-mutation harness rejects `reversed_prohibition_polarity` through `protected_clause_missing`. |
+| Status | Resolved; final independent follow-up passed |
+
+## ERR-2026-08-17-093: Pre-publish Judge found unstable custom-agent identifiers and overstated runtime evidence
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 collaboration-infrastructure publish gate |
+| Severity | High |
+| Observed | The skill and `AGENTS.md` invoked kebab-case custom-agent identifiers, but the four TOML `name` fields used display labels. The validator required only non-empty names. ADR-0009 also called role discovery passed while the smoke report classified it only as `REPORT_DERIVED`; STATUS and HANDOFF retained stale follow-up wording. |
+| Impact | A structural PASS could coexist with profiles that were not addressable under the documented identifiers, and readers could mistake report-derived observations for runtime verification. The pre-publish Master Judge returned `FAIL`, so no staging, commit, or push occurred. |
+| Resolution | Changed every TOML `name` to the exact advertised identifier, required exact filename-to-name mapping and uniqueness, added a hash-adjusted wrong/duplicate-name mutation, classified discovery as `REPORT_DERIVED`, and removed stale follow-up contradictions. |
+| Verification | Structural validator PASS with eleven evidence hashes; mutation harness PASS with seven rejected defects including `wrong_duplicate_agent_name`; `git diff --check` PASS. A new independent pre-publish verdict remains required. |
+| Status | Remediated locally; independent re-review pending |
+
+## ERR-2026-08-17-094: Runtime-evidence classification validator returned a constant result
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 independent code review after pre-publish remediation |
+| Severity | High |
+| Observed | The validator checked smoke-report evidence hashes but returned a constant `REPORT_DERIVED_PARTIAL_FAIL_CLOSED` label. A temporary `REPORT_DERIVED` to `EXECUTED` promotion in the report still produced structural PASS. |
+| Impact | Runtime claims could be overstated while the deterministic gate remained green, recreating the project's green-but-dead failure mode. The independent code review returned `FAIL`; no staging or GitHub write occurred. |
+| Resolution | Parse seven required report classifications, reject any mismatch, derive the aggregate label from parsed values, assert matching open-boundary language in ADR-0009, STATUS, and HANDOFF, and add a classification-promotion mutation. |
+| Verification | Structural validator PASS with three `REPORT_DERIVED` and four `NOT VERIFIED` rows; eight-mutation harness PASS with typed `smoke_classification_mismatch` rejection; two-file AST parse and `git diff --check` PASS. |
+| Status | Remediated locally; independent re-review pending |
+
+## ERR-2026-08-17-095: Displayed smoke-summary claims were not bound to derived classifications
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 second independent code re-review |
+| Severity | High |
+| Observed | The validator parsed seven detailed classification rows and derived its own aggregate, but it did not validate the smoke report's displayed `functional_smoke` or displayed classification counts. Changing only the displayed aggregate to `EXECUTED` still returned PASS. |
+| Impact | The same evidence report could display an overclaim while its deterministic validator returned a correct internal value, leaving a public-facing green-but-dead inconsistency. No staging or GitHub write occurred. |
+| Resolution | Parse exactly one sanitized-results block, require the displayed aggregate to equal the derived aggregate, derive classification counts from all seven rows, require the displayed counts to match, and add aggregate-promotion plus count-drift mutations. |
+| Verification | Structural validator PASS with matched displayed and derived values; ten-mutation harness PASS with typed aggregate and count-mismatch rejections; two-file AST parse and `git diff --check` PASS. |
+| Status | Remediated locally; independent re-review pending |
+
+## ERR-2026-08-17-096: Thread-cap and Judge-effort summary claims remained independently mutable
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 third independent code re-review |
+| Severity | High |
+| Observed | The displayed aggregate and classification counts were bound, but adjacent `thread_cap_runtime` and `judge_effective_effort_runtime` summary keys could still be promoted from `NOT_VERIFIED` to `EXECUTED` without validator failure. |
+| Impact | Two runtime mechanisms could be overstated on the report surface while the deterministic gate passed. No staging or GitHub write occurred. |
+| Resolution | Validate all classification-bearing sanitized-summary keys through one exact expected map, bind thread-cap and Judge-effort values to their detailed runtime rows, normalize `NOT VERIFIED` only at the summary boundary, and reject missing, duplicate, unknown, or mismatched runtime summary keys. |
+| Verification | Structural validator PASS with four bound summary keys; twelve-mutation harness PASS with typed thread-cap and Judge-effort promotion rejections; two-file AST parse and `git diff --check` PASS. |
+| Status | Remediated locally; independent re-review pending |
+
+## ERR-2026-08-17-097: Pre-stage scan treated policy vocabulary as prohibited attribution
+
+| Field | Value |
+|---|---|
+| Task | Collaboration-infrastructure pre-stage gate |
+| Severity | Low |
+| Observed | The first broad scan counted literal policy and documentation terms such as tool names and prohibited-trailer examples as 63 findings. It did not distinguish descriptive text from an actual credential or Git authorship record. |
+| Impact | The probe failed closed and supplied no secret or attribution evidence. No staging, commit, push, or GitHub write occurred. |
+| Resolution | Separate repository secret-shape scanning from Git author, commit-message, trailer, note, and remote-actor verification. Permit tool names and historical incident descriptions in documentation while still prohibiting their appearance as authorship metadata. |
+| Verification | Pending exact staged-tree secret scan plus local and remote Git metadata checks. |
+| Status | Probe superseded; exact pre-stage controls pending |
