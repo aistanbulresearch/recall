@@ -5,7 +5,7 @@
 - Reviewed head: `05ff0b59cad88ef00adc2be2e239e57f73226cda`
 - Remote authorship: owner-only `aistanbulresearch`
 - First re-review verdict: `FAIL`
-- Remediation state: local, uncommitted, fifth review passed
+- Remediation state: owner-only remote remediation published; final remote metadata correction in progress
 
 ## Remote publication evidence
 
@@ -62,6 +62,12 @@ The local remediation now registers live source IDs in the same global set as ca
 
 Verdict: `PASS`. No actionable findings remain. The auditor independently confirmed global captured/live source-ID uniqueness, exact clean-result live count and check sets, duplicate-live and cross-class collision rejection, runtime provenance enforcement, citation scope, path/junction controls, PowerShell 5.1 behavior, and absence of prohibited authorship signatures.
 
+## First final remote review
+
+Verdict: `FAIL` on two Medium remote-metadata findings only. Exact remote head `fb469ea920f96a03002f298e4947aeba4fd5dd0a` passed the committed PowerShell 5.1 verifier and full harness; all seven PR commits resolved author, committer, and GitHub actor only to `aistanbulresearch`; comments, review comments, reviews, statuses, and check runs were zero. The remaining findings were stale counts in the PR body and a STATUS row that incorrectly called remediation checkpoint `9cfee558` the current head.
+
+The PR body was corrected through the authenticated owner web interface after repeated API writes returned HTTP 503, then read back through the GitHub API. STATUS now describes `9cfee558` as the remediation checkpoint and avoids a self-stale exact SHA for its documentation successor. These corrections require a final exact-head remote review.
+
 ## Gate
 
-The local auditor gate passes. Keep merge and Phase 3 at `NO-GO` because the passing remediation is not committed remotely and Cursor disablement is unverified. After owner-side disablement is proven, perform one owner-only commit/push, GitHub actor/surface read-back, clean-clone verification, and final remote auditor re-review.
+The code/source-package audit passes, but merge and Phase 3 remain `NO-GO` until this final metadata correction is published owner-only, delayed actor surfaces remain clean, and the exact remote head passes the final re-review.

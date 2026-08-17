@@ -981,5 +981,6 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Severity | Medium |
 | Observed | After the owner-only remediation push succeeded, two REST PATCH attempts and the GitHub CLI PR-edit fallback each returned HTTP 503 Service Unavailable. Read-only PR/commit APIs and Git transport remained available. |
 | Impact | The remote commit and branch are correct, but PR #2 still displays stale pre-remediation verification counts. No failed write changed the PR. |
-| Resolution | Stop repeated immediate writes, retain the exact derived replacement text, and retry only after a bounded delay. Do not treat the PR surface or final remote audit gate as complete while stale counts remain. |
-| Status | Open pending successful owner-authenticated PR-body update and read-back |
+| Resolution | Stopped repeated API retries, used the authenticated owner web interface to replace the body with the exact derived text, and read the updated body back through the GitHub API. |
+| Verification | The remote body now reports 10 captures, 1,400,869 bytes, 7 chronology checks, 12 semantic checks, 11 rights checks, 1 live-spec check, 1 live source, 1 XLSX row, 0 network calls, 87 Markdown files, 22 local links, 52 UI IDs, and 21 artifact types; old counts are absent. |
+| Status | Resolved through owner web interface; final audit still required |

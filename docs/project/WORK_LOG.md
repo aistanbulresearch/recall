@@ -627,3 +627,18 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - PR #2 still contains stale pre-remediation verification counts. Three owner-authenticated update paths returned HTTP 503 and changed nothing; ERR-080 records the open external-service failure.
 - Result:
   - Commit/push and owner-only read-back pass. Final remote auditor re-review remains blocked until the PR body is refreshed and read back, followed by a new delayed actor scan.
+
+## WORK-2026-08-17-032: Final remote audit metadata correction
+
+- Task ID: RCL-211
+- Auditor result:
+  - `FAIL` on two Medium remote-metadata findings only: stale PR-body counts and a STATUS row that called remediation checkpoint `9cfee558` the current head after its documentation successor was pushed.
+  - All committed verifier/harness checks, F-01 through F-08 boundaries, seven-commit owner-only attribution, prohibited-marker scan, and GitHub actor surfaces passed.
+- Actions:
+  - Confirmed repeated REST and CLI PR-body updates returned HTTP 503 while read APIs and Git transport remained available.
+  - Used the authenticated `aistanbulresearch` web session to replace the stale body with derived current counts and explicit evidence boundaries.
+  - Read the corrected PR body back through the GitHub API and confirmed zero comments/reviews.
+  - Rephrased STATUS so `9cfee558` is the remediation checkpoint and the current head is its owner-only documentation successor, avoiding a self-stale exact SHA.
+- Result:
+  - Both remote-audit metadata findings are remediated locally/at the remote PR surface.
+  - Final owner-only documentation publish, delayed actor scan, and exact-head auditor re-review remain mandatory. Merge and Phase 3 remain `NO-GO`.

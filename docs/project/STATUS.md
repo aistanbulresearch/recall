@@ -12,7 +12,7 @@
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged at owner-only SHA `9cfee558`; immediate and first delayed bot surfaces are clean; PR-body refresh is blocked by repeated GitHub HTTP 503 responses |
+| GitHub | Private repository; PR #2 remains open and unmerged; `9cfee558` is the remediation checkpoint and its owner-only documentation successor is the current remote head; PR body is corrected and bot surfaces remain clean |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -66,7 +66,7 @@
 - Phase 1 access, security, and local Gemma feasibility gates.
 - Project-scoped API discovery after the owner selects the correct billing account.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
-- RCL-211: owner-only republish/read-back and clean-clone verification pass at `9cfee558`; PR-body refresh, another delayed actor scan, and final remote re-review remain.
+- RCL-211: owner-only republish/read-back and clean-clone verification pass; PR-body refresh was completed through the owner web session and read back; STATUS correction, another delayed actor scan, and final remote re-review remain.
 
 ## Blocked
 

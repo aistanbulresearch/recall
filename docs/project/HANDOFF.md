@@ -80,7 +80,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Owner-only remediation commit `9cfee558` was pushed and passed staged-tree, clean-clone, remote identity, and first delayed actor checks. Refresh the stale PR verification summary after GitHub write APIs recover, read it back, repeat the delayed actor scan, and request final GitHub auditor re-review against the final remote head. Product implementation and merge remain blocked.
+Owner-only remediation checkpoint `9cfee558` and its documentation successor passed staged-tree, clean-clone, remote identity, and delayed actor checks. The stale PR summary was corrected through the authenticated owner web interface and read back. Publish this final documentation correction, repeat the delayed actor scan, and request final GitHub auditor re-review against the final remote head. Product implementation and merge remain blocked.
 
 ## Known blocker
 
@@ -97,7 +97,7 @@ The dedicated Recall project is active, but two open billing accounts are availa
 - GitHub currently rejects repository rulesets for this private repository without Pro. Squash-only merge, automatic merged-branch deletion, PR branch updates, and Issues are enabled; direct-push avoidance is process-enforced until a ruleset can be activated.
 - Cursor's GitHub integration added an unsolicited disabled-Bugbot upsell comment again immediately after the `05ff0b59` push. The exact comment was deleted; two bounded rereads were visibly clean. Recurrence is proof that disablement was not established.
 - Owner confirmed Cursor disablement on 2026-08-17. The remediation push is permitted only with owner-only identity, clean staged-tree evidence, remote read-back, and delayed post-push actor/surface scans; recurrence fails the gate.
-- ERR-080 records three HTTP 503 failures while refreshing the stale PR #2 verification summary. Read APIs and Git transport worked; the failed writes changed nothing. Do not declare the remote gate complete until the current body is successfully read back.
+- ERR-080 records repeated HTTP 503 failures while refreshing the stale PR #2 verification summary. The owner web-interface fallback succeeded and API read-back confirmed the corrected current body.
 
 ## Stop conditions
 

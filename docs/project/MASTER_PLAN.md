@@ -160,7 +160,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | Remediation is owner-only at `9cfee558`; staged-tree, clean-clone, read-back, and first delayed actor scan pass; PR-body refresh and final remote re-review remain |
+| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | in-progress | `9cfee558` is the owner-only remediation checkpoint; clean-clone/read-back pass and PR body is corrected; final documentation publish, delayed actor scan, and final remote re-review remain |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. F-01 through F-08 must be resolved, the replay package must verify offline, and follow-up audit must pass before Phase 3 begins.
 
@@ -327,4 +327,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The owner confirmed Cursor disablement and the owner-only remediation commit `9cfee558` passed staged-tree, clean-clone, remote identity, and first delayed actor checks. GitHub returned HTTP 503 for three attempts to replace stale PR verification counts, so the remote gate remains open. Refresh and read back the PR body after service recovery, repeat the delayed actor scan, and request final remote review against the final head. Billing-dependent smoke remains paused.
+The owner confirmed Cursor disablement and the owner-only remediation checkpoint `9cfee558` plus documentation successor passed staged-tree, clean-clone, remote identity, and delayed actor checks. Repeated GitHub API writes returned HTTP 503, but the authenticated owner web fallback corrected the PR body and API read-back passed. Publish this final status correction, repeat the delayed actor scan, and request final remote review against the final head. Billing-dependent smoke remains paused.

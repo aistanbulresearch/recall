@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Owner-only remediation commit `9cfee558` and clean-clone verification passed; PR-body refresh, delayed actor scan, and final remote re-review remain while merge and Phase 3 stay NO-GO**
+**Owner-only remediation and clean-clone verification passed; PR body is corrected; final status publish, delayed actor scan, and exact-head re-review remain while merge and Phase 3 stay NO-GO**
 
 ## Phase checklist
 
@@ -44,7 +44,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Refresh the stale PR #2 verification summary after GitHub write APIs recover, read it back, repeat the delayed actor scan, and request final remote auditor re-review against `9cfee558` or its documentation-only successor. Billing-dependent RCL-104 and RCL-105 remain paused.
+Publish the final STATUS/audit correction owner-only, run clean-clone and delayed actor scans, and request final remote auditor re-review against the exact new head. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 
