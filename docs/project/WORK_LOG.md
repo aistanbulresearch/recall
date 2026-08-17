@@ -866,3 +866,43 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - The Recall-root runtime matrix remains open.
   - No staging, commit, push, GitHub write, cloud action, billing action, or product change occurred during the independent review.
   - Exact staged-tree verification and a new pre-publish Master Judge verdict remain mandatory.
+
+## WORK-2026-08-17-045: Owner-only collaboration checkpoint publication
+
+- Task IDs: RCL-011, RCL-106, RCL-211
+- Owner authorization:
+  - The owner explicitly accepted the still-open shared-credential risk and authorized this exact collaboration-infrastructure commit/push.
+- Pre-publish gate:
+  - Exactly 20 files staged; zero unstaged or untracked changes.
+  - Structural validator PASS with four exact profiles and eleven evidence hashes.
+  - Twelve-mutation harness PASS.
+  - Official skill validator, two-file AST parse, cached diff check, and staged secret-signature scan PASS.
+  - Active local Git identity and GitHub login resolved to `aistanbulresearch`.
+  - Final pre-publish Master Judge verdict: `PASS`; runtime matrix explicitly outside the verdict.
+- Owner-only checkpoint:
+  - Commit `980ec6f69b74ab96c7a59541ea914a7122b2bf26`, subject `feat(workflow): add Recall collaboration`.
+  - Git author and committer names/logins resolve only to `aistanbulresearch`.
+  - Commit body length 0; no trailers or Git notes.
+  - Push to `feature/rcl-010-fleet-architecture` passed; local and remote checkpoint hashes matched.
+- GitHub read-back:
+  - PR #2 head reached the checkpoint; PR author association is `OWNER`.
+  - Corrected JSON-length checks found zero issue comments, review comments, reviews, statuses, and check runs.
+  - PR body was owner-updated and read back with the collaboration validator, twelve-mutation harness, and explicit `REPORT_DERIVED` / `NOT VERIFIED` boundary.
+- Boundary and next gate:
+  - This publishes configuration and structural verification, not Recall-root runtime proof.
+  - RCL-011 remains in progress; every runtime row remains open.
+  - External GitHub auditor review is now due against the new exact remote head before merge or Phase 3.
+
+## WORK-2026-08-17-046: Safe stop on final Graphify refresh
+
+- Task ID: RCL-011
+- Attempt:
+  - Requested only the approved `refresh-repo.ps1 recall` path after final code and documentation remediation.
+  - Did not invoke raw `graphify query`, `graphify explain`, or `graphify path`.
+- Result:
+  - Execution was rejected before start because newly changed private content could be transmitted to external Gemini semantic extraction without separate explicit payload/destination authorization.
+  - No workaround, alternate command, or policy bypass was attempted.
+- Evidence boundary:
+  - The prior 224-node graph remains the last successful snapshot and is stale for the final remediations.
+  - This does not affect the exact source diff, validator, mutation harness, Git metadata, or remote checkpoint evidence.
+  - A future owner-approved Recall-root task may refresh after explicitly authorizing the private payload and destination.

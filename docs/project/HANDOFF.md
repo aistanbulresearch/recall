@@ -35,7 +35,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 - Date: 2026-08-17.
 - Phase: Phase 2 final exact-head external re-review passed; Phase 1 smoke is partial and stopped at billing selection; Phase 0 collaboration control is being extended under RCL-011.
-- GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged.
+- GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged. `980ec6f69b74ab96c7a59541ea914a7122b2bf26` is the owner-only collaboration checkpoint; read the exact current origin head before requesting the now-due external re-audit.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
 - No privacy, scientific, reliability, or production claim has been validated.
@@ -57,6 +57,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - The first two independent collaboration reviews returned `FAIL`; exact-schema, YAML, link, canonical negative-action, evidence classification, acceptance-matrix, baseline-metadata, and profile-name remediations are implemented. The harness now rejects twelve injected defects, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion.
 - An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge superseded it with `FAIL`. Four independent code-review cycles then found and closed profile-name, detailed-row, displayed aggregate/count, thread-cap, Judge-effort, and current-state count defects. The final code re-review returned `PASS` with twelve mutation controls; a new pre-publish Master Judge verdict remains required. RCL-011 remains in progress and every Recall-root runtime row is still open.
 - Final approved Recall Graphify refresh passed with 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges; raw Graphify traversal remains prohibited.
+- That Graphify snapshot predates the final profile-name and validator remediations. A later refresh request was safely rejected because external semantic extraction of newly changed private content lacked separate payload/destination authorization. Treat the graph as stale until the owner explicitly approves that transmission.
 - ERR-2026-08-17-086 records an exposed GitHub credential without its value. Rotation remains recommended, but the owner explicitly deferred it and accepted the risk for the exact collaboration-infrastructure commit/push on 2026-08-17.
 
 ## Locked decisions
@@ -86,7 +87,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Publish the explicitly authorized collaboration infrastructure with owner-only attribution, verify the exact remote head and GitHub surfaces, and request the external GitHub auditor against that head before merge or Phase 3. Then open a fresh Codex task rooted at the Recall checkout and complete every remaining RCL-011 runtime row. RCL-106 credential rotation remains recommended and open.
+Request the external GitHub auditor now against the new exact remote head before merge or Phase 3. Then open a fresh Codex task rooted at the Recall checkout and complete every remaining RCL-011 runtime row. RCL-106 credential rotation remains recommended and open.
 
 ## Known blocker
 

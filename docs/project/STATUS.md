@@ -6,13 +6,13 @@
 |---|---|
 | Updated | 2026-08-17 |
 | Phase | Phase 0 collaboration control is being extended; Phase 1 blocked in part; Phase 2 final exact-head external re-review passed |
-| Overall state | PR #2 exact-head audit passed and remains unmerged; repo-scoped Codex collaboration is implemented and structurally verified; nested-smoke claims are `REPORT_DERIVED`; every Recall-root runtime matrix row remains; exposed GitHub credential rotation is deferred under explicit owner risk acceptance; product work not started |
+| Overall state | Repo-scoped collaboration infrastructure is owner-published and the external exact-head audit is now due; PR #2 remains unmerged; nested-smoke claims are `REPORT_DERIVED`; every Recall-root runtime matrix row remains; exposed GitHub credential rotation is deferred under explicit owner risk acceptance; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged; final audited remote head is `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; external auditor reported owner-only metadata and zero bot/comment/review/check surfaces |
+| GitHub | Private repository; PR #2 remains open and unmerged; `980ec6f69b74ab96c7a59541ea914a7122b2bf26` is the owner-only collaboration checkpoint; the prior audited head was `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; immediate checkpoint actor surfaces are clean; read the exact current origin head before external re-audit |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -66,7 +66,9 @@
 - Collaboration structural validation and official skill validation pass. The four configured profile names are exact stable identifiers and are checked for filename mapping and uniqueness. The earlier Scout/Worker/Judge nested-session observations are retained only as `REPORT_DERIVED`, not runtime proof.
 - The first independent collaboration code review found a green-but-dead validator. Its false-pass classes and twelve control mutations, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion, are now rejected. Exact runtime evidence and remaining `NOT VERIFIED` boundaries are parsed from the sanitized smoke report.
 - An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge correctly superseded it with `FAIL`. Four independent code-review cycles then found and closed profile-name, detailed-row, displayed aggregate/count, thread-cap, Judge-effort, and current-state count defects. The final code re-review returned `PASS` with twelve mutation controls; a new pre-publish Master Judge verdict remains required. Recall-root runtime rows remain open.
-- Recall Graphify was incrementally refreshed after the stable collaboration review: quality gate PASS, 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges. It remains navigation/design evidence only.
+- The last successful Recall Graphify refresh passed with 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges. It predates the final profile-name and validator remediations. A later refresh request was rejected because external semantic extraction of newly changed private content lacked separate payload/destination authorization; use the current graph only as stale navigation/design evidence.
+- The exact 20-file collaboration artifact passed final pre-publish Master Judge review, staged-tree checks, owner identity checks, secret scanning, and owner-only commit/push at checkpoint `980ec6f69b74ab96c7a59541ea914a7122b2bf26`. Local and remote checkpoint hashes matched; commit author, committer, and GitHub actor were only `aistanbulresearch`; commit body, trailers, and notes were empty; immediate PR comments, review comments, reviews, statuses, and check runs were zero.
+- PR #2 now describes the collaboration validator, twelve-mutation harness, and explicit runtime evidence boundary. Owner/association and body read-back passed without a stale pre-collaboration gate.
 
 ## In progress
 
@@ -115,6 +117,6 @@
 
 ## Next three actions
 
-1. Publish the owner-approved collaboration infrastructure with owner-only attribution and verify the exact remote head and GitHub surfaces.
-2. Request the external GitHub auditor against that new exact head before merge or Phase 3.
+1. Publish the owner-only documentation successor and verify its exact remote head and GitHub surfaces.
+2. Request the external GitHub auditor now against the new stable exact head before merge or Phase 3.
 3. In a fresh Recall-root Codex task, complete every remaining row in the RCL-011 runtime matrix and pass the independent implementation gate. RCL-106 rotation remains recommended and open.

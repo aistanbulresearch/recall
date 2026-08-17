@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Phase 2 final exact-head audit passed; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under explicit owner risk acceptance; billing selection blocked |
+| Status | Collaboration infrastructure owner-published and external exact-head audit now due; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under explicit owner risk acceptance; billing selection blocked |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -328,4 +328,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The Phase 2 exact-head external audit passed. The owner explicitly authorized publication of the collaboration infrastructure despite deferring RCL-106 credential rotation. Publish with owner-only attribution, verify the exact remote head and GitHub surfaces, then request the external GitHub auditor before merge or Phase 3. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.
+The collaboration infrastructure is owner-published at checkpoint `980ec6f` with clean immediate GitHub surfaces and a corrected PR body; its owner-only documentation successor is prepared for publication. After exact remote read-back, request the external GitHub auditor against that head before merge or Phase 3. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.

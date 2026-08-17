@@ -1185,5 +1185,29 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Observed | The first broad scan counted literal policy and documentation terms such as tool names and prohibited-trailer examples as 63 findings. It did not distinguish descriptive text from an actual credential or Git authorship record. |
 | Impact | The probe failed closed and supplied no secret or attribution evidence. No staging, commit, push, or GitHub write occurred. |
 | Resolution | Separate repository secret-shape scanning from Git author, commit-message, trailer, note, and remote-actor verification. Permit tool names and historical incident descriptions in documentation while still prohibiting their appearance as authorship metadata. |
-| Verification | Pending exact staged-tree secret scan plus local and remote Git metadata checks. |
-| Status | Probe superseded; exact pre-stage controls pending |
+| Verification | Exact candidate and staged-tree secret-signature scans found zero hits across the 20-file artifact. Local and remote author/committer/actor checks resolved only to `aistanbulresearch`; commit body, trailers, notes, and immediate GitHub surfaces were clean. |
+| Status | Resolved; broad probe superseded by exact content and metadata controls |
+
+## ERR-2026-08-17-098: Empty GitHub arrays were initially counted as one item
+
+| Field | Value |
+|---|---|
+| Task | Post-push GitHub surface read-back |
+| Severity | Low |
+| Observed | PowerShell wrapped a null result from an empty JSON array as a one-element array, initially reporting one issue comment, review comment, review, and status. |
+| Impact | The first count supplied no trustworthy surface evidence. No item was deleted or modified because the result was treated as a probe error. |
+| Resolution | Re-read every endpoint with GitHub API JSON `length` and the check-run `total_count` field. |
+| Verification | Issue comments 0; review comments 0; reviews 0; statuses 0; check runs 0 on collaboration checkpoint `980ec6f`. |
+| Status | Resolved |
+
+## ERR-2026-08-17-099: Final Graphify refresh rejected pending external-payload authorization
+
+| Field | Value |
+|---|---|
+| Task | Post-remediation Recall Graphify refresh |
+| Severity | Medium |
+| Observed | The approved `refresh-repo.ps1 recall` path was requested, but the execution safety layer rejected it because the refresh may transmit newly changed private Recall documents and code to the external Gemini semantic-extraction service without separate explicit payload/destination authorization for this run. |
+| Impact | No refresh process started and no private content was transmitted by this attempt. The last successful graph predates the final profile-name and validator remediations. |
+| Resolution | Do not bypass or substitute another Graphify command. Treat the existing graph as stale navigation evidence. Request explicit owner authorization for the private-repository payload and Gemini destination in a future Recall-root task if refresh is still desired. |
+| Verification | Command was rejected before execution; no Graphify success or quality-gate claim is made for the final remediation state. |
+| Status | Open authorization boundary; non-blocking for the Git/GitHub publish artifact |
