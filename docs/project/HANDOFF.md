@@ -22,8 +22,9 @@
 18. `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
 19. `docs/adr/ADR-0001-durable-watchcase-and-short-scan-runs.md` through `ADR-0008-external-audit-corrections.md`
 20. `docs/evaluation/reports/2026-08-17--phase2-external-audit-triage.md`
-21. `docs/project/ERROR_LOG.md`
-22. relevant evidence ledgers
+21. `docs/evaluation/reports/2026-08-17--github-auditor-rereview.md`
+22. `docs/project/ERROR_LOG.md`
+23. relevant evidence ledgers
 
 ## Current objective
 
@@ -32,7 +33,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 ## Current state
 
 - Date: 2026-08-17.
-- Phase: Phase 0 verified; Phase 1 smoke is partial and stopped at billing selection; F-01 through F-08 are corrected and the complete local follow-up audit passes.
+- Phase: Phase 0 verified; Phase 1 smoke is partial and stopped at billing selection; the first external re-review failed and all four findings are remediated locally pending second review.
 - GitHub: `https://github.com/aistanbulresearch/recall`, private and initially empty.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
@@ -45,12 +46,12 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - RCL-101 is verified: owner eligibility and authority are confirmed, entry capacity is `individual/solo`, and no sensitive personal details are stored. A live Devpost recheck remains only as a final-submission control.
 - RCL-102 is verified. The Rules require rights and license compliance but no special repository license; the owner approved Apache-2.0 and `LICENSE` is present.
 - Current Google Cloud terms prohibit Generative AI Services for clinical purposes. The contest build is therefore a synthetic, non-clinical research prototype; future clinical deployment is blocked behind a separate terms and regulatory gate.
-- Phase 3 and merge are `NO-GO`. The eight accepted P1 issues are corrected locally: F-01 through F-06 pass at document level, F-07/F-08 pass at frozen-source-package level, and the complete local follow-up audit passes. External re-review remains.
+- Phase 3 and merge are `NO-GO`. Remote commit `05ff0b59` was owner-only, but the first re-review found four bounded defects. Citation scope, source-derived verification, path containment, and per-source rights metadata are now corrected locally.
 - RCL-207 and RCL-208 are verified design gates. The implementation must follow the 3:45 storyboard, single-screen evidence surface, and deterministic derived-value registry.
 - RCL-201 through RCL-204 and RCL-206 are verified corrected-design gates for F-01 through F-06. Candidate authority, memory parity, citation failure, evaluated policy reasons, mode composition, cursor recovery, and their executable test obligations are synchronized but not implemented.
 - ADR-0007 separates technical `HALTED` from Policy Gate `ABSTAIN`, routes no-change through Policy Gate, and keeps privacy quarantine outside the cloud run lifecycle.
-- RCL-205 is verified at frozen-source-package level. Ten exact captures, corrected GEO chronology/linkage, one exact XLSX row, clean-copy verification, mutated-byte rejection, and path-boundary rejection pass offline. Product replay remains unimplemented.
-- RCL-211 is in progress. Audit triage, F-01 through F-08 correction, and complete local follow-up are done. Cursor disablement confirmation, safe owner-only push/read-back, and auditor re-review remain.
+- RCL-205 is verified locally at frozen-source-package level. Ten exact captures, seven source-derived chronology checks, twelve semantic checks, eleven rights checks, one exact XLSX row, and byte/semantic/root/traversal/rights/hash-role/junction fault rejection pass offline. Product replay remains unimplemented.
+- RCL-211 is in progress. The first four reviews found eight total issues; all are remediated locally and the fifth local review passed with no actionable findings. Proven Cursor disablement, owner-only republish/read-back, and final remote re-review remain.
 
 ## Locked decisions
 
@@ -79,7 +80,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Await explicit owner confirmation that the Cursor GitHub integration is disabled for Recall. Then run attribution preflight, owner-only commit/push, remote read-back, visible actor scan, and GitHub auditor re-review. Product implementation and merge remain blocked.
+Owner confirmed Cursor disablement on 2026-08-17 and the attribution/PR preflight passed. Complete final local and staged-tree verification, owner-only commit/push, clean-clone verification, remote read-back, delayed visible actor scan, and final GitHub auditor re-review. Product implementation and merge remain blocked.
 
 ## Known blocker
 
@@ -94,8 +95,8 @@ The dedicated Recall project is active, but two open billing accounts are availa
 - Do not expose GitHub tokens, cloud credentials, SSH material, or Hetzner host details in logs or committed files.
 - Domain creation remains an owner action when the deployment phase is reached.
 - GitHub currently rejects repository rulesets for this private repository without Pro. Squash-only merge, automatic merged-branch deletion, PR branch updates, and Issues are enabled; direct-push avoidance is process-enforced until a ruleset can be activated.
-- Cursor's GitHub integration added one unsolicited disabled-Bugbot upsell comment to PR #2. The exact comment was deleted and the PR is visibly clean. Recheck comments, reviews, checks, and commit actors after every push; if it recurs, stop and ask the owner to disable the Cursor integration for Recall.
-- Do not push the correction package until the owner explicitly confirms that the Cursor GitHub integration is disabled for Recall.
+- Cursor's GitHub integration added an unsolicited disabled-Bugbot upsell comment again immediately after the `05ff0b59` push. The exact comment was deleted; two bounded rereads were visibly clean. Recurrence is proof that disablement was not established.
+- Owner confirmed Cursor disablement on 2026-08-17. The remediation push is permitted only with owner-only identity, clean staged-tree evidence, remote read-back, and delayed post-push actor/surface scans; recurrence fails the gate.
 
 ## Stop conditions
 

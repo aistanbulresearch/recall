@@ -5,14 +5,14 @@
 | Field | Current truth |
 |---|---|
 | Updated | 2026-08-17 |
-| Phase | Phase 0 verified; Phase 1 blocked in part; Phase 2 F-01 through F-08 corrected and complete local follow-up passed |
-| Overall state | Correction package is locally ready for safe owner-only push and external re-review; merge and Phase 3 remain `NO-GO`; product work not started |
+| Phase | Phase 0 verified; Phase 1 blocked in part; Phase 2 first external re-review failed and its four findings are remediated locally |
+| Overall state | Fifth local auditor review passed; owner confirmed Cursor disablement and publish verification is in progress; merge and Phase 3 remain `NO-GO`; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged at audited SHA `c4e2b02d`; correction work is local and unpushed |
+| GitHub | Private repository; PR #2 remains open and unmerged at owner-only SHA `05ff0b59`; bot surfaces were cleaned, but Cursor recurrence proves disablement is unresolved |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -57,13 +57,16 @@
 - The complete F-01 through F-08 follow-up audit passes within corrected-design and frozen-source-package boundaries. Evidence scripts parse, all declared captures verify, 11 policy rows remain ordered, 52 UI IDs and 21 artifact types reconcile, and JSON, link, whitespace, secret, and authorship-marker checks pass. No product behavior is claimed.
 - Recall Graphify traversal is recovered through the mandatory no-stamp runner: query, explain, and path smoke checks complete without hanging. Raw Graphify traversal commands remain prohibited on this OneDrive checkout.
 - Owner-side live verification confirmed that identical ClinVar printable requests can hash differently because `ncbi_phid` changes, and that GEO `GSE248438` is public from 2024-09-27 and currently links PMID `41957374`; the Nature paper PMID `39779848` independently names the same GEO accession.
+- Owner-only commit `05ff0b59cad88ef00adc2be2e239e57f73226cda` was pushed and read back with only `aistanbulresearch` author, committer, and PR ownership metadata. The first auditor re-review returned `FAIL` on one citation narrative, verifier semantics/counters, capture-root containment, and per-source rights metadata.
+- Eight findings across the first four reviews are remediated locally. The clean verifier reports 10 captures, 1,400,869 bytes, 7 source-derived chronology checks, 12 exact-ID semantic checks, 11 exact-ID rights checks, 1 exact-ID live-spec check, 1 declared live source, 1 parsed XLSX row, and 0 network calls. The expanded harness rejects byte, semantic, path, root, rights, live-runtime, duplicate-live, hash-role, and junction faults.
+- The fifth read-only local auditor review returned `PASS` with no actionable findings and independently confirmed duplicate/cross-class source rejection and all prior remediations. This is not remote committed-state evidence.
 
 ## In progress
 
 - Phase 1 access, security, and local Gemma feasibility gates.
 - Project-scoped API discovery after the owner selects the correct billing account.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
-- RCL-211 correction work: local follow-up is complete; await owner confirmation that Cursor integration is disabled, then run attribution preflight, owner-only push/read-back, and auditor re-review.
+- RCL-211: local auditor review passes; owner confirmed Cursor disablement on 2026-08-17 and attribution/PR preflight passed; owner-only republish/read-back, clean-clone verification, delayed actor scan, and final remote re-review remain.
 
 ## Blocked
 
@@ -71,8 +74,8 @@
 - No external deployment work should begin before access and security gates.
 - Google Cloud billing: the dedicated Recall project is active but billing-disabled; two open billing accounts have no safe automatic match, so owner selection is required.
 - Local Gemma benchmark: no checked runtime command or GGUF model is installed.
-- Phase 3 and merge: blocked until the corrected remote package receives auditor re-review and findings are closed.
-- GitHub push: blocked until the owner confirms the recurring Cursor integration is disabled for Recall.
+- Phase 3 and merge: blocked until the remediated package passes local and final remote auditor re-review.
+- GitHub push: authorized only for the preregistered owner-only remediation publish after the owner confirmed Cursor disablement; any bot recurrence fails the gate.
 
 ## Not started
 
@@ -98,11 +101,11 @@
 | Memory Bank could contaminate later runs with stale or poisoned context | High | Keep Firestore authoritative; enforce admission, scope, TTL, provenance, contradiction, and disabled-memory parity tests. |
 | Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
 | Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
-| Corrected F-01 through F-08 package has not yet received external follow-up review | High | Keep implementation blocked until safe owner-only push/read-back and auditor re-review pass. |
+| First external re-review failed and remediation is not yet independently accepted | High | Keep implementation blocked until second local review, safe owner-only republish/read-back, and final remote review pass. |
 | Frozen source package could be mistaken for product replay evidence | High | Keep RCL-503/RCL-506/RCL-801 unverified and label every source-package result as offline capture integrity only. |
 
 ## Next three actions
 
-1. Obtain explicit owner confirmation that the Cursor GitHub integration is disabled for Recall.
-2. Run attribution preflight, owner-only commit/push, remote read-back, and visible actor scan, then request GitHub auditor re-review.
+1. Complete final local and staged-tree verification for the remediation package.
+2. Run owner-only commit/push, clean-clone verification, remote read-back, delayed actor scan, and final remote auditor re-review.
 3. Review all 27 scheduled/cleanup findings against their affected future tasks so none silently disappear.

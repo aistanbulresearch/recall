@@ -8,6 +8,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $failures = [Collections.Generic.List[string]]::new()
+$chronologyChecks = 0
+$sourceSemanticCheckIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$rightsMetadataCheckIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$liveConnectorSpecCheckIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$exactXlsxRows = 0
+$publicationDateFromSource = $null
+$evaluatorDateFromSource = $null
+$appearanceDateFromSource = $null
 $allowedHosts = @(
     'www.ncbi.nlm.nih.gov',
     'eutils.ncbi.nlm.nih.gov',
@@ -36,6 +44,41 @@ function Test-IsWithin {
     $candidateFull = [IO.Path]::GetFullPath($Candidate)
     $parentFull = [IO.Path]::GetFullPath($Parent).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
     return $candidateFull.StartsWith($parentFull, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-PathHasReparsePoint {
+    param(
+        [string]$Candidate,
+        [string]$Boundary
+    )
+
+    $candidateFull = [IO.Path]::GetFullPath($Candidate)
+    $boundaryFull = [IO.Path]::GetFullPath($Boundary).TrimEnd('\', '/')
+    $current = $candidateFull
+    while ($current.Length -ge $boundaryFull.Length) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                $linkTypeProperty = $item.PSObject.Properties['LinkType']
+                $targetProperty = $item.PSObject.Properties['Target']
+                $linkType = if ($null -eq $linkTypeProperty) { '' } else { [string]$linkTypeProperty.Value }
+                $target = if ($null -eq $targetProperty) { '' } else { [string]($targetProperty.Value -join ',') }
+                if (-not [string]::IsNullOrWhiteSpace($linkType) -or
+                    -not [string]::IsNullOrWhiteSpace($target)) {
+                    return $true
+                }
+            }
+        }
+        if ($current.Equals($boundaryFull, [StringComparison]::OrdinalIgnoreCase)) {
+            break
+        }
+        $parent = [IO.Path]::GetDirectoryName($current)
+        if ([string]::IsNullOrWhiteSpace($parent) -or $parent -eq $current) {
+            break
+        }
+        $current = $parent
+    }
+    return $false
 }
 
 function Get-RequiredProperty {
@@ -88,6 +131,50 @@ function Get-SoftValue {
     return $match.Groups['value'].Value.Trim()
 }
 
+function Test-RightsBinding {
+    param(
+        [object]$Source,
+        [string]$Context
+    )
+
+    $valid = $true
+    $rightsProfileId = [string](Get-RequiredProperty $Source 'rights_profile' $Context)
+    $profileProperty = $manifest.rights_profiles.PSObject.Properties[$rightsProfileId]
+    if ([string]::IsNullOrWhiteSpace($rightsProfileId) -or $null -eq $profileProperty) {
+        Add-Failure 'rights_profile_invalid' $Context
+        $valid = $false
+    }
+    else {
+        $rightsProfile = $profileProperty.Value
+        $termsText = [string](Get-RequiredProperty $rightsProfile 'terms_url' $rightsProfileId)
+        $termsUri = $null
+        if (-not [Uri]::TryCreate($termsText, [UriKind]::Absolute, [ref]$termsUri) -or
+            $termsUri.Scheme -ne 'https' -or $termsUri.Host -notin $allowedHosts) {
+            Add-Failure 'rights_terms_url_invalid' $rightsProfileId
+            $valid = $false
+        }
+        $rightsReviewDate = Convert-Date ([string](Get-RequiredProperty $rightsProfile 'terms_reviewed_at' $rightsProfileId)) 'yyyy-MM-dd' "${rightsProfileId}.terms_reviewed_at"
+        if ($null -eq $rightsReviewDate) {
+            $valid = $false
+        }
+        foreach ($permissionField in @('retention_permission', 'redistribution_permission', 'conditions')) {
+            $permissionValue = [string](Get-RequiredProperty $rightsProfile $permissionField $rightsProfileId)
+            if ([string]::IsNullOrWhiteSpace($permissionValue)) {
+                Add-Failure 'rights_field_empty' "${rightsProfileId}.${permissionField}"
+                $valid = $false
+            }
+        }
+    }
+    foreach ($sourceRightsField in @('known_rights_limitations', 'attribution_text')) {
+        $sourceRightsValue = [string](Get-RequiredProperty $Source $sourceRightsField $Context)
+        if ([string]::IsNullOrWhiteSpace($sourceRightsValue)) {
+            Add-Failure 'rights_field_empty' "${Context}.${sourceRightsField}"
+            $valid = $false
+        }
+    }
+    return $valid
+}
+
 $repositoryFull = [IO.Path]::GetFullPath($RepositoryRoot)
 if (-not (Test-Path -LiteralPath $repositoryFull -PathType Container)) {
     throw "repository_missing:$repositoryFull"
@@ -123,14 +210,17 @@ if ($manifest.integrity.algorithm -ne 'SHA-256') {
 
 $captureRootText = [string]$manifest.capture_root
 if ([IO.Path]::IsPathRooted($captureRootText)) {
-    Add-Failure 'capture_root_absolute' $captureRootText
-    $captureRootFull = [IO.Path]::GetFullPath($captureRootText)
+    throw [IO.InvalidDataException]::new("capture_root_absolute:$captureRootText")
 }
-else {
-    $captureRootFull = [IO.Path]::GetFullPath((Join-Path $repositoryFull $captureRootText))
-}
+$captureRootFull = [IO.Path]::GetFullPath((Join-Path $repositoryFull $captureRootText))
 if (-not (Test-IsWithin $captureRootFull $repositoryFull)) {
-    Add-Failure 'capture_root_outside_repository' $captureRootFull
+    throw [IO.InvalidDataException]::new("capture_root_outside_repository:$captureRootFull")
+}
+if (-not (Test-Path -LiteralPath $captureRootFull -PathType Container)) {
+    throw [IO.InvalidDataException]::new("capture_root_missing:$captureRootFull")
+}
+if (Test-PathHasReparsePoint $captureRootFull $repositoryFull) {
+    throw [IO.InvalidDataException]::new("capture_root_reparse_point:$captureRootFull")
 }
 
 $sourceIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
@@ -157,8 +247,13 @@ foreach ($source in @($manifest.captured_sources)) {
     }
 
     $captureFull = [IO.Path]::GetFullPath((Join-Path $repositoryFull $capturePath))
-    if (-not (Test-IsWithin $captureFull $captureRootFull)) {
+    if (-not (Test-IsWithin $captureFull $repositoryFull) -or
+        -not (Test-IsWithin $captureFull $captureRootFull)) {
         Add-Failure 'capture_path_outside_root' $sourceId
+        continue
+    }
+    if (Test-PathHasReparsePoint $captureFull $captureRootFull) {
+        Add-Failure 'capture_path_reparse_point' $sourceId
         continue
     }
     if (-not (Test-Path -LiteralPath $captureFull -PathType Leaf)) {
@@ -205,6 +300,21 @@ foreach ($source in @($manifest.captured_sources)) {
         }
     }
 
+    $rawHash = Get-RequiredProperty $source 'raw_sha256' $sourceId
+    $normalizedHash = Get-RequiredProperty $source 'normalized_sha256' $sourceId
+    if ($source.transformation -eq 'NONE') {
+        if ([string]$rawHash -cne $expectedHash -or $null -ne $normalizedHash) {
+            Add-Failure 'capture_hash_role_mismatch' "${sourceId}:expected_raw_capture"
+        }
+    }
+    elseif ($null -ne $rawHash -or [string]$normalizedHash -cne $expectedHash) {
+        Add-Failure 'capture_hash_role_mismatch' "${sourceId}:expected_normalized_capture"
+    }
+
+    if (Test-RightsBinding $source $sourceId) {
+        $null = $rightsMetadataCheckIds.Add("captured:$sourceId")
+    }
+
     if ($source.media_type -eq 'text/html') {
         $html = Get-Content -LiteralPath $captureFull -Raw
         if (-not $html.Contains([string]$source.semantic_anchor)) {
@@ -224,11 +334,75 @@ if (@($manifest.captured_sources).Count -ne $expectedCaptureCount) {
 }
 
 foreach ($source in @($manifest.live_public_sources)) {
+    $sourceId = [string](Get-RequiredProperty $source 'source_id' 'live_public_sources')
+    $liveSpecValid = $true
+    if ([string]::IsNullOrWhiteSpace($sourceId)) {
+        Add-Failure 'source_id_invalid' 'live_public_sources.empty'
+        continue
+    }
+    if (-not $sourceIds.Add($sourceId)) {
+        Add-Failure 'source_id_duplicate' "live:$sourceId"
+        $liveSpecValid = $false
+    }
     if ($source.data_mode -ne 'LIVE_PUBLIC') {
-        Add-Failure 'live_data_mode_invalid' ([string]$source.source_id)
+        Add-Failure 'live_data_mode_invalid' $sourceId
+        $liveSpecValid = $false
     }
     if ($null -ne $source.capture_path -or $null -ne $source.expected_sha256) {
-        Add-Failure 'live_source_frozen' ([string]$source.source_id)
+        Add-Failure 'live_source_frozen' $sourceId
+        $liveSpecValid = $false
+    }
+    $liveRawHash = Get-RequiredProperty $source 'raw_sha256' $sourceId
+    $liveNormalizedHash = Get-RequiredProperty $source 'normalized_sha256' $sourceId
+    if ($null -ne $liveRawHash -or $null -ne $liveNormalizedHash) {
+        Add-Failure 'live_source_frozen' "${sourceId}:byte_roles"
+        $liveSpecValid = $false
+    }
+    if ($source.execution_status -ne 'UNEXECUTED_CONNECTOR_SPEC') {
+        Add-Failure 'live_execution_status_invalid' $sourceId
+        $liveSpecValid = $false
+    }
+    $liveLocatorText = [string](Get-RequiredProperty $source 'source_locator' $sourceId)
+    $liveLocator = $null
+    if (-not [Uri]::TryCreate($liveLocatorText, [UriKind]::Absolute, [ref]$liveLocator) -or
+        $liveLocator.Scheme -ne 'https' -or $liveLocator.Host -notin $allowedHosts) {
+        Add-Failure 'live_source_locator_invalid' $sourceId
+        $liveSpecValid = $false
+    }
+    $liveSemanticAnchor = [string](Get-RequiredProperty $source 'semantic_anchor' $sourceId)
+    if ([string]::IsNullOrWhiteSpace($liveSemanticAnchor)) {
+        Add-Failure 'live_semantic_anchor_invalid' $sourceId
+        $liveSpecValid = $false
+    }
+    $liveIntegrityRule = [string](Get-RequiredProperty $source 'integrity_rule' $sourceId)
+    if ([string]::IsNullOrWhiteSpace($liveIntegrityRule)) {
+        Add-Failure 'live_integrity_rule_invalid' $sourceId
+        $liveSpecValid = $false
+    }
+    $runtimeContract = Get-RequiredProperty $source 'runtime_provenance_contract' $sourceId
+    if ($null -eq $runtimeContract) {
+        Add-Failure 'live_runtime_contract_invalid' $sourceId
+        $liveSpecValid = $false
+    }
+    else {
+        $requiredRuntimeFields = @(Get-RequiredProperty $runtimeContract 'required_fields' "${sourceId}.runtime_provenance_contract" | Sort-Object)
+        $runtimeHashAlgorithm = [string](Get-RequiredProperty $runtimeContract 'hash_algorithm' "${sourceId}.runtime_provenance_contract")
+        $runtimeDataMode = [string](Get-RequiredProperty $runtimeContract 'data_mode' "${sourceId}.runtime_provenance_contract")
+        $runtimeComparison = [string](Get-RequiredProperty $runtimeContract 'captured_replay_hash_comparison' "${sourceId}.runtime_provenance_contract")
+        $expectedRuntimeFields = @('data_mode', 'raw_sha256', 'retrieved_at', 'semantic_anchor', 'source_locator') | Sort-Object
+        if (@(Compare-Object $expectedRuntimeFields $requiredRuntimeFields).Count -ne 0 -or
+            $runtimeHashAlgorithm -ne 'SHA-256' -or
+            $runtimeDataMode -ne 'LIVE_PUBLIC' -or
+            $runtimeComparison -ne 'FORBIDDEN') {
+            Add-Failure 'live_runtime_contract_invalid' $sourceId
+            $liveSpecValid = $false
+        }
+    }
+    if (Test-RightsBinding $source $sourceId) {
+        $null = $rightsMetadataCheckIds.Add("live:$sourceId")
+    }
+    if ($liveSpecValid) {
+        $null = $liveConnectorSpecCheckIds.Add("live_spec:$sourceId")
     }
 }
 
@@ -244,6 +418,9 @@ if ($captureFiles.ContainsKey('geo_gse248438_metadata')) {
         if ($null -ne $geoPublicDate -and $geoPublicDate.ToString('yyyy-MM-dd') -ne $manifest.chronology.geo_public_date) {
             Add-Failure 'chronology_mismatch' 'geo_public_date'
         }
+        elseif ($null -ne $geoPublicDate) {
+            $chronologyChecks++
+        }
     }
     else {
         Add-Failure 'geo_status_invalid' ([string]$geoStatus)
@@ -254,34 +431,156 @@ if ($captureFiles.ContainsKey('geo_gse248438_metadata')) {
     if ($null -ne $geoSubmissionDate -and $geoSubmissionDate.ToString('yyyy-MM-dd') -ne $manifest.chronology.geo_submission_date) {
         Add-Failure 'chronology_mismatch' 'geo_submission_date'
     }
+    elseif ($null -ne $geoSubmissionDate) {
+        $chronologyChecks++
+    }
     if ($null -ne $geoLastUpdateDate -and $geoLastUpdateDate.ToString('yyyy-MM-dd') -ne $manifest.chronology.geo_last_update_date_as_captured) {
         Add-Failure 'chronology_mismatch' 'geo_last_update_date_as_captured'
     }
+    elseif ($null -ne $geoLastUpdateDate) {
+        $chronologyChecks++
+    }
     if ($geoPmid -ne $manifest.chronology.geo_current_linked_pmid_as_captured) {
         Add-Failure 'chronology_mismatch' 'geo_current_linked_pmid_as_captured'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('geo_current_linked_pmid')
     }
 }
 
 if ($captureFiles.ContainsKey('sahu_pubmed_esummary')) {
     $pubmed = Get-Content -LiteralPath $captureFiles['sahu_pubmed_esummary'] -Raw | ConvertFrom-Json
     $record = $pubmed.result.PSObject.Properties['39779848'].Value
-    $publicationDate = Convert-Date ([string]$record.epubdate) 'yyyy MMM d' 'qualifying_publication_date'
-    if ($null -ne $publicationDate -and $publicationDate.ToString('yyyy-MM-dd') -ne $manifest.chronology.qualifying_publication_date) {
+    $publicationDateFromSource = Convert-Date ([string]$record.epubdate) 'yyyy MMM d' 'qualifying_publication_date'
+    if ($null -ne $publicationDateFromSource -and $publicationDateFromSource.ToString('yyyy-MM-dd') -ne $manifest.chronology.qualifying_publication_date) {
         Add-Failure 'chronology_mismatch' 'qualifying_publication_date'
+    }
+    elseif ($null -ne $publicationDateFromSource) {
+        $chronologyChecks++
     }
     if ($record.elocationid -ne 'doi: 10.1038/s41586-024-08349-1') {
         Add-Failure 'publication_doi_mismatch' '39779848'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('sahu_publication_doi')
+    }
+}
+
+if ($captureFiles.ContainsKey('clinvar_positive_v1')) {
+    $clinvarV1 = Get-Content -LiteralPath $captureFiles['clinvar_positive_v1'] -Raw
+    if ($clinvarV1 -notmatch '(?s)<div class="single-item-value">\s*Uncertain significance\s*</div>') {
+        Add-Failure 'clinvar_aggregate_mismatch' 'clinvar_positive_v1'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('clinvar_v1_aggregate_vus')
+    }
+}
+
+if ($captureFiles.ContainsKey('clinvar_positive_v4')) {
+    $clinvarV4 = Get-Content -LiteralPath $captureFiles['clinvar_positive_v4'] -Raw
+    if ($clinvarV4 -notmatch '(?s)<div class="single-item-value">\s*Uncertain significance\s*</div>') {
+        Add-Failure 'clinvar_aggregate_mismatch' 'clinvar_positive_v4'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('clinvar_v4_aggregate_vus')
+    }
+    $v4UpdateMatch = [regex]::Match($clinvarV4, 'Record last updated (?<date>[A-Z][a-z]{2} \d{1,2}, \d{4})')
+    if (-not $v4UpdateMatch.Success) {
+        Add-Failure 'clinvar_date_missing' 'clinvar_positive_v4.record_last_updated'
+    }
+    else {
+        $v4UpdateDate = Convert-Date $v4UpdateMatch.Groups['date'].Value 'MMM d, yyyy' 'clinvar_v4_update_date'
+        if ($null -ne $v4UpdateDate -and $v4UpdateDate.ToString('yyyy-MM-dd') -ne $manifest.chronology.clinvar_v4_update_date) {
+            Add-Failure 'chronology_mismatch' 'clinvar_v4_update_date'
+        }
+        elseif ($null -ne $v4UpdateDate) {
+            $chronologyChecks++
+        }
+    }
+}
+
+if ($captureFiles.ContainsKey('clinvar_positive_v5')) {
+    $clinvarV5 = Get-Content -LiteralPath $captureFiles['clinvar_positive_v5'] -Raw
+    if ($clinvarV5 -notmatch '(?s)<div class="single-item-value">\s*Conflicting classifications of pathogenicity\s*<br />\s*Likely pathogenic \(1\); Uncertain significance \(2\)') {
+        Add-Failure 'clinvar_aggregate_mismatch' 'clinvar_positive_v5'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('clinvar_v5_aggregate_conflicting')
+    }
+
+    $ambryMatch = [regex]::Match(
+        $clinvarV5,
+        '(?s)<div class="germline-submission".*?Likely pathogenic.*?\((?<evaluated>[A-Z][a-z]{2} \d{2}, \d{4})\).*?Accession:\s*SCV007552490\.1.*?First in ClinVar:\s*(?<first>[A-Z][a-z]{2} \d{2}, \d{4}).*?</tr>'
+    )
+    if (-not $ambryMatch.Success) {
+        Add-Failure 'clinvar_submission_missing' 'SCV007552490.1'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('clinvar_v5_ambry_submission')
+        $evaluatorDateFromSource = Convert-Date $ambryMatch.Groups['evaluated'].Value 'MMM dd, yyyy' 'later_evaluator_date'
+        $appearanceDateFromSource = Convert-Date $ambryMatch.Groups['first'].Value 'MMM dd, yyyy' 'later_public_clinvar_appearance'
+        if ($null -ne $evaluatorDateFromSource -and $evaluatorDateFromSource.ToString('yyyy-MM-dd') -ne $manifest.chronology.later_evaluator_date) {
+            Add-Failure 'chronology_mismatch' 'later_evaluator_date'
+        }
+        elseif ($null -ne $evaluatorDateFromSource) {
+            $chronologyChecks++
+        }
+        if ($null -ne $appearanceDateFromSource -and $appearanceDateFromSource.ToString('yyyy-MM-dd') -ne $manifest.chronology.later_public_clinvar_appearance) {
+            Add-Failure 'chronology_mismatch' 'later_public_clinvar_appearance'
+        }
+        elseif ($null -ne $appearanceDateFromSource) {
+            $chronologyChecks++
+        }
+    }
+
+    if ($clinvarV5 -notmatch '(?s)Accession:\s*SCV007552490\.1.*?/pubmed/39779848/.*?</tr>' -or
+        $clinvarV5.Contains('39779857')) {
+        Add-Failure 'clinvar_cited_pmid_mismatch' 'SCV007552490.1:expected_only=39779848'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('clinvar_v5_ambry_citation')
     }
 }
 
 if ($captureFiles.ContainsKey('nature_sahu_data_availability_linkage')) {
     $linkage = Get-Content -LiteralPath $captureFiles['nature_sahu_data_availability_linkage'] -Raw | ConvertFrom-Json
-    if ($linkage.pmid -ne $manifest.chronology.qualifying_nature_pmid -or
-        $linkage.doi -ne '10.1038/s41586-024-08349-1' -or
-        $linkage.geo_accession -ne 'GSE248438' -or
-        $linkage.full_article_captured -ne $false -or
-        $linkage.excerpt_word_count -gt 25) {
-        Add-Failure 'publication_geo_linkage_invalid' 'nature_sahu_data_availability_linkage'
+    $excerptText = [string]$linkage.verbatim_excerpt
+    $actualExcerptWordCount = if ([string]::IsNullOrWhiteSpace($excerptText)) {
+        0
+    }
+    else {
+        @($excerptText.Trim() -split '\s+').Count
+    }
+    if ($linkage.pmid -ne $manifest.chronology.qualifying_nature_pmid) {
+        Add-Failure 'publication_geo_linkage_invalid' 'nature_publication_pmid'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('nature_publication_pmid')
+    }
+    if ($linkage.doi -ne '10.1038/s41586-024-08349-1') {
+        Add-Failure 'publication_geo_linkage_invalid' 'nature_publication_doi'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('nature_publication_doi')
+    }
+    if ($linkage.geo_accession -ne 'GSE248438') {
+        Add-Failure 'publication_geo_linkage_invalid' 'nature_geo_accession'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('nature_geo_accession')
+    }
+    if ($linkage.full_article_captured -ne $false) {
+        Add-Failure 'publication_geo_linkage_invalid' 'nature_full_article_not_captured'
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('nature_full_article_not_captured')
+    }
+    if ($actualExcerptWordCount -ne [int]$linkage.excerpt_word_count -or
+        $actualExcerptWordCount -gt 25) {
+        Add-Failure 'nature_excerpt_word_count_mismatch' "stored=$($linkage.excerpt_word_count):actual=$actualExcerptWordCount"
+    }
+    else {
+        $null = $sourceSemanticCheckIds.Add('nature_excerpt_word_count')
     }
 }
 
@@ -297,6 +596,7 @@ if ($captureFiles.ContainsKey('geo_gse248438_results_xlsx')) {
     }
 
     try {
+        $rowValid = $true
         $rowReader = Join-Path $PSScriptRoot 'read-rcl-205-xlsx-row.ps1'
         $actualRow = & $rowReader `
             -XlsxPath $xlsxPath `
@@ -315,6 +615,7 @@ if ($captureFiles.ContainsKey('geo_gse248438_results_xlsx')) {
         )) {
             if ([string]$actualRow.$field -cne [string]$manifest.exact_functional_row.$field) {
                 Add-Failure 'exact_row_value_mismatch' $field
+                $rowValid = $false
             }
         }
 
@@ -328,9 +629,14 @@ if ($captureFiles.ContainsKey('geo_gse248438_results_xlsx')) {
         )
         if ($actualScore -ne [double]$manifest.exact_functional_row.function_score) {
             Add-Failure 'exact_row_value_mismatch' 'function_score'
+            $rowValid = $false
         }
         if ($actualProbability -ne [double]$manifest.exact_functional_row.probability) {
             Add-Failure 'exact_row_value_mismatch' 'probability'
+            $rowValid = $false
+        }
+        if ($rowValid) {
+            $exactXlsxRows++
         }
     }
     catch {
@@ -338,15 +644,12 @@ if ($captureFiles.ContainsKey('geo_gse248438_results_xlsx')) {
     }
 }
 
-$publication = Convert-Date $manifest.positive_case.qualifying_publication_date 'yyyy-MM-dd' 'positive_case_publication'
-$evaluator = Convert-Date $manifest.positive_case.later_evaluator_date 'yyyy-MM-dd' 'later_evaluator'
-$appearance = Convert-Date $manifest.positive_case.later_public_classification_appearance 'yyyy-MM-dd' 'later_public_appearance'
-if ($null -ne $publication -and $null -ne $evaluator -and
-    ($evaluator - $publication).Days -ne [int]$manifest.positive_case.derived_days_to_evaluator_date) {
+if ($null -ne $publicationDateFromSource -and $null -ne $evaluatorDateFromSource -and
+    ($evaluatorDateFromSource - $publicationDateFromSource).Days -ne [int]$manifest.positive_case.derived_days_to_evaluator_date) {
     Add-Failure 'derived_interval_mismatch' 'derived_days_to_evaluator_date'
 }
-if ($null -ne $publication -and $null -ne $appearance -and
-    ($appearance - $publication).Days -ne [int]$manifest.positive_case.derived_days_to_public_appearance) {
+if ($null -ne $publicationDateFromSource -and $null -ne $appearanceDateFromSource -and
+    ($appearanceDateFromSource - $publicationDateFromSource).Days -ne [int]$manifest.positive_case.derived_days_to_public_appearance) {
     Add-Failure 'derived_interval_mismatch' 'derived_days_to_public_appearance'
 }
 
@@ -359,8 +662,14 @@ if ($failures.Count -gt 0) {
     manifest_version = $manifest.manifest_version
     verified_captures = @($manifest.captured_sources).Count
     verified_bytes = $verifiedBytes
-    chronology_checks = 7
-    exact_xlsx_rows = 1
+    chronology_checks = $chronologyChecks
+    source_semantic_checks = $sourceSemanticCheckIds.Count
+    source_semantic_check_ids = @($sourceSemanticCheckIds | Sort-Object)
+    rights_metadata_checks = $rightsMetadataCheckIds.Count
+    rights_metadata_check_ids = @($rightsMetadataCheckIds | Sort-Object)
+    live_connector_spec_checks = $liveConnectorSpecCheckIds.Count
+    live_connector_spec_check_ids = @($liveConnectorSpecCheckIds | Sort-Object)
+    exact_xlsx_rows = $exactXlsxRows
     live_public_sources = @($manifest.live_public_sources).Count
     network_calls = 0
 }

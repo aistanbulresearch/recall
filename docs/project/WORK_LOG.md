@@ -469,3 +469,144 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Result:
   - Future Recall graph traversal must use the no-stamp runner only.
   - No graph rebuild, commit, push, PR write, product execution, or cloud mutation occurred.
+
+## WORK-2026-08-17-023: Owner-only publish and first GitHub auditor re-review
+
+- Task ID: RCL-211
+- Actions:
+  - Verified active GitHub identity, local/remote branch state, staged replay bytes, commit metadata, PR ownership, and prohibited authorship markers before publication.
+  - Added the exact evidence tree rule `binary -eol` after staged-hash verification proved repository-wide text normalization changed one captured GEO file.
+  - Created and pushed commit `05ff0b59cad88ef00adc2be2e239e57f73226cda` with message `fix(architecture): close phase 2 audit`.
+  - Read back GitHub commit and PR metadata and ran a clean-clone verifier/fault-harness gate.
+  - Deleted the exact recurring `cursor[bot]` comment and reread issue comments, review comments, reviews, and checks twice.
+  - Requested a read-only auditor re-review against the exact remote head.
+- Verification:
+  - GitHub author login, committer login, commit author, commit committer, and PR author were only `aistanbulresearch`; the commit had no body or trailer.
+  - Clean clone passed 10-capture, 1,400,869-byte verification and the then-current fault harness.
+  - Remote surfaces were empty after exact bot-comment deletion, but recurrence proved Cursor disablement was not established.
+  - Auditor verdict: `FAIL`, with three High and one Medium finding.
+- Evidence: `docs/evaluation/reports/2026-08-17--github-auditor-rereview.md`.
+- Result:
+  - Owner-only publication succeeded, but no further push is allowed until Cursor is actually disabled.
+  - Merge and Phase 3 remain `NO-GO`.
+
+## WORK-2026-08-17-024: First re-review remediation
+
+- Task IDs: RCL-205, RCL-211
+- Actions:
+  - Corrected the historical case so the Ambry submission cites Sahu et al. only and Huang et al. remains separately labeled corroborating literature.
+  - Replaced constant verifier counters with counters incremented by successful source assertions.
+  - Parsed chronology and classification/citation semantics from frozen GEO, PubMed, and ClinVar captures; derived intervals now use parsed source dates.
+  - Added immediate capture-root rejection, repository-plus-capture-root containment, and target-bearing junction rejection before content/hash reads.
+  - Added per-source raw/normalized hash roles, rights-profile bindings, official terms review dates, retention/redistribution decisions, limitations, and attribution.
+  - Expanded the fault harness with absolute-root, parent-root, hash-rebound ClinVar citation, hash-rebound Nature word-count, and junction-escape cases.
+- Verification:
+  - Parser: PASS for verifier and harness.
+  - Then-current clean verifier: PASS, 10 captures, 1,400,869 bytes, 7 chronology checks, one mixed 22-check counter, 1 exact XLSX row, 0 network calls. WORK-025 later split and corrected that counter.
+  - Fault harness: PASS for byte mutation, lexical traversal, absolute root, parent root, ClinVar semantic mutation, Nature word-count mutation, invalid rights-profile binding, invalid hash-role binding, and junction escape.
+- Evidence:
+  - `scripts/evidence/verify-rcl-205-captures.ps1`
+  - `scripts/evidence/test-rcl-205-captures.ps1`
+  - `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
+  - `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`
+- Errors: ERR-2026-08-17-074 through ERR-2026-08-17-077.
+- Result:
+  - Four auditor findings are remediated locally, not yet independently accepted.
+  - Second local auditor review is the next gate. No remediation commit, push, merge, product execution, or cloud mutation occurred.
+
+## WORK-2026-08-17-025: Second local review and counter/live-rights remediation
+
+- Task IDs: RCL-205, RCL-211
+- Actions:
+  - Received a second read-only auditor verdict of `FAIL` with two Medium findings; all first-review High findings were confirmed closed.
+  - Declared the live ClinVar entry as an unexecuted connector specification with explicit null raw/normalized byte roles, NCBI rights profile, source-specific limitations, attribution, and mandatory runtime timestamp/hash rule.
+  - Split the mixed 22 counter into 12 source semantic checks and 11 rights metadata checks.
+  - Replaced anonymous increments with exact successful-check ID sets and made the harness assert both complete sets.
+  - Added live-rights-profile mutation rejection.
+- Verification:
+  - Clean verifier: PASS, 10 captures, 1,400,869 bytes, 7 chronology checks, exact 12-ID semantic set, exact 11-ID rights set, 1 XLSX row, 0 network calls.
+  - Fault harness: PASS, including captured and live rights-profile mutations and hash-role mutation.
+- Evidence:
+  - `docs/evaluation/reports/2026-08-17--github-auditor-rereview.md`
+  - `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`
+  - `scripts/evidence/verify-rcl-205-captures.ps1`
+  - `scripts/evidence/test-rcl-205-captures.ps1`
+- Result:
+  - Both second-review Medium findings are remediated locally, not yet independently accepted.
+  - Third read-only auditor review is the next gate. No commit, push, merge, product execution, or cloud mutation occurred.
+
+## WORK-2026-08-17-026: Cursor installation and PR-surface read-back
+
+- Task ID: RCL-211
+- Actions:
+  - Verified active GitHub login remains `aistanbulresearch`.
+  - Attempted a read-only installed-app inventory and separately reread PR #2 issue comments, review comments, and reviews.
+- Verification:
+  - GitHub denied installed-app listing with HTTP 403 for the current token, so Cursor installation state is `UNKNOWN`, not disabled.
+  - Correct fail-loud surface probes report zero issue comments, zero review comments, and zero reviews.
+- Error: ERR-2026-08-17-078.
+- Result:
+  - PR #2 is visibly clean at read time.
+  - Cursor disablement cannot be proven through the current GitHub token. Bot recurrence after `05ff0b59` remains evidence that the integration was active, so the push gate stays closed.
+
+## WORK-2026-08-17-027: Third local review and live runtime-provenance remediation
+
+- Task IDs: RCL-205, RCL-211
+- Actions:
+  - Received a third read-only auditor verdict of `FAIL` with one Medium finding; all prior findings were confirmed closed.
+  - Added a machine-validated live runtime provenance contract requiring data mode, raw hash, retrieval time, semantic anchor, source locator, SHA-256, and a prohibition on captured-replay hash comparison.
+  - Added allowlisted HTTPS locator, semantic-anchor, integrity-rule, and structured-contract validation for unexecuted live connector specs.
+  - Added the distinct successful check ID `live_spec:clinvar_positive_current_xml` and made the harness assert the exact one-ID set.
+  - Added an empty-runtime-rule mutation requiring `live_integrity_rule_invalid`.
+- Verification:
+  - Clean verifier: PASS, 10 captures, 1,400,869 bytes, 7 chronology checks, 12 semantic checks, 11 rights checks, 1 live-spec check, 1 XLSX row, 0 network calls.
+  - Fault harness: PASS, including `live_runtime_rule_mutation_rejected=true`.
+- Result:
+  - The third-review finding is remediated locally, not yet independently accepted.
+  - Fourth read-only auditor review is the next gate. No commit, push, merge, product execution, or cloud mutation occurred.
+
+## WORK-2026-08-17-028: Fourth local review and live-source uniqueness remediation
+
+- Task IDs: RCL-205, RCL-211
+- Actions:
+  - Received a fourth read-only auditor verdict of `FAIL` with one Medium finding; all prior findings were confirmed closed.
+  - Registered live source IDs in the same global uniqueness set as captured source IDs.
+  - Added clean-result assertion for exactly one declared live source.
+  - Added a duplicated-live-spec mutation requiring `source_id_duplicate`.
+- Verification:
+  - Clean verifier: PASS with `live_public_sources=1` and the unchanged exact live-spec ID set.
+  - Fault harness: PASS with `live_duplicate_rejected=true`.
+- Result:
+  - The fourth-review finding is remediated locally, not yet independently accepted.
+  - Fifth read-only auditor review is the next gate. No commit, push, merge, product execution, or cloud mutation occurred.
+
+## WORK-2026-08-17-029: Fifth local auditor review
+
+- Task ID: RCL-211
+- Actions:
+  - Ran the same auditor read-only against the complete local diff after duplicate-live remediation.
+- Verification:
+  - Verdict: `PASS`; no actionable findings.
+  - Auditor independently confirmed global captured/live ID uniqueness, exact live count and check sets, duplicate-live and cross-class collision rejection, runtime provenance enforcement, citation scope, path/junction controls, PowerShell 5.1 behavior, and prohibited-authorship scan.
+- Result:
+  - Local auditor gate passes.
+  - Remote committed state remains at owner-only `05ff0b59`; the passing remediation is uncommitted.
+  - No commit or push is allowed until Cursor disablement is proven. Merge and Phase 3 remain `NO-GO`.
+
+## WORK-2026-08-17-030: Cursor disablement confirmation and publish preflight
+
+- Task ID: RCL-211
+- Actions:
+  - Received the owner's explicit confirmation that Cursor is disabled.
+  - Verified local branch and remote tip remain aligned at `05ff0b59cad88ef00adc2be2e239e57f73226cda` before publication.
+  - Verified active GitHub login, local author identity, local committer identity, PR author, and remote repository ownership resolve only to `aistanbulresearch`.
+  - Verified PR #2 is open from `feature/rcl-010-fleet-architecture` to `main` and currently has zero issue comments, zero review comments, and zero reviews.
+  - Re-ran three PowerShell parser checks, five non-Graphify JSON parses, the clean verifier, the full mutation/path harness, whitespace validation, 86-file/22-link local-link resolution, prohibited-authorship scanning, and credential-signature scanning.
+- Verification:
+  - Clean verifier: PASS with 10 captures, 1,400,869 bytes, 7 chronology checks, 12 semantic checks, 11 rights checks, 1 live-spec check, 1 live source, 1 XLSX row, and 0 network calls.
+  - Fault harness: PASS for every declared byte, semantic, rights, runtime, duplicate, hash-role, traversal, absolute/parent-root, and junction mutation; 0 network calls.
+  - `git diff --check`, corrected local-link scan, prohibited-authorship scan, and credential-signature scan passed.
+  - ERR-079 records the first null-unsafe link probe; it supplied no evidence and was replaced by the passing complete scan.
+- Result:
+  - The Cursor owner-confirmation gate is satisfied and the preregistered owner-only remediation publish may proceed.
+  - Any prohibited attribution or post-push bot recurrence fails the gate. Merge and Phase 3 remain `NO-GO` pending clean-clone, remote read-back, delayed actor scan, and final remote auditor re-review.

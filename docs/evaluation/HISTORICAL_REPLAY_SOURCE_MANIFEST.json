@@ -72,6 +72,37 @@
     "temporal_limitation": "The captured workbook proves current row presence only; it does not prove row-level availability on 2024-09-27.",
     "authority_limitation": "These are source values, not a Recall classification, threshold, or clinical decision."
   },
+  "rights_profiles": {
+    "ncbi_public_record": {
+      "terms_url": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+      "terms_reviewed_at": "2026-08-17",
+      "retention_permission": "ALLOW_WITH_CONDITIONS",
+      "redistribution_permission": "ALLOW_WITH_CONDITIONS",
+      "conditions": "Preserve NCBI attribution and the medical-information disclaimer; NCBI cannot transfer rights that may remain with submitters. Re-review terms before public release."
+    },
+    "ncbi_bibliographic_metadata": {
+      "terms_url": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+      "terms_reviewed_at": "2026-08-17",
+      "retention_permission": "ALLOW_METADATA_ONLY",
+      "redistribution_permission": "ALLOW_METADATA_ONLY",
+      "conditions": "Retain ESummary bibliographic metadata only. Do not treat PubMed availability as permission to redistribute an abstract or article."
+    },
+    "ncbi_molecular_data": {
+      "terms_url": "https://www.ncbi.nlm.nih.gov/home/about/policies/",
+      "terms_reviewed_at": "2026-08-17",
+      "retention_permission": "ALLOW_WITH_CONDITIONS",
+      "redistribution_permission": "ALLOW_WITH_CONDITIONS",
+      "conditions": "NCBI places no restriction on molecular-data use or distribution, but NCBI cannot transfer rights that may remain with submitters. Preserve accession, source locator, and attribution."
+    },
+    "springer_nature_minimal_excerpt": {
+      "terms_url": "https://www.nature.com/info/terms-and-conditions",
+      "additional_terms_url": "https://www.nature.com/info/additional-terms",
+      "terms_reviewed_at": "2026-08-17",
+      "retention_permission": "RESTRICTED_EXCERPT_ONLY",
+      "redistribution_permission": "RESTRICTED_EXCERPT_ONLY",
+      "conditions": "Retain and redistribute only the 15-word accession-linkage excerpt with identifiers and citation for this non-commercial audit package. No article, abstract, figure, table, or supplement is retained. Re-review terms before public release."
+    }
+  },
   "captured_sources": [
     {
       "source_id": "clinvar_positive_v1",
@@ -83,6 +114,11 @@
       "retrieved_at": "2026-08-16T23:18:21Z",
       "bytes": 128637,
       "sha256": "f26600a16912d4473a4dd9af2af2628fa8feb5be3d037e1da02b482824a034aa",
+      "raw_sha256": "f26600a16912d4473a4dd9af2af2628fa8feb5be3d037e1da02b482824a034aa",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "A public ClinVar record may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.1].",
       "media_type": "text/html",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
@@ -97,6 +133,11 @@
       "retrieved_at": "2026-08-16T23:18:23Z",
       "bytes": 129221,
       "sha256": "a7b670532215705d2106ce9ffdf252341468d3f0fe34dbe9134ddd3e8582ddf6",
+      "raw_sha256": "a7b670532215705d2106ce9ffdf252341468d3f0fe34dbe9134ddd3e8582ddf6",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "A public ClinVar record may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.4].",
       "media_type": "text/html",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
@@ -111,6 +152,11 @@
       "retrieved_at": "2026-08-16T23:18:25Z",
       "bytes": 141981,
       "sha256": "d8d4eb4b9ab0a6bd3be9d740a0fb4aebb5911a8384113e6a037728f0688b7fbc",
+      "raw_sha256": "d8d4eb4b9ab0a6bd3be9d740a0fb4aebb5911a8384113e6a037728f0688b7fbc",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "A public ClinVar record may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.5].",
       "media_type": "text/html",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
@@ -125,6 +171,11 @@
       "retrieved_at": "2026-08-16T23:18:27Z",
       "bytes": 205303,
       "sha256": "7c5122b67ff0808d9d0aa300a089b12160d100a8a3f59739c74bae837974889c",
+      "raw_sha256": "7c5122b67ff0808d9d0aa300a089b12160d100a8a3f59739c74bae837974889c",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "A public ClinVar record may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV000495460.24].",
       "media_type": "text/html",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
@@ -139,6 +190,11 @@
       "retrieved_at": "2026-08-16T23:18:29Z",
       "bytes": 203867,
       "sha256": "1d413a022d63aa68bf87a314f4beb6ac2fbed73a86d888784c18e3af55f9033d",
+      "raw_sha256": "1d413a022d63aa68bf87a314f4beb6ac2fbed73a86d888784c18e3af55f9033d",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "A public ClinVar record may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV000051100.33].",
       "media_type": "text/html",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI ClinVar record capture"
@@ -153,6 +209,11 @@
       "retrieved_at": "2026-08-16T23:18:30Z",
       "bytes": 2238,
       "sha256": "6d1d7058525d9ff55a9afe1f633078ea4f274050af9450301735f6346d313d17",
+      "raw_sha256": "6d1d7058525d9ff55a9afe1f633078ea4f274050af9450301735f6346d313d17",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_bibliographic_metadata",
+      "known_rights_limitations": "Bibliographic metadata only; no abstract or full text is licensed by this capture.",
+      "attribution_text": "NCBI PubMed ESummary for PMID 39779848.",
       "media_type": "application/json",
       "transformation": "NONE",
       "redistribution_boundary": "Bibliographic ESummary metadata only; no abstract or full text"
@@ -167,6 +228,11 @@
       "retrieved_at": "2026-08-16T23:18:32Z",
       "bytes": 3161,
       "sha256": "8a801634768291cfe3feed575f8f827f819a4b80e481521e469b3a06aa31cf61",
+      "raw_sha256": "8a801634768291cfe3feed575f8f827f819a4b80e481521e469b3a06aa31cf61",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_bibliographic_metadata",
+      "known_rights_limitations": "Bibliographic metadata only; no abstract or full text is licensed by this capture.",
+      "attribution_text": "NCBI PubMed ESummary for PMID 39779857.",
       "media_type": "application/json",
       "transformation": "NONE",
       "redistribution_boundary": "Bibliographic ESummary metadata only; no abstract or full text"
@@ -181,6 +247,11 @@
       "retrieved_at": "2026-08-16T23:18:33Z",
       "bytes": 15449,
       "sha256": "0723093ee8ec72ab3277b113e7fb8d2219674928792771413794bf64a3b902ef",
+      "raw_sha256": "0723093ee8ec72ab3277b113e7fb8d2219674928792771413794bf64a3b902ef",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_molecular_data",
+      "known_rights_limitations": "NCBI cannot transfer rights that may remain with the GEO submitter.",
+      "attribution_text": "NCBI Gene Expression Omnibus, accession GSE248438.",
       "media_type": "text/plain",
       "transformation": "NONE",
       "redistribution_boundary": "Attributed public NCBI GEO metadata capture"
@@ -195,6 +266,11 @@
       "retrieved_at": "2026-08-16T23:18:35Z",
       "bytes": 570186,
       "sha256": "91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f",
+      "raw_sha256": "91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f",
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_molecular_data",
+      "known_rights_limitations": "NCBI cannot transfer rights that may remain with the GEO submitter; exact-row availability is only established as captured.",
+      "attribution_text": "NCBI Gene Expression Omnibus, GSE248438_SGE_BRCA2_results.xlsx.",
       "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "transformation": "NONE",
       "redistribution_boundary": "Public NCBI GEO deposit; exact file retained with accession and attribution"
@@ -209,6 +285,11 @@
       "retrieved_at": "2026-08-16T23:19:30Z",
       "bytes": 826,
       "sha256": "1c240bf22c987330d114ddf7c258d83d90b5d6a50781e3ee6f96833cae6d8fe1",
+      "raw_sha256": null,
+      "normalized_sha256": "1c240bf22c987330d114ddf7c258d83d90b5d6a50781e3ee6f96833cae6d8fe1",
+      "rights_profile": "springer_nature_minimal_excerpt",
+      "known_rights_limitations": "The retained JSON is a minimal transformed excerpt, not the raw webpage; broader Springer Nature content redistribution is not authorized by this record.",
+      "attribution_text": "Sahu et al., Nature (2025), DOI 10.1038/s41586-024-08349-1, Data availability.",
       "media_type": "application/json",
       "transformation": "A 15-word verbatim linkage excerpt was retained with tags removed; the remainder of the sentence and article were discarded",
       "redistribution_boundary": "Short linkage excerpt only; no article, abstract, figure, table, or supplement"
@@ -219,11 +300,29 @@
       "source_id": "clinvar_positive_current_xml",
       "role": "Current connector smoke reference only",
       "data_mode": "LIVE_PUBLIC",
+      "execution_status": "UNEXECUTED_CONNECTOR_SPEC",
       "source_locator": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=clinvar&id=2895953&rettype=vcv&is_variationid&retmode=xml",
       "semantic_anchor": "Variation ID 2895953",
       "capture_path": null,
       "expected_sha256": null,
-      "integrity_rule": "Hash and timestamp each runtime response; never compare it with a CAPTURED_REPLAY hash"
+      "raw_sha256": null,
+      "normalized_sha256": null,
+      "rights_profile": "ncbi_public_record",
+      "known_rights_limitations": "This is an unexecuted connector specification. Any future runtime response may contain submitter-contributed material; NCBI does not transfer submitter rights.",
+      "attribution_text": "National Center for Biotechnology Information. ClinVar; Variation ID 2895953.",
+      "integrity_rule": "Hash and timestamp each runtime response; never compare it with a CAPTURED_REPLAY hash",
+      "runtime_provenance_contract": {
+        "required_fields": [
+          "data_mode",
+          "raw_sha256",
+          "retrieved_at",
+          "semantic_anchor",
+          "source_locator"
+        ],
+        "hash_algorithm": "SHA-256",
+        "data_mode": "LIVE_PUBLIC",
+        "captured_replay_hash_comparison": "FORBIDDEN"
+      }
     }
   ],
   "rights": {

@@ -111,16 +111,22 @@ Generated notices are not accepted solely because the generator exited successfu
 
 ### Replay and live-data manifests
 
-Every captured or live data artifact records:
+Every captured or live data artifact records or binds to a named rights profile that records:
 
 - `data_mode`;
 - canonical source and accession or stable identifier;
 - retrieval timestamp and source release where available;
-- raw-content hash and normalized-artifact hash;
+- the retained artifact SHA-256;
+- `raw_sha256` when the retained artifact is the source response, otherwise explicit `null`;
+- `normalized_sha256` when a normalized derivative is retained, otherwise explicit `null`;
 - license or terms URL and review date;
 - permitted retention and redistribution;
 - transformation steps;
 - known limitations and attribution text.
+
+Null hashes are not interpreted as clean or permitted. They mean that byte role was not retained. A source with `raw_sha256: null` must have a non-null normalized hash, an explicit transformation, and a restrictive rights profile. A source with `normalized_sha256: null` must declare `transformation: NONE` and make the retained SHA-256 equal `raw_sha256`. Shared terms may live in `rights_profiles`, but every source must name its profile and retain source-specific limitations and attribution.
+
+The exception is an explicitly unexecuted `LIVE_PUBLIC` connector specification. It must declare `execution_status: UNEXECUTED_CONNECTOR_SPEC`, null capture and hash fields, an allowlisted HTTPS locator, a semantic anchor, a rights profile, source-specific limitations and attribution, and a machine-validated runtime provenance contract requiring each future response to receive its own retrieval timestamp and raw SHA-256. The contract must prohibit comparison with a captured-replay hash. Once executed, the response is a new runtime artifact and cannot inherit the specification's null hashes as evidence.
 
 No connector may follow arbitrary model-proposed URLs. Source domains and endpoint patterns are deterministic allowlists.
 

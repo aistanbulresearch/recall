@@ -34,7 +34,7 @@ Recall never classifies this variant. The expected product output is an audited 
 2. Sahu et al. was published on 2025-01-08 and reports saturation genome editing across BRCA2 exons 15 through 26.
 3. The official NCBI GEO result file contains the exact `c.7522G>C / G2508R` row in exon 15.2 with source classification `Pathogenic Strong`, function score `-1.44817784674576`, and probability `0.999500335148772`.
 4. `VCV002895953.4` remained aggregate VUS when updated on 2026-04-13.
-5. `VCV002895953.5` adds a likely-pathogenic Ambry submission first present in ClinVar on 2026-04-25. That submission explicitly cites the two 2025 studies. The aggregate record becomes conflicting, not uniformly pathogenic.
+5. `VCV002895953.5` adds a likely-pathogenic Ambry submission first present in ClinVar on 2026-04-25. That submission cites Sahu et al. (PMID `39779848`) only. Huang et al. (PMID `39779857`) is retained separately as corroborating literature and is not represented as an Ambry-submission citation. The aggregate record becomes conflicting, not uniformly pathogenic.
 
 The source chronology supports a narrower statement: a material exact-variant functional signal was publicly available before a later likely-pathogenic ClinVar submission appeared. It does not establish that the paper caused the later submission.
 

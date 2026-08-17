@@ -901,3 +901,74 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | The first `-text` override still inherited `eol=lf` and produced only 9/10 staged matches. `-text -eol` restored all hashes, but generic diff checking then treated immutable upstream whitespace as repository-authored defects. The final exact evidence rule is `binary -eol`; it preserves bytes, disables inappropriate textual diff/merge treatment, and leaves whitespace checks active for authored files. |
 | Verification | Ten of ten working-tree captures and ten of ten staged blobs match the manifest. A clean-clone verifier run remains a post-commit gate. |
 | Status | Resolved for staging; clean-clone gate remains mandatory |
+
+## ERR-2026-08-17-074: Initial Nature linkage probe used a guessed filename
+
+| Field | Value |
+|---|---|
+| Task | Auditor finding evidence inspection |
+| Severity | Low |
+| Observed | A read-only probe requested `artifacts/evidence/rcl-205/publication-geo-linkage.json`, which does not exist. |
+| Impact | That one read returned no linkage JSON; no file was changed. |
+| Resolution | Read the manifest first and used the declared path `artifacts/evidence/rcl-205/nature/PMID39779848.data-availability-linkage.json`. |
+| Status | Resolved |
+
+## ERR-2026-08-17-075: Expanded harness was first invoked without the process-scoped execution bypass
+
+| Field | Value |
+|---|---|
+| Task | Test-first auditor remediation |
+| Severity | Low |
+| Observed | Direct invocation of the PowerShell test script was blocked because script execution is disabled on the machine. |
+| Impact | The first invocation supplied no test evidence and changed no machine policy. |
+| Resolution | Re-ran with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`, which scopes the bypass to that process. |
+| Verification | The expected initial red test failed on the missing ClinVar semantic rejection; the final harness passed all cases. |
+| Status | Resolved |
+
+## ERR-2026-08-17-076: Initial reparse defense rejected OneDrive cloud placeholders
+
+| Field | Value |
+|---|---|
+| Task | Capture-root containment remediation |
+| Severity | Medium |
+| Observed | Windows reports the Recall repository and evidence directories as `ReparsePoint` because they are OneDrive cloud placeholders, even though they have no link type or target. The first production-tree verifier rejected the legitimate capture root. |
+| Impact | The production checkout failed before reading captures; temporary non-OneDrive test copies still passed. |
+| Resolution | Reparse defense now rejects only target-bearing link/junction entries. OneDrive placeholder entries with empty `LinkType` and `Target` remain usable. |
+| Verification | Production-tree verifier passes; a real temporary junction to an out-of-root target is still rejected as `capture_path_reparse_point`. |
+| Status | Resolved |
+
+## ERR-2026-08-17-077: Combined verification probe used an ambiguous variable boundary
+
+| Field | Value |
+|---|---|
+| Task | Final remediation verification |
+| Severity | Low |
+| Observed | A combined read-only probe used `$file:` inside an interpolated error string; PowerShell parsed the colon as part of a scoped variable and rejected the command before any checks ran. |
+| Impact | That probe supplied no evidence and changed no files. |
+| Resolution | Re-ran with `${file}` and kept each evidence command behind its own exit check. |
+| Verification | Three PowerShell files parsed, four JSON files parsed, the clean verifier passed, and the expanded fault harness passed. |
+| Status | Resolved |
+
+## ERR-2026-08-17-078: GitHub installation probe returned 403 and null arrays looked non-empty
+
+| Field | Value |
+|---|---|
+| Task | Cursor integration and PR-surface read-back |
+| Severity | Medium |
+| Observed | `gh api user/installations` requires a token authorized as a GitHub App and returned HTTP 403. The same combined PowerShell command continued and wrapped null JSON results in arrays, incorrectly displaying comment/review counts of one. |
+| Impact | The probe supplied no evidence about Cursor installation state and its first surface counts were invalid. No GitHub write occurred. |
+| Resolution | Treat installation state as unknown, not disabled. Re-ran issue comments, review comments, and reviews independently with `gh api --jq length` and checked every exit code. |
+| Verification | Correct remote result: zero issue comments, zero review comments, and zero reviews on PR #2. Cursor disablement remains unverified and bot recurrence remains the stronger evidence. |
+| Status | Resolved for PR surfaces; integration verification remains blocked on owner-side settings |
+
+## ERR-2026-08-17-079: Initial Markdown link scan did not handle an empty file
+
+| Field | Value |
+|---|---|
+| Task | Final pre-publish repository verification |
+| Severity | Low |
+| Observed | The first local-link probe passed a null value from an empty Markdown file to `[regex]::Matches`, which rejected the input before the scan completed. |
+| Impact | The first probe supplied no link-integrity evidence and changed no files. |
+| Resolution | Cast each `Get-Content -Raw` result to a string before regex evaluation and reran the complete scan. |
+| Verification | The corrected scan checked 86 Markdown files and 22 local links with zero broken links; separate prohibited-authorship and credential-signature scans also returned zero findings. |
+| Status | Resolved |

@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**F-01 through F-08 and complete local follow-up pass; external re-review pending; merge and Phase 3 are NO-GO**
+**Eight findings are remediated and fifth local review passed; owner confirmed Cursor disablement; publish verification is in progress while merge and Phase 3 remain NO-GO**
 
 ## Phase checklist
 
@@ -29,6 +29,12 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 - [x] Resolve F-01 through F-06 across all normative documents and pass the scoped local consistency audit.
 - [x] Create replay protocol 1.0.1 for F-07 and F-08 with offline hash, chronology, exact-row, mutation, and path-boundary verification.
 - [x] Pass follow-up audit before implementation.
+- [x] Publish remote commit `05ff0b59` with owner-only attribution and receive the first auditor re-review.
+- [x] Remediate the four first-review findings locally with source-derived and fault-injection evidence.
+- [x] Receive the second local review and remediate its live-rights and counter-separation findings.
+- [x] Receive the third local review and remediate its live runtime-provenance activation finding.
+- [x] Receive the fourth local review and remediate its duplicate-live-source false pass.
+- [x] Pass fifth local auditor review with no actionable findings.
 - [ ] Implement the deterministic vertical skeleton with TDD.
 - [ ] Implement and measure the local privacy boundary.
 - [ ] Implement evidence monitoring and historical replay.
@@ -38,7 +44,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Await owner confirmation that the Cursor integration is disabled. Then run attribution preflight, owner-only commit/push, remote read-back, actor scan, and GitHub auditor re-review. Billing-dependent RCL-104 and RCL-105 remain paused.
+Owner confirmation of Cursor disablement was received on 2026-08-17 and the attribution/PR preflight passed. Run final local and staged-tree verification, owner-only commit/push, clean-clone verification, delayed actor scan, and final remote auditor re-review. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 
