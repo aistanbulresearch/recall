@@ -12,7 +12,7 @@
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged at owner-only SHA `05ff0b59`; bot surfaces were cleaned, but Cursor recurrence proves disablement is unresolved |
+| GitHub | Private repository; PR #2 remains open and unmerged at owner-only SHA `9cfee558`; immediate and first delayed bot surfaces are clean; PR-body refresh is blocked by repeated GitHub HTTP 503 responses |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -57,7 +57,7 @@
 - The complete F-01 through F-08 follow-up audit passes within corrected-design and frozen-source-package boundaries. Evidence scripts parse, all declared captures verify, 11 policy rows remain ordered, 52 UI IDs and 21 artifact types reconcile, and JSON, link, whitespace, secret, and authorship-marker checks pass. No product behavior is claimed.
 - Recall Graphify traversal is recovered through the mandatory no-stamp runner: query, explain, and path smoke checks complete without hanging. Raw Graphify traversal commands remain prohibited on this OneDrive checkout.
 - Owner-side live verification confirmed that identical ClinVar printable requests can hash differently because `ncbi_phid` changes, and that GEO `GSE248438` is public from 2024-09-27 and currently links PMID `41957374`; the Nature paper PMID `39779848` independently names the same GEO accession.
-- Owner-only commit `05ff0b59cad88ef00adc2be2e239e57f73226cda` was pushed and read back with only `aistanbulresearch` author, committer, and PR ownership metadata. The first auditor re-review returned `FAIL` on one citation narrative, verifier semantics/counters, capture-root containment, and per-source rights metadata.
+- Owner-only remediation commit `9cfee55883fc67cc48e79745ae8d73e3e4a21b3a` was pushed and read back with only `aistanbulresearch` author, committer, and PR ownership metadata. Staged-tree and clean-clone verifier/harness checks pass; immediate and first delayed actor scans are clean.
 - Eight findings across the first four reviews are remediated locally. The clean verifier reports 10 captures, 1,400,869 bytes, 7 source-derived chronology checks, 12 exact-ID semantic checks, 11 exact-ID rights checks, 1 exact-ID live-spec check, 1 declared live source, 1 parsed XLSX row, and 0 network calls. The expanded harness rejects byte, semantic, path, root, rights, live-runtime, duplicate-live, hash-role, and junction faults.
 - The fifth read-only local auditor review returned `PASS` with no actionable findings and independently confirmed duplicate/cross-class source rejection and all prior remediations. This is not remote committed-state evidence.
 
@@ -66,7 +66,7 @@
 - Phase 1 access, security, and local Gemma feasibility gates.
 - Project-scoped API discovery after the owner selects the correct billing account.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
-- RCL-211: local auditor review passes; owner confirmed Cursor disablement on 2026-08-17 and attribution/PR preflight passed; owner-only republish/read-back, clean-clone verification, delayed actor scan, and final remote re-review remain.
+- RCL-211: owner-only republish/read-back and clean-clone verification pass at `9cfee558`; PR-body refresh, another delayed actor scan, and final remote re-review remain.
 
 ## Blocked
 

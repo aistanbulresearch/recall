@@ -972,3 +972,14 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | Cast each `Get-Content -Raw` result to a string before regex evaluation and reran the complete scan. |
 | Verification | The corrected scan checked 86 Markdown files and 22 local links with zero broken links; separate prohibited-authorship and credential-signature scans also returned zero findings. |
 | Status | Resolved |
+
+## ERR-2026-08-17-080: GitHub PR update backend returned repeated 503 responses
+
+| Field | Value |
+|---|---|
+| Task | Post-push PR read-back and derived verification-summary refresh |
+| Severity | Medium |
+| Observed | After the owner-only remediation push succeeded, two REST PATCH attempts and the GitHub CLI PR-edit fallback each returned HTTP 503 Service Unavailable. Read-only PR/commit APIs and Git transport remained available. |
+| Impact | The remote commit and branch are correct, but PR #2 still displays stale pre-remediation verification counts. No failed write changed the PR. |
+| Resolution | Stop repeated immediate writes, retain the exact derived replacement text, and retry only after a bounded delay. Do not treat the PR surface or final remote audit gate as complete while stale counts remain. |
+| Status | Open pending successful owner-authenticated PR-body update and read-back |

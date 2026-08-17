@@ -8,7 +8,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Eight findings are remediated and fifth local review passed; owner confirmed Cursor disablement; publish verification is in progress while merge and Phase 3 remain NO-GO**
+**Owner-only remediation commit `9cfee558` and clean-clone verification passed; PR-body refresh, delayed actor scan, and final remote re-review remain while merge and Phase 3 stay NO-GO**
 
 ## Phase checklist
 
@@ -44,7 +44,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Owner confirmation of Cursor disablement was received on 2026-08-17 and the attribution/PR preflight passed. Run final local and staged-tree verification, owner-only commit/push, clean-clone verification, delayed actor scan, and final remote auditor re-review. Billing-dependent RCL-104 and RCL-105 remain paused.
+Refresh the stale PR #2 verification summary after GitHub write APIs recover, read it back, repeat the delayed actor scan, and request final remote auditor re-review against `9cfee558` or its documentation-only successor. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 

@@ -610,3 +610,20 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Result:
   - The Cursor owner-confirmation gate is satisfied and the preregistered owner-only remediation publish may proceed.
   - Any prohibited attribution or post-push bot recurrence fails the gate. Merge and Phase 3 remain `NO-GO` pending clean-clone, remote read-back, delayed actor scan, and final remote auditor re-review.
+
+## WORK-2026-08-17-031: Owner-only remediation publish and remote read-back
+
+- Task ID: RCL-211
+- Actions:
+  - Committed the 13-file remediation/audit package as `9cfee55883fc67cc48e79745ae8d73e3e4a21b3a` with subject `fix(evidence): harden replay verification`, an empty body, and no trailers.
+  - Verified author and committer name/email are only the owner identity before push.
+  - Ran the verifier and complete fault harness against both the staged index tree and a separate clean clone at the exact commit.
+  - Pushed `feature/rcl-010-fleet-architecture` and read back the exact PR head, remote branch tip, commit metadata, PR owner, comments, reviews, and check actors.
+- Verification:
+  - Remote PR head and branch tip equal `9cfee55883fc67cc48e79745ae8d73e3e4a21b3a`; remote author and committer resolve only to `aistanbulresearch`.
+  - Clean clone is clean and both verifier/harness pass with 0 network calls.
+  - Immediate and first delayed scans found zero issue comments, zero review comments, zero reviews, and zero check actors.
+- Blocker:
+  - PR #2 still contains stale pre-remediation verification counts. Three owner-authenticated update paths returned HTTP 503 and changed nothing; ERR-080 records the open external-service failure.
+- Result:
+  - Commit/push and owner-only read-back pass. Final remote auditor re-review remains blocked until the PR body is refreshed and read back, followed by a new delayed actor scan.
