@@ -1304,3 +1304,64 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 - Fresh stable-tree Master Judge re-review: `PASS`; both prior content findings closed and no required staged-tree findings remained.
 - Canonical handover checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9` was committed and pushed owner-only after fresh local/origin/PR and identity equality.
 - Immediate and 20-second delayed remote read-backs matched the checkpoint with zero issue comments, review comments, reviews, statuses, and check runs. The error is resolved; the ignored-artifact rewrite producer remains an explicitly disclosed unknown.
+
+## ERR-2026-08-18-107: External audit found an unbound protected-action evidence surface and stale current state
+
+| Field | Value |
+|---|---|
+| Task | Read-only external exact-head collaboration audit |
+| Severity | High |
+| Observed | The separate auditor returned `FAIL` at exact head `877c78d06d9b78f3071d17c81232fbc4302f857e`. P1: an in-memory promotion of the protected-action evidence line to `MECHANISM_PROVED` still returned structural `PASS` because protected-action stopping and complete four-role leaf no-spawn were outside the bound classification set. P2: ADR-0008, STATUS, MASTER_PLAN, and HANDOFF retained contradictory present-tense pending/pass statements. |
+| Impact | A green structural validator could coexist with an unsupported mechanism claim, and a successor could misidentify the current external and phase gates. RCL-211, merge, and Phase 3 are `NO-GO`. |
+| Resolution | Owner authorized exact P1/P2 remediation, owner-only successor publication after all local gates, and one read-only external re-review in DEC-2026-08-18-032. |
+| Verification | Structural validator and current-state contract pass locally with 12 bound hashes; all 23 typed mutations are rejected; official skill validation and `git diff --check` pass. Independent code review, stable-tree Master Judge, owner-only remote read-back, and exact-head external re-review remain pending. |
+| Evidence | `docs/evaluation/reports/2026-08-18--github-auditor-collaboration-fail.md`; external task `01a01671-1a00-70a2-af25-70f429682465`, turn `01a01671-21d7-7953-a911-6b060c889361`. |
+| Status | Open; remediation implemented locally, external re-review pending |
+
+## ERR-2026-08-18-108: Initial remediation design gate omitted exact evidence and sequencing contracts
+
+| Field | Value |
+|---|---|
+| Task | P1/P2 remediation design Master Judge gate |
+| Severity | Medium |
+| Observed | The first design proposal did not assign an exact audit-report path/source contract, did not mechanically close stale RCL-211 states, allowed Worker tests to consume coordinator-owned mutable documents without a freeze barrier, omitted a collaboration-system negative probe, and risked treating stale Graphify output as post-edit proof. |
+| Impact | Implementation could have begun with unverifiable audit provenance, overlapping mutable dependencies, and incomplete acceptance coverage. |
+| Resolution | Added the exact report/task/turn contract, deterministic required/forbidden current-state assertions, 23 mutations, coordinator-first freeze and exclusive Worker sequencing, full immediate/20-second remote surface contract, and stale-only Graphify boundary. |
+| Verification | Fresh design Master Judge verdict: `PASS`; implementation may begin under the stated sequencing barrier. |
+| Status | Resolved at design level; implementation remains unverified |
+
+## ERR-2026-08-18-109: First remediation code review found two validator false-pass classes
+
+| Field | Value |
+|---|---|
+| Task | Independent review of P1/P2 validator remediation |
+| Severity | High |
+| Observed | Although the clean validator and 23-mutation harness passed, disposable-copy probes also passed after suffixing a protected classification with `MECHANISM_PROVED`, adding hash-adjusted contradictory P1 lines, negating every P2 prose claim, or appending an unqualified external-audit `PASS`. STATUS also retained an ambiguous unscoped final-PASS sentence. |
+| Impact | The P1 and P2 audit findings were not mechanism-closed; green validation could coexist with contradictory evidence. Master Judge and publication were stopped. |
+| Resolution | Replace prose-keyword inference with unique machine-readable current-state values; require unique exact P1 classification lines and reject suffixes, duplicates, and conflicts; replace weak mutations while keeping exactly 23 controls; qualify the historical STATUS sentence. |
+| Verification | Exact P1 parsing, canonical current-state blocks, 23 strengthened mutations, coordinator reruns, 42 independent disposable-copy probes, AST, skill, diff, and final code re-review all pass. Stable-tree Master Judge and exact-head external re-review remain pending. |
+| Status | Resolved locally; external re-review pending |
+
+## ERR-2026-08-19-110: Historical PASS exception masked a second current PASS on the same line
+
+| Field | Value |
+|---|---|
+| Task | Independent corrective code re-review |
+| Severity | High |
+| Observed | Forty independent suffix, conflict, state-block, and stale-state probes closed the prior findings, but two composite-line probes still returned validator `PASS`: a valid historical `195422e` PASS clause followed by either an unqualified external-audit PASS or a final exact-head PASS clause. The line-level historical exception waived every stale-PASS occurrence on that line. |
+| Impact | A contradictory current PASS could be hidden beside valid historical evidence, so the P2 current-state gate remained bypassable. Master Judge and publication remained stopped. |
+| Resolution | Make the exception claim-local by allowing only complete historical-only statement forms; strengthen the existing stale-insertion mutation with the composite bypass while preserving exactly 23 harness cases. |
+| Verification | Both composite bypasses, standalone unqualified/final PASS, and missing-SHA history are rejected; exact historical-only PASS is allowed; 42/42 independent probes and final code re-review pass. Stable-tree Master Judge and exact-head external re-review remain pending. |
+| Status | Resolved locally; external re-review pending |
+
+## ERR-2026-08-19-111: Stable-tree Master Judge found stale current evidence counts in HANDOFF
+
+| Field | Value |
+|---|---|
+| Task | Final stable-tree remediation Master Judge |
+| Severity | High |
+| Observed | The canonical HANDOFF `Latest verified evidence` section still stated eleven hashes, twelve mutations, and three/four classifications, and a later current paragraph repeated twelve mutations, while the local remediation validator and smoke report stated twelve hashes, twenty-three mutations, and three/six classifications. |
+| Impact | The incoming-agent control surface contradicted current local evidence accounting and was not fit for protected publication. The Judge returned `FAIL`; staging and publication remained stopped. |
+| Resolution | Synchronize the current HANDOFF evidence section and later harness statement to 12 hashes, exactly 23 named mutation classes, 42/42 independent probes, and `3 REPORT_DERIVED,6 NOT VERIFIED`, without promoting runtime evidence. |
+| Verification | Full validator/harness/skill/AST/diff/log/stale-count rerun passed; fresh stable-tree Master Judge returned `PASS` with no findings on the exact 12-path tree. Publication and external re-review remain pending. |
+| Status | Resolved locally; external re-review pending |

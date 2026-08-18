@@ -37,9 +37,13 @@ def isolated_root() -> tempfile.TemporaryDirectory[str]:
         ROOT / "docs" / "adr" / "ADR-0009-repo-scoped-codex-collaboration.md",
         adr_target / "ADR-0009-repo-scoped-codex-collaboration.md",
     )
+    shutil.copy2(
+        ROOT / "docs" / "adr" / "ADR-0008-external-audit-corrections.md",
+        adr_target / "ADR-0008-external-audit-corrections.md",
+    )
     project_target = target / "docs" / "project"
     project_target.mkdir(parents=True)
-    for filename in ("STATUS.md", "HANDOFF.md"):
+    for filename in ("STATUS.md", "MASTER_PLAN.md", "HANDOFF.md", "COLLABORATION_SYSTEM.md"):
         shutil.copy2(ROOT / "docs" / "project" / filename, project_target / filename)
     shutil.copy2(ROOT / "AGENTS.md", target / "AGENTS.md")
     return temporary
@@ -204,7 +208,7 @@ def main() -> None:
         expect_rejection(
             "smoke_classification_promotion",
             promote_report_derived_to_executed,
-            "smoke_classification_mismatch:Custom profile discovery:EXECUTED",
+            "smoke_classification_mismatch:Custom profile discovery:EXECUTED:REPORT_DERIVED",
         )
     )
 
@@ -243,8 +247,8 @@ def main() -> None:
         write_text(
             report_path,
             report_path.read_text(encoding="utf-8").replace(
-                "runtime_evidence_classifications=3 REPORT_DERIVED,4 NOT VERIFIED",
-                "runtime_evidence_classifications=2 REPORT_DERIVED,5 NOT VERIFIED",
+                "runtime_evidence_classifications=3 REPORT_DERIVED,6 NOT VERIFIED",
+                "runtime_evidence_classifications=2 REPORT_DERIVED,7 NOT VERIFIED",
             ),
         )
 
@@ -252,7 +256,7 @@ def main() -> None:
         expect_rejection(
             "displayed_classification_count_drift",
             drift_displayed_classification_counts,
-            "smoke_summary_counts_mismatch:2 REPORT_DERIVED,5 NOT VERIFIED:3 REPORT_DERIVED,4 NOT VERIFIED",
+            "smoke_summary_counts_mismatch:2 REPORT_DERIVED,7 NOT VERIFIED:3 REPORT_DERIVED,6 NOT VERIFIED",
         )
     )
 
@@ -303,6 +307,169 @@ def main() -> None:
             "smoke_summary_classification_mismatch:judge_effective_effort_runtime:EXECUTED:NOT_VERIFIED",
         )
     )
+
+    report_relative_path = (
+        "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
+    )
+
+    def replace_report_text(old: str, new: str) -> Callable[[Path], None]:
+        def mutate(root: Path) -> None:
+            report_path = root / report_relative_path
+            source = report_path.read_text(encoding="utf-8")
+            if source.count(old) != 1:
+                raise AssertionError(f"report_mutation_target_count:{old}:{source.count(old)}")
+            write_text(report_path, source.replace(old, new))
+
+        return mutate
+
+    p1_exact_promotions = (
+        (
+            "leaf_no_spawn_exact_executed_promotion",
+            "- Complete four-role leaf no-spawn: `NOT VERIFIED`",
+            "- Complete four-role leaf no-spawn: `NOT VERIFIED`. `EXECUTED`",
+            "smoke_classification_line_invalid:Complete four-role leaf no-spawn",
+        ),
+        (
+            "leaf_no_spawn_exact_mechanism_promotion",
+            "- Complete four-role leaf no-spawn: `NOT VERIFIED`",
+            "- Complete four-role leaf no-spawn: `NOT VERIFIED`. `MECHANISM_PROVED`",
+            "smoke_classification_line_invalid:Complete four-role leaf no-spawn",
+        ),
+        (
+            "protected_action_exact_executed_promotion",
+            "- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`",
+            "- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`. `EXECUTED`",
+            "smoke_classification_line_invalid:Protected owner-operation stop and no protected side effect",
+        ),
+        (
+            "protected_action_exact_mechanism_promotion",
+            "- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`",
+            "- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`. `MECHANISM_PROVED`",
+            "smoke_classification_line_invalid:Protected owner-operation stop and no protected side effect",
+        ),
+    )
+    for label, old, new, expected_error in p1_exact_promotions:
+        rejected.append(
+            expect_rejection(label, replace_report_text(old, new), expected_error)
+        )
+
+    p1_displayed_promotions = (
+        (
+            "leaf_no_spawn_displayed_executed_promotion",
+            "complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED",
+            "complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED EXECUTED",
+            "smoke_summary_classification_mismatch:complete_four_role_leaf_no_spawn_runtime:NOT_VERIFIED EXECUTED:NOT_VERIFIED",
+        ),
+        (
+            "leaf_no_spawn_displayed_mechanism_promotion",
+            "complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED",
+            "complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED MECHANISM_PROVED",
+            "smoke_summary_classification_mismatch:complete_four_role_leaf_no_spawn_runtime:NOT_VERIFIED MECHANISM_PROVED:NOT_VERIFIED",
+        ),
+        (
+            "protected_action_displayed_executed_promotion",
+            "protected_action_stop_runtime=NOT_VERIFIED",
+            "protected_action_stop_runtime=NOT_VERIFIED EXECUTED",
+            "smoke_summary_classification_mismatch:protected_action_stop_runtime:NOT_VERIFIED EXECUTED:NOT_VERIFIED",
+        ),
+        (
+            "protected_action_displayed_mechanism_promotion",
+            "protected_action_stop_runtime=NOT_VERIFIED",
+            "protected_action_stop_runtime=NOT_VERIFIED MECHANISM_PROVED",
+            "smoke_summary_classification_mismatch:protected_action_stop_runtime:NOT_VERIFIED MECHANISM_PROVED:NOT_VERIFIED",
+        ),
+    )
+    for label, old, new, expected_error in p1_displayed_promotions:
+        rejected.append(
+            expect_rejection(label, replace_report_text(old, new), expected_error)
+        )
+
+    def contradict_collaboration_runtime_boundary(root: Path) -> None:
+        relative_path = "docs/project/COLLABORATION_SYSTEM.md"
+        target = root / relative_path
+        source = target.read_text(encoding="utf-8")
+        required = "Complete four-role leaf no-spawn: `NOT VERIFIED`."
+        if source.count(required) != 1:
+            raise AssertionError(
+                f"collaboration_boundary_mutation_target_count:{source.count(required)}"
+            )
+        contradictory = required + "\n- Complete four-role leaf no-spawn: `EXECUTED`."
+        write_text(target, source.replace(required, contradictory))
+        refresh_evidence_hash(root, relative_path)
+
+    rejected.append(
+        expect_rejection(
+            "collaboration_system_runtime_boundary_drift",
+            contradict_collaboration_runtime_boundary,
+            "collaboration_classification_count:Complete four-role leaf no-spawn:2",
+        )
+    )
+
+    def invert_current_state_required_fact(root: Path) -> None:
+        target = root / "docs" / "adr" / "ADR-0008-external-audit-corrections.md"
+        source = target.read_text(encoding="utf-8")
+        write_text(
+            target,
+            source.replace(
+                "current_external_audit_verdict=FAIL",
+                "current_external_audit_verdict=PASS",
+            ),
+        )
+
+    rejected.append(
+        expect_rejection(
+            "current_state_inverse_machine_value",
+            invert_current_state_required_fact,
+            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict:PASS:FAIL",
+        )
+    )
+
+    historical_head = "195422e4d762d68d38e2b7f531cc5b1cd059cdb7"
+
+    def append_status_line(line: str) -> Callable[[Path], None]:
+        def mutate(root: Path) -> None:
+            target = root / "docs" / "project" / "STATUS.md"
+            source = target.read_text(encoding="utf-8")
+            write_text(target, source + f"\n{line}\n")
+
+        return mutate
+
+    stale_pass_probes = (
+        (
+            "composite_unqualified",
+            f"Historical external audit: PASS at {historical_head}; External audit: PASS",
+        ),
+        (
+            "composite_final",
+            f"Earlier external audit: PASS at {historical_head}; "
+            "The final exact-head GitHub auditor re-review returned PASS",
+        ),
+        ("standalone_unqualified", "External audit: PASS"),
+        (
+            "standalone_final",
+            "The final exact-head GitHub auditor re-review returned PASS",
+        ),
+        ("historical_missing_head", "Historical external audit: PASS"),
+    )
+    for probe, line in stale_pass_probes:
+        expect_rejection(
+            f"current_state_forbidden_stale_insertion:{probe}",
+            append_status_line(line),
+            "current_state_forbidden:docs/project/STATUS.md:unqualified_current_pass",
+        )
+
+    with isolated_root() as directory:
+        root = Path(directory)
+        append_status_line(
+            f"Historical external audit: PASS at {historical_head}"
+        )(root)
+        if validate(root)["status"] != "PASS":
+            raise AssertionError("historical_exact_head_positive_control_failed")
+
+    rejected.append("current_state_forbidden_stale_insertion")
+
+    if len(rejected) != 23:
+        raise AssertionError(f"mutation_rejection_count:{len(rejected)}:23")
 
     print(json.dumps({"status": "PASS", "mutation_rejections": rejected}, indent=2))
 

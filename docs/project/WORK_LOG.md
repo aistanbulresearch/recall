@@ -1026,3 +1026,52 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - Credential rotation remains open and recommended under RCL-106; its value was not inspected, printed, copied, or stored.
   - This publication does not verify Recall-root runtime behavior, authorize merge or Phase 3, or replace the required external audit.
   - This owner-authorized publication-evidence successor records the checkpoint. Its final SHA must be resolved by live read-back because a commit cannot contain its own identifier.
+
+## WORK-2026-08-18-006: External collaboration audit failure and approved remediation design
+
+- Task IDs: RCL-011, RCL-106, RCL-211
+- Published audit target:
+  - Canonical handover checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9` and publication-record successor `877c78d06d9b78f3071d17c81232fbc4302f857e` were owner-only and clean on coordinator immediate/delayed read-back.
+  - The separate read-only external task independently matched local, origin, and PR #2 at `877c78d`, inspected all thirteen PR commits, and made no repository or GitHub mutation.
+- External verdict: `FAIL`.
+  - P1: protected owner-operation stopping and complete four-role leaf no-spawn were not bound as explicit runtime classifications; an in-memory `MECHANISM_PROVED` promotion escaped with validator `PASS`.
+  - P2: current ADR, status, plan, and handoff surfaces retained contradictory pending/pass statements.
+  - Exact report: `docs/evaluation/reports/2026-08-18--github-auditor-collaboration-fail.md`; source task `01a01671-1a00-70a2-af25-70f429682465`; source turn `01a01671-21d7-7953-a911-6b060c889361`.
+- Owner authority:
+  - After the exact remediation and push scope was presented, the owner approved it. DEC-2026-08-18-032 bounds the work to P1/P2 remediation, one gated owner-only successor push, and one read-only exact-head re-review.
+  - Merge, Phase 3, cloud, billing, destructive actions, Graphify refresh, and later writes remain unauthorized. Credential rotation remains recommended and open.
+- Design gate:
+  - The first Master Judge design review returned `FAIL` on audit provenance, normative closure, mutable-dependency sequencing, missing collaboration-boundary mutation, and Graphify evidence scope.
+  - Revised design fixed the report/task/turn contract; current-state required/forbidden assertions; coordinator-first freeze and exclusive Worker lease; 23 mutations; immediate and 20-second remote checks; and stale-only Graphify use.
+  - Fresh design Master Judge: `PASS`; design is `SPECIFIED`, while implementation, tests, publication, and re-audit remain `NOT VERIFIED`.
+- Coordinator-first document phase:
+  - Added the external audit report and synchronized ADR-0008, STATUS, MASTER_PLAN, and HANDOFF to current `FAIL` / RCL-211 in-progress / merge and Phase 3 `NO-GO` state.
+  - Added DEC-2026-08-18-032 and ERR-2026-08-18-107/108. No Worker lease, commit, push, PR mutation, Graphify refresh, or external transmission had occurred at this checkpoint.
+- Exclusive Worker implementation and coordinator verification:
+  - The Worker lease was limited to the validator, mutation harness, collaboration contract, and smoke report; frozen coordinator files were not edited during the lease.
+  - The validator now binds complete four-role leaf no-spawn and protected owner-operation stopping as `NOT VERIFIED`, derives `3 REPORT_DERIVED,6 NOT VERIFIED`, retains `REPORT_DERIVED_PARTIAL_FAIL_CLOSED`, and verifies 12 evidence hashes.
+  - The isolated harness copies every required dependency and rejects exactly 23 named mutations, including all eight `EXECUTED`/`MECHANISM_PROVED` promotions, collaboration-boundary drift, and required/forbidden current-state defects.
+  - Coordinator reruns passed: structural validator exit 0, 23-mutation harness exit 0, official skill quick validator exit 0, and `git diff --check` exit 0. Recall-root runtime behavior and the new external exact-head re-review remain `NOT VERIFIED`.
+- First independent code review:
+  - Verdict: `BLOCK`, with two High evidence-gate defects and one Medium report-provenance defect.
+  - Disposable-copy probes proved that P1 suffix/conflict promotions and semantically inverted or unqualified P2 current states could still return validator `PASS`; the clean results were therefore not accepted as closure.
+  - The coordinator stopped the Master Judge/publication sequence, added one identical machine-readable current-state block to ADR-0008, STATUS, MASTER_PLAN, and HANDOFF, and qualified the historical STATUS pass at exact head `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`.
+  - ERR-2026-08-18-109 records the required corrective lease. No commit, push, GitHub mutation, Graphify refresh, or external transmission occurred.
+
+## WORK-2026-08-19-007: Corrective re-review stopped on a compositional stale-state bypass
+
+- The corrective Worker lease added exact P1 line parsing, canonical seven-key current-state blocks, strengthened 23 mutations, and separated smoke-report provenance. Coordinator validator, harness, AST, skill, and diff reruns passed.
+- Independent re-review closed 40 requested probes: eight protected suffixes, four hash-adjusted collaboration conflicts, 24 four-document state-block faults, three standalone stale/history rejections, and one exact historical allowance.
+- Re-review verdict remained `BLOCK`: a valid historical PASS clause and a contradictory current/final PASS clause on the same line were incorrectly accepted because the historical exception applied to the entire line.
+- The coordinator accepted ERR-2026-08-19-110, stopped Master Judge/publication, and limited the next correction to claim-local historical allowlisting plus a strengthened existing mutation. No protected or external action occurred.
+- Final corrective verification:
+  - Historical PASS allowlisting is claim-local; both composite bypasses and every standalone/missing-SHA negative control fail typed, while the exact `195422e` historical-only control passes.
+  - Coordinator reruns pass with 12 hashes, four profiles, `3 REPORT_DERIVED,6 NOT VERIFIED`, fail-closed functional status, exactly 23 named mutations, valid skill, valid Python AST, clean diff, and unique ERR/WORK/DEC identifiers.
+  - Final independent code re-review: `PASS`, no actionable findings. Its total disposable-copy set passed 42/42 probes. ERR-109 and ERR-110 are locally resolved; Recall-root runtime and the external exact-head re-review remain `NOT VERIFIED`.
+
+## WORK-2026-08-19-008: Stable-tree Master Judge stopped stale HANDOFF evidence accounting
+
+- The first final stable-tree Master Judge independently verified external-report source fidelity, all 42 probes, the 23-mutation harness, 12 hashes, `3 REPORT_DERIVED,6 NOT VERIFIED`, skill/AST/diff checks, zero bounded secret/attribution findings, and unique append-only IDs.
+- Verdict: `FAIL` because the canonical HANDOFF still presented the pre-remediation 11-hash, 12-mutation, and 3/4 classification counts as latest evidence and repeated the stale 12-mutation statement later.
+- The coordinator accepted ERR-2026-08-19-111, kept staging/publication stopped, and synchronized only those current HANDOFF counts to 12 hashes, exactly 23 named mutation classes, 42/42 probes, and 3/6 without changing runtime classifications.
+- Fresh post-correction stable-tree Master Judge: `PASS`, no findings. The Judge independently confirmed the exact 12-path scope, external-report source fidelity, consistent HANDOFF counts, 23 named harness cases, 42/42 probes, four byte-identical state blocks, zero bounded secret/attribution findings, and unique append-only IDs. This is local pre-publication evidence only; protected publication, remote read-back, runtime behavior, and external re-review remain unverified.

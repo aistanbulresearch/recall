@@ -8,6 +8,14 @@
 - External writes: none
 - Secret values: none captured in this report
 
+## 2026-08-18 local remediation checkpoint
+
+- Remediation base HEAD: `877c78d06d9b78f3071d17c81232fbc4302f857e`
+- Scope: local P1 evidence-binding and P2 current-state validator remediation
+- Evidence boundary: the updated 12 hashes and 23-mutation results below belong to this local remediation checkpoint; they are not commit, runtime, external-audit, merge, or Phase 3 `PASS` evidence
+
+The original 2026-08-17 smoke metadata and report-derived runtime observations remain historical. This checkpoint changes validator coverage and local structural evidence only; it does not relabel any runtime surface.
+
 ## Structural verification
 
 Commands:
@@ -26,14 +34,16 @@ Sanitized report-derived results:
 validator status=PASS
 validation_scope=STRUCTURAL
 profiles=4
-evidence_hashes_verified=11
+evidence_hashes_verified=12
 thread_cap_configured=3
 thread_cap_runtime=NOT_VERIFIED
 judge_effective_effort_runtime=NOT_VERIFIED
+complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED
+protected_action_stop_runtime=NOT_VERIFIED
 functional_smoke=REPORT_DERIVED_PARTIAL_FAIL_CLOSED
 profile_names=recall-scout,recall-worker,recall-smart-worker,recall-master-judge
-runtime_evidence_classifications=3 REPORT_DERIVED,4 NOT VERIFIED
-mutation_rejections=unknown_profile_key,invalid_openai_yaml,missing_markdown_link,missing_protected_action,reversed_prohibition_polarity,unknown_config_key,wrong_duplicate_agent_name,smoke_classification_promotion,displayed_functional_smoke_promotion,displayed_classification_count_drift,displayed_thread_cap_runtime_promotion,displayed_judge_effort_runtime_promotion
+runtime_evidence_classifications=3 REPORT_DERIVED,6 NOT VERIFIED
+mutation_rejections=unknown_profile_key,invalid_openai_yaml,missing_markdown_link,missing_protected_action,reversed_prohibition_polarity,unknown_config_key,wrong_duplicate_agent_name,smoke_classification_promotion,displayed_functional_smoke_promotion,displayed_classification_count_drift,displayed_thread_cap_runtime_promotion,displayed_judge_effort_runtime_promotion,leaf_no_spawn_exact_executed_promotion,leaf_no_spawn_exact_mechanism_promotion,protected_action_exact_executed_promotion,protected_action_exact_mechanism_promotion,leaf_no_spawn_displayed_executed_promotion,leaf_no_spawn_displayed_mechanism_promotion,protected_action_displayed_executed_promotion,protected_action_displayed_mechanism_promotion,collaboration_system_runtime_boundary_drift,current_state_inverse_machine_value,current_state_forbidden_stale_insertion
 Skill is valid!
 multi_agent stable true
 git diff --check: exit 0, no output
@@ -54,8 +64,9 @@ The mutation harness operates on disposable system-temporary copies and leaves t
 | `.codex/agents/recall-worker.toml` | `DAC17C5B48826E8E1955DAB5A601032BEE8A1649F7A69E517242695CB672B827` |
 | `.codex/agents/recall-smart-worker.toml` | `D94E650D55C1F48ABCFE92DB74D1C87C6038843CE299E60F22C11D81A7862918` |
 | `.codex/agents/recall-master-judge.toml` | `FCA74E78E40BE979D25D4F9A555B72A68503AD92F8C22A94259EB964204EF930` |
-| `scripts/validation/verify_recall_collaboration.py` | `D695A85D43FEE1911B9FEC28C1E2F1E530324ADDF45CE4402CE219C7100A1F38` |
-| `scripts/validation/test_recall_collaboration_validator.py` | `1DBE880F3439B4336F733575F75B8F1FF77BFD019F532FE58F60F49E51443088` |
+| `scripts/validation/verify_recall_collaboration.py` | `C9C75EC13CC89321352CDB82A90C9C8321D929FEFB014AD27F27BFD1342FF3F6` |
+| `scripts/validation/test_recall_collaboration_validator.py` | `61B8C9A55DDF8AC58487995A286A74ADA6B1FB3FAC029C5D4B155FCF527DB495` |
+| `docs/project/COLLABORATION_SYSTEM.md` | `F635800D8CEEBA31DBA1C2CC9BF186B544F2189845B0677222D8804E51C2661C` |
 
 These hashes identify the structurally tested files. They are not remote, signed, or committed-artifact evidence.
 
@@ -135,6 +146,7 @@ The ephemeral processes emitted a stale model-cache schema warning, unsupported 
 - Smart Worker runtime profile: `NOT VERIFIED`.
 - Effective Judge reasoning effort: `NOT VERIFIED`.
 - Three-thread cap and fourth-thread behavior: `NOT VERIFIED`.
-- Protected owner-operation stop and zero external-auditor GitHub side effects: specified, not runtime-tested in this local smoke.
+- Complete four-role leaf no-spawn: `NOT VERIFIED`.
+- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`.
 
 RCL-011 remains in progress until the remaining tests run from a fresh session whose primary writable workspace is Recall.

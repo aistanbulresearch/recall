@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Canonical handover checkpoint `788b56b` owner-published; publication-evidence successor and final-head external audit owner-authorized; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
+| Status | Exact-head collaboration audit `FAIL` at `877c78d`; P1/P2 remediation locally passes 23 mutations, independent code review, and stable-tree Master Judge, and awaits owner-only publication and new re-review; PR #2 unmerged; RCL-211 and collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -16,6 +16,18 @@
 | Planned hostname | Unresolved: owner wrote `racall.aistanbulresearch.com`; confirm before DNS or deployment configuration |
 
 This is a living plan. Any change to scope, sequencing, dates, acceptance gates, or task status must update this document in the same work unit.
+
+## Current external-gate state
+
+```text
+current_external_audit_head=877c78d06d9b78f3071d17c81232fbc4302f857e
+current_external_audit_verdict=FAIL
+rcl_211=IN_PROGRESS
+merge_gate=NO_GO
+phase_3_gate=NO_GO
+external_re_review=REQUIRED
+historical_external_pass_head=195422e4d762d68d38e2b7f531cc5b1cd059cdb7
+```
 
 ## 1. Outcome
 
@@ -161,7 +173,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 for GitHub auditor-agent review and notify the owner | verified | Final exact-head external audit passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; owner-only metadata and zero bot surfaces; PR remains open/unmerged |
+| RCL-211 | Package Phase 2 and material collaboration successors for exact-head external review | in-progress, external remediation | Historical review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; the later audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` returned `FAIL` on P1 validator coverage and P2 current-state consistency; remediation and a new exact-head `PASS` are required |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. F-01 through F-08 must be resolved, the replay package must verify offline, and follow-up audit must pass before Phase 3 begins.
 
@@ -328,4 +340,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The canonical handover checkpoint is owner-published at `788b56bcbef3d543f483d7f5a99033aba2d23ea9` with clean immediate and delayed remote read-back. Publish and verify this owner-authorized publication-evidence successor if it is not already the stable live PR head, then request the authorized read-only external audit against that final exact SHA. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.
+The exact-head external collaboration audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` returned `FAIL`. The owner-authorized P1/P2 remediation now passes structural validation, all 23 typed mutations, independent code review, and stable-tree Master Judge locally. Complete the exact staged-tree and owner-identity gates, then publish one owner-only successor with exact remote read-back and request the authorized read-only external re-review against that SHA. Merge and Phase 3 remain `NO-GO`; every Recall-root RCL-011 runtime row and billing-dependent platform smoke remain pending.

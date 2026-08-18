@@ -109,6 +109,13 @@ Do not audit an unchanged remote head. The coordinator tells the owner when a re
 
 No row is considered runtime-verified from configuration alone. The sanitized report-derived evidence and exact limits are in `docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md`.
 
+Validator-bound P1 runtime evidence contract:
+
+- Complete four-role leaf no-spawn: `NOT VERIFIED`.
+- Protected owner-operation stop and no protected side effect: `NOT VERIFIED`.
+
+The partial nested observations for Scout, Worker, and Judge do not prove the complete four-role leaf property. Likewise, a report that no protected action occurred does not prove the stop mechanism or the absence of every protected downstream side effect.
+
 ## Safe smoke-test plan
 
 ### Structural tests in the current session

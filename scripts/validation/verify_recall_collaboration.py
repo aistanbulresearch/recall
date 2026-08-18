@@ -48,6 +48,7 @@ HASHED_EVIDENCE_PATHS = {
     ".codex/agents/recall-master-judge.toml",
     "scripts/validation/verify_recall_collaboration.py",
     "scripts/validation/test_recall_collaboration_validator.py",
+    "docs/project/COLLABORATION_SYSTEM.md",
 }
 SMOKE_REPORT_PATH = (
     "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
@@ -60,6 +61,8 @@ REQUIRED_SMOKE_CLASSIFICATIONS = {
     "Smart Worker runtime profile": "NOT VERIFIED",
     "Effective Judge reasoning effort": "NOT VERIFIED",
     "Three-thread cap and fourth-thread behavior": "NOT VERIFIED",
+    "Complete four-role leaf no-spawn": "NOT VERIFIED",
+    "Protected owner-operation stop and no protected side effect": "NOT VERIFIED",
 }
 RUNTIME_BOUNDARY_REQUIREMENTS = {
     "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md": (
@@ -77,7 +80,44 @@ RUNTIME_BOUNDARY_REQUIREMENTS = {
         "`REPORT_DERIVED`",
         "Every Recall-root row in `COLLABORATION_SYSTEM.md` must pass before verification",
     ),
+    "docs/project/COLLABORATION_SYSTEM.md": (
+        "No row is considered runtime-verified from configuration alone",
+    ),
 }
+COLLABORATION_RUNTIME_CLASSIFICATIONS = {
+    "Complete four-role leaf no-spawn": "NOT VERIFIED",
+    "Protected owner-operation stop and no protected side effect": "NOT VERIFIED",
+}
+PROTECTED_SMOKE_CLASSIFICATIONS = COLLABORATION_RUNTIME_CLASSIFICATIONS
+CURRENT_STATE_PATHS = (
+    "docs/adr/ADR-0008-external-audit-corrections.md",
+    "docs/project/STATUS.md",
+    "docs/project/MASTER_PLAN.md",
+    "docs/project/HANDOFF.md",
+)
+FAILED_AUDIT_HEAD = "877c78d06d9b78f3071d17c81232fbc4302f857e"
+HISTORICAL_PASS_HEAD = "195422e4d762d68d38e2b7f531cc5b1cd059cdb7"
+CURRENT_STATE_EXPECTED = {
+    "current_external_audit_head": FAILED_AUDIT_HEAD,
+    "current_external_audit_verdict": "FAIL",
+    "rcl_211": "IN_PROGRESS",
+    "merge_gate": "NO_GO",
+    "phase_3_gate": "NO_GO",
+    "external_re_review": "REQUIRED",
+    "historical_external_pass_head": HISTORICAL_PASS_HEAD,
+}
+STALE_CURRENT_PASS_PATTERNS = (
+    re.compile(r"(?i)\b(?:current\s+)?external audit\s*:\s*`?PASS`?\b"),
+    re.compile(
+        r"(?i)\bthe final exact-head GitHub auditor re-review returned\s+`?PASS`?\b"
+    ),
+)
+HISTORICAL_PASS_CLAIM_PATTERNS = (
+    re.compile(
+        rf"(?i)\b(?:historical|prior|earlier) external audit\s*:\s*`?PASS`?"
+        rf"\s+at\s+`?{HISTORICAL_PASS_HEAD}`?\b"
+    ),
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -175,18 +215,55 @@ def validate_evidence_hashes(root: Path) -> int:
     return len(rows)
 
 
+def parse_exact_markdown_classifications(
+    text: str,
+    expected_classifications: dict[str, str],
+    error_prefix: str,
+) -> dict[str, str]:
+    classifications: dict[str, str] = {}
+    lines = text.splitlines()
+    for label, expected in expected_classifications.items():
+        prefix = f"- {label}:"
+        candidates = [line for line in lines if line.lstrip().startswith(prefix)]
+        require(
+            len(candidates) == 1,
+            f"{error_prefix}_classification_count:{label}:{len(candidates)}",
+        )
+        match = re.fullmatch(rf"- {re.escape(label)}: `([^`]+)`\.", candidates[0])
+        require(
+            match is not None,
+            f"{error_prefix}_classification_line_invalid:{label}:{candidates[0]}",
+        )
+        actual = match.group(1)
+        require(
+            actual == expected,
+            f"{error_prefix}_classification_mismatch:{label}:{actual}:{expected}",
+        )
+        classifications[label] = actual
+    return classifications
+
+
 def parse_runtime_classifications(report: str) -> dict[str, str]:
+    exact = parse_exact_markdown_classifications(
+        report,
+        PROTECTED_SMOKE_CLASSIFICATIONS,
+        "smoke",
+    )
     classifications: dict[str, str] = {}
     for label, expected in REQUIRED_SMOKE_CLASSIFICATIONS.items():
-        pattern = re.compile(
-            rf"(?m)^- {re.escape(label)}: `([^`]+)`"
-        )
+        if label in PROTECTED_SMOKE_CLASSIFICATIONS:
+            classifications[label] = exact[label]
+            continue
+        pattern = re.compile(rf"(?m)^- {re.escape(label)}: `([^`]+)`")
         matches = pattern.findall(report)
-        require(len(matches) == 1, f"smoke_classification_count:{label}:{len(matches)}")
+        require(
+            len(matches) == 1,
+            f"smoke_classification_count:{label}:{len(matches)}",
+        )
         actual = matches[0]
         require(
             actual == expected,
-            f"smoke_classification_mismatch:{label}:{actual}",
+            f"smoke_classification_mismatch:{label}:{actual}:{expected}",
         )
         classifications[label] = actual
     return classifications
@@ -238,6 +315,12 @@ def validate_displayed_smoke_summary(
         "judge_effective_effort_runtime": classifications[
             "Effective Judge reasoning effort"
         ].replace(" ", "_"),
+        "complete_four_role_leaf_no_spawn_runtime": classifications[
+            "Complete four-role leaf no-spawn"
+        ].replace(" ", "_"),
+        "protected_action_stop_runtime": classifications[
+            "Protected owner-operation stop and no protected side effect"
+        ].replace(" ", "_"),
     }
     summary_pairs = re.findall(r"(?m)^([a-z][a-z0-9_]*)=([^\r\n]+)$", block)
     relevant_pairs = [
@@ -287,6 +370,81 @@ def validate_runtime_boundary_docs(root: Path) -> None:
             require(
                 fragment in document,
                 f"runtime_boundary_missing:{relative_path}:{fragment}",
+            )
+    collaboration_path = root / "docs" / "project" / "COLLABORATION_SYSTEM.md"
+    collaboration = read_text(collaboration_path, root)
+    parse_exact_markdown_classifications(
+        collaboration,
+        COLLABORATION_RUNTIME_CLASSIFICATIONS,
+        "collaboration",
+    )
+
+
+def validate_current_state_contract(root: Path) -> None:
+    for relative_path in CURRENT_STATE_PATHS:
+        document = read_text(root / relative_path, root)
+        headings = re.findall(
+            r"(?m)^#{2,3} Current external-gate state$",
+            document,
+        )
+        require(
+            len(headings) == 1,
+            f"current_state_block_heading_count:{relative_path}:{len(headings)}",
+        )
+        blocks = re.findall(
+            r"(?ms)^#{2,3} Current external-gate state\r?\n\r?\n"
+            r"```text\r?\n(.*?)\r?\n```(?=\r?\n|$)",
+            document,
+        )
+        require(
+            len(blocks) == 1,
+            f"current_state_block_count:{relative_path}:{len(blocks)}",
+        )
+        parsed: dict[str, str] = {}
+        for line_number, line in enumerate(blocks[0].splitlines(), start=1):
+            match = re.fullmatch(r"([a-z][a-z0-9_]*)=([A-Za-z0-9_]+)", line)
+            require(
+                match is not None,
+                f"current_state_line_invalid:{relative_path}:{line_number}:{line}",
+            )
+            key, value = match.groups()
+            require(
+                key in CURRENT_STATE_EXPECTED,
+                f"current_state_unknown_key:{relative_path}:{key}",
+            )
+            require(
+                key not in parsed,
+                f"current_state_duplicate_key:{relative_path}:{key}",
+            )
+            parsed[key] = value
+        missing = sorted(set(CURRENT_STATE_EXPECTED) - set(parsed))
+        require(
+            not missing,
+            f"current_state_missing_keys:{relative_path}:{missing}",
+        )
+        for key, expected in CURRENT_STATE_EXPECTED.items():
+            actual = parsed[key]
+            require(
+                actual == expected,
+                f"current_state_value_mismatch:{relative_path}:{key}:{actual}:{expected}",
+            )
+        canonical_block = "\n".join(
+            f"{key}={value}" for key, value in CURRENT_STATE_EXPECTED.items()
+        )
+        require(
+            blocks[0] == canonical_block,
+            f"current_state_block_format_mismatch:{relative_path}",
+        )
+        for line in document.splitlines():
+            unmatched = line
+            for pattern in HISTORICAL_PASS_CLAIM_PATTERNS:
+                unmatched = pattern.sub("", unmatched)
+            require(
+                not any(
+                    pattern.search(unmatched)
+                    for pattern in STALE_CURRENT_PASS_PATTERNS
+                ),
+                f"current_state_forbidden:{relative_path}:unqualified_current_pass",
             )
 
 
@@ -378,6 +536,7 @@ def validate(root: Path = ROOT) -> dict[str, object]:
         report, runtime_classifications, functional_smoke
     )
     validate_runtime_boundary_docs(root)
+    validate_current_state_contract(root)
     evidence_hashes = validate_evidence_hashes(root)
 
     return {
