@@ -6,13 +6,13 @@
 |---|---|
 | Updated | 2026-08-18 |
 | Phase | Phase 0 collaboration control is being extended; Phase 1 blocked in part; Phase 2 final exact-head external re-review passed |
-| Overall state | Repo-scoped collaboration infrastructure is owner-published; the owner renewed risk acceptance for the exact canonical-handover publication and subsequent read-only external audit; PR #2 remains unmerged; every Recall-root runtime matrix row remains; product work not started |
+| Overall state | Canonical handover checkpoint `788b56b` is owner-published with clean immediate and delayed read-back; its publication-evidence successor and subsequent read-only external audit are owner-authorized; PR #2 remains unmerged; every Recall-root runtime matrix row remains; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged; exact local, origin, and PR head is `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; all 11 PR commits resolve only to `aistanbulresearch`; immediate and delayed comments/reviews/statuses/checks are zero; external re-audit is due |
+| GitHub | Private repository; PR #2 remains open and unmerged; canonical handover checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9` is owner-only with zero immediate and delayed comments/reviews/statuses/checks; resolve the publication-evidence successor SHA live before the external re-audit |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -117,6 +117,6 @@
 
 ## Next three actions
 
-1. Complete the owner-authorized staged-tree and Master Judge gates for the canonical handover package, then publish it owner-only and record the exact remote read-back.
-2. Request the owner-authorized read-only external GitHub audit against the resulting stable exact successor head.
+1. Publish and read back the owner-authorized publication-evidence successor if it is not already the stable live head.
+2. Request the owner-authorized read-only external GitHub audit against that final exact successor SHA.
 3. In a fresh Recall-root Codex task, complete every remaining row in the RCL-011 runtime matrix; keep RCL-106 rotation open and billing-dependent platform smoke paused pending the owner choice.

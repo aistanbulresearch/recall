@@ -1298,3 +1298,9 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | Reconciled current ignored artifacts directly, corrected current project records, and changed the handover to report the exact staged state. No Graphify refresh, semantic transmission, or artifact overwrite was performed. |
 | Verification | Root graph SHA-256 `853D9B8F18CACEC23190A94217CFD7DEC57F9C977C60E2D687D08C4E47CF6D38`; root report SHA-256 `4F1A3108F99280C4945F455C7D475447CDA80B3D40A088E91A23CE97E49DDBD3`. Fresh read-only post-label quality gate: `PASS` at 242 nodes, 258 edges, 131 concepts, 74/74 represented sources, 0 missing sources, 0 broken edges, one `Policy Gate` node, and five incident edges. Fresh stable-tree Master Judge re-review remains required. |
 | Status | Remediated locally; pending fresh Master Judge verdict |
+
+### ERR-2026-08-18-106 closure addendum
+
+- Fresh stable-tree Master Judge re-review: `PASS`; both prior content findings closed and no required staged-tree findings remained.
+- Canonical handover checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9` was committed and pushed owner-only after fresh local/origin/PR and identity equality.
+- Immediate and 20-second delayed remote read-backs matched the checkpoint with zero issue comments, review comments, reviews, statuses, and check runs. The error is resolved; the ignored-artifact rewrite producer remains an explicitly disclosed unknown.

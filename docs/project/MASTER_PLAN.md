@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Canonical handover publication and successor-head external audit owner-authorized; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
+| Status | Canonical handover checkpoint `788b56b` owner-published; publication-evidence successor and final-head external audit owner-authorized; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -328,4 +328,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The collaboration infrastructure and the 2026-08-17 publication records are owner-published at exact head `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`. The owner authorized publication of the current canonical handover package plus its decision record and the subsequent read-only external audit against the stable successor head. Complete the staged-tree, Master Judge, identity, push, and remote read-back gates; then request that audit. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.
+The canonical handover checkpoint is owner-published at `788b56bcbef3d543f483d7f5a99033aba2d23ea9` with clean immediate and delayed remote read-back. Publish and verify this owner-authorized publication-evidence successor if it is not already the stable live PR head, then request the authorized read-only external audit against that final exact SHA. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.

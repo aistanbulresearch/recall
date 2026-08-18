@@ -1006,3 +1006,23 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - Corrected HANDOFF and STATUS to the current artifact and exact staged state; appended ERR-2026-08-18-106 without erasing the intermediate historical observations.
   - No Graphify refresh, external semantic transmission, artifact overwrite, commit, push, PR mutation, or external-auditor request occurred.
   - The complete staged-tree and fresh Master Judge gates must pass before publication.
+
+## WORK-2026-08-18-005: Canonical handover owner-only publication and remote read-back
+
+- Task IDs: RCL-011, RCL-106, RCL-211
+- Final local gate:
+  - Fresh stable-tree Master Judge re-review: `PASS`; the current Graphify artifact and exact staged-state findings were closed with no remaining required finding.
+  - Structural validator PASS with four profiles and eleven evidence hashes; twelve-mutation harness PASS; post-label Graphify quality gate PASS; cached diff check PASS; exact eight staged paths; zero unstaged/untracked paths; staged secret-signature and prohibited attribution-trailer counts zero.
+  - Final pre-commit local, origin, and PR head matched `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; PR #2 was open and unmerged; active GitHub login and Git identity were `aistanbulresearch`.
+- Publication:
+  - Created commit `788b56bcbef3d543f483d7f5a99033aba2d23ea9`, `docs(project): publish canonical handover`, containing only the authorized eight paths.
+  - Local author and committer were `aistanbulresearch` with the owner noreply address. Commit body, trailers, and notes were empty.
+  - Pushed without force to `feature/rcl-010-fleet-architecture` after a fresh owner-identity check.
+- Remote verification:
+  - Origin branch, PR #2 head, and GitHub commit API matched `788b56bcbef3d543f483d7f5a99033aba2d23ea9`; PR remained open and unmerged.
+  - GitHub author and committer were `aistanbulresearch`; no prohibited message trailer was present.
+  - Immediate and 20-second delayed snapshots each returned zero issue comments, review comments, reviews, statuses, and check runs.
+- Boundary:
+  - Credential rotation remains open and recommended under RCL-106; its value was not inspected, printed, copied, or stored.
+  - This publication does not verify Recall-root runtime behavior, authorize merge or Phase 3, or replace the required external audit.
+  - This owner-authorized publication-evidence successor records the checkpoint. Its final SHA must be resolved by live read-back because a commit cannot contain its own identifier.

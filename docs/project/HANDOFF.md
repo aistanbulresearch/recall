@@ -8,11 +8,11 @@ This is the canonical handover for the next Recall coordinator. Do not create a 
 
 - Open the next Codex task with `C:\Users\oacav\OneDrive\Desktop\recall project` as the primary workspace so repo-scoped skills, custom agents, and writable-role tests load under the correct permission root.
 - Branch: `feature/rcl-010-fleet-architecture`.
-- Local HEAD, origin branch head, and PR #2 head were read back on 2026-08-18 as `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`. This is a verified snapshot, not permission to skip a fresh read before action.
+- The canonical handover checkpoint was read back locally, on origin, and on PR #2 as `788b56bcbef3d543f483d7f5a99033aba2d23ea9` on 2026-08-18. The owner-only publication-evidence successor may be newer; resolve the exact current local/origin/PR SHA live rather than inferring it from this self-referential handover.
 - PR #2 author is `aistanbulresearch` with `OWNER` association. It remains open and unmerged.
 - Do not reset, checkout, clean, stash, amend, rebase, or discard the current worktree. The local documentation changes belong to the owner.
 
-### Local work that is not on GitHub
+### Canonical handover publication
 
 The canonical handover package originally contained seven tracked files. The owner's 2026-08-18 publication authorization adds `docs/project/DECISION_LOG.md`, making the exact approved package eight tracked files:
 
@@ -25,7 +25,7 @@ The canonical handover package originally contained seven tracked files. The own
 7. `docs/project/WORK_LOG.md`
 8. `docs/project/DECISION_LOG.md`
 
-They record the owner-authorized final Graphify refresh, the per-run Graphify approval rule, and this handover. At the current publication-gate checkpoint, exactly these eight paths are staged; there are zero unstaged and zero untracked paths. `graphify-out/` is Git-ignored and was updated locally.
+They record the owner-authorized final Graphify refresh, the per-run Graphify approval rule, and this handover. All eight were committed and pushed owner-only at checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9`. This document's publication-evidence successor records the exact read-back; because a commit cannot embed its own SHA, always use the live commands below to resolve the final successor head and worktree state. `graphify-out/` remains Git-ignored.
 
 The owner separately authorized the exact canonical-handover commit/push, its publication-evidence successor, and the subsequent read-only external-auditor request on 2026-08-18. This does not authorize merge, Phase 3, cloud, billing, destructive, hostname, Graphify refresh, or later publication actions.
 
@@ -33,7 +33,8 @@ The owner separately authorized the exact canonical-handover commit/push, its pu
 
 - Collaboration structural validator: `PASS`, four exact custom profiles and eleven evidence hashes.
 - Collaboration mutation harness: `PASS`, twelve injected defects rejected.
-- The first eight-file staged-tree Master Judge verdict was `FAIL`: it found that the ignored Graphify artifact had changed after the recorded reconciliation and that this handover incorrectly said the index was empty. The artifact and staged-state wording are now reconciled; a fresh Master Judge verdict is required before publication.
+- The first eight-file staged-tree Master Judge verdict was `FAIL`; after Graphify and index-state remediation, the fresh stable-tree re-review returned `PASS` with no remaining staged-tree findings. That verdict covered exact scope, current Graphify artifacts, structural and mutation checks, secret/trailer scans, local owner identity, and evidence boundaries. The coordinator separately verified live local/origin/PR equality and owner identity before the protected action.
+- Canonical checkpoint `788b56b` was read back owner-only: commit author, committer, and GitHub actors were `aistanbulresearch`; message body, trailers, and notes were empty; immediate and 20-second delayed PR comments, review comments, reviews, statuses, and check runs were all zero.
 - Recall-root runtime matrix: still open. Historical nested observations remain three `REPORT_DERIVED` and four `NOT VERIFIED`; they are not runtime proof.
 - Graphify refresh: the pre-label quality gate passed at 240 nodes, 260 edges, 44 communities, and 129 concepts. An intermediate post-label snapshot recorded 231/248/45/120, but the ignored graph JSON and root report were later rewritten. Direct current reconciliation now finds 242 nodes, 258 edges, 48 communities, 131 concepts, 74 of 74 tracked sources represented, zero missing sources, and zero broken edges. A fresh read-only post-label quality-gate execution passed with one connected `Policy Gate` node and five incident edges. The exact producer of the later ignored-artifact rewrite was not independently identified.
 - Four replay JSON files still produce zero-node warnings: `PMID39779848.data-availability-linkage.json`, `PMID39779848.esummary.json`, `PMID39779857.esummary.json`, and `HISTORICAL_REPLAY_SOURCE_MANIFEST.json`. Keep each warning visible; do not convert source-manifest coverage into semantic-node completeness.
@@ -70,8 +71,8 @@ The owner explicitly authorized the completed 2026-08-18 Graphify transmission o
 ### Required next-gate order
 
 1. Read `AGENTS.md`, return to this incoming-agent control block, then read STATUS, MASTER_PLAN, and COLLABORATION_SYSTEM; invoke `$recall-collaboration`; then run the listed read-only local/live state and validator commands. Read every remaining enumerated path or range before implementation or a phase decision.
-2. Complete the owner-authorized exact eight-file staged-tree checks, fresh Master Judge gate, `aistanbulresearch` identity verification, commit/push, and remote actor/surface read-back. Never add AI, assistant, generated-by, or co-author metadata.
-3. Request the owner-authorized read-only external GitHub audit only against the final stable successor head, never the superseded `d5777b5` checkpoint.
+2. If this publication-evidence successor is not yet the live PR head, complete its owner-authorized staged-tree checks, fresh Master Judge gate, `aistanbulresearch` identity verification, commit/push, and remote actor/surface read-back. Never add AI, assistant, generated-by, or co-author metadata.
+3. After the final successor is stable and read back, request the owner-authorized read-only external GitHub audit only against that exact live SHA, never the superseded `d5777b5` or intermediate `788b56b` checkpoints.
 4. In the Recall-root task, execute every remaining RCL-011 runtime-matrix row with retained literal sanitized transcripts and exact before/after Git status. Use ignored `temp/collaboration-smoke/<run-id>/` only for ephemeral write/denial artifacts. The predecessor is `docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md`; create exactly one successor at `docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md` for sanitized literal transcripts, commands, hashes, and before/after status. Do not create competing runtime reports, persist secrets or unsanitized raw traces, or upgrade configuration/report-derived observations into runtime proof.
 5. Do not begin Phase 3 product implementation or merge PR #2 until the external audit, RCL-011 gate, and applicable owner approvals pass.
 
@@ -120,7 +121,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 - Date: 2026-08-18.
 - Phase: Phase 2 final exact-head external re-review passed; Phase 1 smoke is partial and stopped at billing selection; Phase 0 collaboration control is being extended under RCL-011.
-- GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged. Exact local, origin, and PR head is `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; all 11 PR commits resolve only to `aistanbulresearch`, bot surfaces are clean, and the external re-audit is now due.
+- GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged. Canonical handover checkpoint `788b56bcbef3d543f483d7f5a99033aba2d23ea9` was owner-only and clean on immediate and delayed read-back. Resolve the publication-evidence successor SHA live; that final exact head is the external-audit target.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
 - No privacy, scientific, reliability, or production claim has been validated.
@@ -140,7 +141,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - RCL-211 is verified. The first four local reviews found eight total issues; remediation, final exact-head remote re-review, owner-only metadata, and clean surfaces passed.
 - RCL-011 is in progress. `$recall-collaboration`, four custom profiles with exact stable identifier names, a three-thread cap, ADR-0009, and mutation-tested structural validation are implemented. The VUS-root nested observations are `REPORT_DERIVED`, not runtime proof. Every Recall-root row in `COLLABORATION_SYSTEM.md` must pass before verification.
 - The first two independent collaboration reviews returned `FAIL`; exact-schema, YAML, link, canonical negative-action, evidence classification, acceptance-matrix, baseline-metadata, and profile-name remediations are implemented. The harness now rejects twelve injected defects, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion.
-- An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge superseded it with `FAIL`. Four independent code-review cycles then closed the findings, and the collaboration infrastructure through `d5777b5` was published owner-only. The current eight-file canonical-handover successor remains local until its fresh staged-tree gate passes. RCL-011 remains in progress and every Recall-root runtime row is still open.
+- An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge superseded it with `FAIL`. Four independent code-review cycles closed those findings, and the collaboration infrastructure through `d5777b5` was published owner-only. The exact eight-file canonical handover then passed its remediated Master Judge gate and was published owner-only at `788b56b`; this publication-evidence successor records that read-back. RCL-011 remains in progress and every Recall-root runtime row is still open.
 - The owner explicitly authorized transmission of changed private Recall content to Gemini semantic extraction for one completed run. Its pre-label gate passed at 240/260/44/129. The later ignored-artifact sequence included an intermediate 231/248/45/120 snapshot and the current 242/258/48/131 root. Fresh read-only reconciliation and a post-label quality-gate execution passed at the current root with 74/74 represented sources, 0 missing sources, 0 broken edges, and a connected `Policy Gate`. The exact producer of the post-record rewrite remains unknown. Four replay JSON files still produced zero-node warnings without missing manifest coverage. The no-stamp query surfaced the final collaboration remediations; raw Graphify traversal remains prohibited.
 - ERR-2026-08-17-086 records an exposed GitHub credential without its value. Rotation remains recommended, but the owner explicitly deferred it and accepted the risk for the exact collaboration-infrastructure commit/push on 2026-08-17.
 
@@ -171,7 +172,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Complete the owner-authorized exact eight-file publication gate and remote read-back, then request the authorized read-only external audit against the stable successor head. After that, complete every remaining RCL-011 runtime row from the Recall-root task. RCL-106 credential rotation remains recommended and open.
+Resolve the live local/origin/PR SHA. If this publication-evidence successor is already the stable clean head with owner-only surfaces, request the authorized read-only external audit against that exact SHA; otherwise finish only the authorized successor gate first. After the audit, complete every remaining RCL-011 runtime row from the Recall-root task. RCL-106 credential rotation remains recommended and open.
 
 ## Known blocker
 
