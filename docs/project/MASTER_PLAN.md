@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Collaboration infrastructure owner-published and external exact-head audit now due; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under explicit owner risk acceptance; billing selection blocked |
+| Status | Canonical handover publication and successor-head external audit owner-authorized; PR #2 unmerged; collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -139,7 +139,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
 | RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor, region, quota, and billing | blocked | Dedicated project, local CLI/SDK/auth passed; billing account selection blocks project-scoped smoke |
 | RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await billing linkage |
-| RCL-106 | Rotate known exposed credentials and run repository/history secret scans | in-progress, owner-deferred risk | ERR-2026-08-17-086 records a newly exposed GitHub credential without its value. Rotation remains recommended; on 2026-08-17 the owner accepted the risk and authorized only the exact collaboration-infrastructure commit/push before rotation. |
+| RCL-106 | Rotate known exposed credentials and run repository/history secret scans | in-progress, owner-deferred risk | ERR-2026-08-17-086 records the credential incident without its value. Rotation remains recommended; DEC-2026-08-18-031 records renewed bounded owner authorization for the canonical-handover publication and read-only external audit. |
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | blocked | No checked local runtime command or GGUF model is installed; select/install artifacts before benchmark |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | blocked | Owner confirms `recall` or `racall` before external mutation |
 | RCL-109 | Check product-name collision and discoverability risk | not-started | Naming decision records search, branding, and URL consequences |
@@ -328,4 +328,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The collaboration infrastructure is owner-published at checkpoint `980ec6f` with clean immediate GitHub surfaces and a corrected PR body; its owner-only documentation successor is prepared for publication. After exact remote read-back, request the external GitHub auditor against that head before merge or Phase 3. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.
+The collaboration infrastructure and the 2026-08-17 publication records are owner-published at exact head `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`. The owner authorized publication of the current canonical handover package plus its decision record and the subsequent read-only external audit against the stable successor head. Complete the staged-tree, Master Judge, identity, push, and remote read-back gates; then request that audit. In a fresh Recall-root Codex task, complete every remaining RCL-011 runtime row. Billing-dependent platform smoke remains paused.

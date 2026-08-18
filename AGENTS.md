@@ -70,12 +70,13 @@ Stop and report at each gate. Do not hide a failed gate by continuing into later
 
 ## Documentation protocol
 
-Before work, read:
+After reading this working agreement, use this single preflight order:
 
-1. `docs/project/STATUS.md`
-2. `docs/project/MASTER_PLAN.md`
-3. `docs/project/HANDOFF.md`
-4. the relevant architecture, ADR, evaluation, or runbook
+1. `docs/project/HANDOFF.md`, starting with its incoming-agent control block;
+2. `docs/project/STATUS.md`;
+3. `docs/project/MASTER_PLAN.md`;
+4. `docs/project/COLLABORATION_SYSTEM.md`;
+5. the remaining mandatory paths enumerated in `HANDOFF.md` before implementation or a phase decision.
 
 After substantive work, update:
 
@@ -135,8 +136,14 @@ $RecallGraph = '.\graphify-out\graph.json'
 & $GraphifyPython $GraphifyAgentRunner path '<A>' '<B>' --graph $RecallGraph
 ```
 
-If the graph may be stale or the current task needs newly edited documents,
-refresh synchronously and wait for exit code 0:
+Graph refresh transmits private Recall content to Gemini semantic extraction.
+Obtain explicit owner authorization for each refresh, including the private
+payload class and Gemini destination. Prior authorization is consumed by its
+completed run and is never standing permission. If authorization is absent,
+use the existing graph as stale context and disclose the limitation.
+
+After that per-run authorization, if the graph may be stale or the current task
+needs newly edited documents, refresh synchronously and wait for exit code 0:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\oacav\graphify-all-repos\refresh-repo.ps1' recall
@@ -146,6 +153,13 @@ A successful refresh must print `Recall graph quality gate: PASS`. The gate
 requires concept coverage, a connected `Policy Gate`, complete manifest source
 coverage, and no broken edge endpoints. If refresh or the gate fails, use the
 last graph only as stale context and disclose that limitation.
+
+The Recall refresh currently runs its required `label`/cluster-only step after
+the printed quality gate, and that step can rewrite the root graph totals.
+After the process exits, directly reconcile the final root `graph.json` and
+`GRAPH_REPORT.md` counts, manifest coverage, and broken endpoints. Report the
+post-label root artifact as final and retain any pre-label gate totals only as
+stage-specific evidence.
 
 The refresh includes uncommitted files but never pulls, resets, commits, or
 pushes the live Recall checkout. Semantic extraction is performed by Gemini,

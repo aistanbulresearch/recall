@@ -1054,7 +1054,8 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Containment | The subagent was instructed to stop reading global or credential-bearing config and never repeat the value. Subsequent ephemeral smoke used `--ignore-user-config`. Scoped repository scans found no credential signature. |
 | Required owner action | Revoke or rotate the affected GitHub credential and confirm completion without sharing the replacement value. The owner deferred this action because the same GitHub API credential is concurrently used by other agents. |
 | Owner exception | On 2026-08-17 the owner explicitly accepted the risk and authorized only the exact Recall collaboration-infrastructure commit/push with owner-only identity and remote surface verification. |
-| Status | Open security risk; one explicitly bounded publish exception granted, not remediated |
+| Owner renewal | On 2026-08-18 the owner again deferred rotation because multiple programs depend on the shared credential, accepted the continuing risk, and authorized the exact canonical-handover publication plus the read-only external-audit request against its stable successor head. |
+| Status | Open security risk; renewed bounded owner exception granted, not remediated |
 
 ## ERR-2026-08-17-087: Ephemeral Codex smoke emitted non-blocking cache and hook warnings
 
@@ -1208,9 +1209,9 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Severity | Medium |
 | Observed | The approved `refresh-repo.ps1 recall` path was requested, but the execution safety layer rejected it because the refresh may transmit newly changed private Recall documents and code to the external Gemini semantic-extraction service without separate explicit payload/destination authorization for this run. |
 | Impact | No refresh process started and no private content was transmitted by this attempt. The last successful graph predates the final profile-name and validator remediations. |
-| Resolution | Do not bypass or substitute another Graphify command. Treat the existing graph as stale navigation evidence. Request explicit owner authorization for the private-repository payload and Gemini destination in a future Recall-root task if refresh is still desired. |
-| Verification | Command was rejected before execution; no Graphify success or quality-gate claim is made for the final remediation state. |
-| Status | Open authorization boundary; non-blocking for the Git/GitHub publish artifact |
+| Resolution | The owner explicitly authorized transmission of changed private Recall documents and code to the Gemini semantic-extraction destination on 2026-08-18. The exact approved `refresh-repo.ps1 recall` path was rerun without a workaround. |
+| Verification | Refresh exit 0 and the pre-label `Recall graph quality gate: PASS` at 240/260/44/129. The required later label/cluster-only step produced the final root artifact at 231/248/45/120; direct post-label reconciliation found 74/74 represented sources, 0 missing sources, and 0 broken edges. No post-label quality-gate execution is claimed. The no-stamp runner surfaced final collaboration-remediation nodes. Four replay JSON files remain zero-node warnings. |
+| Status | Resolved by explicit owner authorization and successful quality-gated refresh |
 
 ## ERR-2026-08-17-100: Complex jq expressions lost quoting in delayed actor scan
 
@@ -1223,3 +1224,77 @@ The raw Recall Graphify commands were not merely slow; three parent shells and t
 | Resolution | Parse the commit JSON in PowerShell, use only simple JSON `length` queries for endpoint counts, and rerun immediate plus delayed snapshots. |
 | Verification | Corrected snapshots agreed on exact PR head, owner-only author/committer/actor values, zero trailer-bearing messages, zero comments/reviews/statuses/checks, and the expected PR-body boundaries. A separate simple `length` query returned ten PR commits. |
 | Status | Resolved |
+
+## ERR-2026-08-18-101: Initial handover remote probe lacked network permission
+
+| Field | Value |
+|---|---|
+| Task | Next-agent handover exact-state verification |
+| Severity | Low |
+| Observed | An unprivileged `git ls-remote` probe could not connect to GitHub from the restricted sandbox. |
+| Impact | The failed probe supplied no current remote evidence and changed no state. |
+| Resolution | Repeated only the required read-only branch and PR-head checks with approved network access. |
+| Verification | Origin branch head and PR #2 head both resolved to `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; PR author is `aistanbulresearch` with `OWNER` association. |
+| Status | Resolved |
+
+## ERR-2026-08-18-102: First fresh-reader handover test found gate-order ambiguity
+
+| Field | Value |
+|---|---|
+| Task | Canonical next-agent handover reader test |
+| Severity | Medium |
+| Observed | A context-free reader correctly recovered the main state but found conflicts between "audit now" and owner approval, the minimum and long reading lists, command order, historical versus current publication, unnamed Graphify warnings, and unspecified RCL-011 transcript persistence. |
+| Impact | A new agent could request an unauthorized audit, audit the wrong head, mistake the five dirty files for published work, or run runtime tests without a durable evidence destination. |
+| Resolution | Made the approval and gate order explicit, separated minimum preflight reading from implementation reading, labeled SHA values as snapshots requiring fresh read-back, named all four warnings, distinguished historical publication from current dirty files, and defined ephemeral versus sanitized transcript locations. |
+| Verification | The second fresh-reader test found five residual wording/naming defects. After those fixes, the third reader found five cross-document contradictions. The fourth reader confirmed those mechanisms were aligned but found two stale five-file statements in HANDOFF; both were updated to the exact seven-file set. |
+| Status | Resolved; final fresh-reader re-test PASS with no actionable ambiguity |
+
+## ERR-2026-08-18-103: AGENTS policy change invalidated the collaboration evidence hash
+
+| Field | Value |
+|---|---|
+| Task | Canonical handover cross-document remediation |
+| Severity | Low |
+| Observed | The first post-remediation structural validator failed with typed `evidence_hash_mismatch:AGENTS.md`; the mutation harness stopped on the same clean-baseline failure. |
+| Impact | The failed checks supplied no green evidence and showed that the evidence manifest correctly detected the policy-file change. |
+| Resolution | Recomputed the exact SHA-256 for the changed `AGENTS.md` and updated only its row in `docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md`. |
+| Verification | Clean structural validator PASS with eleven exact evidence hashes; twelve-mutation harness PASS; `git diff --check` PASS. |
+| Status | Resolved |
+
+## ERR-2026-08-18-104: Pre-label Graphify totals were recorded as final artifacts
+
+| Field | Value |
+|---|---|
+| Task | Canonical handover Master Judge gate |
+| Severity | High |
+| Observed | The first final Master Judge found that project records called 240 nodes, 260 edges, 44 communities, and 129 concepts the final graph, while the current ignored root artifacts contain 231 nodes, 248 links, 45 communities, and 120 concept nodes. |
+| Impact | The handover failed evidence integrity and documentation truth even though collaboration validators passed. |
+| Cause | `refresh-repo.ps1` ran the Recall quality gate before the required `label` command. Graphify implements `label` as cluster-only and regenerated the root `graph.json`, `GRAPH_REPORT.md`, and `graph.html` after the gate. The dated pre-label report retained 240/260/44 while the final root report contains 231/248/45. |
+| Resolution | Reconciled every current project record to distinguish the pre-label gate from the authoritative post-label root artifact. Added a repository rule requiring direct final-root reconciliation after refresh. No Graphify refresh or artifact overwrite was performed. |
+| Verification | Direct root parse: 231 nodes, 248 links, 45 unique communities, 120 `file_type=concept` nodes, 74/74 manifest sources represented, 0 missing sources, and 0 broken links. Root hashes: graph `4FE031D9F0ACD40FFD7D2406F1455DA46356F2FF785A055C87580BC6F678E72A`; report `CFFA7DED311CAE8B310508346DB0ADCE05685B7B2549E7154CDF57A89222AD60`. |
+| Status | Resolved; post-remediation Master Judge PASS |
+
+## ERR-2026-08-18-105: Two canonical-handover pre-Judge verification commands were malformed
+
+| Field | Value |
+|---|---|
+| Task | Eight-file canonical-handover staged-tree verification |
+| Severity | Low |
+| Observed | The first verification batch invoked a nonexistent mutation-test filename and used a PowerShell regex-count expression with an unmatched parenthesis. The structural validator in the same batch passed, but the mutation and staged-scan commands produced no result. |
+| Impact | Neither failed command was accepted as evidence. No repository content, credential value, remote state, or Git history was changed by the failed probes. |
+| Resolution | Locate the checked-in mutation harness with `rg --files`, correct the PowerShell count syntax, restage the updated error record, and rerun the full staged-tree verification batch before Master Judge. |
+| Verification | Corrected clean rerun: structural validator PASS with four profiles and eleven evidence hashes; twelve-mutation harness PASS; `git diff --cached --check` PASS; exact staged paths eight; unstaged paths zero; staged secret-signature count zero; prohibited attribution-trailer count zero. |
+| Status | Resolved |
+
+## ERR-2026-08-18-106: Ignored Graphify artifact changed after the recorded final-root reconciliation
+
+| Field | Value |
+|---|---|
+| Task | Eight-file canonical-handover Master Judge gate |
+| Severity | High |
+| Observed | The first eight-file staged-tree Master Judge returned `FAIL`. Project records called 231 nodes, 248 edges, 45 communities, and 120 concepts the authoritative current root, but direct current inspection found 242 nodes, 258 edges, 48 communities, and 131 concepts. `HANDOFF.md` also said there were no staged files while eight exact paths were staged. |
+| Impact | The package failed documentation truth and could not be committed or pushed even though collaboration validators and scoped scans passed. |
+| Cause boundary | The intermediate dated report remains at 231/248/45 with a 01:02 file timestamp, while both graph JSON files and the root report reflect the later 242/258/48/131 state at approximately 03:01. A scheduled global Graphify transcript later showed Recall's corpus unchanged and skipped Gemini extraction; it does not prove the producer of the earlier rewrite. Process-command-line and scheduled-task metadata probes were access-denied and supplied no evidence. The exact producer is therefore not independently identified. |
+| Resolution | Reconciled current ignored artifacts directly, corrected current project records, and changed the handover to report the exact staged state. No Graphify refresh, semantic transmission, or artifact overwrite was performed. |
+| Verification | Root graph SHA-256 `853D9B8F18CACEC23190A94217CFD7DEC57F9C977C60E2D687D08C4E47CF6D38`; root report SHA-256 `4F1A3108F99280C4945F455C7D475447CDA80B3D40A088E91A23CE97E49DDBD3`. Fresh read-only post-label quality gate: `PASS` at 242 nodes, 258 edges, 131 concepts, 74/74 represented sources, 0 missing sources, 0 broken edges, one `Policy Gate` node, and five incident edges. Fresh stable-tree Master Judge re-review remains required. |
+| Status | Remediated locally; pending fresh Master Judge verdict |

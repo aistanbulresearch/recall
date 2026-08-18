@@ -925,3 +925,84 @@ Append-only. Record substantive actions, verification, and artifact paths.
   - The exact current origin head must be read again after this audit-record successor is published.
   - The external GitHub auditor is now due under both the architecture-change trigger and the three-remote-commit cadence.
   - Merge, Phase 3, and product implementation remain blocked by their existing owner, audit, and RCL-011 runtime gates.
+
+## WORK-2026-08-18-001: Owner-authorized final Recall Graphify refresh
+
+- Task IDs: RCL-011, RCL-211
+- Owner authorization:
+  - The owner explicitly authorized transmission of newly changed private Recall documents and code to Gemini semantic extraction for this Graphify refresh.
+- Execution:
+  - Ran only `refresh-repo.ps1 recall` against the protected live checkout at `d5777b5`; no pull, reset, raw traversal command, or alternate path was used.
+  - Incremental scan found 6 changed code files, 7 changed documents, 65 unchanged files, and 0 deletions.
+  - Gemini semantic extraction processed the changed documents; reported usage was 70,069 input and 15,682 output tokens with an estimated cost of $0.0821.
+- Quality evidence:
+  - Exit code 0 and the pre-label `Recall graph quality gate: PASS` at 240 nodes, 260 edges, 44 communities, and 129 concepts.
+  - The required later `label`/cluster-only step regenerated the authoritative root artifact at 231 nodes, 248 edges, 45 communities, and 120 concepts.
+  - Direct post-label reconciliation found 74 represented of 74 tracked sources, 0 missing sources, and 0 broken edges. No post-label quality-gate execution is claimed.
+  - Re-clustering and community labeling completed; `GRAPH_REPORT.md`, `graph.json`, and `graph.html` were updated.
+  - The mandatory no-stamp runner surfaced the final profile-name, validator, `REPORT_DERIVED`, and `NOT VERIFIED` nodes.
+- Warnings and boundary:
+  - Four replay JSON files still produced zero semantic nodes: `PMID39779848.data-availability-linkage.json`, `PMID39779848.esummary.json`, `PMID39779857.esummary.json`, and `HISTORICAL_REPLAY_SOURCE_MANIFEST.json`.
+  - The quality gate reports no missing manifest sources. The warnings remain visible and are not converted into a completeness claim.
+  - Graph nodes are navigation/design evidence only and do not verify Recall-root runtime behavior.
+  - Graph outputs remain Git-ignored; the tracked worktree was clean immediately after refresh and before this documentation update.
+
+## WORK-2026-08-18-002: Canonical next-agent handover
+
+- Task ID: RCL-011
+- Document decision:
+  - Expanded the existing canonical `docs/project/HANDOFF.md` instead of creating a competing handover file.
+  - Added an incoming-agent control block covering exact checkout, remote head, local uncommitted ownership, evidence boundaries, commands, approval boundaries, and gate order.
+- Exact state captured:
+  - Local, origin, and PR #2 head: `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`.
+  - Seven tracked files are now locally modified and unstaged: AGENTS, the collaboration smoke-report evidence manifest, and five project documents; zero staged or untracked files.
+  - Final Graphify quality gate and warnings are recorded without runtime or completeness overclaim.
+  - External auditor target selection is conditioned on whether the owner first publishes the local handover documentation update.
+- Boundary:
+  - This handover grants no protected-action authority.
+  - No commit, push, PR mutation, merge, cloud change, billing action, or external publication occurred.
+  - The first fresh-reader test returned `FAIL` on approval/order ambiguity, historical-versus-current publication wording, unnamed warnings, and unspecified transcript persistence.
+  - The second fresh-reader test confirmed those major findings were closed, then returned `FAIL` on five residual defects: full reading-list scope, exact successor-report naming, two historical audit/push statements, and one encoding artifact.
+  - The third fresh-reader test returned `FAIL` on five cross-document contradictions: audit order/authorization and target, historical-versus-current publication scope, absent live remote/PR commands, consumed Graphify authorization versus generic refresh instructions, and non-singular/non-enumerable mandatory reading order.
+  - Remediation synchronized AGENTS, STATUS, MASTER_PLAN, and HANDOFF; added exact read-only live branch/PR commands; made Graphify approval per-run; and enumerated every mandatory evidence ledger.
+  - The first post-remediation validator failed loudly on the expected stale `AGENTS.md` evidence hash. The exact new SHA-256 was placed in the smoke-report manifest, adding that report to the local unpublished set.
+  - Clean rerun: structural validator PASS with eleven hashes, twelve-mutation harness PASS, and `git diff --check` PASS.
+  - The fourth fresh-reader test confirmed the core gate alignment but returned `FAIL` on two stale five-file statements in HANDOFF; both now name the exact seven-file unpublished set.
+  - Final fresh-reader re-test: `PASS`; it independently recovered the exact seven-file set, one reading order, separate owner approvals, correct audit target selection, live remote commands, consumed Graphify permission, exact successor report, and evidence boundaries.
+  - The first final Master Judge returned `FAIL` because the handover recorded pre-label 240/260/44/129 totals as final while the current post-label root artifact is 231/248/45/120.
+  - Coordinator artifact reconciliation independently confirmed 231 nodes, 248 links, 45 communities, 120 concepts, 74/74 source coverage, 0 missing sources, and 0 broken links. The refresh sequence explains the split: quality gate first, then a label/cluster-only rewrite.
+  - Project records and AGENTS now distinguish stage-specific pre-label gate evidence from the authoritative post-label root artifact. Final fresh-reader and Master Judge re-reviews remain required.
+  - Post-remediation fresh-reader re-review: `PASS`; it directly reconciled both graph stages and all handover authority/evidence boundaries. At that checkpoint, final Master Judge re-review remained required.
+  - Post-remediation Master Judge re-review: `PASS`; the prior High evidence-integrity finding is closed for the exact seven-file local package. Publication and the external-auditor request remain separately owner-protected.
+
+## WORK-2026-08-18-003: Renewed owner authorization and canonical handover publish preflight
+
+- Task IDs: RCL-011, RCL-106, RCL-211
+- Owner decision:
+  - The owner deferred shared GitHub credential rotation because multiple programs depend on it, accepted the continuing risk for this operation, and authorized the canonical-handover publication plus the subsequent read-only external audit against its stable successor head.
+  - The credential value was not inspected, printed, copied, or stored. RCL-106 remains open and the decision is not technical remediation or standing authorization.
+- Preflight evidence:
+  - Local HEAD, origin feature branch, and PR #2 head matched at `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; PR #2 was open and unmerged with `aistanbulresearch` and `OWNER` association.
+  - Active GitHub login, Git author name, and Git committer identity resolved to `aistanbulresearch` without exposing credentials.
+  - The initial exact seven-file stage contained no extra paths. Structural validation passed with four profiles and eleven evidence hashes; the twelve-mutation harness passed; staged whitespace and secret-signature checks passed with zero signature hits.
+- Scope correction:
+  - The renewed owner decision changes the durable authority record, so `DECISION_LOG.md` was added to the canonical package and the status, plan, handoff, error, and work records were synchronized before the fresh staged-tree and Master Judge gates.
+- Boundary:
+  - No commit, push, PR mutation, merge, cloud change, billing action, or external-auditor request had occurred at this checkpoint.
+
+## WORK-2026-08-18-004: First eight-file Master Judge failure and Graphify artifact reconciliation
+
+- Task IDs: RCL-011, RCL-106, RCL-211
+- Master Judge verdict: `FAIL`.
+  - High: staged current-root counts and hashes were contradicted by the ignored Graphify artifact.
+  - Medium: HANDOFF said the index was empty while exactly eight approved paths were staged.
+  - Medium boundary: the Judge sandbox could not independently refresh remote/GitHub identity evidence; the coordinator must do so before commit/push.
+- Coordinator verification:
+  - Current root: 242 nodes, 258 edges, 48 communities, 131 concepts; graph SHA-256 `853D9B8F18CACEC23190A94217CFD7DEC57F9C977C60E2D687D08C4E47CF6D38`; report SHA-256 `4F1A3108F99280C4945F455C7D475447CDA80B3D40A088E91A23CE97E49DDBD3`.
+  - Fresh read-only post-label quality gate: `PASS`; 74/74 represented sources, 0 missing sources, 0 broken edges, one connected `Policy Gate` node with five incident edges.
+  - The intermediate dated report remains at 231/248/45 while the graph JSON and root report reflect the later current state. The exact producer of that post-record ignored-artifact rewrite was not independently identified.
+  - Process-command-line and scheduled-task metadata probes were access-denied and were not accepted as evidence. A later scheduled global transcript showed the Recall corpus unchanged and skipped Gemini extraction, so it does not establish the earlier rewrite's producer.
+- Remediation:
+  - Corrected HANDOFF and STATUS to the current artifact and exact staged state; appended ERR-2026-08-18-106 without erasing the intermediate historical observations.
+  - No Graphify refresh, external semantic transmission, artifact overwrite, commit, push, PR mutation, or external-auditor request occurred.
+  - The complete staged-tree and fresh Master Judge gates must pass before publication.

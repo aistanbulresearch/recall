@@ -230,3 +230,12 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Required controls: Verify local Git author and committer as `aistanbulresearch`, verify the active GitHub account without printing credentials, scan the staged tree, use no attribution trailers, read back the exact remote head, and inspect PR comments, reviews, statuses, checks, and actors for prohibited bot or assistant surfaces.
 - Consequence: The collaboration infrastructure may be published before the fresh Recall-root runtime matrix. It remains `IMPLEMENTED` and structurally verified, not runtime-verified, until RCL-011 passes in a new Recall-root task.
 - Evidence: Owner instruction dated 2026-08-17, ERR-2026-08-17-086, and the eventual exact-head read-back recorded in `WORK_LOG.md`.
+
+## DEC-2026-08-18-031: Renew owner risk acceptance for the canonical handover publication
+
+- Status: accepted owner exception for the exact publication and read-only audit sequence; security remediation remains open
+- Decision: The owner cannot rotate the shared GitHub credential because multiple programs currently depend on it. On 2026-08-18 the owner explicitly accepts the continuing risk and authorizes publication of the canonical handover documentation package, followed by the read-only external-auditor request against the resulting stable exact remote head.
+- Boundary: This operational acceptance does not prove the credential is technically safe, close RCL-106, disclose its value, authorize merge or Phase 3, or create standing permission for later GitHub, cloud, billing, or publication actions.
+- Required controls: Verify local, origin, and PR head equality; verify Git and GitHub identity as `aistanbulresearch`; stage only the exact approved package; run structural, mutation, whitespace, and secret-signature checks; require a fresh Master Judge verdict; use no attribution trailers; and read back the remote commit, actors, and bot surfaces before requesting the external audit.
+- Consequence: Credential rotation remains deferred and recommended. The external audit reviews the successor published head; RCL-011 remains in progress until the Recall-root runtime matrix passes.
+- Evidence: Owner instruction dated 2026-08-18, ERR-2026-08-17-086, and the publication evidence to be recorded in `WORK_LOG.md`.

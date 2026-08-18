@@ -4,15 +4,15 @@
 
 | Field | Current truth |
 |---|---|
-| Updated | 2026-08-17 |
+| Updated | 2026-08-18 |
 | Phase | Phase 0 collaboration control is being extended; Phase 1 blocked in part; Phase 2 final exact-head external re-review passed |
-| Overall state | Repo-scoped collaboration infrastructure is owner-published and the external exact-head audit is now due; PR #2 remains unmerged; nested-smoke claims are `REPORT_DERIVED`; every Recall-root runtime matrix row remains; exposed GitHub credential rotation is deferred under explicit owner risk acceptance; product work not started |
+| Overall state | Repo-scoped collaboration infrastructure is owner-published; the owner renewed risk acceptance for the exact canonical-handover publication and subsequent read-only external audit; PR #2 remains unmerged; every Recall-root runtime matrix row remains; product work not started |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged; `980ec6f69b74ab96c7a59541ea914a7122b2bf26` is the owner-only collaboration checkpoint; the prior audited head was `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; immediate checkpoint actor surfaces are clean; read the exact current origin head before external re-audit |
+| GitHub | Private repository; PR #2 remains open and unmerged; exact local, origin, and PR head is `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`; all 11 PR commits resolve only to `aistanbulresearch`; immediate and delayed comments/reviews/statuses/checks are zero; external re-audit is due |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Completed
@@ -66,7 +66,7 @@
 - Collaboration structural validation and official skill validation pass. The four configured profile names are exact stable identifiers and are checked for filename mapping and uniqueness. The earlier Scout/Worker/Judge nested-session observations are retained only as `REPORT_DERIVED`, not runtime proof.
 - The first independent collaboration code review found a green-but-dead validator. Its false-pass classes and twelve control mutations, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion, are now rejected. Exact runtime evidence and remaining `NOT VERIFIED` boundaries are parsed from the sanitized smoke report.
 - An earlier collaboration follow-up returned `PASS`, but the later pre-publish Master Judge correctly superseded it with `FAIL`. Four independent code-review cycles then found and closed profile-name, detailed-row, displayed aggregate/count, thread-cap, Judge-effort, and current-state count defects. The final code re-review returned `PASS` with twelve mutation controls; a new pre-publish Master Judge verdict remains required. Recall-root runtime rows remain open.
-- The last successful Recall Graphify refresh passed with 224 nodes, 231 edges, 44 communities, 74 represented sources, and 0 broken edges. It predates the final profile-name and validator remediations. A later refresh request was rejected because external semantic extraction of newly changed private content lacked separate payload/destination authorization; use the current graph only as stale navigation/design evidence.
+- After explicit owner authorization for transmitting changed private Recall content to Gemini semantic extraction, the refresh's pre-label quality gate passed at 240 nodes, 260 edges, 44 communities, and 129 concepts. An intermediate post-label snapshot recorded 231/248/45/120; the ignored graph JSON and root report were later rewritten. Fresh direct reconciliation and a read-only post-label quality-gate execution now pass at 242 nodes, 258 edges, 48 communities, 131 concepts, 74/74 represented sources, 0 missing sources, 0 broken edges, and one connected `Policy Gate` node with five incident edges. The exact producer of the post-record rewrite was not independently identified. A no-stamp query surfaced the final profile-name, validator, `REPORT_DERIVED`, and `NOT VERIFIED` nodes. Four replay JSON files still produced zero-node warnings. Graph nodes remain navigation/design evidence, not runtime proof.
 - The exact 20-file collaboration artifact passed final pre-publish Master Judge review, staged-tree checks, owner identity checks, secret scanning, and owner-only commit/push at checkpoint `980ec6f69b74ab96c7a59541ea914a7122b2bf26`. Local and remote checkpoint hashes matched; commit author, committer, and GitHub actor were only `aistanbulresearch`; commit body, trailers, and notes were empty; immediate PR comments, review comments, reviews, statuses, and check runs were zero.
 - PR #2 now describes the collaboration validator, twelve-mutation harness, and explicit runtime evidence boundary. Owner/association and body read-back passed without a stale pre-collaboration gate.
 
@@ -76,7 +76,7 @@
 - Project-scoped API discovery after the owner selects the correct billing account.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
 - RCL-011: nested Worker/Scout/Judge discovery, refusal, denial, and Judge behavior are `REPORT_DERIVED`. Every Recall-root matrix row remains, including Scout sandbox denial, Worker exact write, Smart Worker dry smoke, Judge read-only/effective-effort evidence, thread-cap behavior, leaf no-spawn, and protected-operation stops.
-- RCL-106: revoke or rotate the GitHub credential exposed in a private subagent tool log; the owner explicitly deferred rotation on 2026-08-17 and accepted the risk for the exact collaboration-infrastructure commit/push only. Do not store or report its value.
+- RCL-106: revoke or rotate the GitHub credential exposed in a private subagent tool log. Rotation remains deferred and recommended; on 2026-08-18 the owner renewed risk acceptance for the exact canonical-handover publication and read-only external-audit sequence. Do not store or report its value.
 
 ## Blocked
 
@@ -85,7 +85,7 @@
 - Google Cloud billing: the dedicated Recall project is active but billing-disabled; two open billing accounts have no safe automatic match, so owner selection is required.
 - Local Gemma benchmark: no checked runtime command or GGUF model is installed.
 - Phase 3 and merge: Phase 2 audit is passed, but owner merge approval and the collaboration runtime gate are still required before product implementation. RCL-106 remains an accepted open security risk, not a verified remediation.
-- GitHub commit/push: the owner explicitly authorized the exact collaboration-infrastructure commit and push on 2026-08-17 despite deferred credential rotation. Any later Git operation still requires fresh owner approval; prohibited authorship or bot recurrence fails the gate.
+- GitHub commit/push: the owner explicitly authorized the exact canonical-handover publication on 2026-08-18 despite deferred credential rotation. The authorization is bounded to the gated package and its publication-evidence successor; prohibited authorship or bot recurrence fails the gate.
 
 ## Not started
 
@@ -111,12 +111,12 @@
 | Memory Bank could contaminate later runs with stale or poisoned context | High | Keep Firestore authoritative; enforce admission, scope, TTL, provenance, contradiction, and disabled-memory parity tests. |
 | Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
 | Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
-| A GitHub credential was rendered in a private subagent tool log | Critical | Treat as exposed and never store the value in project records. Rotation remains recommended; the owner accepted the risk and granted a one-operation exception for the collaboration-infrastructure publish. |
+| A GitHub credential was rendered in a private subagent tool log | Critical | Never store its value. Rotation remains recommended; the owner renewed bounded risk acceptance for the exact canonical-handover publication and read-only external-audit sequence. |
 | Collaboration config could be mistaken for enforced runtime behavior | High | Keep untested profile behaviors `NOT VERIFIED`; require fresh-session permission, Worker, Judge, and concurrency smokes. |
 | Frozen source package could be mistaken for product replay evidence | High | Keep RCL-503/RCL-506/RCL-801 unverified and label every source-package result as offline capture integrity only. |
 
 ## Next three actions
 
-1. Publish the owner-only documentation successor and verify its exact remote head and GitHub surfaces.
-2. Request the external GitHub auditor now against the new stable exact head before merge or Phase 3.
-3. In a fresh Recall-root Codex task, complete every remaining row in the RCL-011 runtime matrix and pass the independent implementation gate. RCL-106 rotation remains recommended and open.
+1. Complete the owner-authorized staged-tree and Master Judge gates for the canonical handover package, then publish it owner-only and record the exact remote read-back.
+2. Request the owner-authorized read-only external GitHub audit against the resulting stable exact successor head.
+3. In a fresh Recall-root Codex task, complete every remaining row in the RCL-011 runtime matrix; keep RCL-106 rotation open and billing-dependent platform smoke paused pending the owner choice.
