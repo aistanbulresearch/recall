@@ -1,6 +1,6 @@
 # ADR-0008: External audit corrections before implementation
 
-- Status: accepted decisions; latest external follow-up at `877c78d06d9b78f3071d17c81232fbc4302f857e`: `FAIL`; collaboration-evidence remediation, independent code review, and stable-tree Master Judge pass locally, while owner-only publication and a new exact-head external re-review remain required
+- Status: accepted decisions; latest external follow-up at `c8be19476c24672fbf65d4dbf767fa8144360d22`: `FAIL`; transcript-integrity and Graphify-governance remediation are in progress, while merge and Phase 3 remain `NO-GO`
 - Date: 2026-08-17
 - Owners: aistanbulresearch
 - Related tasks: RCL-202 through RCL-205, RCL-211, RCL-302 through RCL-309, RCL-503, RCL-506
@@ -9,8 +9,9 @@
 ## Current external-gate state
 
 ```text
-current_external_audit_head=877c78d06d9b78f3071d17c81232fbc4302f857e
+current_external_audit_head=c8be19476c24672fbf65d4dbf767fa8144360d22
 current_external_audit_verdict=FAIL
+audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e
 rcl_211=IN_PROGRESS
 merge_gate=NO_GO
 phase_3_gate=NO_GO
@@ -91,7 +92,7 @@ The Auditor verifies the publication-to-dataset relationship through the paper's
 - RCL-503 and RCL-506 remain not started; source-package verification does not prove product replay behavior.
 - F-09 through F-18 must be resolved before their affected implementation tasks begin.
 - F-19 through F-29 remain tracked cleanup and completeness work; none may be silently dropped.
-- The historical Phase 2 follow-up passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. Later collaboration publications required a new audit; the exact-head audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` returned `FAIL` on validator evidence coverage and current-state consistency. RCL-211 remains in progress until those findings are remediated and a new exact-head re-review passes.
+- The historical Phase 2 follow-up passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. The collaboration audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` then returned `FAIL` on validator evidence coverage and current-state consistency. Its remediation successor was published at `c8be19476c24672fbf65d4dbf767fa8144360d22`; the second external re-review also returned `FAIL`, this time on transcript integrity and stale Graphify evidence wording. RCL-211 remains in progress until the second remediation is published and a new exact-head re-review passes.
 
 ## Verification gate
 
@@ -104,7 +105,7 @@ The Auditor verifies the publication-to-dataset relationship through the paper's
 7. `ABSTAIN` and `HALTED` preserve unaudited observation visibility across retry.
 8. A clean clone verifies every replay capture hash offline and rejects a mutated byte.
 
-Local verification of items 1 through 7 is recorded in `docs/evaluation/reports/2026-08-17--adr-0008-normative-consistency-audit.md`. Item 8 and the F-07/F-08 chronology/linkage correction are recorded in `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`. The historical exact-head review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; the later collaboration audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` returned `FAIL`. Remediation and a new exact-head external re-review are required before merge or Phase 3.
+Local verification of items 1 through 7 is recorded in `docs/evaluation/reports/2026-08-17--adr-0008-normative-consistency-audit.md`. Item 8 and the F-07/F-08 chronology/linkage correction are recorded in `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`. The historical exact-head review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; external reviews at `877c78d06d9b78f3071d17c81232fbc4302f857e` and then `c8be19476c24672fbf65d4dbf767fa8144360d22` returned `FAIL` on distinct collaboration evidence-integrity defects. Second remediation and a new exact-head external re-review are required before merge or Phase 3.
 
 ## Rollback or supersession
 

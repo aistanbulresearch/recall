@@ -1,4 +1,4 @@
-# External Exact-Head Collaboration Audit
+# Non-Authoritative Summary: External Exact-Head Collaboration Audit
 
 - Date: 2026-08-18
 - Repository: `aistanbulresearch/recall`
@@ -10,8 +10,11 @@
 - Source turn: `01a01671-21d7-7953-a911-6b060c889361`
 - Mode: independent read-only exact-head audit; no repository, GitHub, Graphify, cloud, or publication mutation
 - Verdict: `FAIL`
+- Authoritative transcript: `../transcripts/2026-08-18--github-auditor-collaboration-fail-source-final.md`
+- Transcript body SHA-256 (LF UTF-8): `2F3CD3F4DDBE96CE9A5B33C8A041E94242A950CDA21862DDDE75F0B61538489E`
+- Transcript body characters: `7201`
 
-This report is a faithful repository transcription of the external task's final answer. The separate task and source turn are the raw source of record; this file normalizes its local links to repository paths and does not upgrade its evidence classifications.
+This file is a non-authoritative repository summary. The separate transcript preserves the external task's final answer; this summary must not be used to establish textual equivalence or upgrade any evidence classification.
 
 ## Findings
 
@@ -51,7 +54,7 @@ This report is a faithful repository transcription of the external task's final 
 
 ## Graphify reconciliation and boundary
 
-Read-only artifact reconciliation found 242 nodes, 258 edges, 48 communities, 131 concepts, 74 of 74 manifest sources represented, zero missing manifest sources, zero broken edges, and one `Policy Gate` node with five incident edges. Root graph hash was `853D9B8F18CACEC23190A94217CFD7DEC57F9C977C60E2D687D08C4E47CF6D38`; report hash was `4F1A3108F99280C4945F455C7D475447CDA80B3D40A088E91A23CE97E49DDBD3`. No refresh or external transmission occurred.
+At that audit's point-in-time snapshot, read-only artifact reconciliation found 242 nodes, 258 edges, 48 communities, 131 concepts, 74 of 74 manifest sources represented, zero missing manifest sources, zero broken edges, and one `Policy Gate` node with five incident edges. Root graph hash was `853D9B8F18CACEC23190A94217CFD7DEC57F9C977C60E2D687D08C4E47CF6D38`; report hash was `4F1A3108F99280C4945F455C7D475447CDA80B3D40A088E91A23CE97E49DDBD3`. No refresh or external transmission occurred during that audit.
 
 The graph reports `built_at_commit` `d5777b528d141b0d82489d5a3f7fcc5b4a377bbd`, behind the audited head, and the later ignored-artifact rewrite producer remains unknown. The graph is stale navigation and artifact-integrity context only; it does not prove that this remediation or the audited collaboration behavior is implemented.
 

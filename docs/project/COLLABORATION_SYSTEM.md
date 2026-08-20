@@ -93,6 +93,10 @@ Do not audit an unchanged remote head. The coordinator tells the owner when a re
 - `AGENTS.md`, this document, ADR-0009, status, plan, handoff, work log, decision log, and error log agree.
 - No skill/profile file is ignored by Git and no credential or prohibited authorship marker appears.
 - A fresh-session functional smoke proves custom-agent discovery, read-only write denial, scoped temporary Worker write, no child spawn, and exact verdict formatting.
+- The authoritative external-audit transcript gate binds the fixed source task/turn, exact LF-normalized body count and SHA-256, delimiters, and the complete LF-normalized non-authoritative summary hash. It proves repository-artifact integrity after bootstrap, not live Codex equivalence.
+- The portable Graphify governance gate binds terminal-newline-normalized AGENTS/CLAUDE policy equality plus the complete canonical policy SHA-256. STATUS and HANDOFF must each contain one byte-identical, ordered 17-key `graphify-snapshot` block and match their frozen complete LF-normalized UTF-8 hashes; conflicting or otherwise unenumerated alterations fail closed. The Graphify harness separately proves CRLF portability. This does not prove scheduler identity, execution, permissions, or failure handling at runtime.
+- The structural evidence table binds seventeen strict UTF-8 text files, including force-tracked `CLAUDE.md` and all six verifier/test entrypoints. Its hash mode is `LF_NORMALIZED_UTF8`: CRLF and lone CR normalize to LF before UTF-8 SHA-256, so semantically identical Git index and Windows working-tree text remain portable while content mutations still fail.
+- The standalone transcript and Graphify harnesses bind exact ordered label tuples of 25 and 41 negative mutations. The aggregate collaboration harness binds an exact ordered 50-label tuple, including hash-refreshed standalone-probe deletion controls, and the structural validator parses the displayed hash count, hash mode, both standalone mutation counts, and the CRLF portability positive control rather than trusting prose or counts alone.
 
 ## Runtime acceptance matrix
 
@@ -125,6 +129,8 @@ The partial nested observations for Scout, Worker, and Judge do not prove the co
 3. Parse `openai.yaml`, assert literal `$recall-collaboration`, and resolve every Markdown link.
 4. Run `codex features list` and confirm multi-agent support is enabled.
 5. Run Git ignore, whitespace, secret-signature, and prohibited-authorship scans.
+6. Run `verify_external_audit_transcript.py` and its disposable-copy mutation harness.
+7. Run `verify_graphify_governance.py` and its disposable-copy mutation harness without reading ignored Graphify artifacts or external automation files.
 
 ### Functional tests in a fresh Recall-root Codex session
 

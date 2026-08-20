@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import hashlib
 import re
@@ -9,6 +10,9 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import Any
+
+from verify_external_audit_transcript import validate as validate_external_audit_transcript
+from verify_graphify_governance import validate as validate_graphify_governance
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +45,7 @@ HASHED_EVIDENCE_PATHS = {
     ".agents/skills/recall-collaboration/agents/openai.yaml",
     ".agents/skills/recall-collaboration/references/master-judge-rubric.md",
     "AGENTS.md",
+    "CLAUDE.md",
     ".codex/config.toml",
     ".codex/agents/recall-scout.toml",
     ".codex/agents/recall-worker.toml",
@@ -48,7 +53,53 @@ HASHED_EVIDENCE_PATHS = {
     ".codex/agents/recall-master-judge.toml",
     "scripts/validation/verify_recall_collaboration.py",
     "scripts/validation/test_recall_collaboration_validator.py",
+    "scripts/validation/verify_external_audit_transcript.py",
+    "scripts/validation/test_external_audit_transcript.py",
+    "scripts/validation/verify_graphify_governance.py",
+    "scripts/validation/test_graphify_governance.py",
     "docs/project/COLLABORATION_SYSTEM.md",
+}
+EXPECTED_STANDALONE_MUTATIONS = {
+    "scripts/validation/test_external_audit_transcript.py": (
+        "body_byte_addition", "body_byte_deletion", "body_word_addition",
+        "body_word_deletion", "body_number_mutation", "classification_mutation",
+        "source_task_mutation", "source_turn_mutation", "declared_hash_mutation",
+        "declared_count_mutation", "duplicate_start_delimiter", "missing_end_delimiter",
+        "summary_label_promotion", "summary_path_mutation", "summary_hash_mutation",
+        "summary_count_mutation", "summary_task_mutation", "summary_turn_mutation",
+        "summary_exactness_claim", "summary_unscoped_pass", "summary_same_line_pass",
+        "summary_authoritative_claim", "summary_byte_identical_claim",
+        "summary_conflicting_task_prose", "summary_complete_hash_mutation",
+    ),
+    "scripts/validation/test_graphify_governance.py": (
+        "policy_drift", "missing_scope_clause", "synchronized_scope_expansion",
+        "old_blanket_wording", "prior_authorization_consumed", "outside_current_254",
+        "outside_latest_wrong_counts", "outside_latest_wrong_hash",
+        "outside_latest_wrong_build", "outside_graph_current_nodes",
+        "outside_counts_before_graph", "outside_hash_before_graph", "outside_build_before_graph",
+        "outside_sources_before_graph",
+        "snapshot_value_replacement", "historical_key_rewrite", "runtime_proof_addition",
+        "runtime_proof_before_graph", "duplicate_snapshot_block", "missing_snapshot_block",
+        "duplicate_snapshot_key", "unknown_snapshot_key", "reordered_snapshot_keys",
+        "malformed_snapshot_line",
+        "outside_source_count_before_graph",
+        "outside_latest_nodes_without_graph",
+        "outside_current_source_coverage_without_graph",
+        "outside_latest_manifest_source_total_without_graph",
+        "outside_current_build_without_graph",
+        "outside_latest_hash_without_graph",
+        "outside_latest_graph_nodes_machine_key",
+        "outside_graph_nodes_machine_key_current_after",
+        "outside_current_manifest_sources_machine_key",
+        "outside_manifest_sources_machine_key_latest_after",
+        "outside_latest_report_build_commit_machine_key",
+        "outside_current_graph_sha256_machine_key",
+        "outside_currently_nodes_relation",
+        "outside_nodes_currently_total_relation",
+        "outside_most_recent_node_total_relation",
+        "status_unrelated_line_hash_fallback",
+        "handoff_unrelated_line_hash_fallback",
+    ),
 }
 SMOKE_REPORT_PATH = (
     "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
@@ -95,11 +146,29 @@ CURRENT_STATE_PATHS = (
     "docs/project/MASTER_PLAN.md",
     "docs/project/HANDOFF.md",
 )
-FAILED_AUDIT_HEAD = "877c78d06d9b78f3071d17c81232fbc4302f857e"
+FAILED_AUDIT_HEAD = "c8be19476c24672fbf65d4dbf767fa8144360d22"
+AUDITED_PREDECESSOR_HEAD = "877c78d06d9b78f3071d17c81232fbc4302f857e"
 HISTORICAL_PASS_HEAD = "195422e4d762d68d38e2b7f531cc5b1cd059cdb7"
+FAILED_AUDIT_HEAD_REFERENCES = (
+    FAILED_AUDIT_HEAD,
+    FAILED_AUDIT_HEAD[:8],
+    FAILED_AUDIT_HEAD[:7],
+)
+AUDITED_PREDECESSOR_HEAD_REFERENCES = (
+    AUDITED_PREDECESSOR_HEAD,
+    AUDITED_PREDECESSOR_HEAD[:8],
+    AUDITED_PREDECESSOR_HEAD[:7],
+)
+FAILED_AUDIT_HEAD_PATTERN = "|".join(
+    re.escape(reference) for reference in FAILED_AUDIT_HEAD_REFERENCES
+)
+AUDITED_PREDECESSOR_HEAD_PATTERN = "|".join(
+    re.escape(reference) for reference in AUDITED_PREDECESSOR_HEAD_REFERENCES
+)
 CURRENT_STATE_EXPECTED = {
     "current_external_audit_head": FAILED_AUDIT_HEAD,
     "current_external_audit_verdict": "FAIL",
+    "audited_predecessor_head": AUDITED_PREDECESSOR_HEAD,
     "rcl_211": "IN_PROGRESS",
     "merge_gate": "NO_GO",
     "phase_3_gate": "NO_GO",
@@ -107,9 +176,28 @@ CURRENT_STATE_EXPECTED = {
     "historical_external_pass_head": HISTORICAL_PASS_HEAD,
 }
 STALE_CURRENT_PASS_PATTERNS = (
-    re.compile(r"(?i)\b(?:current\s+)?external audit\s*:\s*`?PASS`?\b"),
+    re.compile(
+        r"(?i)\b(?:current\s+)?external audit\s*"
+        r"(?::|=|\breturned\b|\bwas\b)?\s*`?PASS(?:ED)?`?\b"
+    ),
+    re.compile(r"(?i)\bpassed the external audit\b"),
     re.compile(
         r"(?i)\bthe final exact-head GitHub auditor re-review returned\s+`?PASS`?\b"
+    ),
+    re.compile(
+        rf"(?i)\b(?:{FAILED_AUDIT_HEAD_PATTERN})\b[^;\n]{{0,60}}"
+        r"(?:audit|re-review|verdict)?\s*(?::|=|,|—|-|\breturned\b|\bwas\b|\bis\b)?"
+        r"\s*`?PASS(?:ED)?`?\b"
+    ),
+    re.compile(
+        rf"(?i)\b(?:{AUDITED_PREDECESSOR_HEAD_PATTERN})\b[^;\n]{{0,60}}"
+        r"(?:audit|re-review|verdict)?\s*(?::|=|,|—|-|\breturned\b|\bwas\b|\bis\b)?"
+        r"\s*`?PASS(?:ED)?`?\b"
+    ),
+    re.compile(
+        rf"(?i)(?:\b`?PASS(?:ED)?`?\b\s+(?:at|for|on)\s+[^;\n]{{0,40}}|"
+        rf"\b`?PASS(?:ED)?`?\b\s*(?::|=|,|—|-)\s*(?:audited predecessor\s+)?)"
+        rf"\b(?:{FAILED_AUDIT_HEAD_PATTERN}|{AUDITED_PREDECESSOR_HEAD_PATTERN})\b"
     ),
 )
 HISTORICAL_PASS_CLAIM_PATTERNS = (
@@ -128,6 +216,11 @@ def require(condition: bool, message: str) -> None:
 def read_text(path: Path, root: Path) -> str:
     require(path.is_file(), f"missing_file:{path.relative_to(root)}")
     return path.read_text(encoding="utf-8")
+
+
+def lf_normalized_utf8_bytes(path: Path) -> bytes:
+    text = path.read_bytes().decode("utf-8")
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
 
 
 def load_toml(path: Path, root: Path) -> dict[str, Any]:
@@ -210,9 +303,101 @@ def validate_evidence_hashes(root: Path) -> int:
     for relative_path, expected_hash in rows.items():
         target = root / relative_path
         require(target.is_file(), f"evidence_hash_file_missing:{relative_path}")
-        actual_hash = hashlib.sha256(target.read_bytes()).hexdigest().upper()
+        actual_hash = hashlib.sha256(lf_normalized_utf8_bytes(target)).hexdigest().upper()
         require(actual_hash == expected_hash, f"evidence_hash_mismatch:{relative_path}")
     return len(rows)
+
+
+def validate_standalone_mutation_contracts(root: Path) -> None:
+    for relative_path, expected in EXPECTED_STANDALONE_MUTATIONS.items():
+        tree = ast.parse(read_text(root / relative_path, root), filename=relative_path)
+        declared: tuple[str, ...] | None = None
+        probes: tuple[str, ...] | None = None
+        variant_probes: tuple[str, ...] = ()
+        context_omission_probes: tuple[str, ...] = ()
+        machine_key_probes: tuple[str, ...] = ()
+        hash_fallback_probes: tuple[str, ...] = ()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+                continue
+            target = node.targets[0]
+            if not isinstance(target, ast.Name):
+                continue
+            if target.id == "EXPECTED_MUTATION_REJECTIONS":
+                value = ast.literal_eval(node.value)
+                require(isinstance(value, tuple), f"mutation_expected_tuple_invalid:{relative_path}")
+                declared = value
+            elif target.id == "probes" and isinstance(node.value, (ast.List, ast.Tuple)):
+                labels: list[str] = []
+                for element in node.value.elts:
+                    require(
+                        isinstance(element, (ast.List, ast.Tuple))
+                        and bool(element.elts)
+                        and isinstance(element.elts[0], ast.Constant)
+                        and isinstance(element.elts[0].value, str),
+                        f"mutation_probe_shape_invalid:{relative_path}",
+                    )
+                    labels.append(element.elts[0].value)
+                probes = tuple(labels)
+            elif target.id == "variant_probes" and isinstance(node.value, (ast.List, ast.Tuple)):
+                labels = []
+                for element in node.value.elts:
+                    require(
+                        isinstance(element, (ast.List, ast.Tuple))
+                        and bool(element.elts)
+                        and isinstance(element.elts[0], ast.Constant)
+                        and isinstance(element.elts[0].value, str),
+                        f"mutation_variant_probe_shape_invalid:{relative_path}",
+                    )
+                    labels.append(element.elts[0].value)
+                variant_probes = tuple(labels)
+            elif target.id == "context_omission_probes" and isinstance(node.value, (ast.List, ast.Tuple)):
+                labels = []
+                for element in node.value.elts:
+                    require(
+                        isinstance(element, (ast.List, ast.Tuple))
+                        and bool(element.elts)
+                        and isinstance(element.elts[0], ast.Constant)
+                        and isinstance(element.elts[0].value, str),
+                        f"mutation_context_probe_shape_invalid:{relative_path}",
+                    )
+                    labels.append(element.elts[0].value)
+                context_omission_probes = tuple(labels)
+            elif target.id == "machine_key_probes" and isinstance(node.value, (ast.List, ast.Tuple)):
+                labels = []
+                for element in node.value.elts:
+                    require(
+                        isinstance(element, (ast.List, ast.Tuple))
+                        and bool(element.elts)
+                        and isinstance(element.elts[0], ast.Constant)
+                        and isinstance(element.elts[0].value, str),
+                        f"mutation_machine_key_probe_shape_invalid:{relative_path}",
+                    )
+                    labels.append(element.elts[0].value)
+                machine_key_probes = tuple(labels)
+            elif target.id == "hash_fallback_probes" and isinstance(node.value, (ast.List, ast.Tuple)):
+                labels = []
+                for element in node.value.elts:
+                    require(
+                        isinstance(element, (ast.List, ast.Tuple))
+                        and bool(element.elts)
+                        and isinstance(element.elts[0], ast.Constant)
+                        and isinstance(element.elts[0].value, str),
+                        f"mutation_hash_fallback_probe_shape_invalid:{relative_path}",
+                    )
+                    labels.append(element.elts[0].value)
+                hash_fallback_probes = tuple(labels)
+        require(declared == expected, f"mutation_expected_labels_mismatch:{relative_path}")
+        require(
+            probes is not None
+            and probes
+            + variant_probes
+            + context_omission_probes
+            + machine_key_probes
+            + hash_fallback_probes
+            == expected,
+            f"mutation_probe_labels_mismatch:{relative_path}",
+        )
 
 
 def parse_exact_markdown_classifications(
@@ -307,6 +492,11 @@ def validate_displayed_smoke_summary(
         f"{not_verified_count} NOT VERIFIED"
     )
     expected_summary = {
+        "evidence_hashes_verified": "17",
+        "evidence_hash_mode": "LF_NORMALIZED_UTF8",
+        "external_transcript_mutation_rejections": "25",
+        "graphify_governance_mutation_rejections": "41",
+        "positive_controls": "lf_normalized_utf8_crlf_portability",
         "functional_smoke": functional_smoke,
         "runtime_evidence_classifications": expected_counts,
         "thread_cap_runtime": classifications[
@@ -537,6 +727,9 @@ def validate(root: Path = ROOT) -> dict[str, object]:
     )
     validate_runtime_boundary_docs(root)
     validate_current_state_contract(root)
+    validate_standalone_mutation_contracts(root)
+    transcript_result = validate_external_audit_transcript(root)
+    graphify_result = validate_graphify_governance(root)
     evidence_hashes = validate_evidence_hashes(root)
 
     return {
@@ -545,6 +738,9 @@ def validate(root: Path = ROOT) -> dict[str, object]:
         "profiles": len(profiles),
         "resolved_skill_links": links,
         "evidence_hashes_verified": evidence_hashes,
+        "evidence_hash_mode": "LF_NORMALIZED_UTF8",
+        "external_audit_transcript": transcript_result["status"],
+        "graphify_governance": graphify_result["status"],
         "thread_cap_configured": agents["max_concurrent_threads_per_session"],
         "thread_cap_runtime": displayed_smoke_summary["thread_cap_runtime"],
         "judge_effort_config_source": ".codex/config.toml:agents.default_subagent_reasoning_effort",

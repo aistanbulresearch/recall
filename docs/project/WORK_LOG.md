@@ -1075,3 +1075,112 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Verdict: `FAIL` because the canonical HANDOFF still presented the pre-remediation 11-hash, 12-mutation, and 3/4 classification counts as latest evidence and repeated the stale 12-mutation statement later.
 - The coordinator accepted ERR-2026-08-19-111, kept staging/publication stopped, and synchronized only those current HANDOFF counts to 12 hashes, exactly 23 named mutation classes, 42/42 probes, and 3/6 without changing runtime classifications.
 - Fresh post-correction stable-tree Master Judge: `PASS`, no findings. The Judge independently confirmed the exact 12-path scope, external-report source fidelity, consistent HANDOFF counts, 23 named harness cases, 42/42 probes, four byte-identical state blocks, zero bounded secret/attribution findings, and unique append-only IDs. This is local pre-publication evidence only; protected publication, remote read-back, runtime behavior, and external re-review remain unverified.
+
+## WORK-2026-08-20-009: Second external failure, live Graphify reconciliation, and approved design gate
+
+- External state:
+  - The separate read-only external re-review matched local, origin, and PR #2 at `c8be19476c24672fbf65d4dbf767fa8144360d22` and returned `FAIL` on two P2 evidence-integrity defects: the predecessor report was not an exact transcription of its cited source, and Graphify counts labeled current had drifted.
+  - Direct `read_thread` bootstrap recovered the predecessor final answer at task `01a01671-1a00-70a2-af25-70f429682465`, turn `01a01671-21d7-7953-a911-6b060c889361`: 7,201 LF-normalized characters and LF UTF-8 SHA-256 `2F3CD3F4DDBE96CE9A5B33C8A041E94242A950CDA21862DDDE75F0B61538489E`.
+- Graphify read-only evidence:
+  - At `2026-08-19T04:45:37Z`, the ignored final root contained 254 nodes, 276 links, 49 communities, 140 concept nodes, 75/75 represented manifest sources, 0 missing sources, 0 broken endpoints, and one `Policy Gate` node with five incident links.
+  - Graph SHA-256 `973089FA8EF6F333843879D213D3E3C721079BAB5234B95549F1DEBB920245AE`; report SHA-256 `7F49F479F74FBF2424D255D632AB038C4EFDB7BF25873C9D45181DF63CE45F96`; report build `c8be1947`. No Graphify refresh or Gemini transmission was performed.
+  - Historical 242/258/48/131 with 74/74 remains a point-in-time snapshot and is not rewritten as false history.
+- Recurring automation evidence:
+  - Elevated read-only Task Scheduler inspection returned task `Graphify-Refresh-All`, action `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\oacav\graphify-all-repos\refresh-repo.ps1" -All -NoBackup`, start `2026-08-10T09:00:00+03:00`, repeat `PT2H`, principal `oacav`, raw `LogonType=3`, `RunLevel=0`, and ready-state numeric value 4.
+  - Runner source confirms unchanged corpus/profile skips Gemini; changed corpus/profile invokes `gemini-3.5-flash-lite` with `recall-concepts-v1` and extraction token budget 5000. This is source/config evidence, not runtime enforcement proof.
+- Design gate:
+  - Coordinator assigned two independent read-only Scouts for transcript provenance and Graphify automation, then froze a non-overlapping coordinator-first/Worker-second implementation design.
+  - Fresh Master Judge verdict: `PASS`, no required design findings. Transcript/bootstrap, Graphify artifact integrity, authorization boundaries, ownership, stop conditions, and post-implementation gates are `SPECIFIED`; file changes and runtime behavior were not yet verified by that verdict.
+- Owner authority:
+  - DEC-2026-08-20-033 records the fixed recurring automation scope, separate manual-refresh approval rule, exact transcript contract, one gated owner-only remediation commit/push, and one read-only exact-head re-review. Merge, Phase 3, Graphify refresh, cloud, billing, destructive actions, and unrelated GitHub writes remain unauthorized.
+
+## WORK-2026-08-20-010: Independent code review blocked first validator implementation
+
+- Baseline execution passed all six validator/harness entrypoints: 20 transcript mutations, 12 Graphify governance mutations, 31 collaboration mutations, 16 hashes, and `3 REPORT_DERIVED,6 NOT VERIFIED`.
+- Independent read-only code review nevertheless returned `FAIL` after producing five false-pass classes:
+  - synchronized Graphify policy scope-expansion contradictions;
+  - unscoped/additive Graphify snapshot and runtime-proof claims;
+  - same-line or additive transcript-summary authority/verdict/provenance contradictions;
+  - failed-predecessor PASS wording with PASS before the SHA;
+  - clean-clone failure because required `CLAUDE.md` existed only as a globally ignored ambient file.
+- Publication and Master Judge sequencing stopped. STATUS and HANDOFF now contain one identical closed `graphify-snapshot` block; other count/hash/build prose was removed from current normative surfaces.
+- Corrective acceptance requires a closed/hash-bound Graphify policy, closed snapshot parsing with additive-contradiction rejection, full-summary hash binding, bidirectional failed-head/PASS rejection, the review probes in disposable harnesses, 17 evidence hashes including `CLAUDE.md`, and force-tracked `CLAUDE.md` before staged-tree/clean-clone gates.
+- No Graphify refresh, Gemini transmission, staging, commit, push, GitHub mutation, merge, or Phase 3 action occurred.
+
+## WORK-2026-08-20-011: Corrective validators passed locally but staged-tree portability gate failed
+
+- Corrective Worker lease closed the additive false-pass classes locally: transcript verifier/harness passed with 25 mutations, Graphify governance with 18 mutations, collaboration with 35 mutations, 17 hashes, and unchanged `3 REPORT_DERIVED,6 NOT VERIFIED` runtime boundaries.
+- Coordinator staged the exact 19-path package, force-adding globally ignored `CLAUDE.md`; staged paths were exact and unstaged/untracked paths were zero.
+- The first staged-index extraction command failed because `git checkout-index` received an incorrectly constructed `--prefix` argument. Its exact temporary directory was removed; no repository content changed.
+- The corrected staged-index extraction succeeded, but `verify_recall_collaboration.py` failed on `.agents/skills/recall-collaboration/agents/openai.yaml`: the working copy hash included CRLF while the index/clean tree contained LF. Text content was identical.
+- Publication, code re-review, and Master Judge sequencing stopped again. The next bounded correction normalizes all 17 evidence hashes to LF UTF-8 and adds a CRLF/LF portability positive control before restaging and rerunning the clean staged-tree gate.
+
+## WORK-2026-08-20-012: Second code re-review blocked displayed-evidence and word-order gaps
+
+- LF-normalized 17-hash correction passed locally and in an isolated staged-index tree; `CLAUDE.md` was force-tracked, exact staged paths were 19, and unstaged/untracked paths were zero.
+- Independent code re-review confirmed every previously reported additive bypass closed, but returned `FAIL` on three remaining classes:
+  - aggregate validation did not bind displayed hash count/mode, transcript/Graphify mutation counts, or the CRLF portability positive-control label, and standalone harnesses did not assert exact label sets/counts;
+  - outside-block Graphify count and positive scheduler-runtime-proof relations still passed when words appeared in reversed order;
+  - failed-head prose using `passed` or punctuation variants still escaped predecessor FAIL detection.
+- Publication and Master Judge remain stopped. The next exclusive correction binds exact displayed values and complete label sets, makes Graphify/count/runtime relations order-independent, and rejects `PASS`/`passed` associations with failed heads across punctuation/word-order variants.
+- No Graphify refresh, Gemini transmission, commit, push, GitHub mutation, merge, or Phase 3 action occurred.
+
+## WORK-2026-08-20-013: Third code re-review isolated one reverse-build claim bypass
+
+- Final staged-index execution passed exact 25 transcript, 22 Graphify, and 46 collaboration label sets, 17 LF-normalized hashes, skill validation, and AST with exact 19 staged paths and zero unstaged/untracked paths.
+- Independent code re-review closed every earlier bypass but returned `FAIL` on one narrow Graphify phrase outside the canonical block: `c8be1947 identifies the latest graph build.` The field/value detector's 24-character proximity limit allowed it.
+- Publication and Master Judge remain stopped. The bounded correction removes proximity from graph-context field/value association, adds the exact phrase as the next Graphify mutation, and synchronizes the displayed/aggregate exact-label contract.
+- No protected or external action occurred.
+
+## WORK-2026-08-20-014: Fourth code re-review isolated manifest-source wording bypass
+
+- The reverse-build probe was added and final staged-index gates passed at 25 transcript, 23 Graphify, 46 collaboration mutations, 17 LF-normalized hashes, skill, and AST.
+- The first compact staged-tree wrapper for this rerun had a PowerShell `try` syntax error and did not execute the test body; the corrected previously proven wrapper then completed successfully and removed its exact temporary tree.
+- Independent code re-review confirmed build/hash/node word-order variants closed, but found `75/75 ... latest graph sources` outside the canonical block still passed because the special source matcher retained a 24-character proximity bound.
+- Publication and Master Judge remain stopped. The next correction moves `sources` and `manifest sources` into the general proximity-free snapshot-field matcher and adds the exact outside-block mutation.
+- No protected or external action occurred.
+
+## WORK-2026-08-20-015: Fifth code re-review isolated single-value source counts
+
+- The N/N manifest-source correction passed 25/24/46 staged-index gates and rejected both requested coverage phrases.
+- Independent code re-review found single-value variants such as `The latest graph includes 75 sources.` still passed because source relations required slash-form coverage.
+- Publication remains stopped. The correction rejects any canonical-block-external same-line Graphify/graph/snapshot context plus source-field plus single or N/N numeric value, independent of word order or hyphenation, and adds the exact reversed single-count probe.
+- No protected or external action occurred.
+
+## WORK-2026-08-20-016: Sixth code re-review isolated graph-keyword omission
+
+- Single and N/N source-count relations closed and staged-index gates passed at 25/25/46.
+- Independent review then inserted current/latest snapshot records immediately after the canonical fence without the words graph, Graphify, or snapshot; nodes, source coverage, manifest-source total, build, and hash variants all passed.
+- Publication remains stopped. Outside the canonical block, `current` or `latest` plus any recognized snapshot field plus value now constitutes snapshot context without requiring a graph keyword; all five exact variants enter the closed mutation set.
+- No protected or external action occurred.
+
+## WORK-2026-08-20-017: Seventh code re-review moved Graphify records to a closed-document contract
+
+- Five current/latest context-omission probes closed and staged-index gates passed at 25/30/46.
+- Independent review then found canonical underscore keys and natural temporal variants (`currently`, `most recent`) outside the block.
+- Repeated regex extension was judged insufficiently closed. The final design therefore binds complete LF-normalized STATUS and HANDOFF contents inside the Graphify governance validator in addition to parsing one exact block. Any unenumerated addition or alteration fails even if a future wording bypasses semantic patterns.
+- Seven exact canonical-key/temporal probes remain as typed semantic controls, and two unrelated document-change probes prove the full-document hash fallback. Publication remains stopped pending all gates and review.
+- No protected or external action occurred.
+
+## WORK-2026-08-20-018: Closed Graphify documents and failed-head abbreviations passed local gates
+
+- Graphify governance now combines semantic rejection with LF-normalized full-document hashes for STATUS and HANDOFF. Nine canonical-key/temporal mutations and two unrelated-line hash-fallback mutations raised the exact Graphify set to 41; its CRLF portability control also passed.
+- The isolated staged tree passed all six entrypoints, exact 25 transcript, 41 Graphify, and 46 collaboration negative sets, 17 LF-normalized evidence hashes, skill validation, and six-file compilation.
+- Independent review confirmed every Graphify bypass and full-document fallback closed, but found eight-character failed-head abbreviations for `c8be1947` and `877c78d0` still accepted stale `PASS` claims.
+- The narrow correction derives full/eight/seven-character references for both failed heads. Four new exact negatives and six auxiliary variants pass, raising the collaboration set to 50 while preserving the qualified historical `195422e...` PASS control.
+- One combined corrective patch attempt matched no context and changed nothing; split patches then applied cleanly. No protected or external action occurred.
+- Publication remains stopped until the corrected exact index passes isolated execution, independent code review, and stable-tree Master Judge.
+
+## WORK-2026-08-20-019: Final independent staged-tree code review passed
+
+- The corrected exact 19-path index passed isolated execution of all six entrypoints, official skill validation, and six-file compilation. Exact negative sets were 25 transcript, 41 Graphify-governance, and 50 aggregate collaboration mutations; 17 LF-normalized hashes and both CRLF/LF portability controls passed.
+- The independent reviewer reproduced every prior transcript, Graphify, current-state, failed-head, displayed-evidence, probe-deletion, and document-hash bypass. All rejected with typed failures; qualified exact-SHA historical `PASS` and nonnumeric policy/history controls remained valid.
+- The reviewer confirmed exactly 19 staged paths, zero unstaged/untracked paths, tracked `CLAUDE.md`, clean cached diff, zero generic secret/trailer findings, and unique append-only log IDs. Verdict: `PASS`, no actionable findings.
+- This is structural/repository evidence only. Runtime, scheduler enforcement, external re-review, merge, and Phase 3 remain unverified or blocked. Publication remains stopped pending stable-tree Master Judge and owner-identity/remote gates.
+
+## WORK-2026-08-20-020: First final Master Judge stopped stale normative-document hashes
+
+- The first final stable-tree Master Judge returned `FAIL`. Transcript validation and its 25 mutations passed, but STATUS and HANDOFF no longer matched the full-document hashes frozen before the code-review status update; Graphify governance and both aggregate gates failed closed.
+- The staged STATUS hash was `9E5B4042F8CB250918FB8A8ABE0C456076921623BCD651C1A10B50C1DB5ABCA4` and HANDOFF hash was `3098AF3E946DB9C0151E81D03EDB1009A7683A9D568F01CC6FCCD238044946A2`, while the verifier still expected their earlier values.
+- The Judge also found one stale HANDOFF phrase that prematurely called the package Master-Judge-approved. Commit and push stopped; no protected action occurred.
+- Final coordinator wording now records this failure and makes no self-referential Judge PASS claim. The documents are frozen for one hash regeneration, full staged-tree rerun, independent re-review, and fresh Master Judge gate.
