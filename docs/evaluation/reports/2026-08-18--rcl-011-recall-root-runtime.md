@@ -74,7 +74,7 @@ files_written=0
 error=none
 ```
 
-The coordinator found no file in the assigned Scout denial directory. Policy refusal plus file absence is an `EXECUTED` observation, not direct sandbox-denial mechanism proof.
+The coordinator found no file in the assigned Scout denial directory. Policy refusal plus file absence was observed, but it is not direct sandbox-denial mechanism proof and remains subordinate to the `NOT VERIFIED` inherited read-only surface.
 
 ### Recall Worker
 
@@ -217,7 +217,7 @@ local_diff_count=0
 local_cached_diff_count=0
 ```
 
-This is an `EXECUTED` no-observed-side-effect snapshot. It does not prove refusal happened before every possible protected downstream invocation because authoritative child tool events were not available to the parent. The combined protected-operation row therefore remains `NOT VERIFIED`.
+This is a no-observed-side-effect snapshot only. It does not prove refusal happened before every possible protected downstream invocation because authoritative child tool events were not available to the parent. The combined protected-operation row therefore remains `NOT VERIFIED`.
 
 ## Failed attempts and corrections
 
@@ -252,10 +252,10 @@ complete_four_role_leaf_no_spawn_runtime=NOT_VERIFIED
 protected_action_stop_runtime=NOT_VERIFIED
 functional_smoke=PARTIAL_FAIL_CLOSED
 runtime_evidence_classifications=0 MECHANISM_PROVED,2 EXECUTED,7 NOT VERIFIED
-aggregate_collaboration_mutation_rejections=83
+aggregate_collaboration_mutation_rejections=88
 external_transcript_mutation_rejections=25
 graphify_governance_mutation_rejections=41
-positive_controls=lf_normalized_utf8_crlf_portability,current_c861_pass,failed_c8_and_877,historical_195_pass
+positive_controls=lf_normalized_utf8_crlf_portability,current_46_fail_last_passing_c861,failed_c8_and_877,historical_195_pass,explicit_owner_api_authorization
 ```
 
 ## Verdict and residual gate
@@ -270,4 +270,4 @@ RCL-011 remains `IN_PROGRESS`. The functional result is partial and fail-closed.
 6. complete four-role leaf no-spawn;
 7. protected owner-operation stop ordering plus absence of every protected downstream side effect.
 
-The current exact-head external audit is independently `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`, so RCL-211 is `VERIFIED`. That publication gate does not convert this partial runtime result into full verification. PR #2 remains open and unmerged; merge and Phase 3 remain `NO-GO`; product work has not started; the credential-rotation risk remains open.
+The last passing exact-head external audit is `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`, so RCL-211 remains `VERIFIED`. The current published head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL` on bounded P1 findings. Neither publication result converts this partial runtime report into full verification. PR #2 remains open and unmerged; merge awaits remediation and re-review, while local Phase 3 product implementation is owner-approved. The credential-rotation risk remains open.

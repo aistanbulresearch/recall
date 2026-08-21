@@ -65,19 +65,19 @@ HASHED_EVIDENCE_PATHS = {
 }
 CLAIM_DOCUMENT_SHA256 = {
     "docs/adr/ADR-0008-external-audit-corrections.md": (
-        "9AAF3B1CAC749027FF6D582DAC5C176FF225317DEA4B8DF6057389387E84DE17"
+        "1DB009E0D8A3FCB5843ECA66B39DB9299765FB6B6CFF1A435BCA34ADFCA6090E"
     ),
     "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md": (
-        "C324A8F8E43D9EA88F136D5EAE7496D27E719D8272C5F9FFDEC25AB24EE1C589"
+        "2C9CE4E104B657FD690EE309F4AF079D76A951468349E63EA6E76CE33D3B7509"
     ),
     "docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md": (
-        "6F1516C0FF42E0A0ABF7AD3369A30CB4CFE61D67AECF9B90CA250C58C74B058D"
+        "FEE0223814A2A995A7AFA80DAB5FE740B48619A63AB8F06B8B5D2D02AB1CDC12"
     ),
     "docs/project/COLLABORATION_SYSTEM.md": (
-        "2A5E3B37C0CB6A747E6B61ACC38DC1B186900E04E0F1FC513AB0951CD6BBA53E"
+        "7BA4C20242A7FF87A5C9355BEED26D0044F8AE43295BD9EF94365D8CB857A141"
     ),
     "docs/project/MASTER_PLAN.md": (
-        "E84FEDA9B56AE42A32BCE45776A425C5BA225A308FA1C82350A0D4BB4802F9BC"
+        "4786FA34D6F888F55A6419F956E486CB30F572EFBDD3BE93DFE3B300936B6FB1"
     ),
 }
 EXPECTED_STANDALONE_MUTATIONS = {
@@ -126,7 +126,7 @@ EVIDENCE_MANIFEST_REPORT_PATH = (
     "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
 )
 SMOKE_MANIFEST_CANONICAL_SHA256 = (
-    "729657A5903031168677F7C7BD52B24247218230153E2BD7216A1BC58E0E9DA6"
+    "3C8B5130CBC61A2BB06BFA1083FA21364254E3A186D1828CF6C5F6488FFEF2C1"
 )
 EVIDENCE_TABLE_HEADING = (
     "## LF-normalized UTF-8 evidence hashes at successor validator checkpoint"
@@ -157,7 +157,7 @@ RUNTIME_BOUNDARY_REQUIREMENTS = {
         "seven `NOT VERIFIED`",
     ),
     "docs/project/HANDOFF.md": (
-        "RCL-011 is in progress",
+        "RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED`",
         "2026-08-18--rcl-011-recall-root-runtime.md",
         "seven residual",
     ),
@@ -179,11 +179,154 @@ CURRENT_STATE_PATHS = (
     "docs/project/MASTER_PLAN.md",
     "docs/project/HANDOFF.md",
 )
-CURRENT_AUDIT_HEAD = "c86139048d1532c79ed190d0cc98ce2ad878414b"
+
+BOUNDED_CLAIM_PATHS = tuple(CLAIM_DOCUMENT_SHA256) + (
+    "docs/project/STATUS.md",
+    "docs/project/HANDOFF.md",
+)
+
+
+def validate_bounded_claim_prohibitions(root: Path) -> None:
+    """Reject the three exact overclaim classes accepted by the external audit.
+
+    This is intentionally a small deny-list, not a general natural-language
+    verifier. Independent review remains the trust boundary for synchronized
+    document and validator changes.
+    """
+
+    allowed_executed_subjects = (
+        "custom profile discovery",
+        "custom-profile discovery",
+        "profile discovery",
+        "skill discovery",
+        "master judge verdict formatting",
+        "judge verdict formatting",
+        "verdict formatting",
+        "master judge",
+    )
+    negative_markers = (
+        "not verified",
+        "unauthorized",
+        "not proof",
+        "does not prove",
+        "do not ",
+        "no billing",
+        "await separate owner approval",
+        "no resource creation",
+        "separately protected",
+    )
+    billing_surfaces = re.compile(
+        r"(?i)\b(?:billing linkage|permissions|apis?|budgets?|resources?|"
+        r"model calls?|spending)\b"
+    )
+    billing_context = re.compile(r"(?i)\b(?:billing|cloud|apis?|model calls?|spending)\b")
+    positive_billing_state = re.compile(
+        r"(?i)\b(?:verified|enabled|linked|active|ready)\b"
+    )
+    explicit_authorization = re.compile(
+        r"(?i)\b(?:under explicit owner approval|authorized by (?:the )?owner|"
+        r"owner-approved enablement|after separate owner approval)\b"
+    )
+    aggregate_runtime_counts = re.compile(
+        r"(?i)\b(?:zero|0)\s+MECHANISM_PROVED\s*,\s*"
+        r"(?:two|2)\s+EXECUTED\s*,?\s*(?:and\s+)?"
+        r"(?:seven|7)\s+(?:unchanged\s+|residual\s+)?NOT VERIFIED\b"
+    )
+
+    def clauses(raw_line: str) -> tuple[tuple[str, str], ...]:
+        """Return (table subject, clause) pairs for claim-local checks."""
+
+        line = raw_line.replace("`", "").strip()
+        if not line:
+            return ()
+        cells = [cell.strip() for cell in line.split("|") if cell.strip()]
+        table_subject = cells[0].lower() if len(cells) > 1 else ""
+        segments: list[tuple[str, str]] = []
+        for cell in cells or [line]:
+            for clause in re.split(r"(?<=[.!?])\s+|\s*;\s*", cell):
+                if clause.strip():
+                    segments.append((table_subject, clause.strip()))
+        return tuple(segments)
+
+    for relative_path in BOUNDED_CLAIM_PATHS:
+        document = read_text(root / relative_path, root)
+        for line_number, raw_line in enumerate(document.splitlines(), start=1):
+            for table_subject, clause in clauses(raw_line):
+                lower = clause.lower()
+
+                if "mechanism_proved" in lower:
+                    aggregate_boundary = bool(
+                        aggregate_runtime_counts.search(clause)
+                        and lower.count("mechanism_proved") == 1
+                    )
+                    permitted_boundary = (
+                        aggregate_boundary
+                        or re.search(r"\bnot\b[^.]{0,80}\bmechanism_proved\b", lower)
+                        or "promotion to either executed or mechanism_proved" in lower
+                        or "unauthorized mechanism_proved" in lower
+                    )
+                    require(
+                        bool(permitted_boundary),
+                        f"bounded_claim_overreach:MECHANISM_PROVED:{relative_path}:{line_number}",
+                    )
+
+                if "executed" in lower:
+                    count_boundary = bool(
+                        aggregate_runtime_counts.search(clause)
+                        and lower.count("executed") == 1
+                    )
+                    negative_boundary = bool(
+                        re.search(r"\bnot\b[^.]{0,80}\bexecuted\b", lower)
+                    )
+                    positive_claim = bool(
+                        re.search(
+                            r"(?i)(?:\b(?:is|are|was|were|now|remain|remains)\b[^.]{0,80}"
+                            r"\bEXECUTED\b|:\s*EXECUTED\b|\bEXECUTED\s+(?:observation|evidence|runtime|with)\b)",
+                            clause,
+                        )
+                    )
+                    allowed_sentence = bool(
+                        re.fullmatch(
+                            r"(?i)-?\s*(?:only\s+)?(?:(?:custom[- ]?)?profile discovery(?:\s+and\s+"
+                            r"(?:master\s+)?judge verdict formatting)?|(?:master\s+)?judge verdict formatting|"
+                            r"verdict formatting)(?:\s+(?:is|are|remain|remains)|:)\s+EXECUTED\.?",
+                            clause.strip(),
+                        )
+                    )
+                    allowed_table_subject = (
+                        any(subject == table_subject for subject in allowed_executed_subjects)
+                        and lower.count("executed") == 1
+                    )
+                    require(
+                        not positive_claim
+                        or count_boundary
+                        or negative_boundary
+                        or allowed_sentence
+                        or allowed_table_subject,
+                        f"bounded_claim_overreach:EXECUTED:{relative_path}:{line_number}",
+                    )
+
+                if (
+                    billing_surfaces.search(clause)
+                    and billing_context.search(clause)
+                    and positive_billing_state.search(clause)
+                    and "owner_reported_selected" not in lower
+                    and not any(marker in lower for marker in negative_markers)
+                    and not explicit_authorization.search(clause)
+                ):
+                    require(
+                        False,
+                        f"bounded_claim_overreach:BILLING_CLOUD:{relative_path}:{line_number}",
+                    )
+CURRENT_AUDIT_HEAD = "46afabfcc5716dde6f13e49d118a63b2beacc903"
+LAST_PASSING_AUDIT_HEAD = "c86139048d1532c79ed190d0cc98ce2ad878414b"
 FAILED_PARENT_HEAD = "c8be19476c24672fbf65d4dbf767fa8144360d22"
 AUDITED_PREDECESSOR_HEAD = "877c78d06d9b78f3071d17c81232fbc4302f857e"
 HISTORICAL_PASS_HEAD = "195422e4d762d68d38e2b7f531cc5b1cd059cdb7"
 FAILED_AUDIT_HEAD_REFERENCES = (
+    CURRENT_AUDIT_HEAD,
+    CURRENT_AUDIT_HEAD[:8],
+    CURRENT_AUDIT_HEAD[:7],
     FAILED_PARENT_HEAD,
     FAILED_PARENT_HEAD[:8],
     FAILED_PARENT_HEAD[:7],
@@ -201,12 +344,12 @@ AUDITED_PREDECESSOR_HEAD_PATTERN = "|".join(
 )
 CURRENT_STATE_EXPECTED = {
     "current_external_audit_head": CURRENT_AUDIT_HEAD,
-    "current_external_audit_verdict": "PASS",
+    "current_external_audit_verdict": "FAIL",
     "audited_predecessor_head": AUDITED_PREDECESSOR_HEAD,
     "rcl_211": "VERIFIED",
     "merge_gate": "NO_GO",
-    "phase_3_gate": "NO_GO",
-    "external_re_review": "PASS",
+    "phase_3_gate": "OWNER_APPROVED",
+    "external_re_review": "REQUIRED",
     "historical_external_pass_head": HISTORICAL_PASS_HEAD,
 }
 STALE_CURRENT_PASS_PATTERNS = (
@@ -239,12 +382,12 @@ HISTORICAL_PASS_CLAIM_PATTERNS = (
         rf"(?i)\b(?:historical|prior|earlier) external audit\s*:\s*`?PASS`?"
         rf"\s+at\s+`?{HISTORICAL_PASS_HEAD}`?\b"
     ),
-)
-CURRENT_PASS_CLAIM_PATTERNS = (
     re.compile(
-        rf"(?i)\bcurrent external audit\s*:\s*`?PASS`?\s+at\s+`?{CURRENT_AUDIT_HEAD}`?\b"
+        rf"(?i)\b(?:last passing external audit|last passing audited head)\b"
+        rf"[^;\n]{{0,80}}(?:`?PASS`?[^;\n]{{0,20}})?`?{LAST_PASSING_AUDIT_HEAD}`?\b"
     ),
 )
+CURRENT_PASS_CLAIM_PATTERNS: tuple[re.Pattern[str], ...] = ()
 
 
 def require(condition: bool, message: str) -> None:
@@ -440,7 +583,7 @@ def validate_smoke_manifest_summary(root: Path) -> dict[str, str]:
     )
     require(len(matches) == 1, f"manifest_summary_block_count:{len(matches)}")
     mutation_labels = parse_collaboration_mutation_labels(root)
-    require(len(mutation_labels) == 83, f"collaboration_mutation_count:{len(mutation_labels)}")
+    require(len(mutation_labels) == 88, f"collaboration_mutation_count:{len(mutation_labels)}")
     expected = {
         "validator status": "PASS",
         "validation_scope": "STRUCTURAL_PLUS_BOUNDED_RUNTIME_EVIDENCE",
@@ -451,7 +594,7 @@ def validate_smoke_manifest_summary(root: Path) -> dict[str, str]:
         "profile_names": (
             "recall-scout,recall-worker,recall-smart-worker,recall-master-judge"
         ),
-        "aggregate_collaboration_mutation_rejections": "83",
+        "aggregate_collaboration_mutation_rejections": "88",
         "mutation_rejections": ",".join(mutation_labels),
         "external_audit_transcript": (
             "PASS; artifact integrity only; live Codex equivalence NOT_VERIFIED"
@@ -463,8 +606,8 @@ def validate_smoke_manifest_summary(root: Path) -> dict[str, str]:
         ),
         "graphify_governance_mutation_rejections": "41",
         "positive_controls": (
-            "lf_normalized_utf8_crlf_portability,current_c861_pass,"
-            "failed_c8_and_877,historical_195_pass"
+            "lf_normalized_utf8_crlf_portability,current_46_fail_last_passing_c861,"
+            "failed_c8_and_877,historical_195_pass,explicit_owner_api_authorization"
         ),
     }
     parsed: dict[str, str] = {}
@@ -782,10 +925,10 @@ def validate_displayed_smoke_summary(
         "evidence_hash_mode": "LF_NORMALIZED_UTF8",
         "external_transcript_mutation_rejections": "25",
         "graphify_governance_mutation_rejections": "41",
-        "aggregate_collaboration_mutation_rejections": "83",
+        "aggregate_collaboration_mutation_rejections": "88",
         "positive_controls": (
-            "lf_normalized_utf8_crlf_portability,current_c861_pass,"
-            "failed_c8_and_877,historical_195_pass"
+            "lf_normalized_utf8_crlf_portability,current_46_fail_last_passing_c861,"
+            "failed_c8_and_877,historical_195_pass,explicit_owner_api_authorization"
         ),
         "functional_smoke": functional_smoke,
         "runtime_evidence_classifications": expected_counts,
@@ -1019,6 +1162,7 @@ def validate(root: Path = ROOT) -> dict[str, object]:
     )
     validate_runtime_boundary_docs(root)
     validate_current_state_contract(root)
+    validate_bounded_claim_prohibitions(root)
     validate_standalone_mutation_contracts(root)
     manifest_summary = validate_smoke_manifest_summary(root)
     smoke_manifest_canonical_hash = validate_smoke_manifest_canonical_body(root)

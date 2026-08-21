@@ -1,6 +1,6 @@
 # ADR-0008: External audit corrections before implementation
 
-- Status: accepted decisions; Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-211 is verified, while merge and Phase 3 remain `NO-GO`.
+- Status: accepted decisions; `c86139048d1532c79ed190d0cc98ce2ad878414b` is the last passing audited head. The current published head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL`. RCL-211 is verified and Phase 3 is owner-approved, while merge remains `NO-GO` pending remediation and external re-review.
 - Date: 2026-08-17
 - Owners: aistanbulresearch
 - Related tasks: RCL-202 through RCL-205, RCL-211, RCL-302 through RCL-309, RCL-503, RCL-506
@@ -9,13 +9,13 @@
 ## Current external-gate state
 
 ```text
-current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b
-current_external_audit_verdict=PASS
+current_external_audit_head=46afabfcc5716dde6f13e49d118a63b2beacc903
+current_external_audit_verdict=FAIL
 audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e
 rcl_211=VERIFIED
 merge_gate=NO_GO
-phase_3_gate=NO_GO
-external_re_review=PASS
+phase_3_gate=OWNER_APPROVED
+external_re_review=REQUIRED
 historical_external_pass_head=195422e4d762d68d38e2b7f531cc5b1cd059cdb7
 ```
 
@@ -88,11 +88,11 @@ The Auditor verifies the publication-to-dataset relationship through the paper's
 
 - Decisions 1 through 6 are synchronized across the normative documents and their required executable tests are named. This is document-level evidence only.
 - Decisions 7 and 8 produced an offline-replayable protocol 1.0.1 package with exact repository bytes, corrected chronology/linkage, clean-copy verification, mutated-byte rejection, path-boundary rejection, and exact-row validation.
-- The external-audit correction gate is verified at the exact c861 successor, but merge and Phase 3 remain `NO-GO` under their separate owner, runtime, and product gates.
+- The external-audit correction gate was verified at the exact c861 successor. The later 46af audit returned bounded P1 findings; merge remains `NO-GO`, while the owner separately approved local Phase 3 implementation on 2026-08-21.
 - RCL-503 and RCL-506 remain not started; source-package verification does not prove product replay behavior.
 - F-09 through F-18 must be resolved before their affected implementation tasks begin.
 - F-19 through F-29 remain tracked cleanup and completeness work; none may be silently dropped.
-- The historical Phase 2 follow-up passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. The collaboration audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` then returned `FAIL` on validator evidence coverage and current-state consistency. Its remediation parent was published at `c8be19476c24672fbf65d4dbf767fa8144360d22`; the second external re-review also returned `FAIL`, this time on transcript integrity and stale Graphify evidence wording. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-211 is now verified without relabeling either failed predecessor.
+- The historical Phase 2 follow-up passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. The collaboration audit at `877c78d06d9b78f3071d17c81232fbc4302f857e` then returned `FAIL` on validator evidence coverage and current-state consistency. Its remediation parent was published at `c8be19476c24672fbf65d4dbf767fa8144360d22`; the second external re-review also returned `FAIL`, this time on transcript integrity and stale Graphify evidence wording. c861 later passed and remains the last passing audited head; the current 46af successor returned `FAIL` on bounded P1 findings. RCL-211 remains verified without relabeling either failed predecessor.
 
 ## Verification gate
 
@@ -105,7 +105,7 @@ The Auditor verifies the publication-to-dataset relationship through the paper's
 7. `ABSTAIN` and `HALTED` preserve unaudited observation visibility across retry.
 8. A clean clone verifies every replay capture hash offline and rejects a mutated byte.
 
-Local verification of items 1 through 7 is recorded in `docs/evaluation/reports/2026-08-17--adr-0008-normative-consistency-audit.md`. Item 8 and the F-07/F-08 chronology/linkage correction are recorded in `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`. The historical exact-head review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; external reviews at `877c78d06d9b78f3071d17c81232fbc4302f857e` and then `c8be19476c24672fbf65d4dbf767fa8144360d22` returned `FAIL` on distinct collaboration evidence-integrity defects. The exact c861 successor passed external re-review and verifies RCL-211. Merge and Phase 3 remain separately blocked.
+Local verification of items 1 through 7 is recorded in `docs/evaluation/reports/2026-08-17--adr-0008-normative-consistency-audit.md`. Item 8 and the F-07/F-08 chronology/linkage correction are recorded in `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`. The historical exact-head review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; external reviews at `877c78d` and c8 failed. c861 later became the last passing audited head. The published 46af successor audit then returned `FAIL` on two bounded evidence-integrity findings. RCL-211 remains verified; the owner approved local Phase 3 implementation, while PR #2 merge awaits the required fresh exact-head re-review.
 
 ## Rollback or supersession
 

@@ -5,26 +5,26 @@
 | Field | Current truth |
 |---|---|
 | Updated | 2026-08-21 |
-| Phase | Phase 0 collaboration runtime evidence; Phase 1 blocked in part; current exact-head external gate completed; Phase 3 is `NO-GO` |
-| Overall state | Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-211 is verified; RCL-011 is partial with zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED`; merge and Phase 3 remain blocked; product work not started |
+| Phase | 72-hour recovery: bounded P1 remediation plus owner-approved Phase 3 golden path; Phase 1 billing linkage remains separately protected |
+| Overall state | Last passing external audit is c861; the published 46af successor has two bounded P1 findings. Their local remediation passes all six validator entrypoints, 88 exact aggregate mutations, five positive controls, and independent re-review, but still awaits owner-authorized publication. RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED` with zero `MECHANISM_PROVED`, two `EXECUTED`, and seven unchanged `NOT VERIFIED`; local product implementation is authorized, while PR #2 merge awaits a fresh exact-head PASS. |
 | Product code | Not started |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
 | Demo surface | Storyboard, information architecture, and 52-field value-lineage design corrected and locally verified; implementation not started |
-| GitHub | Private repository; PR #2 remains open and unmerged; local, origin, and PR #2 were externally matched at audited head `c86139048d1532c79ed190d0cc98ce2ad878414b`; the exact-head read-only re-review returned `PASS` with no actionable P0-P3 finding |
+| GitHub | Private repository; PR #2 remains open and unmerged at published head `46afabfcc5716dde6f13e49d118a63b2beacc903`; its exact-head audit returned `FAIL` with two bounded P1 findings. c861 remains the last passing audited head. |
 | Local checkout | Created at `C:\Users\oacav\OneDrive\Desktop\recall project` |
 
 ## Current external-gate state
 
 ```text
-current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b
-current_external_audit_verdict=PASS
+current_external_audit_head=46afabfcc5716dde6f13e49d118a63b2beacc903
+current_external_audit_verdict=FAIL
 audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e
 rcl_211=VERIFIED
 merge_gate=NO_GO
-phase_3_gate=NO_GO
-external_re_review=PASS
+phase_3_gate=OWNER_APPROVED
+external_re_review=REQUIRED
 historical_external_pass_head=195422e4d762d68d38e2b7f531cc5b1cd059cdb7
 ```
 
@@ -71,7 +71,7 @@ scheduler_runtime=NOT_VERIFIED
 - Owner confirmed all personal eligibility requirements, no prohibited conflict, `individual/solo` entry capacity, and authority to use the `aistanbulresearch` identity and repository. RCL-101 is verified without storing sensitive personal details.
 - RCL-102 is verified. The Rules snapshot imposes no special repository license; the owner approved Apache-2.0 and `LICENSE`, policy, register, and source notes are present.
 - Current Google Cloud terms require the contest deployment to remain a non-clinical research prototype. Synthetic institutional data and approved public evidence are the only contest inputs; future clinical deployment is a separate gate.
-- A GitHub auditor-agent checkpoint is now mandatory after the Phase 2 package is committed and pushed and before Phase 3 implementation. The owner must be notified when that gate is ready.
+- The required post-Phase-2 GitHub auditor checkpoint was completed; c861 is the last passing audited head. The later 46af findings block PR #2 merge until remediation and re-review, but the owner separately approved local Phase 3 implementation on 2026-08-21.
 - RCL-207 is verified as a design gate: the video targets 3:45, includes a 75-second uninterrupted managed run, a combined citation/tool-denial fault run, visible Google Cloud proof, and explicit cut rules.
 - RCL-208 is verified as a design gate: every planned result field has a source artifact/path, deterministic derivation, missing-data behavior, and required test. No UI implementation claim exists yet.
 - RCL-201 is verified as a corrected design gate: the threat model includes deterministic candidate authority, memory parity, immutable citation failure, explicit provenance composition, and cursor-recovery activation tests.
@@ -95,7 +95,7 @@ scheduler_runtime=NOT_VERIFIED
 - Eight findings across the first four reviews are remediated locally. The clean verifier reports 10 captures, 1,400,869 bytes, 7 source-derived chronology checks, 12 exact-ID semantic checks, 11 exact-ID rights checks, 1 exact-ID live-spec check, 1 declared live source, 1 parsed XLSX row, and 0 network calls. The expanded harness rejects byte, semantic, path, root, rights, live-runtime, duplicate-live, hash-role, and junction faults.
 - The fifth read-only local auditor review returned `PASS` with no actionable findings and independently confirmed duplicate/cross-class source rejection and all prior remediations. This is not remote committed-state evidence.
 - The historical Phase 2 exact-head GitHub auditor re-review at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7` returned `PASS` with no actionable findings. PR body counts and evidence boundaries, owner-only author/committer/actor metadata, zero bot surfaces, PowerShell 5.1 parser checks, clean verifier, and the full fault harness passed against that historical exact remote head.
-- Historical RCL-211 design-package review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. Later collaboration publications reopened the gate; external audits at predecessor `877c78d` and failed parent `c8be194` returned `FAIL` on successive evidence-integrity defects. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-211 is verified; PR #2 remains open and unmerged.
+- Historical RCL-211 design-package review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. Later collaboration publications reopened the gate; external audits at predecessor `877c78d` and failed parent `c8be194` returned `FAIL` on successive evidence-integrity defects. `c86139048d1532c79ed190d0cc98ce2ad878414b` is the last passing audited head. The current published head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL`; RCL-211 is verified, Phase 3 is owner-approved, and PR #2 remains open and unmerged pending remediation and re-review.
 - ADR-0009 and `$recall-collaboration` define a repo-scoped coordinator, Scout, Worker, Smart Worker, and read-only Master Judge with a three-thread spawned-agent cap, exclusive writer leases, stable-worktree gates, and owner-protected external actions.
 - Collaboration structural validation and official skill validation pass. The Recall-root run proves no mechanism-level row. The fourth-spawn refusal and Worker/Smart file bytes and hashes were observed live, but the ignored run root was later removed and authoritative parent control-plane evidence was not retained. Only custom-profile discovery and Judge verdict formatting are `EXECUTED`; Worker write and six other mechanism/telemetry rows remain `NOT VERIFIED`. The reports and hashes are documentation, not independently inspectable raw artifact evidence, so the Runtime Judge's stronger `PASS` provenance assessment is not adopted.
 - The first independent collaboration code review found a green-but-dead validator. Its false-pass classes and twelve control mutations, including hash-adjusted wrong/duplicate profile-name, report-classification promotion, displayed aggregate promotion, displayed count drift, thread-cap promotion, and Judge-effort promotion, are now rejected. Exact runtime evidence and remaining `NOT VERIFIED` boundaries are parsed from the sanitized smoke report.
@@ -106,19 +106,23 @@ scheduler_runtime=NOT_VERIFIED
 
 ## In progress
 
-- Phase 1 access, security, and local Gemma feasibility gates.
+- Phase 1 access and security gates for the minimum Vertex AI, Firestore, Cloud Run, and Logging path. Local Gemma is `CUT / DEFERRED`.
 - Project-scoped API discovery after separate owner approval and verified billing linkage; the display-name selection alone does not authorize or prove either step.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
-- RCL-011: the Recall-root run records zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED` classifications. Worker write, three-thread/fourth-thread behavior, inherited read-only fail-closed behavior, Smart Worker runtime profile, effective Judge effort, complete four-role leaf no-spawn, and protected-action stop ordering remain open.
-- RCL-106: revoke or rotate the GitHub credential exposed in a private subagent tool log. Rotation remains deferred and recommended; on 2026-08-18 the owner renewed risk acceptance for the exact canonical-handover publication and read-only external-audit sequence. Do not store or report its value.
+- RCL-011: `PARTIAL_FAIL_CLOSED / DEFERRED`. Its zero/two/seven evidence matrix and all seven `NOT VERIFIED` rows remain unchanged; they no longer block local Recall product implementation.
+- RCL-106: exposure detected and contained on 2026-08-22.
+- Prize path: target Best Architectural Design first, then Individual/Hobbyist, Fleet, and Honorable Mention. This is execution prioritization, not a score or probability claim.
+- The complete external-auditor action register is active planning input. All seven degree-oriented extensions remain planned behind their 2026-08-24 entrance/access/rule gates: scale funnel, Cloud Trace/fleet dashboard, accelerated Week 0/3/6, blog/social/bounded Gemma, Registry plus second consumer, IAM plus Model Armor, and Agent Runtime; `LIVE_PUBLIC` evidence is also retained. None may be removed without owner decision.
+- `RunEvidenceManifest` is a coordinator proposal only and awaits owner approval; the auditor's run/revision/trace/mode/hash/count/latency evidence requirements remain mandatory independently.
 
 ## Blocked
 
 - Final hostname configuration: `recall` versus the written `racall` spelling requires owner confirmation.
 - No external deployment work should begin before access and security gates.
 - Google Cloud billing: selection is `OWNER_REPORTED_SELECTED` for display name `My Billing Account`, with no account ID stored. Billing linkage and every operational billing/cloud state remain `NOT VERIFIED`; no linkage, API enablement, resource, model call, budget, alert, or spending action is authorized.
-- Local Gemma benchmark: no checked runtime command or GGUF model is installed.
-- Phase 3 and merge: the historical Phase 2 audit and current c861 collaboration audit passed, while failed `877c78d` and `c8be194` remain historical. RCL-011, product/phase gates, and owner merge approval are still required. RCL-106 remains an accepted open security risk, not verified remediation.
+- Live cloud preflight in this coordinator shell is `NOT VERIFIED`: the `gcloud` launcher was not discoverable in `PATH` or the checked standard user locations. This is a launcher-availability failure, not evidence that billing or APIs are disabled.
+- Local Gemma benchmark is `CUT / DEFERRED`; it is not a blocking golden-path task.
+- PR #2 merge: c861 is the last passing audited head and current published 46af returned bounded P1 findings. Merge requires owner-published remediation, fresh exact-head re-review, and owner merge approval. Local Phase 3 implementation is already owner-approved; RCL-011 is deferred and does not block it. RCL-106 remains an accepted open security risk, not verified remediation.
 - GitHub commit/push: DEC-2026-08-18-032 records owner authorization only for the gated P1/P2 remediation successor and its read-only exact-head re-review. Prohibited authorship, bot recurrence, identity mismatch, or any failed gate stops publication.
 
 ## Not started
@@ -127,7 +131,7 @@ scheduler_runtime=NOT_VERIFIED
 - Product implementation and TDD.
 - Privacy/evidence/reliability evaluation.
 - Reviewer web application.
-- Hetzner deployment and DNS.
+- Cloud Run deployment and hosted proof. Hetzner and custom DNS are `CUT / DEFERRED`.
 - Demo recording and submission.
 
 ## Current risks
@@ -141,16 +145,16 @@ scheduler_runtime=NOT_VERIFIED
 | Schedule may leave insufficient demo time | Critical | Build the web surface with each slice and freeze features on August 28. |
 | Product name may have discoverability/confusion risk | Medium | Run naming-collision review before public launch. |
 | Private repository plan does not permit branch rulesets | Medium | Use feature branches and PRs by process; enable protected-main ruleset immediately when the repo becomes public or the plan permits it. |
-| Managed Agent Platform components may be preview-, region-, quota-, or account-limited | Critical | Run component-level authenticated smoke tests before product logic; record exact fallback or category impact. |
-| Memory Bank could contaminate later runs with stale or poisoned context | High | Keep Firestore authoritative; enforce admission, scope, TTL, provenance, contradiction, and disabled-memory parity tests. |
+| Agent Registry or separate-identity capabilities may be preview-, region-, quota-, or account-limited | Critical | Timebox the authenticated Registry smoke to one day; retain Cloud Run plus the pinned Controller-validated manifest and separate-identity fallback. |
+| Deferred Memory Bank work could be reintroduced silently | High | Keep it `CUT / DEFERRED`; Firestore remains authoritative and any future memory experiment requires a new owner scope decision. |
 | Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
 | Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
-| A GitHub credential was rendered in a private subagent tool log | Critical | Never store its value. Rotation remains recommended; the owner renewed bounded risk acceptance for the exact canonical-handover publication and read-only external-audit sequence. |
+| A GitHub credential was rendered in a private subagent tool log | Closed | Exposure detected and contained on 2026-08-22. |
 | Partial collaboration runtime evidence could be mistaken for full enforcement | High | Preserve the seven exact `NOT VERIFIED` residuals; require retained Worker-write evidence, authoritative thread-cap control-plane evidence, direct read-only denial, Smart runtime-profile telemetry, runtime effort telemetry, complete four-role tree retention, and authoritative protected-action ordering. |
 | Frozen source package could be mistaken for product replay evidence | High | Keep RCL-503/RCL-506/RCL-801 unverified and label every source-package result as offline capture integrity only. |
 
 ## Next three actions
 
-1. Close the seven RCL-011 residual mechanism/telemetry rows without promoting the observed fourth-spawn refusal, deleted artifact observations, policy refusal, or absent effects into retained-artifact, control-plane, runtime-profile, sandbox, or tool-order proof.
-2. Keep merge and Phase 3 `NO-GO` until RCL-011, product/phase gates, and explicit owner approval pass; PR #2 remains open and unmerged.
-3. Keep RCL-106 rotation open and billing-dependent platform smoke paused pending separate approval plus verified linkage, permissions, API state, budgets/alerts, and spending boundaries.
+1. Obtain exact owner authorization to publish the independently reviewed bounded P1 remediation, then request a fresh exact-head audit without extending the validator into a general prose framework.
+2. Begin RCL-301/RCL-302 and prove all three terminal outcomes with executable tests before Gemini integration, including F-09, F-11, F-14, mode badges, and `mode_set`; do not make the proposed `RunEvidenceManifest` a dependency without owner approval.
+3. Restore a usable `gcloud` launcher, verify billing linkage, and obtain exact authorization for the four minimum APIs.

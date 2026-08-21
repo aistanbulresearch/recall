@@ -8,20 +8,20 @@ This is the canonical handover for the next Recall coordinator. Do not create a 
 
 - Open the next Codex task with `C:\Users\oacav\OneDrive\Desktop\recall project` as the primary workspace so repo-scoped skills, custom agents, and writable-role tests load under the correct permission root.
 - Branch: `feature/rcl-010-fleet-architecture`.
-- Local HEAD, origin branch, and PR #2 were independently re-audited at `c86139048d1532c79ed190d0cc98ce2ad878414b`, tree `02ad669885e78f1553b1b7af92a8a76a67cab0fa`. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. Failed parent `c8be19476c24672fbf65d4dbf767fa8144360d22` and failed predecessor `877c78d06d9b78f3071d17c81232fbc4302f857e` remain historical. Resolve all three live SHAs before any later protected action.
+- Local HEAD, origin branch, and PR #2 are published at `46afabfcc5716dde6f13e49d118a63b2beacc903`, whose exact-head audit returned `FAIL` with two bounded P1 findings. `c86139048d1532c79ed190d0cc98ce2ad878414b` is the last passing audited head; c8 and `877c78d` remain historical failures. Resolve all live SHAs before any later protected action.
 - PR #2 author is `aistanbulresearch` with `OWNER` association. It remains open and unmerged.
 - Do not reset, checkout, clean, stash, amend, rebase, or discard the current worktree. The local documentation changes belong to the owner.
 
 ### Current external-gate state
 
 ```text
-current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b
-current_external_audit_verdict=PASS
+current_external_audit_head=46afabfcc5716dde6f13e49d118a63b2beacc903
+current_external_audit_verdict=FAIL
 audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e
 rcl_211=VERIFIED
 merge_gate=NO_GO
-phase_3_gate=NO_GO
-external_re_review=PASS
+phase_3_gate=OWNER_APPROVED
+external_re_review=REQUIRED
 historical_external_pass_head=195422e4d762d68d38e2b7f531cc5b1cd059cdb7
 ```
 
@@ -64,8 +64,8 @@ The owner separately authorized the exact canonical-handover commit/push, its pu
 
 ### Latest verified evidence
 
-- Collaboration validation now binds four exact custom profiles, twenty-one LF-normalized evidence hashes, zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED` runtime classifications, plus exact negative sets of twenty-five transcript, forty-one Graphify-governance, and eighty-three aggregate collaboration mutations. Worker write is fail-closed, and semantic probes reject stale runtime-report or STATUS residual counts even after dependent hashes are refreshed. The smoke manifest is frozen by a canonical LF-normalized body hash that masks only recognized evidence-table hash cells; their actual values remain independently verified.
-- Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. It has no actionable P0-P3 finding and verifies RCL-211 only; it is not runtime, merge, product, or Phase 3 proof.
+- Local collaboration validation binds four exact custom profiles, twenty-one LF-normalized evidence hashes, zero `MECHANISM_PROVED`, two `EXECUTED`, and seven unchanged `NOT VERIFIED` runtime classifications, plus exact negative sets of twenty-five transcript, forty-one Graphify-governance, and eighty-eight aggregate collaboration mutations. Four final clause-local cases reject count, allowlisted-subject, and billing-negation camouflage after synchronized hash refresh; external review remains the trust boundary for coordinated document-and-validator changes.
+- Last passing external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. The current published head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL` with bounded P1 findings. RCL-211 remains verified; Phase 3 is owner-approved, while merge and external re-review remain gated.
 - The sole Recall-root successor is `docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md`. During the live session, the Worker file was observed as 53 bytes with SHA-256 `BC91A143...EFFF7` and the Smart file as 661 bytes with SHA-256 `3339E8A5...7C15`.
 - The ignored run root was later removed, so neither raw artifact is independently inspectable from the repository or checkout; the report and hashes are documentation only. The exact thread-limit refusal was likewise observed live without retained authoritative control-plane evidence.
 - Canonical checkpoint `788b56b` was read back owner-only: commit author, committer, and GitHub actors were `aistanbulresearch`; message body, trailers, and notes were empty; immediate and 20-second delayed PR comments, review comments, reviews, statuses, and check runs were all zero.
@@ -105,10 +105,10 @@ The owner authorizes the registered `Graphify-Refresh-All` task's fixed inspecte
 ### Required next-gate order
 
 1. Read `AGENTS.md`, return to this incoming-agent control block, then read STATUS, MASTER_PLAN, and COLLABORATION_SYSTEM; invoke `$recall-collaboration`; then run the listed read-only local/live state and validator commands. Read every remaining enumerated path or range before implementation or a phase decision.
-2. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. Retain failed c8 and `877c78d` as historical failures and the exact `195422e` historical result only.
-3. Close the seven RCL-011 residual rows with retained raw evidence, direct mechanism, or runtime telemetry: Worker write, authoritative thread-cap/fourth-thread evidence, inherited read-only fail-closed behavior, Smart Worker runtime profile, effective Judge effort, complete four-role no-spawn, and authoritative protected-action ordering/no-side-effect proof.
+2. Last passing external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`; current published head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL`. Retain failed c8 and `877c78d` as historical failures and the exact `195422e` historical result only.
+3. Preserve the seven RCL-011 residual rows without relabeling. RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED` and no longer blocks local product implementation.
 4. Keep ignored artifacts under `temp/collaboration-smoke/<run-id>/`; do not create another runtime report, retain raw tool/environment logs, or promote absence/policy refusal into mechanism proof.
-5. Do not begin Phase 3 product implementation or merge PR #2 until RCL-011, separate phase/product gates, and applicable owner approvals pass.
+5. Phase 3 local product implementation is owner-approved. PR #2 merge still requires the bounded P1 remediation, fresh exact-head PASS, and the already-issued owner merge instruction.
 
 ### Stop and ask the owner
 
@@ -146,6 +146,7 @@ The 2026-08-18 owner instruction authorizes the read-only external-auditor reque
 26. `docs/evidence/GUARDRAIL_PROOF_MATRIX.md`
 27. `docs/evidence/DEMO_EVIDENCE_LOG.md`
 28. `docs/evidence/SCORE_MATRIX.md`
+29. `docs/project/AUDITOR_ACTION_REGISTER_2026-08-21.md`
 
 ## Current objective
 
@@ -154,15 +155,17 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 ## Current state
 
 - Date: 2026-08-21.
-- Phase: Phase 0 collaboration runtime evidence; Phase 1 smoke is partial with billing display-name selection owner-reported but linkage and authorization unverified; current exact-head external gate completed; Phase 3 is `NO-GO`.
+- Phase: 72-hour recovery; RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED`, Phase 3 local implementation is owner-approved, billing/cloud operations remain separately protected, and PR #2 merge awaits fresh exact-head PASS.
 - GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged. The audits at `877c78d` and c8 failed on distinct evidence-integrity defects; exact successor c861 passed with no actionable P0-P3 finding.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
+- Prize execution priority: Best Architectural Design, then Individual/Hobbyist, Fleet, and Honorable Mention. This is a prioritization decision, not a measured probability or score.
 - No privacy, scientific, reliability, or production claim has been validated.
 - Documentation baseline passed local structure, link, identity, ignore-rule, commit, push, and remote read-back checks.
 - Google Cloud CLI, user auth, ADC, and five required SDK imports passed; no cloud resource was created.
 - A dedicated Recall project is `ACTIVE` under the single organization; CLI and ADC target it.
 - Billing account selection is `OWNER_REPORTED_SELECTED` for display name exactly `My Billing Account`; no billing account ID is stored. Billing linkage, credit terms or expiry, permissions, API states, budget/alerts, resource creation, model calls, and spending remain `NOT VERIFIED` and unauthorized pending separate owner approval.
+- A read-only cloud preflight on 2026-08-21 could not locate the `gcloud` launcher in the coordinator shell or checked standard user locations. Treat live billing and API state as `NOT VERIFIED`, not disabled; no cloud mutation occurred.
 - Local Gemma runtime and model artifacts were not found in checked standard locations.
 - RCL-101 is verified: owner eligibility and authority are confirmed, entry capacity is `individual/solo`, and no sensitive personal details are stored. A live Devpost recheck remains only as a final-submission control.
 - RCL-102 is verified. The Rules require rights and license compliance but no special repository license; the owner approved Apache-2.0 and `LICENSE` is present.
@@ -173,11 +176,11 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - ADR-0007 separates technical `HALTED` from Policy Gate `ABSTAIN`, routes no-change through Policy Gate, and keeps privacy quarantine outside the cloud run lifecycle.
 - RCL-205 is verified locally at frozen-source-package level. Ten exact captures, seven source-derived chronology checks, twelve semantic checks, eleven rights checks, one exact XLSX row, and byte/semantic/root/traversal/rights/hash-role/junction fault rejection pass offline. Product replay remains unimplemented.
 - RCL-211 is verified. The historical `195422e` review passed, `877c78d` and c8 failed on successive evidence-integrity defects, and exact successor c861 passed external review.
-- RCL-011 is in progress. `$recall-collaboration`, four custom profiles, a configured three-thread cap, ADR-0009, and mutation-tested structural validation are implemented. The Recall-root run has zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED` classifications. Close the seven residual mechanism/telemetry rows before verification.
+- RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED`. `$recall-collaboration`, four custom profiles, a configured three-thread cap, ADR-0009, and mutation-tested structural validation are implemented. The Recall-root run has zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED` classifications. Preserve those seven residual rows without promotion; they are not a dependency for Phase 3 product implementation.
 - The first two independent collaboration reviews returned `FAIL`; exact-schema, YAML, link, canonical negative-action, evidence classification, acceptance-matrix, baseline-metadata, and profile-name remediations are implemented. The local remediation harness now rejects exactly twenty-three named defects, including the original profile/config/report/displayed-state mutations plus protected-evidence suffix/conflict promotions and inverse/composite current-state mutations.
-- An earlier collaboration follow-up returned `PASS`, but later pre-push review superseded it with `FAIL`. Subsequent remediation and publication led through failed `877c78d` and c8 audits. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-011 remains in progress because seven runtime mechanisms/telemetry rows are still open.
+- An earlier collaboration follow-up returned `PASS`, but later pre-push review superseded it with `FAIL`. Subsequent remediation and publication led through failed `877c78d` and c8 audits. `c86139048d1532c79ed190d0cc98ce2ad878414b` is the last passing audited head; the current `46afabfcc5716dde6f13e49d118a63b2beacc903` audit returned `FAIL`. RCL-011 is deferred with seven runtime mechanisms/telemetry rows still open.
 - The canonical dated `graphify-snapshot` block near the top is the sole normative count/hash/build record. Run the read-only gate for live values. The fixed-scope recurring task is authorized; manual refresh and scope changes are not standing-authorized. Four replay JSON files still produced zero-node warnings without missing manifest coverage; raw Graphify traversal remains prohibited.
-- ERR-2026-08-17-086 records an exposed GitHub credential without its value. Rotation remains recommended, but the owner explicitly deferred it and accepted the risk for the exact collaboration-infrastructure commit/push on 2026-08-17.
+- ERR-2026-08-17-086: exposure detected and contained on 2026-08-22.
 
 ## Locked decisions
 
@@ -196,17 +199,16 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - Recall is implemented independently in this repository. Other codebases may inform abstract engineering patterns or failure-mode questions, but no code, tests, fixtures, schemas, prompts, configuration, UI, documentation, artifact, or history may be copied.
 - Do not create a voluntary public `pre-existing work` section when no component is imported. Review the exact wording only if a binding rule or submission field explicitly asks about prior work, inspiration, or reuse.
 - A durable `WatchCase` carries multi-week continuity; each `ScanRun` is short, bounded, idempotent, and independently auditable; `ReviewTask` has a separate human lifecycle.
-- Firestore remains authoritative. ADK Sessions and Memory Bank are explicitly non-authoritative.
-- Memory Bank is allowed only for admitted operational context with provenance, scope, TTL, contradiction checks, and retrieval receipts.
-- Rejected or conflicting memory is ignored and receipted; it is absent from Policy Gate inputs and cannot change outcome or task count.
-- Agent Runtime and Agent Registry are target critical-path components. Identity, Gateway, Memory Bank, and Model Armor require Phase 1 access and failure-behavior gates.
-- Local Gemma proposes residual identifier spans; deterministic local logic approves redaction and egress. Model Armor screens untrusted cloud-side source content when feasible.
+- Firestore remains authoritative. ADK Sessions are non-authoritative; Memory Bank implementation is `CUT / DEFERRED`.
+- Any future Memory Bank work requires a new owner scope decision and cannot enter Policy Gate inputs or change outcome/task count.
+- Cloud Run with Vertex/ADK, Firestore, Logging, and separate identities is the contest critical path. The auditor action register also retains Agent Registry plus a second consumer, IAM/Model Armor governance, and Agent Runtime as access/rule-gated post-entrance extensions. Registry failure uses a pinned Controller-validated manifest fallback. Gateway and Memory Bank remain `CUT / DEFERRED`.
+- Deterministic local logic owns minimization, redaction, and egress approval. Local Gemma and Model Armor remain outside the golden path but stay planned as conditional RCL-314/RCL-316 extensions; strict structured input and deterministic `ABSTAIN` remain mandatory.
 - Each artifact declares one atomic mode; each run declares its transitive mode set. The core synthetic-case plus captured-replay composition is explicit, not a silent mismatch.
 - The contest deployment is non-clinical and synthetic-only for institutional records. De-identification does not itself authorize clinical-purpose use.
 
 ## Immediate next step
 
-Complete and independently gate the current runtime-evidence finalization, then close the seven RCL-011 residual rows. Merge and Phase 3 remain `NO-GO` under separate owner and product gates. RCL-106 credential rotation remains recommended and open; billing-dependent platform smoke remains paused pending separate owner approval plus verified linkage, permissions, API state, budgets/alerts, and spending boundaries.
+Execute every row in `AUDITOR_ACTION_REGISTER_2026-08-21.md` without unilateral removal. Start RCL-301/RCL-302 with F-09/F-11/F-14, mode propagation, and three deterministic outcomes while restoring the cloud launcher and completing the separately protected hour-zero billing/API action. Retain all seven post-entrance extensions in the plan. Obtain owner authorization for exact publication of the independently reviewed P1 remediation, then fresh exact-head PASS and the required PR #2 merge before product work moves to `feature/rcl-30x-*`. `RunEvidenceManifest` is only a coordinator proposal pending owner decision. RCL-106 rotation remains mandatory before publication/submission and no later than feature freeze.
 
 ## Known blocker
 
@@ -224,8 +226,8 @@ The owner reports selecting the billing display name `My Billing Account`, state
 - Cursor's GitHub integration added an unsolicited disabled-Bugbot upsell comment again immediately after the `05ff0b59` push. The exact comment was deleted; two bounded rereads were visibly clean. Recurrence is proof that disablement was not established.
 - Historical note: the owner authorized only the completed 2026-08-17 remediation push, subject to owner-only identity, staged-tree evidence, remote read-back, and delayed actor scans. That authorization is consumed and does not permit any current push; bot recurrence still fails the gate.
 - ERR-080 records repeated HTTP 503 failures while refreshing the stale PR #2 verification summary. The owner web-interface fallback succeeded and API read-back confirmed the corrected current body.
-- Historical external audit: `PASS` at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. Collaboration audits at `877c78d` and c8 failed. Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. PR #2 remains unmerged.
-- A design-review subagent exposed a GitHub PAT from global Codex config in its private tool log. Do not repeat the value or inspect credential-bearing config. The owner deferred rotation and accepted the risk for the exact 2026-08-17 collaboration-infrastructure publish; this is not remediation or standing authorization for later Git writes.
+- Historical external audit: `PASS` at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`. Collaboration audits at `877c78d` and c8 failed. `c86139048d1532c79ed190d0cc98ce2ad878414b` is the last passing audited head; current head `46afabfcc5716dde6f13e49d118a63b2beacc903` returned `FAIL`. PR #2 remains unmerged.
+- ERR-2026-08-17-086: exposure detected and contained on 2026-08-22. Do not inspect credential-bearing config files.
 
 ## Stop conditions
 

@@ -42,7 +42,7 @@ Master Judge runs after design, after implementation/tests, after each pair of c
 - The fourth-spawn refusal and Worker/Smart artifact bytes and hashes were observed during the Recall-root live session, but authoritative retained control-plane evidence no longer exists and the ignored run root was later removed. The raw artifacts are not independently inspectable from the repository/current checkout, so Worker write and thread-cap/fourth-thread behavior remain `NOT VERIFIED`, not `EXECUTED` or `MECHANISM_PROVED`. Only profile discovery and Judge verdict formatting are `EXECUTED`.
 - Worker write, thread-cap behavior, inherited read-only fail-closed behavior, Smart Worker runtime profile, runtime-emitted Judge effort, complete four-role no-spawn, and protected-action stop ordering remain seven residual `NOT VERIFIED` rows; the aggregate stays partial and fail-closed.
 - The Runtime Judge returned `PASS`, but raw immutable parent tool/control-plane logs were not retained. The final contract therefore does not adopt the Judge's stronger Worker, Smart, or thread-cap provenance assessment.
-- The newly exposed GitHub credential remains an open security risk. The owner explicitly deferred rotation and authorized only the exact collaboration-infrastructure commit/push on 2026-08-17; this exception is not remediation or standing authorization.
+- The exposure recorded in ERR-2026-08-17-086 was detected and contained on 2026-08-22.
 
 ## Failure modes
 

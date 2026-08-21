@@ -14,6 +14,7 @@ from verify_recall_collaboration import (
     HASHED_EVIDENCE_PATHS,
     ROOT,
     validate,
+    validate_bounded_claim_prohibitions,
     validate_current_state_contract,
 )
 from verify_graphify_governance import NORMATIVE_DOCUMENT_SHA256
@@ -74,6 +75,11 @@ EXPECTED_MUTATION_REJECTIONS = (
     "runtime_residual_count_stale_five_hash_refresh",
     "runtime_worker_write_mechanism_promotion",
     "status_residual_count_stale_six_hash_refresh",
+    "master_plan_billing_promotion_hash_refresh",
+    "mechanism_zero_clause_camouflage_hash_refresh",
+    "executed_two_clause_camouflage_hash_refresh",
+    "executed_allowed_subject_camouflage_hash_refresh",
+    "billing_negation_clause_camouflage_hash_refresh",
 )
 
 
@@ -578,8 +584,8 @@ def main() -> None:
         write_text(
             target,
             source.replace(
-                "current_external_audit_verdict=PASS",
                 "current_external_audit_verdict=FAIL",
+                "current_external_audit_verdict=PASS",
             ),
         )
 
@@ -587,7 +593,7 @@ def main() -> None:
         expect_rejection(
             "current_state_inverse_machine_value",
             invert_current_state_required_fact,
-            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict:FAIL:PASS",
+            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict:PASS:FAIL",
         )
     )
 
@@ -624,8 +630,8 @@ def main() -> None:
         ),
         (
             "current_state_predecessor_reordered",
-            "current_external_audit_verdict=PASS\naudited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
-            "audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e\ncurrent_external_audit_verdict=PASS",
+            "current_external_audit_verdict=FAIL\naudited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
+            "audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e\ncurrent_external_audit_verdict=FAIL",
             "current_state_block_format_mismatch",
         ),
         (
@@ -636,7 +642,7 @@ def main() -> None:
         ),
         (
             "current_predecessor_head_confusion",
-            "current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b",
+            "current_external_audit_head=46afabfcc5716dde6f13e49d118a63b2beacc903",
             "current_external_audit_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
             "current_state_value_mismatch",
         ),
@@ -881,9 +887,9 @@ def main() -> None:
         ),
         (
             "displayed_positive_control_drift",
-            "positive_controls=lf_normalized_utf8_crlf_portability,current_c861_pass,failed_c8_and_877,historical_195_pass",
+            "positive_controls=lf_normalized_utf8_crlf_portability,current_46_fail_last_passing_c861,failed_c8_and_877,historical_195_pass,explicit_owner_api_authorization",
             "positive_controls=none",
-            "smoke_summary_classification_mismatch:positive_controls:none:lf_normalized_utf8_crlf_portability,current_c861_pass,failed_c8_and_877,historical_195_pass",
+            "smoke_summary_classification_mismatch:positive_controls:none:lf_normalized_utf8_crlf_portability,current_46_fail_last_passing_c861,failed_c8_and_877,historical_195_pass,explicit_owner_api_authorization",
         ),
     )
     for label, old, new, error in displayed_contract_mutations:
@@ -973,8 +979,8 @@ def main() -> None:
         expect_rejection(
             "current_c861_head_reverted",
             mutate_state_block(
+                "current_external_audit_head=46afabfcc5716dde6f13e49d118a63b2beacc903",
                 "current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b",
-                "current_external_audit_head=c8be19476c24672fbf65d4dbf767fa8144360d22",
             ),
             "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_head",
         )
@@ -983,8 +989,8 @@ def main() -> None:
         expect_rejection(
             "current_c861_pass_reverted",
             mutate_state_block(
-                "current_external_audit_verdict=PASS",
                 "current_external_audit_verdict=FAIL",
+                "current_external_audit_verdict=PASS",
             ),
             "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict",
         )
@@ -993,10 +999,10 @@ def main() -> None:
         expect_rejection(
             "displayed_aggregate_mutation_count_drift",
             replace_report_text(
-                "aggregate_collaboration_mutation_rejections=83",
-                "aggregate_collaboration_mutation_rejections=82",
+                "aggregate_collaboration_mutation_rejections=88",
+                "aggregate_collaboration_mutation_rejections=87",
             ),
-            "smoke_summary_classification_mismatch:aggregate_collaboration_mutation_rejections:82:83",
+            "smoke_summary_classification_mismatch:aggregate_collaboration_mutation_rejections:87:88",
         )
     )
     rejected.append(
@@ -1038,6 +1044,15 @@ def main() -> None:
 
         return mutate
 
+    def append_claim_and_refresh_all(
+        relative_path: str, line: str
+    ) -> Callable[[Path], None]:
+        def mutate(root: Path) -> None:
+            append_claim_and_refresh(relative_path, line)(root)
+            refresh_claim_document_hash(root, relative_path)
+
+        return mutate
+
     rejected.append(
         expect_rejection(
             "runtime_report_failed_head_pass_hash_refresh",
@@ -1049,21 +1064,14 @@ def main() -> None:
         )
     )
 
-    def promote_runtime_residual_and_refresh(root: Path) -> None:
-        target = root / report_relative_path
-        old = "Those seven residual rows remain fail-closed `NOT VERIFIED`."
-        new = "Those seven residual rows are now `EXECUTED`."
-        source = target.read_text(encoding="utf-8")
-        if source.count(old) != 1:
-            raise AssertionError(f"runtime_residual_target_count:{source.count(old)}")
-        write_text(target, source.replace(old, new))
-        refresh_evidence_hash(root, report_relative_path)
-
     rejected.append(
         expect_rejection(
             "runtime_residual_promotion_hash_refresh",
-            promote_runtime_residual_and_refresh,
-            f"claim_document_hash_mismatch:{report_relative_path}",
+            append_claim_and_refresh_all(
+                report_relative_path,
+                "Deleted Worker evidence is durable, retained, and MECHANISM_PROVED.",
+            ),
+            f"bounded_claim_overreach:MECHANISM_PROVED:{report_relative_path}",
         )
     )
 
@@ -1071,11 +1079,11 @@ def main() -> None:
     rejected.append(
         expect_rejection(
             "collaboration_residual_promotion_hash_refresh",
-            append_claim_and_refresh(
+            append_claim_and_refresh_all(
                 collaboration_path,
                 "The inherited read-only fail-closed mechanism is now EXECUTED.",
             ),
-            f"claim_document_hash_mismatch:{collaboration_path}",
+            f"bounded_claim_overreach:EXECUTED:{collaboration_path}",
         )
     )
 
@@ -1087,7 +1095,7 @@ def main() -> None:
                 adr0009_path,
                 "The Smart Worker runtime profile is now EXECUTED.",
             ),
-            f"claim_document_hash_mismatch:{adr0009_path}",
+            f"bounded_claim_overreach:EXECUTED:{adr0009_path}",
         )
     )
 
@@ -1116,7 +1124,6 @@ def main() -> None:
             f"claim_document_hash_mismatch:{master_plan_path}",
         )
     )
-
     smoke_manifest_path = (
         "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
     )
@@ -1195,8 +1202,8 @@ def main() -> None:
     def drift_smoke_narrative_counts(root: Path) -> None:
         target = root / smoke_manifest_path
         source = target.read_text(encoding="utf-8")
-        old = "the updated 21 hashes and 83-mutation collaboration results"
-        new = "the updated 22 hashes and 84-mutation collaboration results"
+        old = "the updated 21 hashes and 88-mutation collaboration results"
+        new = "the updated 22 hashes and 89-mutation collaboration results"
         if source.count(old) != 1:
             raise AssertionError(f"narrative_count_target_count:{source.count(old)}")
         write_text(target, source.replace(old, new))
@@ -1301,6 +1308,58 @@ def main() -> None:
         )
     )
 
+    rejected.append(
+        expect_rejection(
+            "master_plan_billing_promotion_hash_refresh",
+            append_claim_and_refresh_all(
+                master_plan_path,
+                "Billing linkage, permissions, APIs, budgets, resources, model calls, and spending are verified.",
+            ),
+            f"bounded_claim_overreach:BILLING_CLOUD:{master_plan_path}",
+        )
+    )
+
+    bounded_camouflage_probes = (
+        (
+            "mechanism_zero_clause_camouflage_hash_refresh",
+            "0 MECHANISM_PROVED. Worker write is durable and MECHANISM_PROVED.",
+            "MECHANISM_PROVED",
+        ),
+        (
+            "executed_two_clause_camouflage_hash_refresh",
+            "2 EXECUTED. Worker write is now EXECUTED.",
+            "EXECUTED",
+        ),
+        (
+            "executed_allowed_subject_camouflage_hash_refresh",
+            "Worker write is now EXECUTED; verdict formatting is documented.",
+            "EXECUTED",
+        ),
+        (
+            "billing_negation_clause_camouflage_hash_refresh",
+            "Billing linkage is NOT VERIFIED. Billing linkage and APIs are verified.",
+            "BILLING_CLOUD",
+        ),
+    )
+    for label, claim, category in bounded_camouflage_probes:
+        rejected.append(
+            expect_rejection(
+                label,
+                append_claim_and_refresh_all(master_plan_path, claim),
+                f"bounded_claim_overreach:{category}:{master_plan_path}",
+            )
+        )
+
+    with isolated_root() as directory:
+        root = Path(directory)
+        target = root / master_plan_path
+        write_text(
+            target,
+            target.read_text(encoding="utf-8")
+            + "\nAPIs are enabled under explicit owner approval.\n",
+        )
+        validate_bounded_claim_prohibitions(root)
+
     if tuple(rejected) != EXPECTED_MUTATION_REJECTIONS:
         raise AssertionError(f"mutation_label_set:{rejected}")
 
@@ -1311,9 +1370,10 @@ def main() -> None:
                 "mutation_rejections": rejected,
                 "positive_controls": [
                     "lf_normalized_utf8_crlf_portability",
-                    "current_c861_pass",
+                    "current_46_fail_last_passing_c861",
                     "failed_c8_and_877",
                     "historical_195_pass",
+                    "explicit_owner_api_authorization",
                 ],
             },
             indent=2,

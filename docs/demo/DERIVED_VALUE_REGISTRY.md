@@ -82,6 +82,7 @@ Raw input, original spans, and token mappings are never available to the public 
 | UI-ROUTE-STATUS | Route | `RoutingPlan $.validation_status` and Registry validation receipt | Exact validation result | `INCOMPLETE`; invocation blocked |
 | UI-TOOL-DENIAL | Blocked action | `ToolAuthorizationReceipt $.decision` | Render only `DENIED` receipt with tool, role, and reason code | Hide panel if no denial; never fabricate a pass |
 | UI-LOOP-HOPS | Hop count | `FailureReceipt $.details.hop_count` | Exact integer only for loop-related receipt | Hide when not applicable; `UNKNOWN` if required receipt malformed |
+| UI-FAILURE-CODE | Failure code | `FailureReceipt $.failure_code` | Render the exact registered failure code; never infer failure from a missing receipt | Hide only when the authoritative run has no failure receipt; malformed or missing required receipt is `INCOMPLETE` |
 
 ## Evidence and citation fields
 
