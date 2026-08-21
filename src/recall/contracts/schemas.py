@@ -1,0 +1,255 @@
+from __future__ import annotations
+
+from typing import Any
+
+from .payloads import (
+    parse_assessment_receipt_payload,
+    parse_candidate_delta_payload,
+    parse_citation_audit_payload,
+    parse_data_mode_payload,
+    parse_evidence_snapshot_payload,
+    parse_failure_payload,
+    parse_policy_decision_payload,
+    parse_privacy_receipt_payload,
+    parse_registry_resolution_payload,
+    parse_review_task_payload,
+    parse_scan_run_event_payload,
+    parse_scan_run_payload,
+    parse_tool_authorization_payload,
+    parse_watch_case_payload,
+)
+
+
+SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
+    "PrivacyReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "decision",
+                "detector_versions",
+                "identifier_classes_checked",
+                "detectors",
+                "outbound",
+                "payload_hash",
+                "signature_ref",
+            }
+        ),
+        parse_privacy_receipt_payload,
+        True,
+    ),
+    "RegistryResolutionReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "requested_capabilities",
+                "bindings",
+                "validation_status",
+                "reason_codes",
+            }
+        ),
+        parse_registry_resolution_payload,
+        True,
+    ),
+    "ToolAuthorizationReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "agent_role",
+                "tool_id",
+                "requested_action",
+                "decision",
+                "policy_version",
+                "reason_codes",
+                "invocation_id",
+            }
+        ),
+        parse_tool_authorization_payload,
+        True,
+    ),
+    "DataModeReceipt": (
+        "2.0.0",
+        frozenset(
+            {
+                "subject_artifact_ids",
+                "mode_set",
+                "declared_composition",
+                "propagation_status",
+                "reason_codes",
+            }
+        ),
+        parse_data_mode_payload,
+        False,
+    ),
+    "FailureReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "failure_code",
+                "stage",
+                "retryable",
+                "attempt",
+                "budget_state",
+                "details",
+                "related_artifact_ids",
+                "safe_terminal",
+                "operator_action",
+            }
+        ),
+        parse_failure_payload,
+        True,
+    ),
+    "PolicyDecision": (
+        "2.0.0",
+        frozenset(
+            {
+                "policy_version",
+                "input_facts",
+                "outcome",
+                "reason_codes",
+                "missing_prerequisites",
+                "review_trigger",
+                "existing_task_id",
+            }
+        ),
+        parse_policy_decision_payload,
+        True,
+    ),
+    "ScanRun": (
+        "1.0.0",
+        frozenset(
+            {
+                "watch_case_id",
+                "state",
+                "scheduled_for",
+                "attempt",
+                "lease_epoch",
+                "deadline_at",
+                "budget_snapshot",
+                "idempotency_key",
+                "trace_id",
+                "terminal_policy_decision_id",
+                "failure_receipt_ids",
+            }
+        ),
+        parse_scan_run_payload,
+        True,
+    ),
+    "ReviewTask": (
+        "1.0.0",
+        frozenset(
+            {
+                "watch_case_id",
+                "trigger_decision_id",
+                "state",
+                "priority_band",
+                "claim_ids",
+                "audit_receipt_id",
+                "simulation",
+                "deduplication_key",
+            }
+        ),
+        parse_review_task_payload,
+        True,
+    ),
+    "ScanRunEvent": (
+        "1.0.0",
+        frozenset(
+            {
+                "event_id",
+                "sequence",
+                "from_state",
+                "to_state",
+                "event_code",
+                "agent_id",
+                "lease_epoch",
+            }
+        ),
+        parse_scan_run_event_payload,
+        True,
+    ),
+    "WatchCase": (
+        "2.0.0",
+        frozenset(
+            {
+                "tenant_id",
+                "region",
+                "state",
+                "monitoring_started_at",
+                "monitoring_policy",
+                "next_scan_at",
+                "source_cursors",
+                "last_verified_snapshot_id",
+                "last_verified_scan",
+                "pending_observation_hashes",
+                "attention_marker",
+                "open_review_task_id",
+                "retention_policy",
+            }
+        ),
+        parse_watch_case_payload,
+        False,
+    ),
+    "EvidenceSnapshot": (
+        "1.0.0",
+        frozenset(
+            {
+                "effective_at",
+                "observation_ids",
+                "coverage_status",
+                "source_cursors",
+                "normalized_facts",
+                "conflicts",
+                "snapshot_hash",
+            }
+        ),
+        parse_evidence_snapshot_payload,
+        True,
+    ),
+    "CandidateDeltaReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "previous_snapshot_id",
+                "current_snapshot_id",
+                "exact_allele_match",
+                "scope_match",
+                "snapshot_complete",
+                "new_observation_hashes",
+                "candidate_delta_state",
+                "reason_codes",
+            }
+        ),
+        parse_candidate_delta_payload,
+        True,
+    ),
+    "AssessmentReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "delta_id",
+                "material_claims",
+                "counter_evidence_set",
+                "uncertainty_codes",
+                "schema_validation_status",
+            }
+        ),
+        parse_assessment_receipt_payload,
+        True,
+    ),
+    "CitationAuditReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "assessment_id",
+                "audit_status",
+                "claim_verdicts",
+                "metadata_refetches",
+                "counter_evidence_coverage",
+                "audit_completeness",
+                "rejected_claim_ids",
+            }
+        ),
+        parse_citation_audit_payload,
+        True,
+    ),
+}

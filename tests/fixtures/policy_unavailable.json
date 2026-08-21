@@ -1,0 +1,10 @@
+{
+  "fixture_id": "policy-unavailable-001",
+  "mode_set": ["CAPTURED_REPLAY", "SYNTHETIC"],
+  "candidate_delta_state": "ABSENT",
+  "tool_decision": "ALLOWED",
+  "citation_verdict": null,
+  "policy_available": false,
+  "source_cursors": {"synthetic-source": "cursor-004"},
+  "schedule_epoch": "2026-08-22T06:03:00Z"
+}
