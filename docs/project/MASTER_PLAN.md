@@ -5,7 +5,7 @@
 | Field | Value |
 |---|---|
 | Owner | aistanbulresearch |
-| Status | Latest exact-head collaboration re-review `FAIL` at `c8be194`; second transcript-integrity and Graphify-governance remediation passes local and independent staged-tree code review, with stable-tree Master Judge and publication still pending; PR #2 unmerged; RCL-211 and collaboration runtime gate in progress; GitHub credential rotation deferred under renewed bounded risk acceptance; billing selection blocked |
+| Status | Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. RCL-211 verified; PR #2 open and unmerged; RCL-011 partial with seven residual rows; merge and Phase 3 `NO-GO`; product not started; GitHub credential rotation remains open; billing display-name selection is owner-reported but linkage and operations remain unverified |
 | Baseline date | 2026-08-14 |
 | Architecture baseline | Product baseline ADR-0001 through ADR-0008; collaboration process ADR-0009 |
 | Contest deadline | 2026-08-31 17:00 PT, corresponding to 2026-09-01 03:00 Europe/Istanbul |
@@ -20,13 +20,13 @@ This is a living plan. Any change to scope, sequencing, dates, acceptance gates,
 ## Current external-gate state
 
 ```text
-current_external_audit_head=c8be19476c24672fbf65d4dbf767fa8144360d22
-current_external_audit_verdict=FAIL
+current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b
+current_external_audit_verdict=PASS
 audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e
-rcl_211=IN_PROGRESS
+rcl_211=VERIFIED
 merge_gate=NO_GO
 phase_3_gate=NO_GO
-external_re_review=REQUIRED
+external_re_review=PASS
 historical_external_pass_head=195422e4d762d68d38e2b7f531cc5b1cd059cdb7
 ```
 
@@ -139,7 +139,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-008 | Bind Recall to a local Obsidian project memory | verified | Local binding and canonical project notes verified; machine paths excluded from Git |
 | RCL-009 | Commit and push documentation-only baseline as aistanbulresearch | verified | Remote SHA `5336432a3e353261813443f41a217388b68d585d`; GitHub author and committer both `aistanbulresearch`; no co-author trailers |
 | RCL-010 | Review and approve the Fleet architecture direction | verified | Owner approval; updated target architecture and accepted ADR-0001 through ADR-0005 |
-| RCL-011 | Establish repo-scoped Codex coordinator, custom subagents, Master Judge, and external-auditor cadence | in-progress | Structural validation passes; nested runtime observations are `REPORT_DERIVED`; the complete Recall-root per-profile, permission, effort, protected-action, and concurrency matrix remains |
+| RCL-011 | Establish repo-scoped Codex coordinator, custom subagents, Master Judge, and external-auditor cadence | in-progress, partial fail-closed runtime | Recall-root run has zero `MECHANISM_PROVED`, two `EXECUTED`, and seven `NOT VERIFIED`; ignored Worker/Smart files were removed after the initial gate, so close retained Worker-write evidence, authoritative thread-cap evidence, read-only denial, Smart profile telemetry, effective Judge effort, complete four-role no-spawn, and protected-action ordering |
 
 **Phase gate:** another contributor can answer what, why, where, current status, next task, known errors, and proof requirements from repository documents alone.
 
@@ -150,8 +150,8 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-101 | Re-read binding rules and freeze an eligibility checklist | verified | Hash-pinned checklist, owner eligibility attestation, `individual/solo` entry capacity, and repository authority recorded; live Devpost recheck remains a final-submission control |
 | RCL-102 | Decide license and third-party dependency policy | verified | Rules impose no special repo license; owner approved Apache-2.0; policy, register, source notes, and `LICENSE` are present |
 | RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
-| RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor, region, quota, and billing | blocked | Dedicated project, local CLI/SDK/auth passed; billing account selection blocks project-scoped smoke |
-| RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await billing linkage |
+| RCL-104 | Verify Vertex model, ADK, Agent Runtime, Registry, Memory Bank, Agent Identity, Agent Gateway, Model Armor, region, quota, and billing | blocked | Owner reports selection `OWNER_REPORTED_SELECTED` for display name `My Billing Account`; no ID is stored, and linkage, credit terms/expiry, permissions, APIs, budgets/alerts, model calls, and spending remain `NOT VERIFIED` and unauthorized |
+| RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await separate owner approval plus verified billing linkage and permissions; no resource creation is authorized |
 | RCL-106 | Rotate known exposed credentials and run repository/history secret scans | in-progress, owner-deferred risk | ERR-2026-08-17-086 records the credential incident without its value. Rotation remains recommended; DEC-2026-08-18-031 records renewed bounded owner authorization for the canonical-handover publication and read-only external audit. |
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | blocked | No checked local runtime command or GGUF model is installed; select/install artifacts before benchmark |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | blocked | Owner confirms `recall` or `racall` before external mutation |
@@ -174,7 +174,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
 | RCL-209 | Freeze Firestore, ADK Sessions, and Memory Bank authority and retention contracts | in-progress | ADR-0002 accepted; schemas, IAM conditions, poisoning fixtures, and unavailable-service behavior remain |
 | RCL-210 | Freeze managed Registry, Runtime, Identity, Gateway, Model Armor, and observability failure contracts | in-progress | ADR-0003 and ADR-0004 accepted; Phase 1 access evidence and threat-model mapping remain |
-| RCL-211 | Package Phase 2 and material collaboration successors for exact-head external review | in-progress, second external remediation | Historical review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; the audit at `877c78d` failed on validator coverage/current-state consistency and its remediation successor `c8be194` failed on transcript integrity/stale Graphify wording; second remediation and a new exact-head `PASS` are required |
+| RCL-211 | Package Phase 2 and material collaboration successors for exact-head external review | verified | Historical review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; `877c78d` and c8 failed on distinct evidence-integrity defects; exact c861 successor passed with no actionable P0-P3 finding |
 
 **Phase gate:** contracts, failure behavior, expected evidence direction, and demo moments are clear enough to write tests without inventing behavior during implementation. F-01 through F-08 must be resolved, the replay package must verify offline, and follow-up audit must pass before Phase 3 begins.
 
@@ -341,4 +341,4 @@ Recall is submission-ready only when:
 
 ## 10. Current next action
 
-The second exact-head external collaboration re-review at `c8be19476c24672fbf65d4dbf767fa8144360d22` returned `FAIL` on transcript integrity and stale Graphify wording; `877c78d` remains the audited predecessor, not the current checkout. Complete the approved exact-transcript and Graphify-governance remediation, independent code review, stable-tree Master Judge, exact staged-tree and owner-identity gates, then publish one owner-only successor with exact remote read-back and request the authorized read-only external re-review against that SHA. Merge and Phase 3 remain `NO-GO`; every Recall-root RCL-011 runtime row and billing-dependent platform smoke remain pending.
+Current external audit: `PASS` at `c86139048d1532c79ed190d0cc98ce2ad878414b`. The failed c8 parent and failed `877c78d` predecessor remain historical and are not relabeled. RCL-211 is verified. Close the seven exact RCL-011 residual mechanism/telemetry rows; the deleted ignored artifacts leave Worker write and Smart runtime identity without current raw evidence. Billing display-name selection is `OWNER_REPORTED_SELECTED`, but platform smoke remains paused pending separate owner approval and verified linkage, credit terms/expiry, permissions, API state, budgets/alerts, resource boundaries, model-call scope, and spending controls. Do not begin product implementation, merge, or Phase 3 without their separate gates and owner approval.

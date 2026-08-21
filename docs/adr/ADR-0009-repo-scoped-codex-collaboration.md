@@ -1,6 +1,6 @@
 # ADR-0009: Repo-scoped Codex collaboration system
 
-- Status: accepted; structural verification passes; runtime profile discovery is `REPORT_DERIVED`, not runtime-verified; Recall-root runtime smoke pending
+- Status: accepted; structural verification passes; Recall-root runtime smoke is partial with zero `MECHANISM_PROVED`, two `EXECUTED`, and seven residual `NOT VERIFIED` rows
 - Date: 2026-08-17
 - Owners: aistanbulresearch
 - Related tasks: RCL-011, RCL-106, RCL-211, RCL-301 through RCL-907
@@ -39,6 +39,9 @@ Master Judge runs after design, after implementation/tests, after each pair of c
 - Read-only TOML defaults require a functional permission-denial smoke because parent permissions may be reapplied.
 - Current-session structural checks do not prove fresh-session discovery or runtime permission enforcement.
 - A nested session from another repository cannot prove Worker write behavior because parent permissions correctly override the profile default.
+- The fourth-spawn refusal and Worker/Smart artifact bytes and hashes were observed during the Recall-root live session, but authoritative retained control-plane evidence no longer exists and the ignored run root was later removed. The raw artifacts are not independently inspectable from the repository/current checkout, so Worker write and thread-cap/fourth-thread behavior remain `NOT VERIFIED`, not `EXECUTED` or `MECHANISM_PROVED`. Only profile discovery and Judge verdict formatting are `EXECUTED`.
+- Worker write, thread-cap behavior, inherited read-only fail-closed behavior, Smart Worker runtime profile, runtime-emitted Judge effort, complete four-role no-spawn, and protected-action stop ordering remain seven residual `NOT VERIFIED` rows; the aggregate stays partial and fail-closed.
+- The Runtime Judge returned `PASS`, but raw immutable parent tool/control-plane logs were not retained. The final contract therefore does not adopt the Judge's stronger Worker, Smart, or thread-cap provenance assessment.
 - The newly exposed GitHub credential remains an open security risk. The owner explicitly deferred rotation and authorized only the exact collaboration-infrastructure commit/push on 2026-08-17; this exception is not remediation or standing authorization.
 
 ## Failure modes
@@ -55,8 +58,8 @@ Master Judge runs after design, after implementation/tests, after each pair of c
 - Skill initializer output and repository diff.
 - Skill frontmatter and `openai.yaml` validation.
 - Python `tomllib` assertions for config and four profiles.
-- Parsed smoke-report classifications plus ADR, status, and handoff runtime-boundary assertions.
-- Codex feature discovery plus fresh-session role/permission smoke.
+- Parsed exact successor-report classifications plus ADR, status, handoff, and collaboration runtime-boundary assertions.
+- Recall-root role/artifact/concurrency smoke at `rcl011-20260820T204231Z-bf5d6641`, with exact limits in `docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md`.
 - Independent design and post-implementation review.
 - Work and error ledger entries without secret values.
 

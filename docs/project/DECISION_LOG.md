@@ -258,3 +258,20 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Manual and change boundary: Manual/ad-hoc refresh never inherits the recurring authorization. Any cadence, source-root, supported-file-class, destination, backend/model/profile, token-budget, logging, principal, or privilege change requires new explicit owner approval. This decision authorizes no Graphify refresh in the current task and is not runtime proof that the scheduler or failure controls executed.
 - Publication boundary: After local implementation, independent code review, full validation, and stable-tree Master Judge `PASS`, this decision authorizes one owner-only Conventional Commit and push of the exact second-remediation scope, immediate and 20-second remote read-back, and one separate read-only external re-review against that exact successor SHA. It does not authorize merge, Phase 3, PR-body/comment/review writes, cloud, billing, destructive action, credential change, or later publication.
 - Evidence: Owner instruction dated 2026-08-20; exact external task/turn above; read-only Graphify artifact and Task Scheduler evidence recorded in WORK-2026-08-20-009.
+
+## DEC-2026-08-21-034: Record owner-reported billing display-name selection without operational authorization
+
+- Status: `OWNER_REPORTED_SELECTED`; operational verification and authorization remain open
+- Decision: The owner reports selecting the billing display name exactly `My Billing Account`. Store only that display name and state; do not store or infer a billing account ID.
+- Evidence boundary: This is an owner report, not a live billing read-back. Billing linkage, credit terms or expiry, permissions, API states, budgets or alerts, resource creation, model calls, and spending remain `NOT VERIFIED`.
+- Authorization boundary: The report does not authorize billing linkage, API enablement, budget or alert changes, resource creation, model invocation, spending, cloud mutation, or any other protected action. Each requires separate explicit owner approval after the relevant state is verified.
+- Consequence: Billing selection is no longer described as awaiting an owner choice, but RCL-104/RCL-105 and billing-dependent platform smoke remain blocked on verified linkage, permissions, operational controls, and separate approval.
+- Evidence: Owner-reported selection supplied to the coordinator on 2026-08-21; no cloud or billing call was made and no billing account ID was accessed or retained.
+
+## DEC-2026-08-21-035: Fail closed when ignored runtime artifacts are no longer inspectable
+
+- Status: accepted evidence-portability correction; RCL-011 remains `IN_PROGRESS`
+- Decision: A documented byte count or hash does not remain current executable evidence after its ignored raw artifact has been removed and no immutable parent control-plane record is retained. Preserve the live observation historically, but classify the affected Worker-write and Smart-profile claims as `NOT VERIFIED` in current truth.
+- Evidence boundary: During run `rcl011-20260820T204231Z-bf5d6641`, Worker and Smart files were observed, byte-counted, and hashed. The ignored run root was later removed after the initial gate and is absent from the current checkout. Repository reports and hashes are documentation only; they cannot independently reproduce the raw files or their creating runtime identity/tool path.
+- Consequence: Only custom-profile discovery and Master Judge verdict formatting remain `EXECUTED`. Worker write plus the prior six residual mechanism/telemetry rows remain seven `NOT VERIFIED` rows; current totals are zero/two/seven and RCL-011 remains partial fail-closed.
+- Authorization boundary: This decision changes evidence classification only. It does not authorize recreation of artifacts, raw-trace retention, a new runtime probe, Git/GitHub publication, cloud/billing action, Graphify refresh, merge, or Phase 3.

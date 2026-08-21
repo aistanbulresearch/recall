@@ -58,6 +58,27 @@ HASHED_EVIDENCE_PATHS = {
     "scripts/validation/verify_graphify_governance.py",
     "scripts/validation/test_graphify_governance.py",
     "docs/project/COLLABORATION_SYSTEM.md",
+    "docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md",
+    "docs/adr/ADR-0008-external-audit-corrections.md",
+    "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md",
+    "docs/project/MASTER_PLAN.md",
+}
+CLAIM_DOCUMENT_SHA256 = {
+    "docs/adr/ADR-0008-external-audit-corrections.md": (
+        "9AAF3B1CAC749027FF6D582DAC5C176FF225317DEA4B8DF6057389387E84DE17"
+    ),
+    "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md": (
+        "C324A8F8E43D9EA88F136D5EAE7496D27E719D8272C5F9FFDEC25AB24EE1C589"
+    ),
+    "docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md": (
+        "6F1516C0FF42E0A0ABF7AD3369A30CB4CFE61D67AECF9B90CA250C58C74B058D"
+    ),
+    "docs/project/COLLABORATION_SYSTEM.md": (
+        "2A5E3B37C0CB6A747E6B61ACC38DC1B186900E04E0F1FC513AB0951CD6BBA53E"
+    ),
+    "docs/project/MASTER_PLAN.md": (
+        "E84FEDA9B56AE42A32BCE45776A425C5BA225A308FA1C82350A0D4BB4802F9BC"
+    ),
 }
 EXPECTED_STANDALONE_MUTATIONS = {
     "scripts/validation/test_external_audit_transcript.py": (
@@ -101,13 +122,22 @@ EXPECTED_STANDALONE_MUTATIONS = {
         "handoff_unrelated_line_hash_fallback",
     ),
 }
-SMOKE_REPORT_PATH = (
+EVIDENCE_MANIFEST_REPORT_PATH = (
     "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
 )
-REQUIRED_SMOKE_CLASSIFICATIONS = {
-    "Custom profile discovery": "REPORT_DERIVED",
-    "Inherited read-only fail-closed behavior": "REPORT_DERIVED",
-    "Master Judge exact failure behavior": "REPORT_DERIVED",
+SMOKE_MANIFEST_CANONICAL_SHA256 = (
+    "729657A5903031168677F7C7BD52B24247218230153E2BD7216A1BC58E0E9DA6"
+)
+EVIDENCE_TABLE_HEADING = (
+    "## LF-normalized UTF-8 evidence hashes at successor validator checkpoint"
+)
+RUNTIME_REPORT_PATH = (
+    "docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md"
+)
+REQUIRED_RUNTIME_CLASSIFICATIONS = {
+    "Custom profile discovery": "EXECUTED",
+    "Inherited read-only fail-closed behavior": "NOT VERIFIED",
+    "Master Judge verdict formatting": "EXECUTED",
     "Worker write in a Recall-root workspace": "NOT VERIFIED",
     "Smart Worker runtime profile": "NOT VERIFIED",
     "Effective Judge reasoning effort": "NOT VERIFIED",
@@ -117,25 +147,28 @@ REQUIRED_SMOKE_CLASSIFICATIONS = {
 }
 RUNTIME_BOUNDARY_REQUIREMENTS = {
     "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md": (
-        "`REPORT_DERIVED`",
-        "not runtime-verified",
-        "Recall-root runtime smoke pending",
+        "zero `MECHANISM_PROVED`",
+        "`EXECUTED`",
+        "seven residual",
     ),
     "docs/project/STATUS.md": (
         "RCL-011:",
-        "`REPORT_DERIVED`",
-        "Every Recall-root matrix row remains",
+        "zero `MECHANISM_PROVED`",
+        "seven `NOT VERIFIED`",
     ),
     "docs/project/HANDOFF.md": (
         "RCL-011 is in progress",
-        "`REPORT_DERIVED`",
-        "Every Recall-root row in `COLLABORATION_SYSTEM.md` must pass before verification",
+        "2026-08-18--rcl-011-recall-root-runtime.md",
+        "seven residual",
     ),
     "docs/project/COLLABORATION_SYSTEM.md": (
         "No row is considered runtime-verified from configuration alone",
+        "2026-08-18--rcl-011-recall-root-runtime.md",
     ),
 }
 COLLABORATION_RUNTIME_CLASSIFICATIONS = {
+    "Worker write in a Recall-root workspace": "NOT VERIFIED",
+    "Three-thread cap and fourth-thread behavior": "NOT VERIFIED",
     "Complete four-role leaf no-spawn": "NOT VERIFIED",
     "Protected owner-operation stop and no protected side effect": "NOT VERIFIED",
 }
@@ -146,13 +179,14 @@ CURRENT_STATE_PATHS = (
     "docs/project/MASTER_PLAN.md",
     "docs/project/HANDOFF.md",
 )
-FAILED_AUDIT_HEAD = "c8be19476c24672fbf65d4dbf767fa8144360d22"
+CURRENT_AUDIT_HEAD = "c86139048d1532c79ed190d0cc98ce2ad878414b"
+FAILED_PARENT_HEAD = "c8be19476c24672fbf65d4dbf767fa8144360d22"
 AUDITED_PREDECESSOR_HEAD = "877c78d06d9b78f3071d17c81232fbc4302f857e"
 HISTORICAL_PASS_HEAD = "195422e4d762d68d38e2b7f531cc5b1cd059cdb7"
 FAILED_AUDIT_HEAD_REFERENCES = (
-    FAILED_AUDIT_HEAD,
-    FAILED_AUDIT_HEAD[:8],
-    FAILED_AUDIT_HEAD[:7],
+    FAILED_PARENT_HEAD,
+    FAILED_PARENT_HEAD[:8],
+    FAILED_PARENT_HEAD[:7],
 )
 AUDITED_PREDECESSOR_HEAD_REFERENCES = (
     AUDITED_PREDECESSOR_HEAD,
@@ -166,13 +200,13 @@ AUDITED_PREDECESSOR_HEAD_PATTERN = "|".join(
     re.escape(reference) for reference in AUDITED_PREDECESSOR_HEAD_REFERENCES
 )
 CURRENT_STATE_EXPECTED = {
-    "current_external_audit_head": FAILED_AUDIT_HEAD,
-    "current_external_audit_verdict": "FAIL",
+    "current_external_audit_head": CURRENT_AUDIT_HEAD,
+    "current_external_audit_verdict": "PASS",
     "audited_predecessor_head": AUDITED_PREDECESSOR_HEAD,
-    "rcl_211": "IN_PROGRESS",
+    "rcl_211": "VERIFIED",
     "merge_gate": "NO_GO",
     "phase_3_gate": "NO_GO",
-    "external_re_review": "REQUIRED",
+    "external_re_review": "PASS",
     "historical_external_pass_head": HISTORICAL_PASS_HEAD,
 }
 STALE_CURRENT_PASS_PATTERNS = (
@@ -204,6 +238,11 @@ HISTORICAL_PASS_CLAIM_PATTERNS = (
     re.compile(
         rf"(?i)\b(?:historical|prior|earlier) external audit\s*:\s*`?PASS`?"
         rf"\s+at\s+`?{HISTORICAL_PASS_HEAD}`?\b"
+    ),
+)
+CURRENT_PASS_CLAIM_PATTERNS = (
+    re.compile(
+        rf"(?i)\bcurrent external audit\s*:\s*`?PASS`?\s+at\s+`?{CURRENT_AUDIT_HEAD}`?\b"
     ),
 )
 
@@ -286,7 +325,7 @@ def validate_markdown_links(markdown: str, source: Path, allowed_root: Path) -> 
 
 
 def validate_evidence_hashes(root: Path) -> int:
-    report_path = root / SMOKE_REPORT_PATH
+    report_path = root / EVIDENCE_MANIFEST_REPORT_PATH
     report = read_text(report_path, root)
     tick = chr(96)
     rows: dict[str, str] = {}
@@ -306,6 +345,156 @@ def validate_evidence_hashes(root: Path) -> int:
         actual_hash = hashlib.sha256(lf_normalized_utf8_bytes(target)).hexdigest().upper()
         require(actual_hash == expected_hash, f"evidence_hash_mismatch:{relative_path}")
     return len(rows)
+
+
+def canonical_smoke_manifest_bytes(root: Path) -> bytes:
+    report_path = root / EVIDENCE_MANIFEST_REPORT_PATH
+    normalized = lf_normalized_utf8_bytes(report_path).decode("utf-8")
+    lines = normalized.split("\n")
+    heading_indexes = [
+        index for index, line in enumerate(lines) if line == EVIDENCE_TABLE_HEADING
+    ]
+    require(
+        len(heading_indexes) == 1,
+        f"evidence_table_heading_count:{len(heading_indexes)}",
+    )
+    heading_index = heading_indexes[0]
+    require(
+        lines[heading_index + 1 : heading_index + 4]
+        == ["", "| Path | SHA-256 |", "|---|---|"],
+        "evidence_table_header_invalid",
+    )
+    row_pattern = re.compile(r"\| `([^`]+)` \| `([0-9A-F]{64})` \|")
+    row_index = heading_index + 4
+    rows: list[tuple[str, str]] = []
+    while row_index < len(lines) and lines[row_index]:
+        match = row_pattern.fullmatch(lines[row_index])
+        require(match is not None, f"evidence_table_row_invalid:{row_index + 1}")
+        rows.append(match.groups())
+        lines[row_index] = (
+            f"| `{match.group(1)}` | `{'0' * 64}` |"
+        )
+        row_index += 1
+    require(row_index < len(lines), "evidence_table_unterminated")
+    require(
+        len(rows) == len(HASHED_EVIDENCE_PATHS),
+        f"evidence_table_row_count:{len(rows)}",
+    )
+    paths = [path.replace("\\", "/") for path, _ in rows]
+    require(len(paths) == len(set(paths)), "evidence_table_path_duplicate")
+    require(
+        set(paths) == HASHED_EVIDENCE_PATHS,
+        f"evidence_table_path_set_invalid:{sorted(paths)}",
+    )
+    return "\n".join(lines).encode("utf-8")
+
+
+def validate_smoke_manifest_canonical_body(root: Path) -> str:
+    actual_hash = hashlib.sha256(canonical_smoke_manifest_bytes(root)).hexdigest().upper()
+    require(
+        actual_hash == SMOKE_MANIFEST_CANONICAL_SHA256,
+        "smoke_manifest_canonical_hash_mismatch",
+    )
+    return actual_hash
+
+
+def validate_claim_document_hashes(root: Path) -> int:
+    for relative_path, expected_hash in CLAIM_DOCUMENT_SHA256.items():
+        target = root / relative_path
+        require(target.is_file(), f"claim_document_missing:{relative_path}")
+        actual_hash = hashlib.sha256(lf_normalized_utf8_bytes(target)).hexdigest().upper()
+        require(
+            actual_hash == expected_hash,
+            f"claim_document_hash_mismatch:{relative_path}",
+        )
+    return len(CLAIM_DOCUMENT_SHA256)
+
+
+def parse_collaboration_mutation_labels(root: Path) -> tuple[str, ...]:
+    relative_path = "scripts/validation/test_recall_collaboration_validator.py"
+    tree = ast.parse(read_text(root / relative_path, root), filename=relative_path)
+    candidates = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if isinstance(target, ast.Name) and target.id == "EXPECTED_MUTATION_REJECTIONS":
+            candidates.append(ast.literal_eval(node.value))
+    require(len(candidates) == 1, f"collaboration_mutation_tuple_count:{len(candidates)}")
+    labels = candidates[0]
+    require(isinstance(labels, tuple), "collaboration_mutation_tuple_invalid")
+    require(
+        all(isinstance(label, str) and label for label in labels),
+        "collaboration_mutation_label_invalid",
+    )
+    require(len(labels) == len(set(labels)), "collaboration_mutation_label_duplicate")
+    return labels
+
+
+def validate_smoke_manifest_summary(root: Path) -> dict[str, str]:
+    report = read_text(root / EVIDENCE_MANIFEST_REPORT_PATH, root)
+    matches = re.findall(
+        r"(?ms)^Sanitized structural-manifest results:\r?\n\r?\n"
+        r"```text\r?\n(.*?)\r?\n```(?=\r?\n|$)",
+        report,
+    )
+    require(len(matches) == 1, f"manifest_summary_block_count:{len(matches)}")
+    mutation_labels = parse_collaboration_mutation_labels(root)
+    require(len(mutation_labels) == 83, f"collaboration_mutation_count:{len(mutation_labels)}")
+    expected = {
+        "validator status": "PASS",
+        "validation_scope": "STRUCTURAL_PLUS_BOUNDED_RUNTIME_EVIDENCE",
+        "profiles": "4",
+        "evidence_hashes_verified": "21",
+        "evidence_hash_mode": "LF_NORMALIZED_UTF8",
+        "thread_cap_configured": "3",
+        "profile_names": (
+            "recall-scout,recall-worker,recall-smart-worker,recall-master-judge"
+        ),
+        "aggregate_collaboration_mutation_rejections": "83",
+        "mutation_rejections": ",".join(mutation_labels),
+        "external_audit_transcript": (
+            "PASS; artifact integrity only; live Codex equivalence NOT_VERIFIED"
+        ),
+        "external_transcript_mutation_rejections": "25",
+        "graphify_governance": (
+            "PASS; portable repository policy/snapshot gate only; "
+            "scheduler runtime NOT_VERIFIED"
+        ),
+        "graphify_governance_mutation_rejections": "41",
+        "positive_controls": (
+            "lf_normalized_utf8_crlf_portability,current_c861_pass,"
+            "failed_c8_and_877,historical_195_pass"
+        ),
+    }
+    parsed: dict[str, str] = {}
+    non_field_lines: list[str] = []
+    for line in matches[0].splitlines():
+        if "=" not in line:
+            non_field_lines.append(line)
+            continue
+        key, value = line.split("=", 1)
+        require(key in expected, f"manifest_summary_unknown_key:{key}")
+        require(key not in parsed, f"manifest_summary_duplicate_key:{key}")
+        parsed[key] = value
+    missing = sorted(set(expected) - set(parsed))
+    require(not missing, f"manifest_summary_missing_keys:{missing}")
+    require(
+        non_field_lines
+        == [
+            "Skill is valid!",
+            "multi_agent stable true",
+            "git diff --check: exit 0, no output",
+        ],
+        f"manifest_summary_non_field_lines_mismatch:{non_field_lines}",
+    )
+    for key, expected_value in expected.items():
+        actual = parsed[key]
+        require(
+            actual == expected_value,
+            f"manifest_summary_value_mismatch:{key}:{actual}:{expected_value}",
+        )
+    return parsed
 
 
 def validate_standalone_mutation_contracts(root: Path) -> None:
@@ -429,46 +618,141 @@ def parse_exact_markdown_classifications(
 
 
 def parse_runtime_classifications(report: str) -> dict[str, str]:
-    exact = parse_exact_markdown_classifications(
+    blocks = re.findall(
+        r"(?ms)^## Validator-bound runtime classifications\r?\n\r?\n"
+        r"(.*?)\r?\n\r?\nSanitized validator-bound results:$",
         report,
-        PROTECTED_SMOKE_CLASSIFICATIONS,
-        "smoke",
+    )
+    require(
+        len(blocks) == 1,
+        f"smoke_classification_block_count:{len(blocks)}",
     )
     classifications: dict[str, str] = {}
-    for label, expected in REQUIRED_SMOKE_CLASSIFICATIONS.items():
-        if label in PROTECTED_SMOKE_CLASSIFICATIONS:
-            classifications[label] = exact[label]
-            continue
-        pattern = re.compile(rf"(?m)^- {re.escape(label)}: `([^`]+)`")
-        matches = pattern.findall(report)
+    for line_number, line in enumerate(blocks[0].splitlines(), start=1):
+        candidate_label = line.removeprefix("- ").split(":", 1)[0]
+        match = re.fullmatch(r"- ([^:\r\n]+): `([^`]+)`\.", line)
         require(
-            len(matches) == 1,
-            f"smoke_classification_count:{label}:{len(matches)}",
+            match is not None,
+            f"smoke_classification_line_invalid:{candidate_label}:{line_number}",
         )
-        actual = matches[0]
+        label, actual = match.groups()
+        require(
+            label in REQUIRED_RUNTIME_CLASSIFICATIONS,
+            f"smoke_classification_unknown_label:{label}",
+        )
+        require(
+            label not in classifications,
+            f"smoke_classification_duplicate_label:{label}",
+        )
+        expected = REQUIRED_RUNTIME_CLASSIFICATIONS[label]
         require(
             actual == expected,
             f"smoke_classification_mismatch:{label}:{actual}:{expected}",
         )
         classifications[label] = actual
-    return classifications
+    missing = sorted(set(REQUIRED_RUNTIME_CLASSIFICATIONS) - set(classifications))
+    require(not missing, f"smoke_classification_missing_labels:{missing}")
+    return {
+        label: classifications[label] for label in REQUIRED_RUNTIME_CLASSIFICATIONS
+    }
+
+
+def validate_runtime_residual_count(
+    report: str,
+    classifications: dict[str, str],
+) -> int:
+    matches = re.findall(
+        r"(?m)^3\. The final Design Judge returned `PASS` .* "
+        r"the final contract conservatively retains "
+        r"(zero|one|two|three|four|five|six|seven|eight|nine) "
+        r"`NOT VERIFIED` rows\.$",
+        report,
+    )
+    require(
+        len(matches) == 1,
+        f"runtime_residual_count_claim_count:{len(matches)}",
+    )
+    number_words = {
+        "zero": 0,
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+    }
+    actual_word = matches[0]
+    actual_count = number_words[actual_word]
+    expected_count = sum(
+        classification == "NOT VERIFIED"
+        for classification in classifications.values()
+    )
+    require(
+        actual_count == expected_count,
+        f"runtime_residual_count_mismatch:{actual_word}:{actual_count}:{expected_count}",
+    )
+    return actual_count
+
+
+def validate_status_residual_count(
+    root: Path,
+    classifications: dict[str, str],
+) -> int:
+    status = read_text(root / "docs" / "project" / "STATUS.md", root)
+    matches = re.findall(
+        r"(?m)^\| Partial collaboration runtime evidence could be mistaken for full "
+        r"enforcement \| High \| Preserve the "
+        r"(zero|one|two|three|four|five|six|seven|eight|nine) exact "
+        r"`NOT VERIFIED` residuals; require .* \|$",
+        status,
+    )
+    require(
+        len(matches) == 1,
+        f"status_residual_count_claim_count:{len(matches)}",
+    )
+    number_words = {
+        "zero": 0,
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+    }
+    actual_word = matches[0]
+    actual_count = number_words[actual_word]
+    expected_count = sum(
+        classification == "NOT VERIFIED"
+        for classification in classifications.values()
+    )
+    require(
+        actual_count == expected_count,
+        f"status_residual_count_mismatch:{actual_word}:{actual_count}:{expected_count}",
+    )
+    return actual_count
 
 
 def derive_functional_smoke(classifications: dict[str, str]) -> str:
     normalized = {value.replace(" ", "_") for value in classifications.values()}
     require(bool(normalized), "smoke_classifications_empty")
-    parts: list[str] = []
-    if "REPORT_DERIVED" in normalized:
-        parts.append("REPORT_DERIVED")
-    if "NOT_VERIFIED" in normalized:
-        parts.extend(("PARTIAL", "FAIL_CLOSED"))
-    require(parts, f"smoke_classifications_unsupported:{sorted(normalized)}")
-    return "_".join(parts)
+    supported = {"MECHANISM_PROVED", "EXECUTED", "NOT_VERIFIED"}
+    require(
+        normalized <= supported,
+        f"smoke_classifications_unsupported:{sorted(normalized)}",
+    )
+    require("NOT_VERIFIED" in normalized, "smoke_fail_closed_boundary_missing")
+    return "PARTIAL_FAIL_CLOSED"
 
 
 def parse_sanitized_results_block(report: str) -> str:
     pattern = re.compile(
-        r"(?ms)^Sanitized report-derived results:\r?\n\r?\n```text\r?\n(.*?)\r?\n```(?=\r?\n|$)"
+        r"(?ms)^Sanitized validator-bound results:\r?\n\r?\n```text\r?\n(.*?)\r?\n```(?=\r?\n|$)"
     )
     matches = pattern.findall(report)
     require(len(matches) == 1, f"smoke_summary_block_count:{len(matches)}")
@@ -481,22 +765,28 @@ def validate_displayed_smoke_summary(
     functional_smoke: str,
 ) -> dict[str, str]:
     block = parse_sanitized_results_block(report)
-    report_derived_count = sum(
-        value == "REPORT_DERIVED" for value in classifications.values()
+    mechanism_proved_count = sum(
+        value == "MECHANISM_PROVED" for value in classifications.values()
     )
+    executed_count = sum(value == "EXECUTED" for value in classifications.values())
     not_verified_count = sum(
         value == "NOT VERIFIED" for value in classifications.values()
     )
     expected_counts = (
-        f"{report_derived_count} REPORT_DERIVED,"
+        f"{mechanism_proved_count} MECHANISM_PROVED,"
+        f"{executed_count} EXECUTED,"
         f"{not_verified_count} NOT VERIFIED"
     )
     expected_summary = {
-        "evidence_hashes_verified": "17",
+        "evidence_hashes_verified": "21",
         "evidence_hash_mode": "LF_NORMALIZED_UTF8",
         "external_transcript_mutation_rejections": "25",
         "graphify_governance_mutation_rejections": "41",
-        "positive_controls": "lf_normalized_utf8_crlf_portability",
+        "aggregate_collaboration_mutation_rejections": "83",
+        "positive_controls": (
+            "lf_normalized_utf8_crlf_portability,current_c861_pass,"
+            "failed_c8_and_877,historical_195_pass"
+        ),
         "functional_smoke": functional_smoke,
         "runtime_evidence_classifications": expected_counts,
         "thread_cap_runtime": classifications[
@@ -627,7 +917,7 @@ def validate_current_state_contract(root: Path) -> None:
         )
         for line in document.splitlines():
             unmatched = line
-            for pattern in HISTORICAL_PASS_CLAIM_PATTERNS:
+            for pattern in CURRENT_PASS_CLAIM_PATTERNS + HISTORICAL_PASS_CLAIM_PATTERNS:
                 unmatched = pattern.sub("", unmatched)
             require(
                 not any(
@@ -719,8 +1009,10 @@ def validate(root: Path = ROOT) -> dict[str, object]:
         re.search(r"(?im)^\s*(co-authored-by|generated-by):", all_text) is None,
         "prohibited_authorship_marker",
     )
-    report = read_text(root / SMOKE_REPORT_PATH, root)
+    report = read_text(root / RUNTIME_REPORT_PATH, root)
     runtime_classifications = parse_runtime_classifications(report)
+    validate_runtime_residual_count(report, runtime_classifications)
+    validate_status_residual_count(root, runtime_classifications)
     functional_smoke = derive_functional_smoke(runtime_classifications)
     displayed_smoke_summary = validate_displayed_smoke_summary(
         report, runtime_classifications, functional_smoke
@@ -728,16 +1020,20 @@ def validate(root: Path = ROOT) -> dict[str, object]:
     validate_runtime_boundary_docs(root)
     validate_current_state_contract(root)
     validate_standalone_mutation_contracts(root)
+    manifest_summary = validate_smoke_manifest_summary(root)
+    smoke_manifest_canonical_hash = validate_smoke_manifest_canonical_body(root)
+    claim_documents = validate_claim_document_hashes(root)
     transcript_result = validate_external_audit_transcript(root)
     graphify_result = validate_graphify_governance(root)
     evidence_hashes = validate_evidence_hashes(root)
 
     return {
         "status": "PASS",
-        "validation_scope": "STRUCTURAL",
+        "validation_scope": "STRUCTURAL_PLUS_BOUNDED_RUNTIME_EVIDENCE",
         "profiles": len(profiles),
         "resolved_skill_links": links,
         "evidence_hashes_verified": evidence_hashes,
+        "claim_documents_verified": claim_documents,
         "evidence_hash_mode": "LF_NORMALIZED_UTF8",
         "external_audit_transcript": transcript_result["status"],
         "graphify_governance": graphify_result["status"],
@@ -755,6 +1051,8 @@ def validate(root: Path = ROOT) -> dict[str, object]:
         ),
         "runtime_evidence_classifications": runtime_classifications,
         "displayed_smoke_summary": displayed_smoke_summary,
+        "displayed_manifest_summary": manifest_summary,
+        "smoke_manifest_canonical_sha256": smoke_manifest_canonical_hash,
         "functional_smoke": functional_smoke,
     }
 

@@ -112,7 +112,7 @@ Append-only. Log errors even when a retry succeeds.
 ## Open errors
 
 - ERR-2026-08-14-008 remains externally constrained.
-- ERR-2026-08-15-020 awaits the owner's billing-account selection.
+- ERR-2026-08-15-020 no longer awaits a display-name choice: DEC-2026-08-21-034 records `OWNER_REPORTED_SELECTED` for `My Billing Account`. Billing linkage, credit terms/expiry, permissions, API state, budgets/alerts, resource creation, model calls, and spending remain `NOT VERIFIED` and unauthorized.
 - ERR-2026-08-17-042 through ERR-2026-08-17-049 are accepted external-audit findings and block the gates stated in each entry.
 - ERR-2026-08-16-040 recurred after a later push; no further push is permitted until the owner confirms the Cursor integration is disabled for Recall.
 - The hostname spelling issue is a pending decision, not an execution error.
@@ -1511,3 +1511,207 @@ Post-correction independent staged-tree review returned `PASS`: all seven-, eigh
 | Resolution | Record the failed gate, remove the premature approval phrase, freeze final STATUS/HANDOFF wording, regenerate both LF-normalized hashes, refresh dependent evidence hashes, and rerun the complete staged-tree/review/Judge sequence. |
 | Verification | Exact 25/41/50 staged-tree execution, independent code review, and a fresh stable-tree Master Judge `PASS` are required. |
 | Status | Open; publication blocked |
+
+## ERR-2026-08-21-124: Initial runtime remote snapshot serialized empty arrays as null entries
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 protected-action before/after observation |
+| Severity | Medium |
+| Observed | The first read-only remote snapshot at `2026-08-20T20:47:34Z` rendered empty collections as `[null]`, which was ambiguous evidence. |
+| Impact | The snapshot could not reliably distinguish no remote objects from one null placeholder. |
+| Resolution | Filter null values before serialization and discard the defective snapshot from the authoritative comparison. |
+| Verification | Corrected baseline `2026-08-20T20:48:07.9897344Z` and after snapshot `2026-08-20T20:55:34.0216047Z` both contain exact empty arrays for all listed GitHub surfaces. |
+| Status | Resolved; ordering of child protected-action tools remains `NOT VERIFIED` |
+
+## ERR-2026-08-21-125: Runtime design reviews exposed incomplete evidence scope
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 runtime evidence design gate |
+| Severity | High |
+| Observed | The first Design Judge returned `FAIL` on six evidence/provenance omissions. The second returned `FAIL` because parent-visible evidence cannot project authoritative child tool-event history. |
+| Impact | The initial design would have overclaimed read-only enforcement, complete no-spawn, or protected-action ordering. |
+| Resolution | Narrow the report to sanitized finals, coordinator artifact oracles, parent-visible agent trees, and before/after observations; retain four exact residual rows as `NOT VERIFIED`. |
+| Verification | Final Design Judge returned `PASS` on the honest partial-evidence scope; the validator binds two `MECHANISM_PROVED`, three `EXECUTED`, and four `NOT VERIFIED`. |
+| Status | Resolved at design level; four runtime residuals remain open |
+
+## ERR-2026-08-21-126: Runtime Judge used an invalid first PowerShell byte-read expression
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 independent runtime artifact review |
+| Severity | Low |
+| Observed | The Judge's first array-path byte-read expression was invalid and produced no artifact result. |
+| Impact | The first attempt could not reproduce either byte/hash oracle. |
+| Resolution | Correct the path expression without writing any file and rerun both reads. |
+| Verification | Judge reproduced 53/661 bytes, both exact SHA-256 values, valid JSON, absent denial files, and clean tracked/index state at `2026-08-20T20:54:09Z`. |
+| Status | Resolved |
+
+## ERR-2026-08-21-127: Finalizer tree probe omitted quoting around the revision expression
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 finalizer preflight |
+| Severity | Low |
+| Observed | An unquoted PowerShell `git rev-parse HEAD^{tree}` probe was parsed incorrectly and Git rejected an encoded token. |
+| Impact | The first probe did not return the tree identifier. No repository state changed. |
+| Resolution | Quote the revision expression as `git rev-parse 'HEAD^{tree}'`. |
+| Verification | Corrected probe returned `02ad669885e78f1553b1b7af92a8a76a67cab0fa`. |
+| Status | Resolved |
+
+## ERR-2026-08-21-128: Preliminary evidence-hash command escaped newline literals incorrectly
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 evidence-manifest hash stabilization |
+| Severity | Low |
+| Observed | A preliminary one-line Python command hashed several CRLF working-tree files without applying the intended LF normalization because its newline literals were over-escaped. The next validator run failed on the first affected row. |
+| Impact | The provisional evidence table was internally inconsistent and could not pass the fail-closed validator. |
+| Resolution | Recompute all 18 rows through the validator's canonical `lf_normalized_utf8_bytes` helper and replace the provisional values. |
+| Verification | Clean validator reports 18 verified hashes; all six entrypoints and the CRLF portability controls pass. |
+| Status | Resolved |
+
+## ERR-2026-08-21-129: Successor report showed an unavailable hashing API
+
+| Field | Value |
+|---|---|
+| Task | Coordinator evidence-integrity review of the RCL-011 successor report |
+| Severity | Medium |
+| Observed | The report's coordinator-probe sample used static `SHA256.HashData` plus `Convert.ToHexString`, although that API pattern was unavailable and was not the command used for the retained artifact oracles. |
+| Impact | The evidence wording did not faithfully reproduce the executed hash mechanism even though the recorded bytes and hashes were correct. |
+| Resolution | Replace the sample with the executed `SHA256.Create().ComputeHash` and `BitConverter.ToString(...).Replace('-', '')` pattern while retaining strict UTF-8, BOM, LF, and CR checks. |
+| Verification | Recompute the successor-report LF-normalized manifest hash and rerun all six validators, skill validation, six-file compilation, and `git diff --check`. |
+| Status | Resolved before independent review |
+
+## ERR-2026-08-21-130: Independent review found overclaimed runtime provenance and hash-refresh bypasses
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 corrective evidence-integrity review |
+| Severity | High |
+| Observed | Independent code review found that the prior classification treated durable Worker and Smart artifacts as stronger runtime provenance than the retained evidence supports. It also demonstrated that contradictory claim prose could pass after the self-referential evidence table was refreshed. |
+| Impact | Worker write was overstated as mechanism-proved, Smart profile execution was overstated as executed, and hash-adjusted contradictions could preserve a green aggregate result. |
+| Resolution | Downgrade Worker write to `EXECUTED` and Smart Worker runtime profile to `NOT VERIFIED`; retain only thread-cap behavior as `MECHANISM_PROVED`. Bind five non-self-referential claim documents by LF-normalized full-document hash, bind the smoke report by exact canonical fields, and add seven named negative mutations for every reviewer-specified bypass. Do not retain raw tool/control-plane traces retroactively. |
+| Verification | All six validation entrypoints passed after hash stabilization: collaboration rejected the exact 72-label set and retained four named positive controls, transcript rejected 25, and Graphify governance rejected 41. The aggregate verified 21 evidence hashes and five closed claim documents; official skill validation, six-file compilation, and `git diff --check` exited 0. |
+| Status | Resolved locally; independent re-review remains required |
+
+## ERR-2026-08-21-131: First closed-document hash probe had invalid nested quoting
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 closed-document hash stabilization |
+| Severity | Low |
+| Observed | The first read-only one-line Python hash probe produced `SyntaxError: '(' was never closed` because nested quoting truncated the normalization expression. |
+| Impact | The failed probe returned no hashes and changed no file. |
+| Resolution | Use the already documented PowerShell/.NET strict UTF-8 and SHA-256 pattern with explicit LF normalization. |
+| Verification | The corrected read-only probe returned hashes for all five claim documents plus STATUS and HANDOFF. |
+| Status | Resolved |
+
+## ERR-2026-08-21-132: Smoke report remained mutable outside its canonical fields
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 smoke-manifest self-reference review |
+| Severity | High |
+| Observed | Independent re-review found that the self-referential smoke report bound its evidence-table hashes and displayed canonical fields but did not freeze contradictory narrative elsewhere in the document. |
+| Impact | Runtime promotions, failed-head success synonyms, historical classification changes, count drift, or arbitrary prose could preserve a green validator when table hashes were refreshed. |
+| Resolution | Hash the complete LF-normalized smoke body after masking only exact SHA-256 cells in the recognized evidence table; keep actual cell hashes independently verified and add seven ordered negative mutations for the reported bypasses. |
+| Verification | Exact 79-mutation collaboration PASS includes smoke canonical-body CRLF portability and the seven requested negatives. The aggregate verified canonical SHA-256 `809544093AF7CEFF63A437DFE10934BF25716F41E4E420C8757114BB667D0D99`, 21 actual evidence hashes, and five closed claim documents; all six entrypoints, official skill validation, six-file compilation, and `git diff --check` passed. |
+| Status | Resolved locally; independent re-review remains required |
+
+## ERR-2026-08-21-133: First verification-log patch used mismatched context
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 canonical-body verification logging |
+| Severity | Low |
+| Observed | The first patch that converted the pending verification record to its final result matched no context because one expected bullet omitted its `Actual evidence-table hashes` prefix. |
+| Impact | The patch changed no file; validated code, hashes, and gate results were unaffected. |
+| Resolution | Read the exact log tail and apply the bounded append/status update against the actual lines. |
+| Verification | WORK-2026-08-21-023 now records the final gate result and ERR-2026-08-21-132 is marked resolved locally. |
+| Status | Resolved |
+
+## ERR-2026-08-21-134: Pre-push Judge rejected thread-cap mechanism proof
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 pre-push Master Judge gate at clean unpublished base `15a5c33355238e6c36247dd760873dcde99535a9` |
+| Severity | High |
+| Observed | The report retained the exact live fourth-spawn refusal and parent-visible snapshots, but authoritative retained control-plane evidence no longer exists. The package classified thread-cap/fourth-thread behavior as `MECHANISM_PROVED`. |
+| Impact | The runtime matrix overstated one observed session event as independently durable mechanism evidence; the pre-push gate correctly returned `FAIL` and stopped publication. |
+| Resolution | Downgrade thread-cap/fourth-thread behavior to `NOT VERIFIED`, preserve the live observation without promotion, bind exact zero/three/six counts, and add a negative mutation rejecting restoration to `MECHANISM_PROVED`. |
+| Verification | Exact 80-mutation collaboration PASS verified 21 evidence hashes, five claim-document hashes, smoke canonical SHA-256 `193B55B09CCFA2ABE44FAEE4F8D450F622E467B4AE92815CBBE07103BD7766D5`, and STATUS/HANDOFF Graphify hashes. All six entrypoints, official skill validation, six-file compilation, and `git diff --check` passed. |
+| Status | Resolved locally; fresh independent pre-push Master Judge remains required |
+
+## ERR-2026-08-21-135: Reviewer found stale five-row runtime sentence
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 runtime residual-count integrity review |
+| Severity | High |
+| Observed | The successor report's current design-review narrative retained stale text saying five `NOT VERIFIED` rows, while its validator-bound matrix and exact residual list contained six. |
+| Impact | Hash closure preserved the contradictory sentence, but no semantic rule reconciled that sentence with the parsed classification count. |
+| Resolution | Correct the current sentence to six and add an ordered semantic mutation that restores five while refreshing both dependent claim/evidence hash layers. Require rejection before hash validation with `runtime_residual_count_mismatch:five:5:6`. |
+| Verification | Exact 81-mutation collaboration PASS includes the hash-refreshed stale-five semantic rejection. All six entrypoints passed with 21 evidence hashes, five claim-document hashes, smoke canonical SHA-256 `CDFCB646E0EC4F83E08547EE05866542315AAA7CD15E635E01917F377D647332`, exact zero/three/six classifications, official skill validation, six-file compilation, and `git diff --check`. |
+| Status | Resolved locally; independent re-review remains required |
+
+## ERR-2026-08-21-136: First canonical-hash probe omitted validation-script import path
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 hash stabilization |
+| Severity | Low |
+| Observed | The first read-only Python canonical-hash probe imported `scripts.validation.verify_recall_collaboration` from repository root, where the verifier's sibling-module import was not on `sys.path`, and returned `ModuleNotFoundError: No module named 'verify_external_audit_transcript'`. |
+| Impact | The probe produced no canonical hash and changed no file. |
+| Resolution | Add `scripts/validation` to the one-shot probe's import path; do not change production imports. |
+| Verification | The corrected read-only probe returned canonical hash `CDFCB646E0EC4F83E08547EE05866542315AAA7CD15E635E01917F377D647332`. |
+| Status | Resolved |
+
+## ERR-2026-08-21-137: Two combined corrective patches missed exact context
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 residual-count implementation and log finalization |
+| Severity | Low |
+| Observed | The first combined implementation patch targeted the mutation-count line in the wrong hunk, and the first combined final-log patch omitted the ERROR_LOG file marker. Both `apply_patch` calls failed exact-context validation. |
+| Impact | Neither failed patch changed a file; the semantic implementation and recorded evidence were unaffected. |
+| Resolution | Split each change into bounded file-specific patches against freshly read context. |
+| Verification | The corrected patches are present; the complete final verification sweep and `git diff --check` passed afterward. |
+| Status | Resolved |
+
+## ERR-2026-08-21-138: Master Judge rejected deleted-artifact runtime evidence
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 final evidence-portability review |
+| Severity | High |
+| Observed | Fresh Master Judge review found that the ignored runtime root had been removed after the initial gate, but current documents still classified the documented Worker file bytes/hash as durable `EXECUTED` evidence. The raw Worker and Smart files and authoritative parent control-plane events are not independently inspectable from the repository/current checkout. |
+| Impact | The Worker-write row overstated documentation of a historical observation as current portable runtime evidence; the exact zero/three/six aggregate was no longer supportable. |
+| Resolution | Preserve the live file/byte/hash observations historically, explicitly record later removal of the ignored root, downgrade Worker write to `NOT VERIFIED`, bind zero/two/seven counts, and reject both `EXECUTED` and `MECHANISM_PROVED` Worker promotions. |
+| Verification | Exact 82-mutation collaboration PASS includes both Worker promotion guards. All six entrypoints passed with 21 evidence hashes, five claim-document hashes, smoke canonical SHA-256 `93F52E64E7708B50D11823FE7D3EAC0FC8FC01A3673EB79B97B7A86DB4D546D0`, frozen STATUS/HANDOFF hashes, exact zero/two/seven classifications, official skill validation, six-file compilation, and `git diff --check`. |
+| Status | Resolved locally; fresh independent Master Judge remains required |
+
+## ERR-2026-08-21-139: Evidence-boundary sentence triggered Graphify snapshot guard
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 final evidence-portability hash stabilization |
+| Severity | Low |
+| Observed | The first focused post-hash harness failed with `snapshot_record_outside_block:docs/project/HANDOFF.md` because one non-Graphify sentence placed artifact hash values and the temporal phrase `current checkout` on the same line. |
+| Impact | The portable Graphify guard correctly failed closed; no evidence was accepted and no external or protected action occurred. |
+| Resolution | Split the historical byte/hash observation from the separate repository/check-out inspectability sentence, then refresh the frozen HANDOFF and verifier hashes. |
+| Verification | Focused 82-mutation collaboration PASS and complete six-entrypoint verification passed after the wording correction. |
+| Status | Resolved |
+
+## ERR-2026-08-21-140: Reviewer found stale STATUS residual counts
+
+| Field | Value |
+|---|---|
+| Task | RCL-011 final STATUS evidence-integrity review |
+| Severity | High |
+| Observed | STATUS retained current prose saying six fail-closed residuals, including its risk-table control, while the validator-bound runtime matrix contained seven `NOT VERIFIED` rows. |
+| Impact | The frozen STATUS hash preserved contradictory current risk prose, but no semantic check derived that sentence's count from the runtime classification matrix. |
+| Resolution | Correct both current STATUS sentences to seven and add ordered mutation `status_residual_count_stale_six_hash_refresh`, which restores six while refreshing the STATUS Graphify normative hash and dependent verifier/evidence hashes. Require semantic rejection before hash validation. |
+| Verification | Focused and complete 83-mutation collaboration validation passed with exact error `status_residual_count_mismatch:six:6:7`; transcript 25, Graphify governance 41, 21 evidence hashes, five claim documents, official skill validation, six-file `py_compile`, and `git diff --check` also passed. |
+| Status | Resolved locally; fresh independent review remains required |

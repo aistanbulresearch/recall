@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from verify_recall_collaboration import ROOT, validate, validate_current_state_contract
+from verify_recall_collaboration import (
+    CLAIM_DOCUMENT_SHA256,
+    HASHED_EVIDENCE_PATHS,
+    ROOT,
+    validate,
+    validate_current_state_contract,
+)
+from verify_graphify_governance import NORMATIVE_DOCUMENT_SHA256
 
 
 EXPECTED_MUTATION_REJECTIONS = (
@@ -39,6 +47,33 @@ EXPECTED_MUTATION_REJECTIONS = (
     "displayed_graphify_mutation_count_drift", "displayed_positive_control_drift",
     "current_c8_passed_variant", "predecessor_877_passed_variant",
     "current_c8_passed_external_audit", "predecessor_877_passed_external_audit",
+    "runtime_custom_profile_discovery_demotion",
+    "runtime_read_only_fail_closed_promotion",
+    "runtime_judge_formatting_demotion", "runtime_worker_write_executed_promotion",
+    "runtime_smart_profile_demotion", "runtime_judge_effort_promotion",
+    "runtime_thread_cap_demotion", "runtime_leaf_no_spawn_promotion",
+    "runtime_protected_stop_promotion", "current_c861_head_reverted",
+    "current_c861_pass_reverted", "displayed_aggregate_mutation_count_drift",
+    "runtime_classification_unknown", "runtime_classification_missing",
+    "runtime_classification_duplicate",
+    "runtime_report_failed_head_pass_hash_refresh",
+    "runtime_residual_promotion_hash_refresh",
+    "collaboration_residual_promotion_hash_refresh",
+    "adr0009_runtime_promotion_hash_refresh",
+    "adr0008_successful_no_findings_hash_refresh",
+    "master_plan_long_distance_failed_head_pass_hash_refresh",
+    "displayed_validation_scope_drift",
+    "smoke_outside_block_runtime_promotion",
+    "smoke_outside_block_failed_head_pass",
+    "smoke_failed_head_successful_no_findings",
+    "smoke_historical_classification_promotion",
+    "smoke_narrative_count_drift",
+    "smoke_arbitrary_body_mutation_hash_refresh",
+    "smoke_table_cell_actual_hash_mismatch",
+    "runtime_thread_cap_mechanism_promotion",
+    "runtime_residual_count_stale_five_hash_refresh",
+    "runtime_worker_write_mechanism_promotion",
+    "status_residual_count_stale_six_hash_refresh",
 )
 
 
@@ -61,6 +96,14 @@ def isolated_root() -> tempfile.TemporaryDirectory[str]:
     shutil.copy2(
         ROOT / "docs" / "evaluation" / "reports" / "2026-08-17--codex-collaboration-smoke.md",
         report_target / "2026-08-17--codex-collaboration-smoke.md",
+    )
+    shutil.copy2(
+        ROOT
+        / "docs"
+        / "evaluation"
+        / "reports"
+        / "2026-08-18--rcl-011-recall-root-runtime.md",
+        report_target / "2026-08-18--rcl-011-recall-root-runtime.md",
     )
     adr_target = target / "docs" / "adr"
     adr_target.mkdir(parents=True)
@@ -107,15 +150,23 @@ def expect_rejection(
 ) -> str:
     with isolated_root() as directory:
         root = Path(directory)
-        mutate(root)
+        original_claim_hashes = CLAIM_DOCUMENT_SHA256.copy()
+        original_normative_hashes = NORMATIVE_DOCUMENT_SHA256.copy()
         try:
-            validate(root)
-        except ValueError as exc:
-            message = str(exc)
-            if expected_error not in message:
-                raise AssertionError(f"{label}:wrong_error:{message}") from exc
-            return label
-        raise AssertionError(f"{label}:mutation_not_rejected")
+            mutate(root)
+            try:
+                validate(root)
+            except ValueError as exc:
+                message = str(exc)
+                if expected_error not in message:
+                    raise AssertionError(f"{label}:wrong_error:{message}") from exc
+                return label
+            raise AssertionError(f"{label}:mutation_not_rejected")
+        finally:
+            CLAIM_DOCUMENT_SHA256.clear()
+            CLAIM_DOCUMENT_SHA256.update(original_claim_hashes)
+            NORMATIVE_DOCUMENT_SHA256.clear()
+            NORMATIVE_DOCUMENT_SHA256.update(original_normative_hashes)
 
 
 def refresh_evidence_hash(root: Path, relative_path: str) -> None:
@@ -123,7 +174,14 @@ def refresh_evidence_hash(root: Path, relative_path: str) -> None:
     import re
 
     target = root / relative_path
-    new_hash = hashlib.sha256(target.read_bytes()).hexdigest().upper()
+    normalized = (
+        target.read_bytes()
+        .decode("utf-8")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .encode("utf-8")
+    )
+    new_hash = hashlib.sha256(normalized).hexdigest().upper()
     report_path = (
         root / "docs" / "evaluation" / "reports" / "2026-08-17--codex-collaboration-smoke.md"
     )
@@ -139,7 +197,65 @@ def refresh_evidence_hash(root: Path, relative_path: str) -> None:
     write_text(report_path, updated)
 
 
+def refresh_claim_document_hash(root: Path, relative_path: str) -> None:
+    import hashlib
+
+    target = root / relative_path
+    normalized = (
+        target.read_bytes()
+        .decode("utf-8")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .encode("utf-8")
+    )
+    new_hash = hashlib.sha256(normalized).hexdigest().upper()
+    old_hash = CLAIM_DOCUMENT_SHA256[relative_path]
+    verifier_path = root / "scripts" / "validation" / "verify_recall_collaboration.py"
+    verifier = verifier_path.read_text(encoding="utf-8")
+    if verifier.count(old_hash) != 1:
+        raise AssertionError(
+            f"claim_hash_source_target_count:{relative_path}:{verifier.count(old_hash)}"
+        )
+    write_text(verifier_path, verifier.replace(old_hash, new_hash))
+    CLAIM_DOCUMENT_SHA256[relative_path] = new_hash
+    refresh_evidence_hash(root, "scripts/validation/verify_recall_collaboration.py")
+
+
+def refresh_graphify_normative_hash(root: Path, relative_path: str) -> None:
+    import hashlib
+
+    target = root / relative_path
+    normalized = (
+        target.read_bytes()
+        .decode("utf-8")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .encode("utf-8")
+    )
+    new_hash = hashlib.sha256(normalized).hexdigest().upper()
+    old_hash = NORMATIVE_DOCUMENT_SHA256[relative_path]
+    verifier_relative_path = "scripts/validation/verify_graphify_governance.py"
+    verifier_path = root / verifier_relative_path
+    verifier = verifier_path.read_text(encoding="utf-8")
+    if verifier.count(old_hash) != 1:
+        raise AssertionError(
+            f"normative_hash_source_target_count:{relative_path}:{verifier.count(old_hash)}"
+        )
+    write_text(verifier_path, verifier.replace(old_hash, new_hash))
+    NORMATIVE_DOCUMENT_SHA256[relative_path] = new_hash
+    refresh_evidence_hash(root, verifier_relative_path)
+
+
 def main() -> None:
+    runtime_report = (
+        ROOT
+        / "docs"
+        / "evaluation"
+        / "reports"
+        / "2026-08-18--rcl-011-recall-root-runtime.md"
+    )
+    if not runtime_report.is_file():
+        raise AssertionError("runtime_report_missing")
     clean = validate(ROOT)
     if clean["status"] != "PASS":
         raise AssertionError("clean_validation_failed")
@@ -245,13 +361,13 @@ def main() -> None:
             / "docs"
             / "evaluation"
             / "reports"
-            / "2026-08-17--codex-collaboration-smoke.md"
+            / "2026-08-18--rcl-011-recall-root-runtime.md"
         )
         write_text(
             report_path,
             report_path.read_text(encoding="utf-8").replace(
-                "- Custom profile discovery: `REPORT_DERIVED`",
                 "- Custom profile discovery: `EXECUTED`",
+                "- Custom profile discovery: `REPORT_DERIVED`",
             ),
         )
 
@@ -259,7 +375,7 @@ def main() -> None:
         expect_rejection(
             "smoke_classification_promotion",
             promote_report_derived_to_executed,
-            "smoke_classification_mismatch:Custom profile discovery:EXECUTED:REPORT_DERIVED",
+            "smoke_classification_mismatch:Custom profile discovery:REPORT_DERIVED:EXECUTED",
         )
     )
 
@@ -269,13 +385,13 @@ def main() -> None:
             / "docs"
             / "evaluation"
             / "reports"
-            / "2026-08-17--codex-collaboration-smoke.md"
+            / "2026-08-18--rcl-011-recall-root-runtime.md"
         )
         write_text(
             report_path,
             report_path.read_text(encoding="utf-8").replace(
-                "functional_smoke=REPORT_DERIVED_PARTIAL_FAIL_CLOSED",
-                "functional_smoke=EXECUTED",
+                "functional_smoke=PARTIAL_FAIL_CLOSED",
+                "functional_smoke=MECHANISM_PROVED",
             ),
         )
 
@@ -283,7 +399,7 @@ def main() -> None:
         expect_rejection(
             "displayed_functional_smoke_promotion",
             promote_displayed_functional_smoke,
-            "smoke_summary_functional_mismatch:EXECUTED:REPORT_DERIVED_PARTIAL_FAIL_CLOSED",
+            "smoke_summary_functional_mismatch:MECHANISM_PROVED:PARTIAL_FAIL_CLOSED",
         )
     )
 
@@ -293,13 +409,13 @@ def main() -> None:
             / "docs"
             / "evaluation"
             / "reports"
-            / "2026-08-17--codex-collaboration-smoke.md"
+            / "2026-08-18--rcl-011-recall-root-runtime.md"
         )
         write_text(
             report_path,
             report_path.read_text(encoding="utf-8").replace(
-                "runtime_evidence_classifications=3 REPORT_DERIVED,6 NOT VERIFIED",
-                "runtime_evidence_classifications=2 REPORT_DERIVED,7 NOT VERIFIED",
+                "runtime_evidence_classifications=0 MECHANISM_PROVED,2 EXECUTED,7 NOT VERIFIED",
+                "runtime_evidence_classifications=1 MECHANISM_PROVED,2 EXECUTED,6 NOT VERIFIED",
             ),
         )
 
@@ -307,7 +423,7 @@ def main() -> None:
         expect_rejection(
             "displayed_classification_count_drift",
             drift_displayed_classification_counts,
-            "smoke_summary_counts_mismatch:2 REPORT_DERIVED,7 NOT VERIFIED:3 REPORT_DERIVED,6 NOT VERIFIED",
+            "smoke_summary_counts_mismatch:1 MECHANISM_PROVED,2 EXECUTED,6 NOT VERIFIED:0 MECHANISM_PROVED,2 EXECUTED,7 NOT VERIFIED",
         )
     )
 
@@ -317,7 +433,7 @@ def main() -> None:
             / "docs"
             / "evaluation"
             / "reports"
-            / "2026-08-17--codex-collaboration-smoke.md"
+            / "2026-08-18--rcl-011-recall-root-runtime.md"
         )
         write_text(
             report_path,
@@ -341,7 +457,7 @@ def main() -> None:
             / "docs"
             / "evaluation"
             / "reports"
-            / "2026-08-17--codex-collaboration-smoke.md"
+            / "2026-08-18--rcl-011-recall-root-runtime.md"
         )
         write_text(
             report_path,
@@ -360,7 +476,7 @@ def main() -> None:
     )
 
     report_relative_path = (
-        "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
+        "docs/evaluation/reports/2026-08-18--rcl-011-recall-root-runtime.md"
     )
 
     def replace_report_text(old: str, new: str) -> Callable[[Path], None]:
@@ -462,8 +578,8 @@ def main() -> None:
         write_text(
             target,
             source.replace(
-                "current_external_audit_verdict=FAIL",
                 "current_external_audit_verdict=PASS",
+                "current_external_audit_verdict=FAIL",
             ),
         )
 
@@ -471,7 +587,7 @@ def main() -> None:
         expect_rejection(
             "current_state_inverse_machine_value",
             invert_current_state_required_fact,
-            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict:PASS:FAIL",
+            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict:FAIL:PASS",
         )
     )
 
@@ -508,8 +624,8 @@ def main() -> None:
         ),
         (
             "current_state_predecessor_reordered",
-            "current_external_audit_verdict=FAIL\naudited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
-            "audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e\ncurrent_external_audit_verdict=FAIL",
+            "current_external_audit_verdict=PASS\naudited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
+            "audited_predecessor_head=877c78d06d9b78f3071d17c81232fbc4302f857e\ncurrent_external_audit_verdict=PASS",
             "current_state_block_format_mismatch",
         ),
         (
@@ -520,7 +636,7 @@ def main() -> None:
         ),
         (
             "current_predecessor_head_confusion",
-            "current_external_audit_head=c8be19476c24672fbf65d4dbf767fa8144360d22",
+            "current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b",
             "current_external_audit_head=877c78d06d9b78f3071d17c81232fbc4302f857e",
             "current_state_value_mismatch",
         ),
@@ -646,21 +762,29 @@ def main() -> None:
 
     with isolated_root() as directory:
         root = Path(directory)
-        portability_target = (
+        portability_targets = (
             root
             / ".agents"
             / "skills"
             / "recall-collaboration"
             / "agents"
-            / "openai.yaml"
+            / "openai.yaml",
+            root
+            / "docs"
+            / "evaluation"
+            / "reports"
+            / "2026-08-17--codex-collaboration-smoke.md",
         )
-        normalized = (
-            portability_target.read_bytes()
-            .decode("utf-8")
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-        )
-        portability_target.write_bytes(normalized.replace("\n", "\r\n").encode("utf-8"))
+        for portability_target in portability_targets:
+            normalized = (
+                portability_target.read_bytes()
+                .decode("utf-8")
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+            )
+            portability_target.write_bytes(
+                normalized.replace("\n", "\r\n").encode("utf-8")
+            )
         portability_result = validate(root)
         if portability_result["status"] != "PASS":
             raise AssertionError("lf_normalized_utf8_crlf_portability_failed")
@@ -733,9 +857,9 @@ def main() -> None:
     displayed_contract_mutations = (
         (
             "displayed_evidence_hash_count_drift",
-            "evidence_hashes_verified=17",
-            "evidence_hashes_verified=16",
-            "smoke_summary_classification_mismatch:evidence_hashes_verified:16:17",
+            "evidence_hashes_verified=21",
+            "evidence_hashes_verified=20",
+            "smoke_summary_classification_mismatch:evidence_hashes_verified:20:21",
         ),
         (
             "displayed_evidence_hash_mode_drift",
@@ -757,9 +881,9 @@ def main() -> None:
         ),
         (
             "displayed_positive_control_drift",
-            "positive_controls=lf_normalized_utf8_crlf_portability",
+            "positive_controls=lf_normalized_utf8_crlf_portability,current_c861_pass,failed_c8_and_877,historical_195_pass",
             "positive_controls=none",
-            "smoke_summary_classification_mismatch:positive_controls:none:lf_normalized_utf8_crlf_portability",
+            "smoke_summary_classification_mismatch:positive_controls:none:lf_normalized_utf8_crlf_portability,current_c861_pass,failed_c8_and_877,historical_195_pass",
         ),
     )
     for label, old, new, error in displayed_contract_mutations:
@@ -794,6 +918,389 @@ def main() -> None:
             )
         )
 
+    runtime_classification_mutations = (
+        (
+            "runtime_custom_profile_discovery_demotion",
+            "Custom profile discovery", "EXECUTED", "REPORT_DERIVED",
+        ),
+        (
+            "runtime_read_only_fail_closed_promotion",
+            "Inherited read-only fail-closed behavior", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_judge_formatting_demotion",
+            "Master Judge verdict formatting", "EXECUTED", "REPORT_DERIVED",
+        ),
+        (
+            "runtime_worker_write_executed_promotion",
+            "Worker write in a Recall-root workspace", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_smart_profile_demotion",
+            "Smart Worker runtime profile", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_judge_effort_promotion",
+            "Effective Judge reasoning effort", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_thread_cap_demotion",
+            "Three-thread cap and fourth-thread behavior", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_leaf_no_spawn_promotion",
+            "Complete four-role leaf no-spawn", "NOT VERIFIED", "EXECUTED",
+        ),
+        (
+            "runtime_protected_stop_promotion",
+            "Protected owner-operation stop and no protected side effect",
+            "NOT VERIFIED", "EXECUTED",
+        ),
+    )
+    for label, classification, expected, mutated in runtime_classification_mutations:
+        rejected.append(
+            expect_rejection(
+                label,
+                replace_report_text(
+                    f"- {classification}: `{expected}`.",
+                    f"- {classification}: `{mutated}`.",
+                ),
+                f"smoke_classification_mismatch:{classification}:{mutated}:{expected}",
+            )
+        )
+
+    rejected.append(
+        expect_rejection(
+            "current_c861_head_reverted",
+            mutate_state_block(
+                "current_external_audit_head=c86139048d1532c79ed190d0cc98ce2ad878414b",
+                "current_external_audit_head=c8be19476c24672fbf65d4dbf767fa8144360d22",
+            ),
+            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_head",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "current_c861_pass_reverted",
+            mutate_state_block(
+                "current_external_audit_verdict=PASS",
+                "current_external_audit_verdict=FAIL",
+            ),
+            "current_state_value_mismatch:docs/adr/ADR-0008-external-audit-corrections.md:current_external_audit_verdict",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "displayed_aggregate_mutation_count_drift",
+            replace_report_text(
+                "aggregate_collaboration_mutation_rejections=83",
+                "aggregate_collaboration_mutation_rejections=82",
+            ),
+            "smoke_summary_classification_mismatch:aggregate_collaboration_mutation_rejections:82:83",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "runtime_classification_unknown",
+            replace_report_text(
+                "- Custom profile discovery: `EXECUTED`.",
+                "- Custom profile discovery: `EXECUTED`.\n- Unexpected runtime surface: `EXECUTED`.",
+            ),
+            "smoke_classification_unknown_label",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "runtime_classification_missing",
+            replace_report_text(
+                "- Smart Worker runtime profile: `NOT VERIFIED`.\n",
+                "",
+            ),
+            "smoke_classification_missing_labels",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "runtime_classification_duplicate",
+            replace_report_text(
+                "- Master Judge verdict formatting: `EXECUTED`.",
+                "- Master Judge verdict formatting: `EXECUTED`.\n- Master Judge verdict formatting: `EXECUTED`.",
+            ),
+            "smoke_classification_duplicate_label:Master Judge verdict formatting",
+        )
+    )
+
+    def append_claim_and_refresh(relative_path: str, line: str) -> Callable[[Path], None]:
+        def mutate(root: Path) -> None:
+            target = root / relative_path
+            write_text(target, target.read_text(encoding="utf-8") + f"\n{line}\n")
+            refresh_evidence_hash(root, relative_path)
+
+        return mutate
+
+    rejected.append(
+        expect_rejection(
+            "runtime_report_failed_head_pass_hash_refresh",
+            append_claim_and_refresh(
+                report_relative_path,
+                "The c8be19476c24672fbf65d4dbf767fa8144360d22 external audit returned PASS.",
+            ),
+            f"claim_document_hash_mismatch:{report_relative_path}",
+        )
+    )
+
+    def promote_runtime_residual_and_refresh(root: Path) -> None:
+        target = root / report_relative_path
+        old = "Those seven residual rows remain fail-closed `NOT VERIFIED`."
+        new = "Those seven residual rows are now `EXECUTED`."
+        source = target.read_text(encoding="utf-8")
+        if source.count(old) != 1:
+            raise AssertionError(f"runtime_residual_target_count:{source.count(old)}")
+        write_text(target, source.replace(old, new))
+        refresh_evidence_hash(root, report_relative_path)
+
+    rejected.append(
+        expect_rejection(
+            "runtime_residual_promotion_hash_refresh",
+            promote_runtime_residual_and_refresh,
+            f"claim_document_hash_mismatch:{report_relative_path}",
+        )
+    )
+
+    collaboration_path = "docs/project/COLLABORATION_SYSTEM.md"
+    rejected.append(
+        expect_rejection(
+            "collaboration_residual_promotion_hash_refresh",
+            append_claim_and_refresh(
+                collaboration_path,
+                "The inherited read-only fail-closed mechanism is now EXECUTED.",
+            ),
+            f"claim_document_hash_mismatch:{collaboration_path}",
+        )
+    )
+
+    adr0009_path = "docs/adr/ADR-0009-repo-scoped-codex-collaboration.md"
+    rejected.append(
+        expect_rejection(
+            "adr0009_runtime_promotion_hash_refresh",
+            append_claim_and_refresh(
+                adr0009_path,
+                "The Smart Worker runtime profile is now EXECUTED.",
+            ),
+            f"claim_document_hash_mismatch:{adr0009_path}",
+        )
+    )
+
+    adr0008_path = "docs/adr/ADR-0008-external-audit-corrections.md"
+    rejected.append(
+        expect_rejection(
+            "adr0008_successful_no_findings_hash_refresh",
+            append_claim_and_refresh(
+                adr0008_path,
+                "The c8be19476c24672fbf65d4dbf767fa8144360d22 review was successful with no findings.",
+            ),
+            f"claim_document_hash_mismatch:{adr0008_path}",
+        )
+    )
+
+    master_plan_path = "docs/project/MASTER_PLAN.md"
+    rejected.append(
+        expect_rejection(
+            "master_plan_long_distance_failed_head_pass_hash_refresh",
+            append_claim_and_refresh(
+                master_plan_path,
+                "c8be19476c24672fbf65d4dbf767fa8144360d22 was assessed after a deliberately "
+                "long explanatory separation that exceeds the semantic proximity guard and "
+                "the final verdict was PASS.",
+            ),
+            f"claim_document_hash_mismatch:{master_plan_path}",
+        )
+    )
+
+    smoke_manifest_path = (
+        "docs/evaluation/reports/2026-08-17--codex-collaboration-smoke.md"
+    )
+
+    def drift_displayed_validation_scope(root: Path) -> None:
+        target = root / smoke_manifest_path
+        source = target.read_text(encoding="utf-8")
+        old = "validation_scope=STRUCTURAL_PLUS_BOUNDED_RUNTIME_EVIDENCE"
+        if source.count(old) != 1:
+            raise AssertionError(f"validation_scope_target_count:{source.count(old)}")
+        write_text(target, source.replace(old, "validation_scope=STRUCTURAL"))
+
+    rejected.append(
+        expect_rejection(
+            "displayed_validation_scope_drift",
+            drift_displayed_validation_scope,
+            "manifest_summary_value_mismatch:validation_scope:STRUCTURAL:"
+            "STRUCTURAL_PLUS_BOUNDED_RUNTIME_EVIDENCE",
+        )
+    )
+
+    def append_smoke_body(line: str, refresh_hashes: bool = False) -> Callable[[Path], None]:
+        def mutate(root: Path) -> None:
+            target = root / smoke_manifest_path
+            write_text(target, target.read_text(encoding="utf-8") + f"\n{line}\n")
+            if refresh_hashes:
+                for relative_path in sorted(HASHED_EVIDENCE_PATHS):
+                    refresh_evidence_hash(root, relative_path)
+
+        return mutate
+
+    canonical_hash_error = "smoke_manifest_canonical_hash_mismatch"
+    rejected.append(
+        expect_rejection(
+            "smoke_outside_block_runtime_promotion",
+            append_smoke_body("Current Smart Worker runtime profile: EXECUTED."),
+            canonical_hash_error,
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "smoke_outside_block_failed_head_pass",
+            append_smoke_body(
+                "The c8be19476c24672fbf65d4dbf767fa8144360d22 external audit returned PASS."
+            ),
+            canonical_hash_error,
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "smoke_failed_head_successful_no_findings",
+            append_smoke_body(
+                "The c8be19476c24672fbf65d4dbf767fa8144360d22 review was successful with no findings."
+            ),
+            canonical_hash_error,
+        )
+    )
+
+    def promote_historical_classification(root: Path) -> None:
+        target = root / smoke_manifest_path
+        source = target.read_text(encoding="utf-8")
+        old = "- Worker write in a Recall-root workspace: `NOT VERIFIED`."
+        new = "- Worker write in a Recall-root workspace: `EXECUTED`."
+        if source.count(old) != 1:
+            raise AssertionError(f"historical_classification_target_count:{source.count(old)}")
+        write_text(target, source.replace(old, new))
+
+    rejected.append(
+        expect_rejection(
+            "smoke_historical_classification_promotion",
+            promote_historical_classification,
+            canonical_hash_error,
+        )
+    )
+
+    def drift_smoke_narrative_counts(root: Path) -> None:
+        target = root / smoke_manifest_path
+        source = target.read_text(encoding="utf-8")
+        old = "the updated 21 hashes and 83-mutation collaboration results"
+        new = "the updated 22 hashes and 84-mutation collaboration results"
+        if source.count(old) != 1:
+            raise AssertionError(f"narrative_count_target_count:{source.count(old)}")
+        write_text(target, source.replace(old, new))
+
+    rejected.append(
+        expect_rejection(
+            "smoke_narrative_count_drift",
+            drift_smoke_narrative_counts,
+            canonical_hash_error,
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "smoke_arbitrary_body_mutation_hash_refresh",
+            append_smoke_body("Arbitrary canonical-body mutation.", refresh_hashes=True),
+            canonical_hash_error,
+        )
+    )
+
+    def mutate_evidence_table_cell(root: Path) -> None:
+        target = root / smoke_manifest_path
+        source = target.read_text(encoding="utf-8")
+        pattern = re.compile(
+            r"(?m)^\| `AGENTS\.md` \| `[0-9A-F]{64}` \|$"
+        )
+        replacement = f"| `AGENTS.md` | `{'0' * 64}` |"
+        updated, count = pattern.subn(replacement, source)
+        if count != 1:
+            raise AssertionError(f"table_cell_target_count:{count}")
+        write_text(target, updated)
+
+    rejected.append(
+        expect_rejection(
+            "smoke_table_cell_actual_hash_mismatch",
+            mutate_evidence_table_cell,
+            "evidence_hash_mismatch:AGENTS.md",
+        )
+    )
+    rejected.append(
+        expect_rejection(
+            "runtime_thread_cap_mechanism_promotion",
+            replace_report_text(
+                "- Three-thread cap and fourth-thread behavior: `NOT VERIFIED`.",
+                "- Three-thread cap and fourth-thread behavior: `MECHANISM_PROVED`.",
+            ),
+            "smoke_classification_mismatch:Three-thread cap and fourth-thread behavior:"
+            "MECHANISM_PROVED:NOT VERIFIED",
+        )
+    )
+
+    def restore_stale_runtime_residual_count(root: Path) -> None:
+        target = root / report_relative_path
+        old = "the final contract conservatively retains seven `NOT VERIFIED` rows."
+        new = "the final contract conservatively retains five `NOT VERIFIED` rows."
+        source = target.read_text(encoding="utf-8")
+        if source.count(old) != 1:
+            raise AssertionError(
+                f"runtime_residual_count_target_count:{source.count(old)}"
+            )
+        write_text(target, source.replace(old, new))
+        refresh_evidence_hash(root, report_relative_path)
+        refresh_claim_document_hash(root, report_relative_path)
+
+    rejected.append(
+        expect_rejection(
+            "runtime_residual_count_stale_five_hash_refresh",
+            restore_stale_runtime_residual_count,
+            "runtime_residual_count_mismatch:five:5:7",
+        )
+    )
+
+    rejected.append(
+        expect_rejection(
+            "runtime_worker_write_mechanism_promotion",
+            replace_report_text(
+                "- Worker write in a Recall-root workspace: `NOT VERIFIED`.",
+                "- Worker write in a Recall-root workspace: `MECHANISM_PROVED`.",
+            ),
+            "smoke_classification_mismatch:Worker write in a Recall-root workspace:"
+            "MECHANISM_PROVED:NOT VERIFIED",
+        )
+    )
+
+    def restore_stale_status_residual_count(root: Path) -> None:
+        status_relative_path = "docs/project/STATUS.md"
+        target = root / status_relative_path
+        old = "Preserve the seven exact `NOT VERIFIED` residuals;"
+        new = "Preserve the six exact `NOT VERIFIED` residuals;"
+        source = target.read_text(encoding="utf-8")
+        if source.count(old) != 1:
+            raise AssertionError(
+                f"status_residual_count_target_count:{source.count(old)}"
+            )
+        write_text(target, source.replace(old, new))
+        refresh_graphify_normative_hash(root, status_relative_path)
+
+    rejected.append(
+        expect_rejection(
+            "status_residual_count_stale_six_hash_refresh",
+            restore_stale_status_residual_count,
+            "status_residual_count_mismatch:six:6:7",
+        )
+    )
+
     if tuple(rejected) != EXPECTED_MUTATION_REJECTIONS:
         raise AssertionError(f"mutation_label_set:{rejected}")
 
@@ -802,7 +1309,12 @@ def main() -> None:
             {
                 "status": "PASS",
                 "mutation_rejections": rejected,
-                "positive_controls": ["lf_normalized_utf8_crlf_portability"],
+                "positive_controls": [
+                    "lf_normalized_utf8_crlf_portability",
+                    "current_c861_pass",
+                    "failed_c8_and_877",
+                    "historical_195_pass",
+                ],
             },
             indent=2,
         )
