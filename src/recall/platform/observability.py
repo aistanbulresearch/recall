@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import logging
 import secrets
+from datetime import UTC, datetime
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -228,3 +229,119 @@ class RestTraceClient:
     # projects.traces.get returned immediately and correctly, so searching is
     # not a usable way to find a trace. The caller mints the trace id, so it
     # always knows which id to fetch.
+
+
+@dataclass(frozen=True, slots=True)
+class SpanRecord:
+    """One span the Controller records for a step it orchestrated."""
+
+    span_id: str
+    display_name: str
+    start_time: str
+    end_time: str
+    parent_span_id: str | None = None
+    attributes: Mapping[str, str] = field(default_factory=dict)
+
+    def to_wire(self, project_id: str, trace_id: str) -> dict[str, Any]:
+        wire: dict[str, Any] = {
+            "name": f"projects/{project_id}/traces/{trace_id}/spans/{self.span_id}",
+            "spanId": self.span_id,
+            "displayName": {"value": self.display_name},
+            "startTime": self.start_time,
+            "endTime": self.end_time,
+        }
+        if self.parent_span_id:
+            wire["parentSpanId"] = self.parent_span_id
+        if self.attributes:
+            wire["attributes"] = {
+                "attributeMap": {
+                    key: {"stringValue": {"value": str(value)}}
+                    for key, value in sorted(self.attributes.items())
+                }
+            }
+        return wire
+
+
+class TraceWriter(Protocol):
+    def batch_write(self, spans: Sequence[Mapping[str, Any]]) -> None: ...
+
+
+class TraceRecorder:
+    """Record the Controller's own view of a fleet run under one trace id.
+
+    The managed runtime terminates the caller's request at the API frontend and
+    makes its own internal call, so a `traceparent` sent to `:streamQuery` does
+    not reach the agent container and agent-internal spans cannot join the
+    caller's trace. What the Controller orchestrates, it can record itself: one
+    span per agent call, all under a trace id it minted, written with
+    `traces:batchWrite` and read back with `traces.get`.
+
+    Attributes carry role, region and outcome. They never carry prompt or
+    response text.
+    """
+
+    def __init__(self, project_id: str, trace_id: str | None = None) -> None:
+        if not project_id:
+            raise PlatformError("trace_project_missing")
+        self._project_id = project_id
+        self.trace_id = trace_id or new_trace_id()
+        if len(self.trace_id) != 32:
+            raise PlatformError("trace_id_invalid", self.trace_id)
+        self._spans: list[SpanRecord] = []
+
+    @property
+    def spans(self) -> tuple[SpanRecord, ...]:
+        return tuple(self._spans)
+
+    def record(
+        self,
+        display_name: str,
+        *,
+        start: datetime,
+        end: datetime,
+        parent_span_id: str | None = None,
+        attributes: Mapping[str, str] | None = None,
+        span_id: str | None = None,
+    ) -> SpanRecord:
+        if end < start:
+            raise PlatformError("span_time_inverted", display_name)
+        record = SpanRecord(
+            span_id=span_id or new_span_id(),
+            display_name=display_name,
+            start_time=_span_timestamp(start),
+            end_time=_span_timestamp(end),
+            parent_span_id=parent_span_id,
+            attributes=dict(attributes or {}),
+        )
+        self._spans.append(record)
+        return record
+
+    def flush(self, writer: TraceWriter) -> int:
+        """Write the recorded spans. Returns how many were written."""
+
+        if not self._spans:
+            raise PlatformError("trace_no_spans_recorded", self.trace_id)
+        writer.batch_write(
+            [span.to_wire(self._project_id, self.trace_id) for span in self._spans]
+        )
+        return len(self._spans)
+
+
+def _span_timestamp(moment: datetime) -> str:
+    return moment.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+class RestTraceWriter:
+    """Cloud Trace v2 span writer with application default credentials."""
+
+    BASE = "https://cloudtrace.googleapis.com/v2"
+
+    def __init__(self, config: PlatformConfig) -> None:
+        self._project = config.project_id
+        self._session = RestTraceClient._authorised_session()
+
+    def batch_write(self, spans: Sequence[Mapping[str, Any]]) -> None:
+        url = f"{self.BASE}/projects/{self._project}/traces:batchWrite"
+        response = self._session.post(url, json={"spans": list(spans)}, timeout=30)
+        if response.status_code != 200:
+            raise PlatformError("trace_write_failed", str(response.status_code))

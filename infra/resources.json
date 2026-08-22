@@ -86,6 +86,34 @@
       "absence_verified_by": [
         "hello_agent_engine.py delete (SDK list, empty)",
         "observe_registry.py catalogued (catalogued=false after delete)"
+      ],
+      "superseded_by": "recall-hello-smoke-3"
+    },
+    {
+      "id": "recall-hello-smoke-3",
+      "kind": "aiplatform.reasoningEngine",
+      "region": "us-central1",
+      "service_account": "recall-sa-watcher",
+      "lifecycle": "temporary",
+      "purpose": "prove the managed-path trace end to end after the telemetry fixes",
+      "created_at": "2026-08-22T19:25:20Z",
+      "status": "DELETE_ISSUED_NOT_VERIFIED",
+      "delete_command": "python infra/smoke/hello_agent_engine.py delete --resource-name <name> --redact",
+      "note": "two delete attempts were issued and both hung before returning; the credential path stopped responding at the same time. Deletion is NOT verified and must be confirmed once credentials are refreshed."
+    },
+    {
+      "id": "recall-hello-smoke-2b",
+      "kind": "aiplatform.reasoningEngine",
+      "region": "us-central1",
+      "lifecycle": "temporary",
+      "purpose": "intermediate telemetry attempts",
+      "engine_ids_deleted": [
+        "5568553054929682432",
+        "2109788541109141504"
+      ],
+      "status": "deleted",
+      "absence_verified_by": [
+        "hello_agent_engine.py delete reported absent_from_list true and remaining []"
       ]
     }
   ],
@@ -107,14 +135,19 @@
       "status": "RESOLVED",
       "effect": "ManagedPathReceipt reports managed_status UNAVAILABLE with reason trace_has_no_spans rather than claiming a healthy managed path",
       "root_cause": [
-        "write: enable_tracing=True is overridden by the Agent Engine runtime; telemetry is configured by environment variable instead",
-        "read: Cloud Trace v1 projects.traces.list returns 0 even for a trace that projects.traces.get returns immediately, so search is not a usable lookup path"
+        "write 1: passing enable_tracing to AdkApp at all, even as False, takes telemetry away from the environment variables. The runtime logs: remove the enable_tracing parameter from your deployment code.",
+        "write 2: opentelemetry-instrumentation-google-genai was not installed, so the model call produced no GenAI span at all. The runtime logs: telemetry enabled but proceeding without Google GenAI instrumentation.",
+        "write 3: the service account lacked roles/monitoring.metricWriter, so the runtime logged Failed to export metrics batch code: 403.",
+        "read: Cloud Trace v1 projects.traces.list returns 0 even for a trace that projects.traces.get returns, so search is not a usable lookup path.",
+        "propagation: the managed runtime terminates the caller request at the API frontend and makes its own internal call (POST /api/stream_reasoning_engine), so a traceparent sent to :streamQuery does not reach the agent container."
       ],
       "fix": [
         "deploy with GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true, OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental, OTEL_SERVICE_NAME, and ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false",
         "the caller mints the 32 hex trace id, injects it as a W3C traceparent on the :streamQuery call, and reads it back with projects.traces.get"
       ],
-      "privacy_note": "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is deliberately left unset and ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS is false, because those switches put prompt and response text into spans and the artifact contracts forbid raw sensitive text in cloud artifacts"
+      "privacy_note": "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is deliberately left unset and ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS is false, because those switches put prompt and response text into spans and the artifact contracts forbid raw sensitive text in cloud artifacts",
+      "resolution": "The Controller mints the trace id, records a root span for the run and one child span per agent call it actually made, writes them with cloudtrace v2 traces:batchWrite, and reads them back with v1 traces.get.",
+      "verified": "2026-08-22T19:38Z trace 2 spans read back, managed_status MANAGED, receipt status VALID"
     },
     {
       "id": "gcloud-cli-stalls",

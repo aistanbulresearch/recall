@@ -180,3 +180,96 @@ def test_component_statuses_are_sorted() -> None:
         "agent-runtime",
         "model-armor",
     ]
+
+
+class FakeTraceWriter:
+    def __init__(self, fail: bool = False) -> None:
+        self.written: list[Mapping[str, Any]] = []
+        self._fail = fail
+
+    def batch_write(self, spans: Any) -> None:
+        if self._fail:
+            raise PlatformError("trace_write_failed", "503")
+        self.written.extend(spans)
+
+
+def _recorder() -> Any:
+    from recall.platform.observability import TraceRecorder
+
+    return TraceRecorder("test-project", TRACE_ID)
+
+
+def _moment(second: int):
+    from datetime import UTC, datetime
+
+    return datetime(2026, 8, 22, 19, 30, second, tzinfo=UTC)
+
+
+def test_recorded_spans_share_one_trace_id() -> None:
+    recorder = _recorder()
+    root = recorder.record("recall.controller.run", start=_moment(0), end=_moment(9))
+    recorder.record(
+        "recall.agent.watcher",
+        start=_moment(1),
+        end=_moment(4),
+        parent_span_id=root.span_id,
+        attributes={"role": "EVIDENCE_WATCHER", "region": "us-central1"},
+    )
+    writer = FakeTraceWriter()
+    assert recorder.flush(writer) == 2
+    assert all(
+        span["name"].startswith(f"projects/test-project/traces/{TRACE_ID}/spans/")
+        for span in writer.written
+    )
+    assert writer.written[1]["parentSpanId"] == root.span_id
+
+
+def test_span_attributes_carry_role_not_content() -> None:
+    recorder = _recorder()
+    recorder.record(
+        "recall.agent.watcher",
+        start=_moment(0),
+        end=_moment(1),
+        attributes={"role": "EVIDENCE_WATCHER"},
+    )
+    writer = FakeTraceWriter()
+    recorder.flush(writer)
+    attrs = writer.written[0]["attributes"]["attributeMap"]
+    assert attrs["role"]["stringValue"]["value"] == "EVIDENCE_WATCHER"
+
+
+def test_flushing_nothing_is_an_error_not_a_quiet_success() -> None:
+    with pytest.raises(PlatformError) as excinfo:
+        _recorder().flush(FakeTraceWriter())
+    assert excinfo.value.code == "trace_no_spans_recorded"
+
+
+def test_write_failure_propagates() -> None:
+    recorder = _recorder()
+    recorder.record("x", start=_moment(0), end=_moment(1))
+    with pytest.raises(PlatformError) as excinfo:
+        recorder.flush(FakeTraceWriter(fail=True))
+    assert excinfo.value.code == "trace_write_failed"
+
+
+def test_inverted_span_times_are_refused() -> None:
+    recorder = _recorder()
+    with pytest.raises(PlatformError) as excinfo:
+        recorder.record("x", start=_moment(5), end=_moment(1))
+    assert excinfo.value.code == "span_time_inverted"
+
+
+def test_malformed_trace_id_is_refused() -> None:
+    from recall.platform.observability import TraceRecorder
+
+    with pytest.raises(PlatformError) as excinfo:
+        TraceRecorder("test-project", "short")
+    assert excinfo.value.code == "trace_id_invalid"
+
+
+def test_missing_project_is_refused() -> None:
+    from recall.platform.observability import TraceRecorder
+
+    with pytest.raises(PlatformError) as excinfo:
+        TraceRecorder("", TRACE_ID)
+    assert excinfo.value.code == "trace_project_missing"

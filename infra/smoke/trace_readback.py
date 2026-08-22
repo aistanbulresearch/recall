@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,6 +33,8 @@ from recall.platform.observability import (  # noqa: E402
     ComponentState,
     ComponentStatus,
     RestTraceClient,
+    RestTraceWriter,
+    TraceRecorder,
     managed_path_receipt,
     read_back_trace,
 )
@@ -103,6 +106,76 @@ def cmd_receipt(args: argparse.Namespace, config: PlatformConfig) -> int:
     return 0
 
 
+def cmd_fleet(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Record a fleet run under one trace id and prove it read back.
+
+    The managed runtime terminates the caller's request at the API frontend, so a
+    traceparent sent to :streamQuery never reaches the agent container and agent
+    internal spans cannot join the caller's trace. The Controller records what it
+    orchestrated: a root span for the run and one child span per agent call it
+    actually made. Agents that were not called get no span, because a span for a
+    call that never happened would be a decorative claim.
+    """
+
+    recorder = TraceRecorder(config.project_id, args.trace_id)
+    invoker = TracedRuntimeInvoker(config)
+    run_start = datetime.now(UTC)
+    calls: list[dict[str, Any]] = []
+    outcome = "OK"
+    started = datetime.now(UTC)
+    try:
+        call = invoker.invoke(
+            args.resource_name,
+            message=args.message,
+            user_id=args.user_id,
+            trace_id=recorder.trace_id,
+        )
+        events = len(call.events)
+    except Exception as exc:  # noqa: BLE001 - the failure is the evidence
+        outcome, events = f"FAILED:{type(exc).__name__}", 0
+    finished = datetime.now(UTC)
+    root = recorder.record(
+        "recall.controller.scan_run", start=run_start, end=finished
+    )
+    recorder.record(
+        f"recall.agent.{args.role.lower()}",
+        start=started,
+        end=finished,
+        parent_span_id=root.span_id,
+        attributes={
+            "recall.role": args.role,
+            "recall.region": config.agent_engine_location,
+            "recall.outcome": outcome,
+            "recall.event_count": str(events),
+        },
+    )
+    calls.append({"role": args.role, "outcome": outcome, "event_count": events})
+    written = recorder.flush(RestTraceWriter(config))
+
+    client = RestTraceClient(config)
+    trace: dict[str, Any] = {}
+    for _ in range(args.attempts):
+        trace = read_back_trace(client, recorder.trace_id)
+        if trace["state"] == ComponentState.OBSERVED.value:
+            break
+        time.sleep(args.interval)
+    observed = trace.get("state") == ComponentState.OBSERVED.value
+    _emit(
+        {
+            "trace_id": recorder.trace_id,
+            "spans_written": written,
+            "calls": calls,
+            "trace_read_back": trace,
+            "managed_path_receipt": _receipt_for(
+                trace, "agent-runtime", args.producer_version
+            ),
+        },
+        config.project_id,
+        args.redact,
+    )
+    return 0 if observed else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--redact", action="store_true")
@@ -116,6 +189,16 @@ def build_parser() -> argparse.ArgumentParser:
     invoke.add_argument("--user-id", default="l1-trace-smoke")
     invoke.add_argument("--trace-id", default=None)
     invoke.set_defaults(handler=cmd_invoke)
+
+    fleet = sub.add_parser("fleet", parents=[common])
+    fleet.add_argument("--resource-name", required=True)
+    fleet.add_argument("--role", default="EVIDENCE_WATCHER")
+    fleet.add_argument("--message", default="Reply with the word ready.")
+    fleet.add_argument("--user-id", default="l1-fleet-smoke")
+    fleet.add_argument("--trace-id", default=None)
+    fleet.add_argument("--attempts", type=int, default=8)
+    fleet.add_argument("--interval", type=int, default=20)
+    fleet.set_defaults(handler=cmd_fleet)
 
     get = sub.add_parser("get", parents=[common])
     get.add_argument("--trace-id", required=True)
