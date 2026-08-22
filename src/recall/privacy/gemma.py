@@ -34,6 +34,19 @@ STATUS_DISABLED = "DISABLED"
 # only stops an unbounded list from being processed.
 MAX_PROPOSALS = 24
 SURFACE_NOT_FOUND = "model_response_surface_not_found"
+
+# Version of the surface placement logic, ambiguity rule included. It is one of
+# the six values the auditor approval is bound to, so any change to how a
+# surface is matched or to the ambiguity rule requires a version change here and
+# a fresh approval.
+LOCATOR_VERSION = "surface-exact-search-locator@1.0.0"
+LOCATOR_STRATEGY = (
+    "Exact substring search over the note text for the surface string the model returned, "
+    "case sensitive, no normalisation, overlaps included. One occurrence places the span "
+    "there. Several occurrences each become their own candidate proposal, counted "
+    "separately including as false positives. No occurrence refuses that one proposal with "
+    "model_response_surface_not_found and leaves the rest of the response intact."
+)
 JSON_OBJECT_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 
 SYSTEM_INSTRUCTION = (
@@ -175,6 +188,7 @@ class OllamaChatTransport:
     options: dict[str, Any] = field(default_factory=lambda: dict(OLLAMA_DEFAULT_OPTIONS))
     keep_alive: str = OLLAMA_DEFAULT_KEEP_ALIVE
     think: bool = False
+    response_format: str | None = None
 
     def request_settings(self) -> dict[str, Any]:
         """Exactly what this transport sends, for the manifest."""
@@ -185,6 +199,7 @@ class OllamaChatTransport:
             "options": dict(self.options),
             "keep_alive": self.keep_alive,
             "think": self.think,
+            "format": self.response_format,
         }
 
     def __call__(self, note_text: str, timeout_seconds: float) -> str:
@@ -199,6 +214,8 @@ class OllamaChatTransport:
             "keep_alive": self.keep_alive,
             "options": dict(self.options),
         }
+        if self.response_format:
+            body["format"] = self.response_format
         request = urllib.request.Request(
             url=f"{self.base_url.rstrip('/')}/api/chat",
             data=json.dumps(body).encode("utf-8"),
