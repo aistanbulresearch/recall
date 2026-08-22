@@ -32,6 +32,8 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recall.contracts.enums import ArtifactStatus, DataMode  # noqa: E402
 from recall.platform.config import PlatformConfig  # noqa: E402
+from recall.platform.identity import BY_ACCOUNT_ID  # noqa: E402
+from recall.platform.errors import PlatformError  # noqa: E402
 from recall.platform.receipts import utc_timestamp  # noqa: E402
 from recall.platform.runtime import (  # noqa: E402
     AgentRuntime,
@@ -62,6 +64,13 @@ def _redact(text: str, enabled: bool) -> str:
     return masked
 
 
+def identity_email(account_id: str, project_id: str) -> str:
+    identity = BY_ACCOUNT_ID.get(account_id)
+    if identity is None:
+        raise PlatformError("identity_account_unknown", account_id)
+    return identity.email(project_id)
+
+
 def _emit(value: Any, redact: bool) -> None:
     rendered = value if isinstance(value, str) else json.dumps(value, indent=2)
     print(_redact(rendered, redact))
@@ -90,7 +99,7 @@ def _hello_app(config: PlatformConfig, *, tracing: bool) -> Any:
     return agent_engines.AdkApp(agent=agent, enable_tracing=tracing)
 
 
-def _spec(config: PlatformConfig) -> AgentSpec:
+def _spec(config: PlatformConfig, service_account: str | None) -> AgentSpec:
     return AgentSpec(
         display_name=DISPLAY_NAME,
         description=DESCRIPTION,
@@ -100,13 +109,19 @@ def _spec(config: PlatformConfig) -> AgentSpec:
             "GOOGLE_GENAI_USE_VERTEXAI": "1",
             "RECALL_MODEL": config.model,
         },
+        service_account=service_account,
     )
 
 
 def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
     runtime = _runtime(config)
     started = utc_timestamp(datetime.now(UTC))
-    engine = runtime.deploy(_spec(config), _hello_app(config, tracing=args.tracing))
+    account = None
+    if args.service_account_id:
+        account = identity_email(args.service_account_id, config.project_id)
+    engine = runtime.deploy(
+        _spec(config, account), _hello_app(config, tracing=args.tracing)
+    )
     _emit(
         {
             "started_at": started,
@@ -187,6 +202,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     deploy = sub.add_parser("deploy", parents=[common])
     deploy.add_argument("--tracing", action="store_true")
+    deploy.add_argument(
+        "--service-account-id",
+        default=None,
+        help="account id such as recall-sa-watcher; the project is resolved locally",
+    )
     deploy.set_defaults(handler=cmd_deploy)
 
     invoke = sub.add_parser("invoke", parents=[common])

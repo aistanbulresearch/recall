@@ -93,12 +93,17 @@ def test_matching_policy_reconciles() -> None:
 def test_absent_member_reports_missing_roles_not_success() -> None:
     policy = _matching_project_policy()
     del policy[_member("recall-sa-watcher")]
+    watcher = next(
+        identity
+        for identity in SERVICE_IDENTITIES
+        if identity.account_id == "recall-sa-watcher"
+    )
     result = reconcile_project_policy(policy, PROJECT)
     assert result["status"] == "DRIFTED"
     assert result["drifts"] == [
         {
             "account_id": "recall-sa-watcher",
-            "missing_roles": ["roles/aiplatform.user"],
+            "missing_roles": sorted(watcher.project_roles),
             "unexpected_roles": [],
         }
     ]

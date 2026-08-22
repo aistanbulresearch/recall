@@ -27,9 +27,15 @@ from .errors import PlatformError
 
 logger = logging.getLogger(__name__)
 
-AGENT_PROJECT_ROLES = ("roles/aiplatform.user",)
+# Agents call Vertex and write their own spans; they read the staging bucket
+# only. Trace write is required for the managed-path trace id to exist at all.
+AGENT_PROJECT_ROLES = ("roles/aiplatform.user", "roles/cloudtrace.agent")
 AGENT_BUCKET_ROLES = ("roles/storage.objectViewer",)
-CONTROLLER_PROJECT_ROLES = ("roles/aiplatform.user", "roles/datastore.user")
+CONTROLLER_PROJECT_ROLES = (
+    "roles/aiplatform.user",
+    "roles/cloudtrace.agent",
+    "roles/datastore.user",
+)
 
 SERVICE_ACCOUNT_DOMAIN = "iam.gserviceaccount.com"
 PROJECT_PLACEHOLDER = "<project>"

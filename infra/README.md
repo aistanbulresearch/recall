@@ -57,7 +57,9 @@ core and `tests/platform` run on the project interpreter with no cloud package.
 | `scripts/delete_agent_engine.ps1` | Delete one Agent Engine by resource name |
 | `scripts/apply_identity.py` | `plan` / `apply` / `verify` / `observe` / `destroy` the role service accounts |
 | `scripts/observe_registry.py` | Read-only Agent Registry catalog observation |
-| `smoke/hello_agent_engine.py` | Day-zero deploy, invoke, receipt, delete smoke |
+| `smoke/hello_agent_engine.py` | Deploy, invoke, receipt, delete smoke |
+| `smoke/armor_smoke.py` | Create the Model Armor template, screen benign and hostile text, delete |
+| `smoke/trace_readback.py` | Read a trace back from Cloud Trace and build a `ManagedPathReceipt` |
 
 `apply_identity.py verify` and `observe_registry.py catalogued` exit non-zero when
 the live state does not match, so a missing grant or an uncatalogued agent fails a
@@ -81,3 +83,17 @@ Agent Registry v1 has no `agents.create`. An agent is catalogued because the
 platform publishes it, or because its endpoint is registered through
 `services.create`. `engine_is_catalogued` answers the question from the catalog
 listing; a deployment call returning success is not evidence of cataloguing.
+
+## Credentials
+
+Every cloud path here uses application default credentials. Both the gcloud CLI
+credential and the ADC credential expire and need an interactive browser sign-in
+that only the account owner can complete:
+
+```
+gcloud auth login
+gcloud auth application-default login
+```
+
+`RefreshError: Reauthentication is needed` from any script means these have
+expired. Nothing in this lane attempts to refresh them automatically.
