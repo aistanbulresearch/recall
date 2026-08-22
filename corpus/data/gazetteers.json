@@ -1,0 +1,19 @@
+{
+  "note": "Fabricated name-like tokens for synthetic corpus generation. No real person, address, facility, or record is represented.",
+  "tr": {
+    "first_names": ["Ayse", "Mehmet", "Zeynep", "Mustafa", "Elif", "Ahmet", "Fatma", "Emre", "Selin", "Burak", "Deniz", "Kerem", "Ipek", "Onur", "Merve", "Baris", "Ceren", "Tolga", "Nazli", "Serkan", "Pelin", "Volkan", "Gamze", "Ufuk", "Sibel", "Cem", "Yasemin", "Levent", "Ebru", "Hakan", "Duygu", "Sinan", "Melis", "Kaan", "Aslihan", "Ozan", "Berrin", "Tugce", "Firat", "Nihan"],
+    "surnames": ["Yilmaz", "Kaya", "Demir", "Sahin", "Celik", "Yildiz", "Yildirim", "Ozturk", "Aydin", "Ozdemir", "Arslan", "Dogan", "Kilic", "Aslan", "Cetin", "Kara", "Koc", "Kurt", "Ozkan", "Simsek", "Polat", "Erdogan", "Korkmaz", "Ozer", "Sen", "Bulut", "Yalcin", "Gunes", "Tas", "Bozkurt", "Acar", "Turan", "Avci", "Yavuz", "Ates", "Guler", "Karaca", "Isik", "Sari", "Ucar"],
+    "districts": ["Kadikoy", "Besiktas", "Uskudar", "Bornova", "Cankaya", "Karsiyaka", "Nilufer", "Selcuklu", "Konak", "Muratpasa", "Odunpazari", "Melikgazi", "Sisli", "Bakirkoy", "Maltepe"],
+    "streets": ["Gul Sokak", "Zafer Caddesi", "Menekse Sokak", "Barbaros Caddesi", "Lale Sokak", "Ismet Pasa Caddesi", "Cinar Sokak", "Ordu Caddesi"],
+    "facilities": ["Kuzey Universite Hastanesi", "Ege Sahil Tip Merkezi", "Anadolu Genetik Enstitusu", "Marmara Arastirma Hastanesi", "Toros Devlet Hastanesi", "Karadeniz Universite Hastanesi", "Bati Genetik Laboratuvari", "Ic Anadolu Tip Fakultesi", "Guney Onkoloji Merkezi", "Firat Bolge Hastanesi", "Meric Genetik Merkezi", "Cukurova Tani Merkezi"],
+    "occupations": ["profesyonel dalgic", "opera sanatcisi", "maden muhendisi", "seramik ustasi", "denizci", "orman muhafiz memuru", "halk ozani", "arkeolog", "saat tamircisi", "cam ufleyici", "balon pilotu", "luthiye"]
+  },
+  "en": {
+    "first_names": ["Sarah", "James", "Emily", "Michael", "Laura", "Daniel", "Hannah", "Thomas", "Olivia", "Robert", "Grace", "Peter", "Chloe", "Andrew", "Megan", "Simon", "Naomi", "Edward", "Alice", "Martin", "Rachel", "Philip", "Nina", "Gregory", "Clara", "Vincent", "Ruth", "Oscar", "Iris", "Leonard"],
+    "surnames": ["Whitfield", "Barlow", "Ashcroft", "Pemberton", "Rowntree", "Kilbride", "Marchetti", "Nordahl", "Vasquez", "Okonkwo", "Lindqvist", "Fairbanks", "Delacroix", "Hollingsworth", "Ravensbourne", "Thornbury", "Castellano", "Bergstrom", "Achterberg", "Yarrow", "Cavendish", "Mortimer", "Ellingham", "Sandoval", "Featherstone", "Brannigan", "Voskuijlen", "Aldington", "Crowhurst", "Merriweather"],
+    "districts": ["Northgate", "Riverbend", "Ashford Hill", "Westmere", "Kingsholt", "Elmsworth", "Barrowfield", "Fenwick Cross", "Havenport", "Stonebridge"],
+    "streets": ["Beacon Street", "Harrow Lane", "Cobbler Road", "Millrace Avenue", "Sparrow Walk", "Foundry Street", "Kestrel Way", "Alder Close"],
+    "facilities": ["Northgate University Hospital", "Riverbend Genomics Institute", "Ashford Hill Medical Centre", "Westmere Regional Hospital", "Kingsholt Cancer Centre", "Elmsworth Diagnostic Laboratory", "Barrowfield Teaching Hospital", "Fenwick Cross Clinic"],
+    "occupations": ["deep sea diver", "opera repetiteur", "mining engineer", "ceramic restorer", "harbour pilot", "forest warden", "folk balladeer", "field archaeologist", "clockmaker", "glassblower", "balloon pilot", "luthier"]
+  }
+}

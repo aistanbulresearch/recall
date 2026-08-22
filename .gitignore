@@ -38,6 +38,9 @@ logs/
 .Codex/project-memory/
 .claude/project-memory/
 
+# Reproducible generated corpora: regenerate with corpus/generator.py
+corpus/generated/
+
 # Sensitive or heavy local assets
 *.gguf
 models/

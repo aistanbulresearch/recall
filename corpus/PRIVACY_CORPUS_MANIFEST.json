@@ -1,0 +1,108 @@
+{
+  "corpus_name": "recall-privacy-synthetic",
+  "corpus_version": "1.0.0",
+  "data_mode": "SYNTHETIC",
+  "gazetteer_sha256": "6e5061462ff8ea37a72313034c8d7154c511778befae410bf320282f0a6c391f",
+  "generator": "corpus/generator.py",
+  "generator_sha256": "2b0a70c3d2455c6e6dedb4073e9cc6c17707306cc51c307e9fb9f891bb866944",
+  "identifier_classes": {
+    "direct": [
+      "PERSON_NAME",
+      "RELATIVE_NAME",
+      "CLINICIAN_NAME",
+      "NATIONAL_ID",
+      "MEDICAL_RECORD_NUMBER",
+      "PROTOCOL_NUMBER",
+      "PHONE",
+      "EMAIL",
+      "ADDRESS",
+      "FACILITY_NAME",
+      "DATE_OF_BIRTH",
+      "EVENT_DATE"
+    ],
+    "quasi": [
+      "AGE",
+      "OCCUPATION"
+    ]
+  },
+  "real_data_statement": "No real person, address, facility, record, or clinical case is represented. No external data source is read.",
+  "record_count": 360,
+  "seed": 20260822,
+  "splits": {
+    "dev": {
+      "file": "corpus/generated/dev.json",
+      "identifier_span_counts": {
+        "ADDRESS": 48,
+        "AGE": 48,
+        "CLINICIAN_NAME": 48,
+        "DATE_OF_BIRTH": 24,
+        "EMAIL": 48,
+        "EVENT_DATE": 144,
+        "FACILITY_NAME": 144,
+        "MEDICAL_RECORD_NUMBER": 24,
+        "NATIONAL_ID": 48,
+        "OCCUPATION": 24,
+        "PERSON_NAME": 144,
+        "PHONE": 48,
+        "PROTOCOL_NUMBER": 48,
+        "RELATIVE_NAME": 24
+      },
+      "language_counts": {
+        "en": 36,
+        "tr": 36
+      },
+      "record_count": 72,
+      "sha256": "05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5"
+    },
+    "test": {
+      "file": "corpus/generated/test.json",
+      "identifier_span_counts": {
+        "ADDRESS": 120,
+        "AGE": 120,
+        "CLINICIAN_NAME": 120,
+        "DATE_OF_BIRTH": 60,
+        "EMAIL": 120,
+        "EVENT_DATE": 360,
+        "FACILITY_NAME": 360,
+        "MEDICAL_RECORD_NUMBER": 60,
+        "NATIONAL_ID": 120,
+        "OCCUPATION": 60,
+        "PERSON_NAME": 360,
+        "PHONE": 120,
+        "PROTOCOL_NUMBER": 120,
+        "RELATIVE_NAME": 60
+      },
+      "language_counts": {
+        "en": 90,
+        "tr": 90
+      },
+      "record_count": 180,
+      "sha256": "ef5796b16e037cb59aad2513f1ada62e1e2bef9b67cd97a9a9a7c3d53ebe8dfe"
+    },
+    "train": {
+      "file": "corpus/generated/train.json",
+      "identifier_span_counts": {
+        "ADDRESS": 72,
+        "AGE": 72,
+        "CLINICIAN_NAME": 72,
+        "DATE_OF_BIRTH": 36,
+        "EMAIL": 72,
+        "EVENT_DATE": 216,
+        "FACILITY_NAME": 216,
+        "MEDICAL_RECORD_NUMBER": 36,
+        "NATIONAL_ID": 72,
+        "OCCUPATION": 36,
+        "PERSON_NAME": 216,
+        "PHONE": 72,
+        "PROTOCOL_NUMBER": 72,
+        "RELATIVE_NAME": 36
+      },
+      "language_counts": {
+        "en": 54,
+        "tr": 54
+      },
+      "record_count": 108,
+      "sha256": "4f03932c103149f525f2c1d059e9b38abad359bd5604113529dc61a240d7e1a0"
+    }
+  }
+}
