@@ -61,12 +61,44 @@
       "verified": "2026-08-22, deployed agent answered with model_version gemini-3.7-flash"
     }
   ],
+  "service_accounts": {
+    "kind": "iam.serviceAccount",
+    "lifecycle": "persistent",
+    "declaration": "infra/iam_inventory.json (generated from src/recall/platform/identity.py)",
+    "created_at": "2026-08-22T06:12:00Z",
+    "created_by": "infra/scripts/apply_identity.py apply",
+    "delete_command": "python infra/scripts/apply_identity.py destroy",
+    "verify_command": "python infra/scripts/apply_identity.py verify --redact",
+    "status": "active",
+    "accounts": [
+      "recall-sa-coordinator",
+      "recall-sa-watcher",
+      "recall-sa-assessor",
+      "recall-sa-auditor",
+      "recall-sa-controller"
+    ],
+    "read_back": {
+      "service_accounts_found": 5,
+      "project_iam": "MATCHED",
+      "staging_bucket_iam": "MATCHED",
+      "checked_at": "2026-08-22T06:14:00Z"
+    },
+    "note": "service accounts carry no lane label because IAM service accounts take no labels; the recall-sa- prefix is the lane marker"
+  },
+  "agent_registry": {
+    "created_resources": [],
+    "observed_at": "2026-08-22T06:26:00Z",
+    "observation": {
+      "location": "us-central1",
+      "agents": { "status": "OBSERVED", "count": 1 },
+      "services": { "status": "EMPTY", "count": 0 },
+      "bindings": { "status": "EMPTY", "count": 0 }
+    },
+    "note": "the single catalog agent is a Google-published Workspace Agent, not a Recall agent. Registry services and bindings are a resource type outside the approved blast radius and none were created."
+  },
   "not_yet_created": [
-    "recall-sa-coordinator",
-    "recall-sa-watcher",
-    "recall-sa-assessor",
-    "recall-sa-auditor",
-    "recall-sa-controller",
-    "recall-model-armor-template"
+    "recall-model-armor-template",
+    "recall-registry-service (pending approval)",
+    "recall-registry-binding (pending approval)"
   ]
 }

@@ -52,5 +52,32 @@ core and `tests/platform` run on the project interpreter with no cloud package.
 | `scripts/create_staging_bucket.ps1` | Create the labelled Agent Engine staging bucket |
 | `scripts/delete_staging_bucket.ps1` | Remove that bucket |
 | `scripts/list_resources.ps1` | Read back every `lane=l1` resource |
+| `scripts/list_agent_engines.ps1` | Read back Agent Engines in one location |
+| `scripts/label_agent_engine.ps1` | Apply and read back the lane labels on an Agent Engine |
 | `scripts/delete_agent_engine.ps1` | Delete one Agent Engine by resource name |
+| `scripts/apply_identity.py` | `plan` / `apply` / `verify` / `observe` / `destroy` the role service accounts |
+| `scripts/observe_registry.py` | Read-only Agent Registry catalog observation |
 | `smoke/hello_agent_engine.py` | Day-zero deploy, invoke, receipt, delete smoke |
+
+`apply_identity.py verify` and `observe_registry.py catalogued` exit non-zero when
+the live state does not match, so a missing grant or an uncatalogued agent fails a
+script rather than passing quietly.
+
+## Service identities
+
+`src/recall/platform/identity.py` is the single source of truth for the five role
+accounts and their grants; `infra/iam_inventory.json` is generated from it and
+holds `<project>` placeholders rather than real addresses. Agents hold
+`roles/aiplatform.user` plus `roles/storage.objectViewer` on the staging bucket
+only; `roles/datastore.user` belongs to `recall-sa-controller` alone, so no agent
+can reach the ledger.
+
+Deploying an Agent Engine under one of these accounts needs
+`iam.serviceAccounts.actAs` on the target account for the deploying principal.
+
+## Agent Registry
+
+Agent Registry v1 has no `agents.create`. An agent is catalogued because the
+platform publishes it, or because its endpoint is registered through
+`services.create`. `engine_is_catalogued` answers the question from the catalog
+listing; a deployment call returning success is not evidence of cataloguing.

@@ -1,11 +1,35 @@
 from .config import PlatformConfig, require_resource_prefix, resource_labels
 from .errors import PlatformError
+from .identity import (
+    SERVICE_IDENTITIES,
+    AgentIdentityClient,
+    RestAgentIdentityClient,
+    ServiceIdentity,
+    declared_inventory,
+    identity_for_role,
+    observe_agent_identity,
+    reconcile_bucket_policy,
+    reconcile_project_policy,
+)
 from .receipts import (
     DEPLOYMENT_RECEIPT_FIELDS,
     RUNTIME_FIELDS,
     build_platform_receipt,
     deployment_receipt,
     utc_timestamp,
+)
+from .registry import (
+    BINDING_FIELDS,
+    CapabilityBinding,
+    RegistryClient,
+    RegistryResolution,
+    ResolutionMode,
+    RestRegistryClient,
+    build_registry_resolution_receipt,
+    catalog_digest,
+    engine_is_catalogued,
+    observe_catalog,
+    resolve_capabilities,
 )
 from .runtime import (
     RUNTIME_SERVICE,
@@ -17,19 +41,39 @@ from .runtime import (
 )
 
 __all__ = [
+    "BINDING_FIELDS",
     "DEPLOYMENT_RECEIPT_FIELDS",
     "RUNTIME_FIELDS",
     "RUNTIME_SERVICE",
+    "SERVICE_IDENTITIES",
     "AgentEngineClient",
+    "AgentIdentityClient",
     "AgentRuntime",
     "AgentSpec",
+    "CapabilityBinding",
     "DeployedEngine",
     "PlatformConfig",
     "PlatformError",
+    "RegistryClient",
+    "RegistryResolution",
+    "ResolutionMode",
+    "RestAgentIdentityClient",
+    "RestRegistryClient",
+    "ServiceIdentity",
     "VertexAgentEngineClient",
     "build_platform_receipt",
+    "build_registry_resolution_receipt",
+    "catalog_digest",
+    "declared_inventory",
     "deployment_receipt",
+    "engine_is_catalogued",
+    "identity_for_role",
+    "observe_agent_identity",
+    "observe_catalog",
+    "reconcile_bucket_policy",
+    "reconcile_project_policy",
     "require_resource_prefix",
+    "resolve_capabilities",
     "resource_labels",
     "utc_timestamp",
 ]

@@ -1,0 +1,64 @@
+{
+  "project": "<project>",
+  "service_accounts": [
+    {
+      "account_id": "recall-sa-coordinator",
+      "display_name": "Recall Fleet Coordinator",
+      "email": "recall-sa-coordinator@<project>.iam.gserviceaccount.com",
+      "agent_role": "FLEET_COORDINATOR",
+      "project_roles": [
+        "roles/aiplatform.user"
+      ],
+      "staging_bucket_roles": [
+        "roles/storage.objectViewer"
+      ]
+    },
+    {
+      "account_id": "recall-sa-watcher",
+      "display_name": "Recall Evidence Watcher",
+      "email": "recall-sa-watcher@<project>.iam.gserviceaccount.com",
+      "agent_role": "EVIDENCE_WATCHER",
+      "project_roles": [
+        "roles/aiplatform.user"
+      ],
+      "staging_bucket_roles": [
+        "roles/storage.objectViewer"
+      ]
+    },
+    {
+      "account_id": "recall-sa-assessor",
+      "display_name": "Recall Evidence Assessor",
+      "email": "recall-sa-assessor@<project>.iam.gserviceaccount.com",
+      "agent_role": "EVIDENCE_ASSESSOR",
+      "project_roles": [
+        "roles/aiplatform.user"
+      ],
+      "staging_bucket_roles": [
+        "roles/storage.objectViewer"
+      ]
+    },
+    {
+      "account_id": "recall-sa-auditor",
+      "display_name": "Recall Citation Auditor",
+      "email": "recall-sa-auditor@<project>.iam.gserviceaccount.com",
+      "agent_role": "CITATION_AUDITOR",
+      "project_roles": [
+        "roles/aiplatform.user"
+      ],
+      "staging_bucket_roles": [
+        "roles/storage.objectViewer"
+      ]
+    },
+    {
+      "account_id": "recall-sa-controller",
+      "display_name": "Recall Controller",
+      "email": "recall-sa-controller@<project>.iam.gserviceaccount.com",
+      "agent_role": null,
+      "project_roles": [
+        "roles/aiplatform.user",
+        "roles/datastore.user"
+      ],
+      "staging_bucket_roles": []
+    }
+  ]
+}
