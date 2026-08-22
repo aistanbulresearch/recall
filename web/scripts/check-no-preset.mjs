@@ -28,6 +28,21 @@ const FORBIDDEN_RESULT_LITERALS = [
 ];
 const FORBIDDEN_FIXTURE_IDENTIFIERS = ['golden', 'fault', 'halted'];
 const JSX_TEXT = />([^<>{}]+)</g;
+/** Characters that mark a candidate as source code rather than rendered prose. */
+const CODE_CHARACTERS = /[?()=;&|]/;
+
+/** Comments explain the rules and are not rendered, so they are removed first. */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+}
+
+/**
+ * A registered field identifier such as `UI-CITATION-VERIFIED` legitimately
+ * contains an enum word, so a literal only counts when it stands alone.
+ */
+function containsStandaloneLiteral(source, literal) {
+  return new RegExp(`(?<![A-Z0-9_-])${literal}(?![A-Z0-9_-])`).test(source);
+}
 
 function walk(directory) {
   const entries = [];
@@ -44,9 +59,9 @@ function walk(directory) {
 
 const findings = [];
 for (const file of walk(COMPONENT_ROOT)) {
-  const source = readFileSync(file, 'utf8');
+  const source = stripComments(readFileSync(file, 'utf8'));
   for (const literal of FORBIDDEN_RESULT_LITERALS) {
-    if (source.includes(`'${literal}'`) || source.includes(`"${literal}"`) || source.includes(`>${literal}<`)) {
+    if (containsStandaloneLiteral(source, literal)) {
       findings.push(`${file}: result literal ${literal} is present in a result component`);
     }
   }
@@ -57,6 +72,9 @@ for (const file of walk(COMPONENT_ROOT)) {
   }
   for (const match of source.matchAll(JSX_TEXT)) {
     const text = match[1];
+    if (CODE_CHARACTERS.test(text)) {
+      continue;
+    }
     if (/\d/.test(text) && text.trim().length > 0) {
       findings.push(`${file}: rendered text contains a numeric literal: ${JSON.stringify(text.trim())}`);
     }
