@@ -159,3 +159,33 @@ withdraws the approval, and the run that broke it may not be reported.
    written model claim requires the incremental true positive count and the
    accepted-escape count from the same frozen run. An oracle-stub result is
    never a model result, whatever it shows.
+
+4. **The measured model and prompt are identified before the measurement.** No
+   model-backed run may start unless the evidence manifest records the model
+   identity and the prompt identity:
+
+   | Recorded value | Source |
+   |---|---|
+   | Repository and revision | the download the owner authorised |
+   | File name and quantisation | the file actually loaded by the local server |
+   | Model file SHA-256 | computed by the harness from that file, not pasted |
+   | Prompt SHA-256 | computed by the harness from the exact instruction text and adapter version used |
+
+   A run whose manifest is missing any of these is not a measurement and may not
+   be reported, quoted, or shown. Changing the model file or the prompt text
+   produces different hashes and therefore a different run, which condition 1
+   already forbids after a frozen-split read.
+
+5. **The frozen split is measured in exactly one run.** That run carries a
+   `frozen_test_run_id`, recorded in its evidence manifest and in section 9 of
+   this document. The harness refuses to start a second frozen-split run. A
+   replacement requires a new auditor approval, a new `frozen_test_run_id`, and
+   an explicit recorded statement of which run it supersedes and why. The
+   superseded manifest is retained, never deleted or overwritten. This is the
+   operational form of condition 1.
+
+## 9. Frozen test run record
+
+| `frozen_test_run_id` | Date | Model identity | Supersedes | Auditor approval record |
+|---|---|---|---|---|
+| _not yet run_ | | | | |

@@ -12,12 +12,17 @@ profile, which declares no free-text field at all. Its acceptance rate is
 structural rather than a detector result, and the report says so, but it is
 measured on the same records so the two boundaries can be compared honestly.
 
-Two stop points are enforced in code, not by convention:
+Four stop points are enforced in code, not by convention:
 
 * the frozen `test` split refuses to run without a recorded preregistration
   approval;
 * an oracle stub is labelled as a stub everywhere it appears and can never be
-  reported as a local-model result.
+  reported as a local-model result;
+* a model-backed run refuses to start unless the model file and the prompt are
+  identified by hash, computed here rather than pasted in
+  (`corpus/PREREGISTRATION.md` condition 4);
+* the frozen split refuses a second run unless the new run explicitly supersedes
+  the recorded one (`corpus/PREREGISTRATION.md` condition 5).
 
 Ownership: lane L3. Related tasks: RCL-405; protocol P1.
 """
@@ -25,6 +30,7 @@ Ownership: lane L3. Related tasks: RCL-405; protocol P1.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import statistics
@@ -39,7 +45,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recall.privacy.detectors import DeterministicDetector  # noqa: E402
 from recall.privacy.egress import EGRESS_STRUCTURED_ONLY, EGRESS_SUMMARY_TEXT  # noqa: E402
 from recall.privacy.gate import PrivacyGate  # noqa: E402
-from recall.privacy.gemma import GemmaResidualDetector, LlamaServerTransport  # noqa: E402
+from recall.privacy.gemma import (  # noqa: E402
+    GEMMA_ADAPTER_VERSION,
+    SYSTEM_INSTRUCTION,
+    GemmaResidualDetector,
+    LlamaServerTransport,
+)
 from recall.privacy.minimizer import LabNote  # noqa: E402
 from recall.privacy.receipt import DECISION_ACCEPTED  # noqa: E402
 from recall.privacy.signing import LocalSigner, SigningKeyUnavailable, content_hash, load_signer  # noqa: E402
@@ -63,6 +74,136 @@ ORACLE_STUB_DISCLAIMER = (
     "behaviour when residual spans are supplied. It is not a local model result "
     "and must never be reported as Gemma performance."
 )
+
+
+EVIDENCE_ROOT = REPO_ROOT / "artifacts" / "evidence"
+REPORT_FILE_NAME = "p1-privacy-report.json"
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def prompt_identity() -> dict[str, Any]:
+    """Identify the exact instruction text this run sends to the model.
+
+    Hashed here rather than declared, so a silently edited prompt produces a
+    different manifest instead of a comparable one.
+    """
+
+    return {
+        "adapter_version": GEMMA_ADAPTER_VERSION,
+        "instruction_characters": len(SYSTEM_INSTRUCTION),
+        "prompt_sha256": hashlib.sha256(
+            (GEMMA_ADAPTER_VERSION + "::" + SYSTEM_INSTRUCTION).encode("utf-8")
+        ).hexdigest(),
+    }
+
+
+def model_identity(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Identify the model file actually loaded, or refuse the run.
+
+    Preregistration condition 4. The file hash is computed from the file on
+    disk; a pasted hash is not evidence that this file was the one served.
+    """
+
+    if not args.gemma_url:
+        return None
+    missing = [
+        name
+        for name, value in (
+            ("--model-repo", args.model_repo),
+            ("--model-revision", args.model_revision),
+            ("--model-quantization", args.model_quantization),
+            ("--model-path", args.model_path),
+        )
+        if not value
+    ]
+    if missing:
+        raise SystemExit(
+            "refusing a model-backed run without model identity: missing "
+            + ", ".join(missing)
+            + " (see corpus/PREREGISTRATION.md condition 4)"
+        )
+    path = Path(args.model_path)
+    if not path.is_file():
+        raise SystemExit(f"model file not found, so it cannot be identified: {path}")
+    return {
+        "repository": args.model_repo,
+        "revision": args.model_revision,
+        "file_name": path.name,
+        "quantization": args.model_quantization,
+        "file_sha256": file_sha256(path),
+        "file_bytes": path.stat().st_size,
+    }
+
+
+def _display_path(path: Path) -> str:
+    """Repository-relative when possible, absolute otherwise."""
+
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def recorded_frozen_runs() -> list[dict[str, str]]:
+    """Every frozen-split report already written under the evidence root."""
+
+    recorded: list[dict[str, str]] = []
+    if not EVIDENCE_ROOT.exists():
+        return recorded
+    for report_path in sorted(EVIDENCE_ROOT.glob(f"*/{REPORT_FILE_NAME}")):
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):  # pragma: no cover - unreadable evidence
+            continue
+        if report.get("split") == "test":
+            recorded.append(
+                {
+                    "run_id": str(report.get("run_id")),
+                    "frozen_test_run_id": str(report.get("frozen_test_run_id")),
+                    "path": _display_path(report_path),
+                }
+            )
+    return recorded
+
+
+def guard_frozen_split(args: argparse.Namespace) -> None:
+    """Preregistration conditions 1 and 5: the frozen split is read once."""
+
+    if not args.preregistration_approved:
+        raise SystemExit(
+            "refusing to read the frozen test split: pass --preregistration-approved with the auditor approval record "
+            "(see corpus/PREREGISTRATION.md stop point 2)"
+        )
+    if not args.frozen_test_run_id:
+        raise SystemExit(
+            "refusing to read the frozen test split without --frozen-test-run-id "
+            "(see corpus/PREREGISTRATION.md condition 5)"
+        )
+    recorded = recorded_frozen_runs()
+    if not recorded:
+        return
+    already = ", ".join(f"{entry['frozen_test_run_id']} at {entry['path']}" for entry in recorded)
+    if not args.supersedes:
+        raise SystemExit(
+            f"the frozen test split has already been measured: {already}. A second run requires a new auditor "
+            "approval and --supersedes naming the run it replaces (see corpus/PREREGISTRATION.md condition 5)"
+        )
+    known = {entry["frozen_test_run_id"] for entry in recorded}
+    if args.supersedes not in known:
+        raise SystemExit(
+            f"--supersedes {args.supersedes} does not name a recorded frozen run. Recorded: {already}"
+        )
+    if args.frozen_test_run_id in known:
+        raise SystemExit(
+            f"--frozen-test-run-id {args.frozen_test_run_id} is already recorded; a replacement run needs a new id"
+        )
 
 
 def wilson_interval(successes: int, total: int, z: float = 1.96) -> dict[str, float | None]:
@@ -308,10 +449,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "generator_sha256": corpus_manifest["generator_sha256"],
         "evidence_scope": args.evidence_scope,
         "preregistration_approval": args.preregistration_approved,
+        "frozen_test_run_id": args.frozen_test_run_id,
+        "supersedes_frozen_test_run_id": args.supersedes,
         "local_model": {
             "mode": comparison.mode if comparison is not None else "not_run",
             "model_id": args.model_id if args.gemma_url else None,
             "endpoint_configured": bool(args.gemma_url),
+            "identity": args.model_identity_record,
+            "prompt": prompt_identity(),
             "disclaimer": ORACLE_STUB_DISCLAIMER if args.oracle_stub else None,
         },
         "baseline": baseline.to_wire(),
@@ -352,23 +497,27 @@ def main() -> int:
         help="Replay ground-truth residual spans instead of calling a model. Never a model claim.",
     )
     parser.add_argument("--preregistration-approved", default=None, help="Auditor approval record for the frozen split.")
+    parser.add_argument("--model-repo", default=None, help="Repository the model file came from.")
+    parser.add_argument("--model-revision", default=None, help="Repository revision of the model file.")
+    parser.add_argument("--model-quantization", default=None, help="Quantisation of the model file, for example q4_0.")
+    parser.add_argument("--model-path", default=None, help="Path to the model file actually served; hashed by this script.")
+    parser.add_argument("--frozen-test-run-id", default=None, help="Preregistered identifier of the single frozen-split run.")
+    parser.add_argument("--supersedes", default=None, help="Frozen run identifier this run replaces, when re-approved.")
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
-    if args.split == "test" and not args.preregistration_approved:
-        raise SystemExit(
-            "refusing to read the frozen test split: pass --preregistration-approved with the auditor approval record "
-            "(see corpus/PREREGISTRATION.md stop point 2)"
-        )
+    if args.split == "test":
+        guard_frozen_split(args)
     if args.gemma_url and args.oracle_stub:
         raise SystemExit("choose either a real local model endpoint or the oracle stub, not both")
+    args.model_identity_record = model_identity(args)
 
     args.evidence_scope = (
         "PREREGISTERED_TEST_RUN" if args.split == "test" else f"DEVELOPMENT_SMOKE_ON_{args.split.upper()}_SPLIT"
     )
     mode = "gemma" if args.gemma_url else ("oracle-stub" if args.oracle_stub else "deterministic-only")
-    args.run_id = args.run_id or f"privacy-p1-{args.split}-{mode}"
+    args.run_id = args.run_id or args.frozen_test_run_id or f"privacy-p1-{args.split}-{mode}"
 
     report = run(args)
     out_dir = Path(args.out) if args.out else REPO_ROOT / "artifacts" / "evidence" / report["run_id"]
@@ -400,6 +549,13 @@ def main() -> int:
             f"escapes {comparison['document_level']['escaped_direct_identifier_surfaces']}"
         )
         print(f"incremental: {json.dumps(report['incremental'])}")
+    identity = report["local_model"]["identity"]
+    if identity is not None:
+        print(
+            f"model: {identity['repository']}@{identity['revision']} {identity['file_name']} "
+            f"({identity['quantization']}) sha256 {identity['file_sha256'][:16]}"
+        )
+    print(f"prompt sha256: {report['local_model']['prompt']['prompt_sha256'][:16]}")
     print(f"mandatory safety gate: {report['mandatory_safety_gate']['result']}")
     print(f"manifest: {manifest_path.relative_to(REPO_ROOT)}")
     return 0

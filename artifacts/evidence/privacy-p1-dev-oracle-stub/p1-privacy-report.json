@@ -239,10 +239,11 @@
       "true_positive": 856
     }
   },
-  "content_hash": "055190f2b246ffddc904e1690d884b794ab990d7b5b815bd91f8e5e58316866c",
+  "content_hash": "80dfb8e12af9933b8bb01c25aab9194d8bedd8b87cdf5788120787766804850c",
   "corpus_seed": 20260822,
   "corpus_version": "1.0.0",
   "evidence_scope": "DEVELOPMENT_SMOKE_ON_DEV_SPLIT",
+  "frozen_test_run_id": null,
   "generator_sha256": "2b0a70c3d2455c6e6dedb4073e9cc6c17707306cc51c307e9fb9f891bb866944",
   "incremental": {
     "incremental_accepted_escapes": 0,
@@ -259,8 +260,14 @@
   "local_model": {
     "disclaimer": "The oracle stub replays ground-truth residual spans. It measures the gate's behaviour when residual spans are supplied. It is not a local model result and must never be reported as Gemma performance.",
     "endpoint_configured": false,
+    "identity": null,
     "mode": "deterministic_plus_oracle_stub",
-    "model_id": null
+    "model_id": null,
+    "prompt": {
+      "adapter_version": "gemma-span-adapter@1.0.0",
+      "instruction_characters": 329,
+      "prompt_sha256": "09fc9ce07ec28fd0f2288d386ad5f78f78dc89225ca1f89b4ced94ee390434da"
+    }
   },
   "mandatory_safety_gate": {
     "baseline_escapes": 0,
@@ -395,5 +402,6 @@
       "true_positive": 676
     }
   },
-  "structured_only_egress_note": "Acceptance under the structured-only egress profile is a property of the payload shape, not a detection result. The payload declares no free-text field, so no identifier the detectors missed has a field to travel in. This number must never be reported as detector or local-model performance."
+  "structured_only_egress_note": "Acceptance under the structured-only egress profile is a property of the payload shape, not a detection result. The payload declares no free-text field, so no identifier the detectors missed has a field to travel in. This number must never be reported as detector or local-model performance.",
+  "supersedes_frozen_test_run_id": null
 }

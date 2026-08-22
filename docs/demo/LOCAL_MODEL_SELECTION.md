@@ -1,13 +1,20 @@
 # Local Model Selection — DUR-1 decision request
 
-- Status: **awaiting owner decision** (lane L3 stop point 1)
+- Status: **decided by the owner on 2026-08-22** (lane L3 stop point 1 closed)
+- Decision: `google/gemma-4-E4B-it-qat-q4_0-gguf`, Q4, Apache-2.0 licence confirmed by the owner
 - Date: 2026-08-22
 - Lane: L3
 - Related: `corpus/PREREGISTRATION.md` section 8, protocol P1, RCL-107
 - Prepared by: auditor, from public repository metadata only
 
-Nothing has been downloaded. No licence has been accepted. This document exists
-so the owner can make one decision with the facts in front of them.
+This document recorded the candidates and the licence position so the owner
+could decide. The owner decided on 2026-08-22: **`google/gemma-4-E4B-it-qat-q4_0-gguf`**,
+with the Apache-2.0 licence independently confirmed. Sections 1 to 7 are the
+evidence behind that decision and are kept unchanged. Sections 8 and 9 carry
+what is still outstanding.
+
+The model file itself has not been downloaded by this lane, and no key, token,
+or credential is involved anywhere in this workflow.
 
 ## 1. What the model is actually for
 
@@ -80,9 +87,9 @@ from the P1 run:
 | `gemma-4-E4B-it-qat-q4_0` | ~4-5 GB | seconds | tens of minutes |
 | `gemma-4-12B-it-qat-q4_0` | ~7-8 GB | tens of seconds | one to two hours |
 
-## 4. Recommendation
+## 4. Recommendation, and the decision taken
 
-**Primary: `google/gemma-4-E4B-it-qat-q4_0-gguf`.**
+**Chosen: `google/gemma-4-E4B-it-qat-q4_0-gguf`** (owner, 2026-08-22).
 
 - Apache-2.0 as declared, so no separate terms acceptance if that holds.
 - Small enough to keep the privacy demo segment inside its 20-second slot and to
@@ -90,9 +97,11 @@ from the P1 run:
 - Quantisation-aware training, so the int4 build is the intended artifact rather
   than a lossy afterthought.
 
-**Fallback, only if the primary contributes no incremental true positive:**
+**Fallback, only if the chosen model contributes no incremental true positive:**
 `google/gemma-4-12B-it-qat-q4_0-gguf`. Same licence position, materially slower
 on this hardware. Try it before removing the model from the demo, not after.
+Switching to it is a different model identity and therefore a different P1 run
+under preregistration conditions 4 and 5.
 
 **Not recommended:** the Gemma 3 builds, because they carry the Gemma Terms and
 buy nothing this task needs; and every community fine-tune in the search
@@ -132,14 +141,43 @@ this lane.
 - The exact repository, revision, and file name go into the P1 evidence manifest
   so the measurement is reproducible.
 
-## 8. What the owner needs to decide
+## 8. Outstanding items
 
-1. Confirm the licence position on `google/gemma-4-E4B-it-qat-q4_0-gguf`, or
-   accept the Gemma Terms instead if a Gemma 3 build is preferred for a reason
-   not visible here.
-2. Authorise the download of that one repository to this machine.
-3. Confirm the fallback: if the primary contributes nothing measurable, try the
-   12B build once, then drop the model from the demonstration.
+| Item | Owner | State |
+|---|---|---|
+| Licence position confirmed as Apache-2.0 | owner | done, 2026-08-22 |
+| Model choice: E4B, Q4 | owner | done, 2026-08-22 |
+| Local runtime available: `llama-server` or an Ollama-served GGUF | owner | pending |
+| Model file SHA-256 recorded in the P1 manifest | harness | computed automatically at run time from `--model-path` |
+| Third-party register row updated | lane L2 (Codex) | requested, see section 9 |
+| Frozen P1 run with the real model | lane L3 | blocked on the runtime |
 
-Until step 2 happens, protocol P1 runs with the deterministic path and the
+The file hash is deliberately not written into this document by hand.
+`scripts/privacy_eval.py` computes it from the file actually served and records
+it in the evidence manifest, because a pasted hash is not evidence that this
+file was the one measured. Preregistration condition 4 refuses a model-backed
+run that lacks repository, revision, quantisation, and that computed hash.
+
+Until the runtime exists, protocol P1 runs with the deterministic path and the
 labelled oracle stub only, and no local-model claim is written anywhere.
+
+## 9. Third-party register row requested from lane L2
+
+`docs/governance/THIRD_PARTY_REGISTER.md` belongs to lane L2, so this lane does
+not edit it. The existing `Gemma model artifacts` row still reads
+`Custom Gemma Terms and Prohibited Use Policy`, which no longer describes the
+artifact this project uses. Requested replacement:
+
+| Component or source | Planned role | Terms class | Distribution mode | Current decision | Required condition |
+|---|---|---|---|---|---|
+| Gemma model artifacts: `google/gemma-4-E4B-it-qat-q4_0-gguf`, Q4 quantisation-aware build | Residual identifier span proposals inside the laboratory privacy boundary | Apache-2.0, as declared by the publishing repository and confirmed by the owner on 2026-08-22 | Separately downloaded local artifact; never committed, never containerised, never deployed to a cloud runtime | Approved for the local privacy lane | Record repository, revision, file name, and artifact SHA-256 in the P1 evidence manifest before any measurement; keep the file under the ignored `models/` directory; synthetic corpus only; no clinical or workflow decision; the model proposes spans and never approves, redacts, or releases anything. |
+
+Two supporting facts for that row:
+
+- the publisher is Google's own namespace, not a third-party mirror, which is
+  what the register's exclusion of unverified mirrors is aimed at;
+- the artifact hash is produced by the P1 harness rather than transcribed, and
+  the manifest that carries it is the evidence the register should cite.
+
+The `llama.cpp` row already covers the runtime, and its condition that the
+runtime licence does not cover the weights still holds and still matters.
