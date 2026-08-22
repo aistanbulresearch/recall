@@ -67,6 +67,46 @@ Paths A and B use the identical redaction, outbound gate, receipt, and signing
 code. The only difference between them is whether approved residual spans exist,
 so they are the pair that measures the local-model contribution.
 
+### Two scorings of comparator B, declared before the run
+
+Comparator B asks the model for both the identifier surface and its character
+offsets in a single response. One model call therefore supports two scorings,
+declared here before any measurement so neither can be chosen after seeing a
+result:
+
+| Arm | Status | How a span is placed | Metric |
+|---|---|---|---|
+| A. `model_offsets` | **preregistered primary** | the `start` and `end` the model returned | exact boundary |
+| B. `surface_exact_search` | declared secondary, exploratory | the returned `surface` string located by deterministic exact search over the note | exact boundary |
+
+Both arms are adjudicated, redacted, and released by the same deterministic
+code. They differ only in how a proposal is placed. There is no second model
+call and no second run, so no additional frozen-split read is involved.
+
+The ambiguity rule for arm B is fixed here, before the run, and cannot be
+selected afterwards to suit a result:
+
+- the surface occurs exactly once in the note: that position is used;
+- it occurs more than once: every occurrence becomes its own candidate
+  proposal, each counted separately, including as a false positive;
+- it does not occur at all: that proposal is refused with
+  `model_response_surface_not_found`. One refused proposal never invalidates
+  the response, unlike a schema violation.
+
+Arm A remains the primary result. Arm B exists because character arithmetic and
+identifier recognition are different abilities, and a model can be good at one
+and poor at the other. Any published claim quotes arm A; arm B is reported as
+exploratory and labelled as such.
+
+### Proposal cap
+
+The adapter caps a response at 24 proposals. The cap is a denial-of-service
+bound and never a recall bound: the development split carries 10 to 15 seeded
+spans per note, so a cap at or below that floor would make a complete answer
+impossible to accept and would measure the cap rather than the model. The
+prompt states no number, and the cap value and this rationale are recorded in
+every evidence manifest.
+
 Path C is not a detection comparator. It changes the shape of the payload rather
 than the quality of detection: only registered structured field paths whose
 values match a registered shape may be released, and prose has no field to

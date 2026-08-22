@@ -35,7 +35,8 @@ import json
 import math
 import statistics
 import sys
-from dataclasses import dataclass, field
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -47,9 +48,15 @@ from recall.privacy.egress import EGRESS_STRUCTURED_ONLY, EGRESS_SUMMARY_TEXT  #
 from recall.privacy.gate import PrivacyGate  # noqa: E402
 from recall.privacy.gemma import (  # noqa: E402
     GEMMA_ADAPTER_VERSION,
+    GemmaOutcome,
+    MAX_PROPOSALS,
+    OLLAMA_DEFAULT_KEEP_ALIVE,
+    OLLAMA_DEFAULT_OPTIONS,
     SYSTEM_INSTRUCTION,
     GemmaResidualDetector,
     LlamaServerTransport,
+    OllamaChatTransport,
+    locate_surfaces,
 )
 from recall.privacy.minimizer import LabNote  # noqa: E402
 from recall.privacy.receipt import DECISION_ACCEPTED  # noqa: E402
@@ -83,6 +90,45 @@ ORACLE_STUB_DISCLAIMER = (
 
 EVIDENCE_ROOT = REPO_ROOT / "artifacts" / "evidence"
 REPORT_FILE_NAME = "p1-privacy-report.json"
+CHECKPOINT_FILE_NAME = "records.jsonl"
+
+ARM_A = "model_offsets"
+ARM_B = "surface_exact_search"
+
+ARM_DECLARATION = {
+    "primary": {
+        "arm": ARM_A,
+        "status": "preregistered primary",
+        "description": (
+            "The offsets the model returned are scored directly against the ground truth, "
+            "exact boundary."
+        ),
+    },
+    "secondary": {
+        "arm": ARM_B,
+        "status": "declared secondary, exploratory",
+        "description": (
+            "Each returned surface string is placed by deterministic exact search over the note, "
+            "then scored exact boundary. Same model call, same tokens, no additional run."
+        ),
+        "ambiguity_rule": (
+            "Fixed before the run: one occurrence gives that position; several occurrences each "
+            "become their own candidate proposal; no occurrence refuses that proposal with "
+            "model_response_surface_not_found."
+        ),
+    },
+}
+
+MAX_PROPOSALS_RATIONALE = (
+    "Denial-of-service bound only, never a recall bound. The development split carries 10 to 15 "
+    "seeded spans per note, so a cap below that floor would make a complete answer impossible to "
+    "accept and would measure the cap instead of the model. The prompt states no number."
+)
+REASONING_EFFORT_RATIONALE = (
+    "A reasoning budget is not viable at this CPU throughput: the model spent its entire "
+    "completion budget on reasoning and returned empty content. This is a limit of the local CPU "
+    "deployment, not of the model."
+)
 
 
 def file_sha256(path: Path) -> str:
@@ -321,7 +367,12 @@ def oracle_stub_transport(record: dict[str, Any], detector: DeterministicDetecto
         return json.dumps(
             {
                 "spans": [
-                    {"start": s["start"], "end": s["end"], "identifier_class": s["identifier_class"]}
+                    {
+                        "surface": text[s["start"] : s["end"]],
+                        "start": s["start"],
+                        "end": s["end"],
+                        "identifier_class": s["identifier_class"],
+                    }
                     for s in missing[:8]
                 ]
             }
@@ -399,6 +450,268 @@ def extra_body(args: argparse.Namespace) -> dict[str, Any]:
     return body
 
 
+def build_transport(args: argparse.Namespace):
+    """The configured local-server client, plus exactly what it sends."""
+
+    if args.server_kind == "ollama":
+        options = dict(OLLAMA_DEFAULT_OPTIONS)
+        options["num_ctx"] = args.num_ctx
+        options["num_thread"] = args.num_thread
+        options["num_predict"] = args.num_predict
+        transport = OllamaChatTransport(
+            base_url=args.gemma_url,
+            model_id=args.model_id,
+            options=options,
+            keep_alive=args.keep_alive,
+        )
+        return transport, transport.request_settings()
+    transport = LlamaServerTransport(
+        base_url=args.gemma_url,
+        model_id=args.model_id,
+        extra_body=extra_body(args),
+    )
+    return transport, {
+        "server_kind": "openai",
+        "endpoint": "/v1/chat/completions",
+        "extra_body": extra_body(args),
+    }
+
+
+def transport_for_record(args: argparse.Namespace, detector: DeterministicDetector):
+    """Per-record transport factory. The oracle stub needs one; a server does not."""
+
+    if args.gemma_url:
+        shared, settings = build_transport(args)
+        return (lambda record: shared), settings
+    if args.oracle_stub:
+        return (lambda record: oracle_stub_transport(record, detector)), {"server_kind": "oracle_stub"}
+    return None, {}
+
+
+@dataclass(frozen=True)
+class ReplayDetector:
+    """Feeds an already-obtained model outcome back through the gate.
+
+    Arm B needs the same deterministic adjudication, redaction, and outbound
+    decision as arm A, applied to the same proposals placed a different way.
+    Replaying the outcome gives that without a second model call.
+    """
+
+    outcome: GemmaOutcome
+
+    def propose(self, note_text: str) -> GemmaOutcome:
+        return self.outcome
+
+
+def arm_outcome(result, record: dict[str, Any]) -> dict[str, Any]:
+    """Document-level facts for one arm, with no raw text in the result."""
+
+    text = record["text"]
+    escaped = 0
+    if result.decision == DECISION_ACCEPTED and result.cloud_bound_payload is not None:
+        blob = json.dumps(result.cloud_bound_payload, ensure_ascii=False)
+        escaped = sum(
+            1
+            for s in record["spans"]
+            if s["identifier_class"] in DIRECT_IDENTIFIER_CLASSES and text[s["start"] : s["end"]] in blob
+        )
+    residual_present = any(
+        s["identifier_class"] in DIRECT_IDENTIFIER_CLASSES
+        and text[s["start"] : s["end"]] in result.local_only.redacted_summary
+        for s in record["spans"]
+    )
+    predicted = tuple(result.local_only.deterministic_spans) + tuple(result.local_only.approved_residual_spans)
+    return {
+        "spans": [[span.start, span.end, span.identifier_class] for span in predicted],
+        "approved_residual_count": len(result.local_only.approved_residual_spans),
+        "decision": result.decision,
+        "escaped_surface_count": escaped,
+        "residual_present": residual_present,
+    }
+
+
+def build_record_row(
+    signer: LocalSigner,
+    args: argparse.Namespace,
+    transport: Callable[[str, float], str],
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    """One model call, adjudicated twice, scored two ways.
+
+    The row is the checkpoint unit. It carries offsets, counts, and status
+    only: `artifacts/evidence/` is committed evidence, so an identifier surface
+    must never be written into it.
+    """
+
+    text = record["text"]
+    note = note_from_record(record)
+    gate_a = build_gate(
+        signer,
+        transport,
+        args.model_id,
+        EGRESS_SUMMARY_TEXT,
+        timeout_seconds=args.timeout_seconds,
+    )
+    result_a = gate_a.process(note)
+    outcome = result_a.gemma
+
+    located, surface_reason_codes = locate_surfaces(text, outcome.proposals)
+    gate_b = PrivacyGate(
+        signer=signer,
+        gemma=ReplayDetector(replace(outcome, proposals=located)),
+        egress_profile=EGRESS_SUMMARY_TEXT,
+    )
+    result_b = gate_b.process(note)
+
+    return {
+        "record_id": record["record_id"],
+        "language": record["language"],
+        "status": outcome.status,
+        "schema_valid": outcome.schema_valid,
+        "latency_ms": outcome.latency_ms,
+        "reason_codes": list(outcome.reason_codes) + list(surface_reason_codes),
+        "proposal_count": len(outcome.proposals),
+        "located_count": len(located),
+        "arms": {ARM_A: arm_outcome(result_a, record), ARM_B: arm_outcome(result_b, record)},
+    }
+
+
+def load_checkpoint(path: Path) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    if not path.exists():
+        return rows
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        rows[row["record_id"]] = row
+    return rows
+
+
+def run_model_arm(
+    records: list[dict[str, Any]],
+    args: argparse.Namespace,
+    signer: LocalSigner,
+    transport_for: Callable[[dict[str, Any]], Callable[[str, float], str]],
+    checkpoint_path: Path,
+) -> list[dict[str, Any]]:
+    """Score every record through the model, appending each result as it lands.
+
+    A stopped run loses nothing: `--resume` with the same run identifier reads
+    the checkpoint back and only processes what is missing.
+    """
+
+    done = load_checkpoint(checkpoint_path) if args.resume else {}
+    if done:
+        print(f"resuming: {len(done)} records already recorded in {_display_path(checkpoint_path)}")
+    pending = [record for record in records if record["record_id"] not in done]
+    rows = list(done.values())
+
+    if pending:
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        completed = 0
+        with checkpoint_path.open("a", encoding="utf-8") as handle:
+            with ThreadPoolExecutor(max_workers=max(1, args.concurrency)) as pool:
+                futures = {
+                    pool.submit(build_record_row, signer, args, transport_for(record), record): record
+                    for record in pending
+                }
+                for future in as_completed(futures):
+                    row = future.result()
+                    handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+                    handle.flush()
+                    rows.append(row)
+                    completed += 1
+                    print(
+                        f"  [{completed}/{len(pending)}] {row['record_id']} {row['status']} "
+                        f"{row['latency_ms']}ms proposals={row['proposal_count']} located={row['located_count']}",
+                        flush=True,
+                    )
+    rows.sort(key=lambda row: row["record_id"])
+    return rows
+
+
+def score_rows(
+    rows: list[dict[str, Any]],
+    records_by_id: dict[str, dict[str, Any]],
+    mode: str,
+    arm: str,
+) -> PathMetrics:
+    """Recompute one arm's metrics from stored rows and the corpus ground truth."""
+
+    metrics = PathMetrics(mode=mode, egress_profile=EGRESS_SUMMARY_TEXT)
+    for row in rows:
+        record = records_by_id[row["record_id"]]
+        entry = row["arms"][arm]
+        ground_truth = {(s["start"], s["end"]): s["identifier_class"] for s in record["spans"]}
+        predicted = {(start, end): name for start, end, name in entry["spans"]}
+
+        metrics.ground_truth_total += len(ground_truth)
+        metrics.approved_residual_spans += entry["approved_residual_count"]
+
+        for offsets, identifier_class in ground_truth.items():
+            if offsets in predicted:
+                metrics.true_positive += 1
+                metrics.add_class(identifier_class, "true_positive")
+            else:
+                metrics.false_negative += 1
+                metrics.add_class(identifier_class, "false_negative")
+            if any(offsets[0] < end and start < offsets[1] for start, end in predicted):
+                metrics.overlap_recovered += 1
+
+        for offsets, identifier_class in predicted.items():
+            if offsets not in ground_truth:
+                metrics.false_positive += 1
+                metrics.add_class(identifier_class, "false_positive")
+
+        metrics.model_status_counts[row["status"]] = metrics.model_status_counts.get(row["status"], 0) + 1
+        if row["latency_ms"] is not None:
+            metrics.model_latencies_ms.append(row["latency_ms"])
+
+        if entry["decision"] == DECISION_ACCEPTED:
+            metrics.accepted += 1
+            if entry["escaped_surface_count"]:
+                metrics.escaped_records += 1
+                metrics.escaped_surfaces += entry["escaped_surface_count"]
+        else:
+            metrics.quarantined += 1
+            if not entry["residual_present"]:
+                metrics.false_quarantine += 1
+    return metrics
+
+
+def deterministic_metrics(
+    records: list[dict[str, Any]],
+    signer: LocalSigner,
+    mode: str,
+    egress_profile: str,
+) -> PathMetrics:
+    metrics = PathMetrics(mode=mode, egress_profile=egress_profile)
+    for record in records:
+        evaluate_record(build_gate(signer, None, "none", egress_profile), record, metrics)
+    return metrics
+
+
+def split_languages(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    return {
+        "combined": records,
+        "tr": [record for record in records if record["language"] == "tr"],
+        "en": [record for record in records if record["language"] == "en"],
+    }
+
+
+def pick_smoke(records: list[dict[str, Any]], per_language: int = 3) -> list[dict[str, Any]]:
+    """A balanced handful, used to decide whether the full run is worth starting."""
+
+    chosen: list[dict[str, Any]] = []
+    for language in ("tr", "en"):
+        chosen.extend([r for r in records if r["language"] == language][:per_language])
+    return chosen
+
+
 def build_gate(
     signer: LocalSigner,
     transport: Callable[[str, float], str] | None,
@@ -418,6 +731,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if not split_path.exists():
         raise SystemExit(f"corpus split not generated: {split_path}. Run corpus/generator.py first.")
     records = json.loads(split_path.read_text(encoding="utf-8"))
+    if args.smoke:
+        records = pick_smoke(records)
+    records_by_id = {record["record_id"]: record for record in records}
+    groups = {name: group for name, group in split_languages(records).items() if group}
 
     try:
         signer = load_signer()
@@ -425,51 +742,53 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         signer = LocalSigner(key_id="ephemeral-eval-key", key=b"evaluation-only-key-material")
 
     detector = DeterministicDetector()
-    baseline = PathMetrics(mode=MODE_DETERMINISTIC, egress_profile=EGRESS_SUMMARY_TEXT)
-    for record in records:
-        evaluate_record(build_gate(signer, None, "none"), record, baseline)
 
-    structured_only = PathMetrics(mode=MODE_STRUCTURED_ONLY, egress_profile=EGRESS_STRUCTURED_ONLY)
-    for record in records:
-        evaluate_record(
-            build_gate(signer, None, "none", EGRESS_STRUCTURED_ONLY), record, structured_only
-        )
+    baseline = {
+        name: deterministic_metrics(group, signer, MODE_DETERMINISTIC, EGRESS_SUMMARY_TEXT)
+        for name, group in groups.items()
+    }
+    structured_only = {
+        name: deterministic_metrics(group, signer, MODE_STRUCTURED_ONLY, EGRESS_STRUCTURED_ONLY)
+        for name, group in groups.items()
+    }
 
-    comparison: PathMetrics | None = None
-    if args.gemma_url:
-        comparison = PathMetrics(mode=MODE_LOCAL_MODEL)
-        transport = LlamaServerTransport(
-            base_url=args.gemma_url,
-            model_id=args.model_id,
-            extra_body=extra_body(args),
-        )
-        for record in records:
-            evaluate_record(
-                build_gate(
-                    signer,
-                    transport,
-                    args.model_id,
-                    timeout_seconds=args.timeout_seconds,
-                ),
-                record,
-                comparison,
-            )
-    elif args.oracle_stub:
-        comparison = PathMetrics(mode=MODE_ORACLE_STUB)
-        for record in records:
-            evaluate_record(build_gate(signer, oracle_stub_transport(record, detector), "oracle-stub"), record, comparison)
+    transport_for, transport_settings = transport_for_record(args, detector)
+    arm_a: dict[str, PathMetrics] = {}
+    arm_b: dict[str, PathMetrics] = {}
+    rows: list[dict[str, Any]] = []
+    mode = MODE_LOCAL_MODEL if args.gemma_url else MODE_ORACLE_STUB
 
-    incremental = None
-    if comparison is not None:
-        incremental = {
-            "incremental_true_positive": comparison.true_positive - baseline.true_positive,
-            "incremental_false_positive": comparison.false_positive - baseline.false_positive,
-            "incremental_accepted_payloads": comparison.accepted - baseline.accepted,
-            "incremental_accepted_escapes": comparison.escaped_surfaces - baseline.escaped_surfaces,
+    if transport_for is not None:
+        rows = run_model_arm(records, args, signer, transport_for, args.out_dir / CHECKPOINT_FILE_NAME)
+        rows_by_language = {
+            "combined": rows,
+            "tr": [row for row in rows if row["language"] == "tr"],
+            "en": [row for row in rows if row["language"] == "en"],
+        }
+        for name, group_rows in rows_by_language.items():
+            if not group_rows:
+                continue
+            arm_a[name] = score_rows(group_rows, records_by_id, f"{mode}/{ARM_A}", ARM_A)
+            arm_b[name] = score_rows(group_rows, records_by_id, f"{mode}/{ARM_B}", ARM_B)
+
+    def incremental_for(arm: dict[str, PathMetrics]) -> dict[str, int] | None:
+        if "combined" not in arm:
+            return None
+        combined, base = arm["combined"], baseline["combined"]
+        return {
+            "incremental_true_positive": combined.true_positive - base.true_positive,
+            "incremental_false_positive": combined.false_positive - base.false_positive,
+            "incremental_accepted_payloads": combined.accepted - base.accepted,
+            "incremental_accepted_escapes": combined.escaped_surfaces - base.escaped_surfaces,
         }
 
     manifest_reference = REPO_ROOT / "corpus" / "PRIVACY_CORPUS_MANIFEST.json"
     corpus_manifest = json.loads(manifest_reference.read_text(encoding="utf-8"))
+
+    def wire(metrics: dict[str, PathMetrics]) -> dict[str, Any] | None:
+        return {name: value.to_wire() for name, value in metrics.items()} or None
+
+    comparison_escapes = arm_a["combined"].escaped_surfaces if "combined" in arm_a else None
 
     result: dict[str, Any] = {
         "protocol_version": PROTOCOL_VERSION,
@@ -477,6 +796,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "split": args.split,
         "split_sha256": corpus_manifest["splits"][args.split]["sha256"],
         "record_count": len(records),
+        "record_selection": "balanced smoke subset" if args.smoke else "full split",
         "corpus_version": corpus_manifest["corpus_version"],
         "corpus_seed": corpus_manifest["seed"],
         "generator_sha256": corpus_manifest["generator_sha256"],
@@ -484,30 +804,42 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "preregistration_approval": args.preregistration_approved,
         "frozen_test_run_id": args.frozen_test_run_id,
         "supersedes_frozen_test_run_id": args.supersedes,
+        "arms": ARM_DECLARATION,
         "local_model": {
-            "mode": comparison.mode if comparison is not None else "not_run",
+            "mode": mode if transport_for is not None else "not_run",
             "model_id": args.model_id if args.gemma_url else None,
             "endpoint_configured": bool(args.gemma_url),
             "identity": args.model_identity_record,
-            "timeout_seconds": args.timeout_seconds,
-            "generation_controls": extra_body(args),
             "prompt": prompt_identity(),
             "disclaimer": ORACLE_STUB_DISCLAIMER if args.oracle_stub else None,
         },
-        "baseline": baseline.to_wire(),
-        "structured_only_egress": structured_only.to_wire(),
+        "measurement_constraints": {
+            "max_proposals": {"value": MAX_PROPOSALS, "rationale": MAX_PROPOSALS_RATIONALE},
+            "reasoning_effort": {
+                "value": args.reasoning_effort if args.server_kind == "openai" else "think=false",
+                "rationale": REASONING_EFFORT_RATIONALE,
+            },
+            "transport": transport_settings,
+            "concurrency": args.concurrency,
+            "timeout_seconds": args.timeout_seconds,
+            "resumed": bool(args.resume),
+        },
+        "baseline": wire(baseline),
+        "structured_only_egress": wire(structured_only),
         "structured_only_egress_note": STRUCTURED_ONLY_NOTE,
-        "comparison": comparison.to_wire() if comparison is not None else None,
-        "incremental": incremental,
+        "comparison_arm_a": wire(arm_a),
+        "comparison_arm_b": wire(arm_b),
+        "incremental_arm_a": incremental_for(arm_a),
+        "incremental_arm_b": incremental_for(arm_b),
         "mandatory_safety_gate": {
             "rule": "zero seeded direct-identifier spans in accepted payloads",
-            "baseline_escapes": baseline.escaped_surfaces,
-            "structured_only_escapes": structured_only.escaped_surfaces,
-            "comparison_escapes": comparison.escaped_surfaces if comparison is not None else None,
+            "baseline_escapes": baseline["combined"].escaped_surfaces,
+            "structured_only_escapes": structured_only["combined"].escaped_surfaces,
+            "comparison_escapes": comparison_escapes,
             "result": "PASS"
-            if baseline.escaped_surfaces == 0
-            and structured_only.escaped_surfaces == 0
-            and (comparison is None or comparison.escaped_surfaces == 0)
+            if baseline["combined"].escaped_surfaces == 0
+            and structured_only["combined"].escaped_surfaces == 0
+            and (comparison_escapes is None or comparison_escapes == 0)
             else "FAIL",
         },
         "limitations": [
@@ -515,21 +847,86 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "Residual identifier rate is a property of the committed corpus design, not an estimate for real text.",
             "The outbound allowlist is derived from the training split and reflects the synthetic template vocabulary.",
             STRUCTURED_ONLY_NOTE,
+            "Approved residual span counts follow the primary arm, because the gate adjudicates the offsets the model returned.",
         ],
     }
     result["content_hash"] = content_hash({k: v for k, v in result.items() if k != "content_hash"})
     return result
 
 
+def summarise(report: dict[str, Any]) -> None:
+    print(f"run_id: {report['run_id']}  scope: {report['evidence_scope']}  {report['record_selection']}")
+    print(f"records: {report['record_count']}  split sha256: {report['split_sha256'][:16]}")
+    for name in ("combined", "tr", "en"):
+        entry = (report["baseline"] or {}).get(name)
+        if entry is None:
+            continue
+        span, doc = entry["span_level"], entry["document_level"]
+        print(
+            f"baseline[{name}]: exact recall {span['exact_recall']['point']} "
+            f"({span['true_positive']}/{span['ground_truth_spans']}), "
+            f"accepted {doc['accepted']}/{doc['records']}, escapes {doc['escaped_direct_identifier_surfaces']}"
+        )
+    structured = (report["structured_only_egress"] or {}).get("combined")
+    if structured:
+        doc = structured["document_level"]
+        print(
+            f"structured-only egress: accepted {doc['accepted']}/{doc['records']}, "
+            f"escapes {doc['escaped_direct_identifier_surfaces']}, structural (not a detection result)"
+        )
+    for label, key in (("arm A (primary, model offsets)", "comparison_arm_a"), ("arm B (secondary, surface search)", "comparison_arm_b")):
+        arm = report[key]
+        if not arm:
+            continue
+        for name in ("combined", "tr", "en"):
+            entry = arm.get(name)
+            if entry is None:
+                continue
+            span, doc = entry["span_level"], entry["document_level"]
+            print(
+                f"{label} [{name}]: exact TP {span['true_positive']}/{span['ground_truth_spans']} "
+                f"recall {span['exact_recall']['point']}, FP {span['false_positive']}, "
+                f"accepted {doc['accepted']}/{doc['records']}, escapes {doc['escaped_direct_identifier_surfaces']}"
+            )
+        model = arm["combined"]["local_model"]
+        print(f"   status {model['status_counts']} latency p50 {model['latency_ms_p50']} p95 {model['latency_ms_p95']}")
+    for key in ("incremental_arm_a", "incremental_arm_b"):
+        if report[key]:
+            print(f"{key}: {json.dumps(report[key])}")
+    identity = report["local_model"]["identity"]
+    if identity is not None:
+        print(
+            f"model: {identity['repository']}@{identity['revision']} {identity['file_name']} "
+            f"({identity['quantization']}) sha256 {identity['file_sha256'][:16]}"
+        )
+    print(f"prompt sha256: {report['local_model']['prompt']['prompt_sha256'][:16]}")
+    print(f"max proposals: {report['measurement_constraints']['max_proposals']['value']}  "
+          f"concurrency: {report['measurement_constraints']['concurrency']}")
+    print(f"mandatory safety gate: {report['mandatory_safety_gate']['result']}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol P1 on a corpus split.")
     parser.add_argument("--split", choices=("train", "dev", "test"), default="dev")
-    parser.add_argument("--gemma-url", default=None, help="Base URL of the laboratory-local llama.cpp server.")
+    parser.add_argument("--gemma-url", default=None, help="Base URL of the laboratory-local model server.")
     parser.add_argument("--model-id", default="unconfigured")
+    parser.add_argument(
+        "--server-kind",
+        choices=("ollama", "openai"),
+        default="ollama",
+        help="Ollama native route, which carries generation options, or an OpenAI-compatible route.",
+    )
+    parser.add_argument("--num-ctx", type=int, default=OLLAMA_DEFAULT_OPTIONS["num_ctx"])
+    parser.add_argument("--num-thread", type=int, default=OLLAMA_DEFAULT_OPTIONS["num_thread"])
+    parser.add_argument("--num-predict", type=int, default=OLLAMA_DEFAULT_OPTIONS["num_predict"])
+    parser.add_argument("--keep-alive", default=OLLAMA_DEFAULT_KEEP_ALIVE)
+    parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument("--resume", action="store_true", help="Continue a run of the same identifier from its checkpoint.")
+    parser.add_argument("--smoke", action="store_true", help="Balanced six-record subset used to decide whether the full run is worth starting.")
     parser.add_argument(
         "--reasoning-effort",
         default=None,
-        help="Passed through to the local server, for example 'none' to stop a thinking model consuming the answer budget.",
+        help="Passed through to an OpenAI-compatible server, for example 'none' to stop a thinking model consuming the answer budget.",
     )
     parser.add_argument(
         "--timeout-seconds",
@@ -555,6 +952,8 @@ def main() -> int:
 
     if args.split == "test":
         guard_frozen_split(args)
+        if args.smoke:
+            raise SystemExit("the frozen split is measured in full, never as a smoke subset")
     if args.gemma_url and args.oracle_stub:
         raise SystemExit("choose either a real local model endpoint or the oracle stub, not both")
     args.model_identity_record = model_identity(args)
@@ -564,46 +963,15 @@ def main() -> int:
     )
     mode = "gemma" if args.gemma_url else ("oracle-stub" if args.oracle_stub else "deterministic-only")
     args.run_id = args.run_id or args.frozen_test_run_id or f"privacy-p1-{args.split}-{mode}"
+    args.out_dir = Path(args.out) if args.out else EVIDENCE_ROOT / args.run_id
+    args.out_dir.mkdir(parents=True, exist_ok=True)
 
     report = run(args)
-    out_dir = Path(args.out) if args.out else REPO_ROOT / "artifacts" / "evidence" / report["run_id"]
-    out_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = out_dir / "p1-privacy-report.json"
+    manifest_path = args.out_dir / REPORT_FILE_NAME
     manifest_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    print(f"run_id: {report['run_id']}  scope: {report['evidence_scope']}")
-    print(f"records: {report['record_count']}  split sha256: {report['split_sha256'][:16]}")
-    baseline = report["baseline"]
-    print(
-        f"baseline: exact recall {baseline['span_level']['exact_recall']['point']} "
-        f"({baseline['span_level']['true_positive']}/{baseline['span_level']['ground_truth_spans']}), "
-        f"accepted {baseline['document_level']['accepted']}/{report['record_count']}, "
-        f"escapes {baseline['document_level']['escaped_direct_identifier_surfaces']}"
-    )
-    structured = report["structured_only_egress"]
-    print(
-        f"structured-only egress: accepted {structured['document_level']['accepted']}/{report['record_count']}, "
-        f"escapes {structured['document_level']['escaped_direct_identifier_surfaces']}, "
-        f"structural (not a detection result)"
-    )
-    if report["comparison"]:
-        comparison = report["comparison"]
-        print(
-            f"{comparison['mode']}: exact recall {comparison['span_level']['exact_recall']['point']} "
-            f"({comparison['span_level']['true_positive']}/{comparison['span_level']['ground_truth_spans']}), "
-            f"accepted {comparison['document_level']['accepted']}/{report['record_count']}, "
-            f"escapes {comparison['document_level']['escaped_direct_identifier_surfaces']}"
-        )
-        print(f"incremental: {json.dumps(report['incremental'])}")
-    identity = report["local_model"]["identity"]
-    if identity is not None:
-        print(
-            f"model: {identity['repository']}@{identity['revision']} {identity['file_name']} "
-            f"({identity['quantization']}) sha256 {identity['file_sha256'][:16]}"
-        )
-    print(f"prompt sha256: {report['local_model']['prompt']['prompt_sha256'][:16]}")
-    print(f"mandatory safety gate: {report['mandatory_safety_gate']['result']}")
-    print(f"manifest: {manifest_path.relative_to(REPO_ROOT)}")
+    summarise(report)
+    print(f"manifest: {_display_path(manifest_path)}")
     return 0
 
 

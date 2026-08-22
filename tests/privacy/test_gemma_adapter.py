@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from recall.privacy.gemma import (
+    MAX_PROPOSALS,
     STATUS_DISABLED,
     STATUS_INVALID_JSON,
     STATUS_OK,
@@ -24,7 +25,9 @@ def detector(transport):
 
 
 def test_valid_response_yields_proposals() -> None:
-    payload = json.dumps({"spans": [{"start": 0, "end": 4, "identifier_class": "PERSON_NAME"}]})
+    payload = json.dumps(
+        {"spans": [{"surface": "note", "start": 0, "end": 4, "identifier_class": "PERSON_NAME"}]}
+    )
     outcome = detector(lambda text, timeout: payload).propose("Ayse")
     assert outcome.status == STATUS_OK
     assert outcome.schema_valid is True
@@ -73,13 +76,19 @@ def test_unconfigured_model_is_disabled_not_clean() -> None:
 
 
 def test_schema_rejects_unknown_and_wrong_typed_fields() -> None:
-    assert parse_span_response('{"spans":[{"start":1,"end":2,"identifier_class":"PERSON_NAME","note":"x"}]}')[1] == (
+    assert parse_span_response(
+        '{"spans":[{"surface":"a","start":1,"end":2,"identifier_class":"PERSON_NAME","note":"x"}]}'
+    )[1] == (
         "model_response_unknown_field",
     )
-    assert parse_span_response('{"spans":[{"start":"1","end":2,"identifier_class":"PERSON_NAME"}]}')[1] == (
+    assert parse_span_response(
+        '{"spans":[{"surface":"a","start":"1","end":2,"identifier_class":"PERSON_NAME"}]}'
+    )[1] == (
         "model_response_type_error",
     )
-    assert parse_span_response('{"spans":[{"start":1,"end":2,"identifier_class":"NOT_A_CLASS"}]}')[1] == (
+    assert parse_span_response(
+        '{"spans":[{"surface":"a","start":1,"end":2,"identifier_class":"NOT_A_CLASS"}]}'
+    )[1] == (
         "model_response_unknown_identifier_class",
     )
     assert parse_span_response('{"spans": {}}')[1] == ("model_response_spans_not_array",)
@@ -88,7 +97,12 @@ def test_schema_rejects_unknown_and_wrong_typed_fields() -> None:
 
 
 def test_proposal_count_is_bounded() -> None:
-    many = {"spans": [{"start": i, "end": i + 1, "identifier_class": "PERSON_NAME"} for i in range(20)]}
+    many = {
+        "spans": [
+            {"surface": "a", "start": i, "end": i + 1, "identifier_class": "PERSON_NAME"}
+            for i in range(MAX_PROPOSALS + 1)
+        ]
+    }
     assert parse_span_response(json.dumps(many))[1] == ("model_response_too_many_spans",)
 
 

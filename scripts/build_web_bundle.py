@@ -98,7 +98,12 @@ def build_privacy_receipt(scenario: str) -> dict[str, Any]:
         return json.dumps(
             {
                 "spans": [
-                    {"start": s["start"], "end": s["end"], "identifier_class": s["identifier_class"]}
+                    {
+                        "surface": text[s["start"] : s["end"]],
+                        "start": s["start"],
+                        "end": s["end"],
+                        "identifier_class": s["identifier_class"],
+                    }
                     for s in residuals
                 ]
             }

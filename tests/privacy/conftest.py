@@ -154,6 +154,7 @@ def residual_transport(record: dict):
             {
                 "spans": [
                     {
+                        "surface": text[span["start"] : span["end"]],
                         "start": span["start"],
                         "end": span["end"],
                         "identifier_class": span["identifier_class"],
