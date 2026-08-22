@@ -152,11 +152,11 @@ def append_policy_artifacts(
             "citation-auditor",
             {
                 "assessment_id": assessment_id,
-                "audit_status": "PASS",
+                "audit_status": "COMPLETE",
                 "claim_verdicts": [
                     {
                         "claim_id": "claim-001",
-                        "verdict": "PASS" if citation_pass else "FAIL",
+                        "verdict": "VERIFIED" if citation_pass else "MISMATCH",
                         "reason_codes": [] if citation_pass else ["citation_mismatch"],
                         "refetched_source": {
                             "identifier": "PMID:12345678",

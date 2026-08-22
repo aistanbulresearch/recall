@@ -53,7 +53,9 @@ def parse_fixture_spec(value: Mapping[str, Any]) -> FixtureSpec:
             ),
             candidate_delta_state=PresenceState.PRESENT,
             tool_decision=authorization.decision,
-            citation_verdict="FAIL" if fault.citation_mismatch else "PASS",
+            citation_verdict=(
+                "MISMATCH" if fault.citation_mismatch else "VERIFIED"
+            ),
             policy_available=True,
             source_cursors={
                 "captured-replay": fault.citation_probe.cited_identifier
@@ -87,7 +89,7 @@ def parse_fixture_spec(value: Mapping[str, Any]) -> FixtureSpec:
         raise ContractError("contract_timestamp_invalid", "schedule_epoch")
     if not isinstance(policy_available, bool):
         raise ContractError("contract_type_invalid", "policy_available")
-    if citation not in {None, "PASS", "FAIL"}:
+    if citation not in {None, "VERIFIED", "MISMATCH", "UNAVAILABLE"}:
         raise ContractError("contract_enum_invalid", "citation_verdict")
     candidate = PresenceState(value["candidate_delta_state"])
     if (candidate is PresenceState.PRESENT) is not (citation is not None):
@@ -262,13 +264,17 @@ def append_fixture_artifacts(
             "citation-auditor",
             {
                 "assessment_id": assessment_id,
-                "audit_status": "PASS",
+                "audit_status": "COMPLETE",
                 "claim_verdicts": [
                     {
                         "claim_id": "claim-001",
                         "verdict": spec.citation_verdict,
                         "reason_codes": (
-                            [] if spec.citation_verdict == "PASS" else ["citation_mismatch"]
+                            (
+                                []
+                                if spec.citation_verdict == "VERIFIED"
+                                else ["citation_mismatch"]
+                            )
                         ),
                         "refetched_source": {
                             "identifier": "PMID:12345678",
@@ -282,7 +288,7 @@ def append_fixture_artifacts(
                 "counter_evidence_coverage": "PASS",
                 "audit_completeness": "PASS",
                 "rejected_claim_ids": (
-                    [] if spec.citation_verdict == "PASS" else ["claim-001"]
+                    [] if spec.citation_verdict == "VERIFIED" else ["claim-001"]
                 ),
             },
             DataMode.CAPTURED_REPLAY,

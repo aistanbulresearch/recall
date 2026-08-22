@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from ..enums import FactState
+from ..enums import AuditStatus, CitationVerdict, FactState
 from ..errors import ContractError
 from ..validation import (
     SHA256,
@@ -209,7 +209,7 @@ def parse_assessment_receipt_payload(
 @dataclass(frozen=True, slots=True)
 class CitationAuditPayload:
     assessment_id: str
-    audit_status: FactState
+    audit_status: AuditStatus
     claim_verdicts: tuple[Mapping[str, object], ...]
     metadata_refetches: tuple[Mapping[str, object], ...]
     counter_evidence_coverage: FactState
@@ -247,7 +247,9 @@ def parse_citation_audit_payload(value: Mapping[str, Any]) -> CitationAuditPaylo
             frozenset({"claim_id", "verdict", "reason_codes", "refetched_source"}),
             "claim_verdicts",
         )
-        verdict = enum_value(FactState, item["verdict"], "claim_verdicts.verdict")
+        verdict = enum_value(
+            CitationVerdict, item["verdict"], "claim_verdicts.verdict"
+        )
         claim_id = non_empty_string(item["claim_id"], "claim_verdicts.claim_id")
         source = _mapping(item["refetched_source"], "claim_verdicts.refetched_source")
         require_exact_fields(source, source_fields, "claim_verdicts.refetched_source")
@@ -272,10 +274,16 @@ def parse_citation_audit_payload(value: Mapping[str, Any]) -> CitationAuditPaylo
     parsed_refetches: list[Mapping[str, object]] = []
     for item in refetches:
         require_exact_fields(item, source_fields, "metadata_refetches")
+        for field in source_fields - {"content_hash"}:
+            non_empty_string(item[field], f"metadata_refetches.{field}")
+        if not isinstance(item["content_hash"], str) or not SHA256.fullmatch(
+            item["content_hash"]
+        ):
+            raise ContractError("contract_hash_invalid", "metadata_refetches.content_hash")
         parsed_refetches.append(MappingProxyType(dict(item)))
     return CitationAuditPayload(
         assessment_id=str(uuid_value(value["assessment_id"], "assessment_id")),
-        audit_status=enum_value(FactState, value["audit_status"], "audit_status"),
+        audit_status=enum_value(AuditStatus, value["audit_status"], "audit_status"),
         claim_verdicts=tuple(parsed_claims),
         metadata_refetches=tuple(parsed_refetches),
         counter_evidence_coverage=enum_value(

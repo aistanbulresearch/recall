@@ -1,0 +1,9 @@
+{
+  "artifact_content_hash": "8f1aad206afd70eee6e959ef4e9cc3e32b16373073db7d1c41d0d97bc85f7ddf",
+  "artifact_schema": "EvidenceSnapshot",
+  "artifact_status": "VALID",
+  "model": "gemini-3.7-flash",
+  "model_calls": 1,
+  "schema_repairs": 0,
+  "vertex_location": "global"
+}

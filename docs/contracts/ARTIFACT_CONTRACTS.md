@@ -98,8 +98,11 @@ The catalog field names above are not open objects. These nested structures are 
 | `ScanRun.budget_snapshot` | `delegation_depth`, `specialist_invocations`, `model_calls_per_role`, `schema_repairs`, `agent_retries`, `connector_retries`, `repeated_state_limit`, `wall_time_seconds`, `step_deadlines`, `token_ceilings` |
 | `RegistryResolutionReceipt.bindings[]` | `capability`, `agent_id`, `role`, `revision`, `manifest_digest`, `binding_id`, `region`, `validation_status` |
 | `CandidateDeltaReceipt.new_observation_hashes` | Sorted unique array; non-empty when `candidate_delta_state = PRESENT`, empty only when complete comparison proves `ABSENT`, and retained with failure reasons when determination is `UNKNOWN` |
+| `CandidateDeltaReceipt.authority` | Produced only by the deterministic Evidence Normalizer; agent materiality proposals cannot create or modify it |
 | `EvidenceDelta.comparison` | `classification_changed`, `classification_source_refs`; missing comparison evidence is not false |
 | `CitationAuditReceipt.claim_verdicts[]` | `claim_id`, `verdict`, `reason_codes`, `refetched_source` where source contains `identifier`, `title`, `locator`, `content_hash` |
+| `CitationAuditReceipt.audit_status` | Closed enum: `COMPLETE`, `INCOMPLETE`; claim verdicts use `VERIFIED`, `MISMATCH`, `UNAVAILABLE` |
+| `ReplayStage` | Closed replay cursor enum: `stage-0`, `stage-1`, `stage-2`; it controls deterministic source visibility and carries no outcome authority |
 | `DataModeReceipt.mode_set` | Sorted unique non-empty array containing only `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` from the transitive input closure |
 | `DataModeReceipt.declared_composition` | `SYNTHETIC_ONLY`, `CAPTURED_REPLAY_ONLY`, `LIVE_PUBLIC_ONLY`, `MOCK_ONLY`, or `SYNTHETIC_WITH_CAPTURED_REPLAY`; exact deterministic projection from `mode_set` |
 | `FailureReceipt.details` | Registered failure-code-specific object; `loop_detected` permits only `hop_count` and `repeated_state_hash` |

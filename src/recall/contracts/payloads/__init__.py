@@ -38,6 +38,18 @@ from .receipts import (
     parse_privacy_receipt_payload,
     parse_registry_resolution_payload,
 )
+from .agentic import (
+    DeploymentReceiptPayload,
+    EvidenceDeltaPayload,
+    EvidenceObservationPayload,
+    ManagedPathReceiptPayload,
+    RoutingPlanPayload,
+    parse_deployment_receipt_payload,
+    parse_evidence_delta_payload,
+    parse_evidence_observation_payload,
+    parse_managed_path_receipt_payload,
+    parse_routing_plan_payload,
+)
 
 __all__ = [
     "DataModePayload",
@@ -55,6 +67,11 @@ __all__ = [
     "RegistryResolutionPayload",
     "AssessmentReceiptPayload",
     "CitationAuditPayload",
+    "DeploymentReceiptPayload",
+    "EvidenceDeltaPayload",
+    "EvidenceObservationPayload",
+    "ManagedPathReceiptPayload",
+    "RoutingPlanPayload",
     "parse_data_mode_payload",
     "parse_failure_payload",
     "parse_tool_authorization_payload",
@@ -70,4 +87,9 @@ __all__ = [
     "parse_registry_resolution_payload",
     "parse_assessment_receipt_payload",
     "parse_citation_audit_payload",
+    "parse_deployment_receipt_payload",
+    "parse_evidence_delta_payload",
+    "parse_evidence_observation_payload",
+    "parse_managed_path_receipt_payload",
+    "parse_routing_plan_payload",
 ]

@@ -116,7 +116,7 @@ def build_policy_input_facts(
             else (
                 FactState.PASS.value
                 if not audit.rejected_claim_ids
-                and all(verdict == FactState.PASS.value for verdict in verdicts)
+                and all(verdict == "VERIFIED" for verdict in verdicts)
                 else FactState.FAIL.value
             )
         )

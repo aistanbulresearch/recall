@@ -56,12 +56,17 @@ def parse_evidence_snapshot_payload(
     snapshot_hash = value["snapshot_hash"]
     if not isinstance(snapshot_hash, str) or not SHA256.fullmatch(snapshot_hash):
         raise ContractError("contract_hash_invalid", "snapshot_hash")
+    coverage_status = enum_value(
+        FactState, value["coverage_status"], "coverage_status"
+    )
+    if coverage_status is FactState.PASS and (not cursors or not facts):
+        raise ContractError(
+            "contract_required_value_missing", "source_cursors_or_normalized_facts"
+        )
     return EvidenceSnapshotPayload(
         effective_at=_timestamp(value["effective_at"], "effective_at"),
         observation_ids=observation_ids,
-        coverage_status=enum_value(
-            FactState, value["coverage_status"], "coverage_status"
-        ),
+        coverage_status=coverage_status,
         source_cursors=MappingProxyType(dict(sorted(cursors.items()))),
         normalized_facts=MappingProxyType(dict(facts)),
         conflicts=tuple(MappingProxyType(dict(item)) for item in conflicts),

@@ -36,6 +36,23 @@ class FactState(StrEnum):
     NOT_EVALUATED = "NOT_EVALUATED"
 
 
+class AuditStatus(StrEnum):
+    COMPLETE = "COMPLETE"
+    INCOMPLETE = "INCOMPLETE"
+
+
+class CitationVerdict(StrEnum):
+    VERIFIED = "VERIFIED"
+    MISMATCH = "MISMATCH"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class ReplayStage(StrEnum):
+    STAGE_0 = "stage-0"
+    STAGE_1 = "stage-1"
+    STAGE_2 = "stage-2"
+
+
 class PresenceState(StrEnum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"

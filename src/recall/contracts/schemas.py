@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from .payloads import (
+    parse_deployment_receipt_payload,
+    parse_evidence_delta_payload,
+    parse_evidence_observation_payload,
+    parse_managed_path_receipt_payload,
+    parse_routing_plan_payload,
     parse_assessment_receipt_payload,
     parse_candidate_delta_payload,
     parse_citation_audit_payload,
@@ -21,6 +26,72 @@ from .payloads import (
 
 
 SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
+    "RoutingPlan": (
+        "1.0.0",
+        frozenset(
+            {
+                "requested_capabilities",
+                "proposed_bindings",
+                "route_order",
+                "validation_status",
+                "rationale_codes",
+            }
+        ),
+        parse_routing_plan_payload,
+        True,
+    ),
+    "EvidenceObservation": (
+        "1.0.0",
+        frozenset(
+            {
+                "source",
+                "source_record_id",
+                "retrieved_at",
+                "source_version",
+                "source_locator",
+                "source_content_hash",
+                "structured_fields",
+                "retrieval_status",
+            }
+        ),
+        parse_evidence_observation_payload,
+        True,
+    ),
+    "EvidenceDelta": (
+        "2.0.0",
+        frozenset(
+            {
+                "candidate_receipt_id",
+                "previous_snapshot_id",
+                "current_snapshot_id",
+                "added_observation_refs",
+                "removed_observation_refs",
+                "change_items",
+                "comparison",
+                "materiality_proposal",
+                "uncertainties",
+                "counter_evidence_refs",
+            }
+        ),
+        parse_evidence_delta_payload,
+        True,
+    ),
+    "DeploymentReceipt": (
+        "1.0.0",
+        frozenset(
+            {"runtime", "deployed_components", "source_revision", "deployed_at"}
+        ),
+        parse_deployment_receipt_payload,
+        True,
+    ),
+    "ManagedPathReceipt": (
+        "1.0.0",
+        frozenset(
+            {"managed_status", "component_statuses", "reason_codes", "trace_id"}
+        ),
+        parse_managed_path_receipt_payload,
+        True,
+    ),
     "PrivacyReceipt": (
         "1.0.0",
         frozenset(
