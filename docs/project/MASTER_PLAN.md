@@ -74,7 +74,7 @@ Do not claim that longitudinal monitoring is new. The defensible distinction is:
 | Architecture | 30% | Four separated roles, Registry-or-pinned-manifest resolution, bounded typed routing, separate tool scopes, append-only artifacts, deterministic controller and policy, denied action, loop recovery, and independent citation audit. |
 | Demo and readiness | 30% | Four-minute coherent flow, Cloud Run revision, Vertex/ADK execution, manifest resolution receipt, Firestore transitions, one Logging correlation, derived UI values, fault injection, synthetic-data labels, and a clinician-facing result. |
 | Model bonus | `CUT / DEFERRED` | Local Gemma is outside the contest golden path; no bonus claim is planned without a later owner-approved measured experiment. |
-| Platform consideration | Critical path plus bounded fallback and auditor extensions | Cloud Run, Vertex AI, Firestore, Logging, and separate agent identities remain in the golden path. Agent Registry receives one authenticated smoke day, then falls back to a pinned Controller-validated manifest. Memory Bank and Gateway are `CUT / DEFERRED`; Model Armor remains planned as access-gated RCL-316. |
+| Platform consideration | Critical path plus bounded fallback and auditor extensions | Cloud Run, Vertex AI, Firestore, Logging, and separate agent identities remain in the golden path. Agent Registry receives one authenticated smoke day, then falls back to a pinned Controller-validated manifest. Memory Bank returns through a 2026-08-25 mini-brief limited to admitted operational hints plus parity; Gateway remains `CUT / DEFERRED`, and Model Armor remains planned as access-gated RCL-316. |
 
 ## 3. Non-negotiable product invariants
 
@@ -92,7 +92,7 @@ Do not claim that longitudinal monitoring is new. The defensible distinction is:
 - Missing or failed evidence is never converted into benign evidence or a positive clinical criterion.
 - Every displayed result is derived from the authoritative run artifact.
 - Every safety claim has positive, negative, and guardrail-activation proof.
-- ADK Sessions are non-authoritative and cannot satisfy evidence, audit, policy, or state-transition prerequisites. Memory Bank is `CUT / DEFERRED` and cannot enter the contest authority path.
+- ADK Sessions are non-authoritative and cannot satisfy evidence, audit, policy, or state-transition prerequisites. Memory Bank is scheduled for a 2026-08-25 mini-brief limited to admitted operational hints plus enabled/disabled parity; it cannot enter the contest authority path.
 - Multi-week continuity is represented by a durable `WatchCase`; each `ScanRun` is short, bounded, idempotent, and independently auditable.
 - A deterministic `CandidateDeltaReceipt`, not an Assessor proposal, selects the candidate versus no-candidate route.
 - Unsafe terminals preserve verified cursors and pending observation hashes; no missing evidence is consumed as seen.
@@ -156,7 +156,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-101 | Re-read binding rules and freeze an eligibility checklist | verified | Hash-pinned checklist, owner eligibility attestation, `individual/solo` entry capacity, and repository authority recorded; live Devpost recheck remains a final-submission control |
 | RCL-102 | Decide license and third-party dependency policy | verified | Rules impose no special repo license; owner approved Apache-2.0; policy, register, source notes, and `LICENSE` are present |
 | RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
-| RCL-104 | Verify Vertex model, ADK, Cloud Run execution, one-day Registry smoke, separate agent identity, region, quota, and billing | blocked | Owner reports selection `OWNER_REPORTED_SELECTED` for display name `My Billing Account`; no ID is stored, and linkage, credit terms/expiry, permissions, APIs, budgets/alerts, model calls, and spending remain `NOT VERIFIED` and unauthorized. Memory Bank and Gateway discovery is deferred; Model Armor discovery is retained under access-gated RCL-316. |
+| RCL-104 | Verify Vertex model, ADK, Cloud Run execution, one-day Registry smoke, separate agent identity, region, quota, and billing | blocked | Owner reports selection `OWNER_REPORTED_SELECTED` for display name `My Billing Account`; no ID is stored, and linkage, credit terms/expiry, permissions, APIs, budgets/alerts, model calls, and spending remain `NOT VERIFIED` and unauthorized. Memory Bank is scheduled for the bounded 2026-08-25 mini-brief; Gateway discovery is deferred, and Model Armor discovery is retained under access-gated RCL-316. |
 | RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await separate owner approval plus verified billing linkage and permissions; no resource creation is authorized |
 | RCL-106 | Contain known credential exposure and run repository/history secret scans | verified | Exposure detected and contained on 2026-08-22; repository and history secret scans clean. |
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | `CUT / DEFERRED` | Not part of the contest golden path; reconsider only after final submission evidence is complete |
@@ -178,7 +178,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-206 | Freeze privacy, citation, reliability, and utility metrics before runs | verified design | Six preregistered protocols, thresholds, stop rules, rollback, counts, confidence intervals, and mechanism-activation gates frozen |
 | RCL-207 | Design the four-minute storyboard and web information architecture | verified design | 3:45 storyboard, uninterrupted Proof of Action, fault run, cloud proof, single-screen wireframe, and cut rules recorded under `docs/demo/` |
 | RCL-208 | Define derived-value lineage from artifact fields to every planned UI metric | verified design | Registry defines source paths, deterministic derivations, missing-data behavior, and tests; implementation evidence remains future work |
-| RCL-209 | Freeze Firestore and ADK Sessions authority and retention contracts | in-progress, scope-reduced | Firestore remains authoritative; Memory Bank implementation and poisoning experiments are `CUT / DEFERRED` |
+| RCL-209 | Freeze Firestore, ADK Sessions, and bounded Memory Bank authority and retention contracts | in-progress | Firestore remains authoritative; the 2026-08-25 Memory Bank mini-brief permits admitted operational hints only and requires enabled/disabled parity |
 | RCL-210 | Freeze Cloud Run, Vertex/ADK, Registry fallback, separate identity, and observability failure contracts | in-progress, scope-reduced | Gateway is `CUT / DEFERRED`; Model Armor is outside the golden path but retained under RCL-316; Phase 1 access evidence remains required for the minimum platform |
 | RCL-211 | Package Phase 2 and material collaboration successors for exact-head external review | verified | Historical review passed at `195422e4d762d68d38e2b7f531cc5b1cd059cdb7`; `877c78d` and c8 failed on distinct evidence-integrity defects; exact c861 successor passed with no actionable P0-P3 finding |
 
@@ -203,15 +203,15 @@ Prize targeting is ordered by evidence fit: Best Architectural Design first, Ind
 
 | ID | Task | Status | Acceptance evidence |
 |---|---|---|---|
-| RCL-301 | Initialize Python/uv and web workspaces with locked dependencies | not-started | Clean-clone install succeeds; exact direct/transitive inventory, license gate, notices, and CycloneDX or SPDX SBOM pass |
-| RCL-302 | Implement common contracts and provenance hashing with TDD | not-started | Unit tests include malformed and unknown fields |
-| RCL-303 | Implement Ledger API and Firestore emulator adapter | not-started | Append-only and compare-and-set tests |
-| RCL-304 | Implement deterministic Workflow Controller | not-started | Transition, duplicate, budget, loop, and terminal-failure tests |
+| RCL-301 | Initialize Python/uv and web workspaces with locked dependencies | in-progress | Workspaces and lockfiles exist; clean-clone install, exact direct/transitive inventory, license gate, notices, and CycloneDX or SPDX SBOM remain |
+| RCL-302 | Implement common contracts and provenance hashing with TDD | implemented and locally verified | Unit tests include malformed and unknown fields |
+| RCL-303 | Implement Ledger API and Firestore emulator adapter | implemented and locally verified | Append-only, producer authorization, compare-and-set, and live Firestore fallback tests pass |
+| RCL-304 | Implement deterministic Workflow Controller | implemented and locally verified | Transition, duplicate, budget, loop, and terminal-failure tests pass |
 | RCL-305 | Implement Pub/Sub request/outbox/dead-letter topology locally | not-started | Duplicate and retry fixture proof |
-| RCL-306 | Implement deterministic Policy Gate truth table | not-started | Identical artifacts always produce identical outcomes |
+| RCL-306 | Implement deterministic Policy Gate truth table | implemented and locally verified | Identical artifacts produce identical outcomes in local tests |
 | RCL-307 | Build the initial Recall web shell and live run timeline | not-started | UI reads backend artifacts and shows fixture labels |
-| RCL-308 | Demonstrate fixture-driven `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` without LLMs | not-started | Three visible end-to-end runs and manifests |
-| RCL-309 | Implement durable `WatchCase` scheduling, short `ScanRun` leases, and separate `ReviewTask` lifecycle | `CUT / DEFERRED` | Week 0/3/6 orchestration is outside the golden path; retain only the single-run contracts needed by the visible slice |
+| RCL-308 | Demonstrate fixture-driven `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` without LLMs | implemented and locally verified | Deterministic fixture runs cover the three policy outcomes plus technical `HALTED` |
+| RCL-309 | Implement durable `WatchCase` scheduling, short `ScanRun` leases, and separate `ReviewTask` lifecycle | partial | Lease, CAS, idempotency, and separate lifecycle contracts are implemented; scheduler and accelerated Week 0/3/6 execution remain pending |
 | RCL-310 | Package required run evidence in a machine-readable `RunEvidenceManifest` | proposed; owner decision required | Coordinator proposal only; if approved, it binds run ID, deployed revision, trace ID, `mode_set`, input/output artifact hashes, terminal state, simulated task count, guardrail activation counters, and measured latency. The auditor's underlying evidence requirements remain mandatory even if this packaging proposal is declined |
 
 **Recovery gate:** the minimum authority path runs locally without models, all three terminal outcomes are visible from fixtures, mode badges and `mode_set` are derived, and no displayed result is hard-coded. Durable week-sequence orchestration is not required.
@@ -222,16 +222,16 @@ No extension starts unless the golden path has executable evidence locally and o
 
 | ID | Conditional extension | Status | Admission and acceptance evidence |
 |---|---|---|---|
-| RCL-311 | Synthetic scale funnel | planned after entrance gate | Run 100-200 fixed synthetic WatchCases and report scanned, candidate, audited, and simulated-task counts through `UtilityEvaluation`, with exact denominators and Wilson 95% confidence intervals; label the result exploratory and make no clinical-performance claim |
-| RCL-312 | Correlated Cloud Trace and fleet dashboard | planned after entrance gate | Render sanitized agent health, runs, denials, and `HALTED`; the same deployed revision, run ID, trace ID, and Firestore facts appear in the app and Google Cloud proof |
-| RCL-313 | Accelerated Week 0/3/6 continuity | planned after entrance gate | Execute three genuine separately receipted ScanRuns for one WatchCase, emit `NO_ACTION` on unchanged runs, prove F-12 as-of cursor behavior, label acceleration explicitly, and prohibit seeded outcomes |
-| RCL-314 | Blog, social, and bounded Gemma bonuses | planned after entrance gate | Publish blog and social evidence before the last day; add Gemma only as a small visible critical-path-independent use with measured incremental value |
-| RCL-315 | Agent Registry runtime resolution plus second-department consumer | planned; access-gated after entrance gate | Publish versioned manifests, resolve them at runtime, emit `RegistryResolutionReceipt`, and let a second small institutional flow discover and reuse Citation Auditor. If preview access fails on the same-day smoke, execute the pinned fallback and disclose F-13 honestly |
-| RCL-316 | Per-role service accounts, IAM denial, and Model Armor adversarial run | planned; access-gated after entrance gate | Prove IAM-level forbidden tool denial and zero forbidden downstream effect; after credential rotation, use Model Armor to block a poisoned source document when access is available |
-| RCL-317 | Agent Runtime deployment in addition to Cloud Run | planned; rule/access-gated after entrance gate | Ask the organizer because Rules do not bind this FAQ bonus; if confirmed and accessible, deploy and capture exact runtime/revision proof |
-| RCL-318 | `LIVE_PUBLIC` ClinVar evidence over a synthetic case | planned after entrance gate | Fetch current public evidence live, label it `LIVE_PUBLIC`, bind it to a synthetic case, and preserve the non-clinical simulated-action boundary |
+| RCL-311 | Synthetic scale funnel | planned 2026-08-25 after entrance gate | Run 100-200 fixed synthetic WatchCases and report scanned, candidate, audited, and simulated-task counts through `UtilityEvaluation`, with exact denominators and Wilson 95% confidence intervals; label the result exploratory and make no clinical-performance claim |
+| RCL-312 | Correlated Cloud Trace and fleet dashboard | planned 2026-08-25 after entrance gate | Render sanitized agent health, runs, denials, and `HALTED`; the same deployed revision, run ID, trace ID, and Firestore facts appear in the app and Google Cloud proof |
+| RCL-313 | Accelerated Week 0/3/6 continuity | planned 2026-08-26 after entrance gate | Execute three genuine separately receipted ScanRuns for one WatchCase, emit `NO_ACTION` on unchanged runs, prove F-12 as-of cursor behavior, label acceleration explicitly, and prohibit seeded outcomes |
+| RCL-314 | Blog, social, and bounded Gemma bonuses | planned 2026-08-28 after entrance gate | Publish blog and social evidence before the last day; add Gemma only as a small visible critical-path-independent use with measured incremental value |
+| RCL-315 | Agent Registry runtime resolution plus second-department consumer | planned 2026-08-26; access-gated after entrance gate | Publish versioned manifests, resolve them at runtime, emit `RegistryResolutionReceipt`, and let a second small institutional flow discover and reuse Citation Auditor. If preview access fails on the same-day smoke, execute the pinned fallback and disclose F-13 honestly |
+| RCL-316 | Per-role service accounts, IAM denial, and Model Armor adversarial run | planned 2026-08-26; access-gated after entrance gate | Prove IAM-level forbidden tool denial and zero forbidden downstream effect; after credential rotation, use Model Armor to block a poisoned source document when access is available |
+| RCL-317 | Agent Runtime deployment in addition to Cloud Run | planned 2026-08-24; rule/access-gated after entrance gate | Ask the organizer because Rules do not bind this FAQ bonus; if confirmed and accessible, deploy and capture exact runtime/revision proof |
+| RCL-318 | `LIVE_PUBLIC` ClinVar evidence over a synthetic case | planned 2026-08-26 after entrance gate | Fetch current public evidence live, label it `LIVE_PUBLIC`, bind it to a synthetic case, and preserve the non-clinical simulated-action boundary |
 
-Fleet-target minimum is RCL-311, RCL-313, and RCL-314 plus at least one real implementation from RCL-315 or RCL-316. The auditor identifies RCL-311 through RCL-314 as the realistic solo set, but RCL-315 through RCL-318 remain planned and gated rather than removed. Memory Bank, Gateway, remote A2A, and Hetzner remain base-plan cuts; Gemma, Model Armor, and Agent Runtime remain outside the golden path but are retained as the explicit conditional extensions above.
+Fleet-target minimum is RCL-311, RCL-313, and RCL-314 plus at least one real implementation from RCL-315 or RCL-316. The auditor identifies RCL-311 through RCL-314 as the realistic solo set, but RCL-315 through RCL-318 remain planned and gated rather than removed. Memory Bank returns only through the 2026-08-25 admitted-hints/parity mini-brief; Gateway, remote A2A, and Hetzner remain base-plan cuts. Gemma, Model Armor, and Agent Runtime remain outside the golden path but are retained as the explicit conditional extensions above.
 
 ### Phase 4: Minimum privacy boundary folded into the golden path; prior schedule superseded
 
@@ -272,7 +272,7 @@ Fleet-target minimum is RCL-311, RCL-313, and RCL-314 plus at least one real imp
 | RCL-606 | Attempt authenticated Agent Registry publication and resolution for one day | timeboxed fallback | Registry catalog and selected-version receipt, or a typed fallback receipt for the pinned Controller-validated manifest |
 | RCL-607 | Implement sanitized cross-service tracing | not-started | One trace without clinical content |
 | RCL-608 | Show fleet roles, versions, scopes, and live route on the web surface | not-started | UI reads catalog/run receipts, no decorative hard-coding |
-| RCL-609 | Implement Memory Bank admission, retrieval, expiry, scope, and Firestore-conflict controls | `CUT / DEFERRED` | Firestore remains authoritative; no Memory Bank feature or score claim is planned |
+| RCL-609 | Implement Memory Bank admission, retrieval, expiry, scope, and Firestore-conflict controls | planned 2026-08-25 mini-brief | Admit operational hints only; Firestore remains authoritative, memory is excluded from policy facts, and enabled/disabled parity is mandatory |
 | RCL-610 | Enforce separate identity and Controller allowlists without widening authority | scope-reduced | Gateway is `CUT / DEFERRED`; allowed/denied tool receipts remain mandatory and RCL-316 adds access-gated IAM/Model Armor proof after the entrance gate |
 
 **Recovery gate:** a Cloud Run ADK run produces typed artifacts and one sanitized correlation trail; a forbidden capability is visibly denied. Registry resolution is preferred but the documented pinned-manifest fallback is acceptable after the one-day smoke.
@@ -286,10 +286,10 @@ Fleet-target minimum is RCL-311, RCL-313, and RCL-314 plus at least one real imp
 | RCL-703 | Complete duplicate suppression and notification outbox | not-started | Zero duplicate review tasks under repeated delivery |
 | RCL-704 | Complete loop and repeated-state recovery | not-started | Worker loop terminates within budget with no task |
 | RCL-705 | Add fault-injection controls and proof states to the web surface | not-started | Jury can see cause, blocked action, and terminal result |
-| RCL-706 | Complete memory poisoning, stale-memory, and cross-scope recovery | `CUT / DEFERRED` | Memory Bank is outside the golden path; Firestore remains authoritative |
+| RCL-706 | Complete memory poisoning, stale-memory, and cross-scope recovery | planned 2026-08-25 mini-brief | Reject poisoned, stale, cross-scope, and authority-conflicting hints; prove byte/task parity with memory disabled while Firestore remains authoritative |
 | RCL-707 | Complete untrusted-source injection and Model Armor outage recovery | scope-reduced plus conditional extension | Structured-only restriction and deterministic `ABSTAIN` with a typed receipt remain mandatory; actual Model Armor activation/adversarial evidence is retained under access-gated RCL-316 |
 
-**Recovery gate:** every golden-path guardrail has visible activation evidence and all dangerous incomplete paths end without a clinical task. Memory Bank is not a phase dependency; Model Armor remains an access-gated post-entrance extension rather than a golden-path dependency.
+**Recovery gate:** every golden-path guardrail has visible activation evidence and all dangerous incomplete paths end without a clinical task. The bounded Memory Bank mini-brief is scheduled but is not a golden-path or policy dependency; Model Armor remains an access-gated post-entrance extension rather than a golden-path dependency.
 
 ### Phase 8: Evaluation, deployment, and narrative integration, 2026-08-27
 
@@ -346,9 +346,9 @@ The earlier 25/50/75% dates and phase sequence below are historical planning con
 
 ### Committed recovery cuts
 
-The following are explicitly outside the contest golden path: local Gemma, Memory Bank, Model Armor, Agent Gateway, remote A2A, Week 0/3/6 orchestration, Hetzner deployment, the second connector, and nonessential visual polish. This base-path cut does not delete the auditor's conditional extension plan: Gemma bonus is RCL-314, accelerated Week 0/3/6 is RCL-313, Model Armor is RCL-316, Registry plus the second consumer is RCL-315, and Agent Runtime is RCL-317. Agent Registry receives one authenticated smoke day; otherwise use a pinned Controller-validated manifest with a visible fallback receipt. Every state remains visible in the score and demo ledgers.
+The following remain outside the contest golden path: local Gemma, Model Armor, Agent Gateway, remote A2A, Week 0/3/6 orchestration, Hetzner deployment, the second connector, and nonessential visual polish. Memory Bank is separately scheduled for a 2026-08-25 mini-brief limited to admitted operational hints and parity; it is not evidence, policy, or workflow authority. This base-path boundary does not delete the auditor's conditional extension plan: Gemma bonus is RCL-314, accelerated Week 0/3/6 is RCL-313, Model Armor is RCL-316, Registry plus the second consumer is RCL-315, and Agent Runtime is RCL-317. Agent Registry receives one authenticated smoke day; otherwise use a pinned Controller-validated manifest with a visible fallback receipt. Every state remains visible in the score and demo ledgers.
 
-Golden-path substitutes are Controller allowlists plus separate identities instead of Gateway, strict structured input plus deterministic `ABSTAIN` before any conditional Model Armor evidence, Firestore-only authority instead of Memory Bank, one source-attributed replay connector, a pinned Controller-validated manifest if the one-day Registry smoke fails, and Cloud Run instead of Hetzner. These substitutes protect delivery but do not erase RCL-314 through RCL-317.
+Golden-path substitutes are Controller allowlists plus separate identities instead of Gateway, strict structured input plus deterministic `ABSTAIN` before any conditional Model Armor evidence, Firestore-only authority even when bounded Memory Bank hints are enabled, one source-attributed replay connector, a pinned Controller-validated manifest if the one-day Registry smoke fails, and Cloud Run instead of Hetzner. These substitutes protect delivery but do not erase RCL-314 through RCL-317.
 
 If the remaining schedule slips, cut only in this order:
 

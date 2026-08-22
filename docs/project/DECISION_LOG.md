@@ -325,3 +325,13 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 
 - Status: accepted; owner-authorized entry recorded by the external auditor on 2026-08-22
 - Decision: ERR-2026-08-17-086 is closed: exposure detected and contained on 2026-08-22. This supersedes the credential gate in DEC-2026-08-21-038.
+
+## DEC-2026-08-22-041: Prioritize Fleet-first delivery and restore bounded Memory Bank work
+
+- Status: accepted owner direction on 2026-08-22.
+- Target order: Fleet-first. Best Architectural Design, Individual/Hobbyist, and the other eligible targets remain relevant, but implementation sequencing now prioritizes visible fleet persistence, governance, reuse, and managed execution evidence.
+- Memory Bank scope: Return Memory Bank to the plan through a 2026-08-25 mini-brief limited to admitted non-clinical operational hints plus enabled/disabled parity. Firestore remains authoritative; memory cannot satisfy evidence, audit, policy, outcome, task-count, or state-transition prerequisites and remains absent from `PolicyDecision.input_facts`.
+- Scheduled extensions: RCL-311 and RCL-312 are scheduled for 2026-08-25; RCL-313, RCL-315, RCL-316, and RCL-318 for 2026-08-26; RCL-314 for 2026-08-28; and RCL-317 for the 2026-08-24 rule/access-gated deployment milestone. The 2026-08-24 entrance gate and each existing access/rule condition remain binding.
+- Lifecycle alignment: `HALTED` is the technical `ScanRun` terminal. `ATTENTION_REQUIRED` is used only as the resulting durable `WatchCase` state after the `scan_halted` transition, with verified cursors preserved, pending evidence retained, and automatic scheduling cleared until explicit recovery.
+- Delivery lanes: L1 Platform, L2 Core, and L3 Privacy and Demo are AI developer lanes coordinated by Codex. They do not add human entrants, collaborators, authors, or submitters; the competition entry capacity remains `individual/solo` under owner `aistanbulresearch`.
+- Boundary: This decision schedules work and narrows authority. It does not authorize a cloud mutation, GitHub write, push, merge, publication, expanded Memory Bank content, or any change to the non-clinical synthetic/public-evidence boundary.

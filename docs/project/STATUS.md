@@ -7,7 +7,7 @@
 | Updated | 2026-08-21 |
 | Phase | 72-hour recovery: bounded P1 remediation plus owner-approved Phase 3 golden path; Phase 1 billing linkage remains separately protected |
 | Overall state | Last passing external audit is c861; the published 46af successor has two bounded P1 findings. Their local remediation passes all six validator entrypoints, 88 exact aggregate mutations, five positive controls, and independent re-review, but still awaits owner-authorized publication. RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED` with zero `MECHANISM_PROVED`, two `EXECUTED`, and seven unchanged `NOT VERIFIED`; local product implementation is authorized, while PR #2 merge awaits a fresh exact-head PASS. |
-| Product code | Not started |
+| Product code | Started; RCL-302, RCL-303, RCL-304, RCL-306, and RCL-308 are implemented and locally verified; RCL-309 is partial (lease, CAS, and idempotency implemented; scheduler pending) |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |
@@ -146,7 +146,7 @@ scheduler_runtime=NOT_VERIFIED
 | Product name may have discoverability/confusion risk | Medium | Run naming-collision review before public launch. |
 | Private repository plan does not permit branch rulesets | Medium | Use feature branches and PRs by process; enable protected-main ruleset immediately when the repo becomes public or the plan permits it. |
 | Agent Registry or separate-identity capabilities may be preview-, region-, quota-, or account-limited | Critical | Timebox the authenticated Registry smoke to one day; retain Cloud Run plus the pinned Controller-validated manifest and separate-identity fallback. |
-| Deferred Memory Bank work could be reintroduced silently | High | Keep it `CUT / DEFERRED`; Firestore remains authoritative and any future memory experiment requires a new owner scope decision. |
+| Memory Bank scope could expand into evidence or policy authority | High | Limit the scheduled 2026-08-25 mini-brief to admitted operational hints plus enabled/disabled parity; Firestore remains authoritative and memory remains absent from policy inputs. |
 | Current Google Cloud Generative AI terms prohibit clinical-purpose use | Critical | Keep the contest build synthetic and non-clinical; prohibit clinical-production claims; require a separate future contractual and regulatory gate. |
 | Third-party license or data rights drift before release | High | Exact locks, SBOM, notices, model/data registers, unknown-license fail gate, and terms recheck at feature freeze. |
 | A GitHub credential was rendered in a private subagent tool log | Closed | Exposure detected and contained on 2026-08-22. |
