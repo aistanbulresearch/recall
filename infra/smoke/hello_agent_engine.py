@@ -102,6 +102,16 @@ def _spec(config: PlatformConfig, service_account: str | None) -> AgentSpec:
             "GOOGLE_CLOUD_LOCATION": config.model_location,
             "GOOGLE_GENAI_USE_VERTEXAI": "1",
             "RECALL_MODEL": config.model,
+            # Telemetry is configured by environment. The enable_tracing flag is
+            # overridden by the runtime and produced no spans.
+            "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
+            "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+            "OTEL_SERVICE_NAME": DISPLAY_NAME,
+            # Keep prompt and response text out of spans. Recall's contracts
+            # forbid raw sensitive text in cloud artifacts, so both content
+            # capture switches stay off: this one is false and
+            # OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is left unset.
+            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
         },
         service_account=service_account,
     )

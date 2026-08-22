@@ -221,3 +221,99 @@ def test_bad_resource_name_is_rejected() -> None:
     with pytest.raises(PlatformError) as excinfo:
         _runtime(client).read_back("bad-name")
     assert excinfo.value.code == "runtime_resource_name_invalid"
+
+
+class FakeHttpSession:
+    """Records the request so header injection can be asserted, not assumed."""
+
+    def __init__(self, status: int = 200, body: str = "") -> None:
+        self.status = status
+        self.body = body
+        self.calls: list[dict[str, Any]] = []
+
+    def request(self, method: str, url: str, **kwargs: Any) -> Any:
+        self.calls.append({"method": method, "url": url, **kwargs})
+
+        class _Response:
+            status_code = self.status
+            text = self.body
+
+        return _Response()
+
+
+SSE_BODY = (
+    'data: {"content": {"parts": [{"text": "ready"}]}, "author": "watcher"}\n'
+    "\n"
+    'data: {"content": {"parts": [{"text": "done"}]}, "author": "watcher"}\n'
+    "data: [DONE]\n"
+)
+TRACED_RESOURCE = "projects/p/locations/us-central1/reasoningEngines/42"
+
+
+def _invoker(session: FakeHttpSession) -> Any:
+    from recall.platform.runtime import TracedRuntimeInvoker
+
+    return TracedRuntimeInvoker(CONFIG, session=session)
+
+
+def test_traced_invoke_injects_a_w3c_traceparent() -> None:
+    session = FakeHttpSession(body=SSE_BODY)
+    result = _invoker(session).invoke(
+        TRACED_RESOURCE, message="ping", user_id="smoke"
+    )
+    header = session.calls[0]["headers"]["traceparent"]
+    assert header == f"00-{result.trace_id}-{result.span_id}-01"
+    assert len(result.trace_id) == 32
+    assert len(result.span_id) == 16
+
+
+def test_caller_supplied_trace_id_is_used_unchanged() -> None:
+    session = FakeHttpSession(body=SSE_BODY)
+    trace = "0af7651916cd43dd8448eb211c80319c"
+    result = _invoker(session).invoke(
+        TRACED_RESOURCE, message="ping", user_id="smoke", trace_id=trace
+    )
+    assert result.trace_id == trace
+    assert trace in session.calls[0]["headers"]["traceparent"]
+
+
+def test_traced_invoke_targets_the_published_stream_query_endpoint() -> None:
+    session = FakeHttpSession(body=SSE_BODY)
+    _invoker(session).invoke(TRACED_RESOURCE, message="ping", user_id="smoke")
+    url = session.calls[0]["url"]
+    assert url.startswith("https://us-central1-aiplatform.googleapis.com/v1/")
+    assert url.endswith(f"{TRACED_RESOURCE}:streamQuery?alt=sse")
+    assert session.calls[0]["json"]["class_method"] == "stream_query"
+
+
+def test_sse_events_are_parsed_and_done_marker_dropped() -> None:
+    session = FakeHttpSession(body=SSE_BODY)
+    result = _invoker(session).invoke(
+        TRACED_RESOURCE, message="ping", user_id="smoke"
+    )
+    assert len(result.events) == 2
+    assert result.events[0]["author"] == "watcher"
+
+
+def test_non_200_response_fails_loudly() -> None:
+    session = FakeHttpSession(status=503, body="")
+    with pytest.raises(PlatformError) as excinfo:
+        _invoker(session).invoke(TRACED_RESOURCE, message="ping", user_id="smoke")
+    assert excinfo.value.code == "runtime_query_failed"
+
+
+def test_empty_stream_is_not_a_successful_call() -> None:
+    session = FakeHttpSession(body="data: [DONE]\n")
+    with pytest.raises(PlatformError) as excinfo:
+        _invoker(session).invoke(TRACED_RESOURCE, message="ping", user_id="smoke")
+    assert excinfo.value.code == "runtime_query_empty"
+
+
+def test_malformed_trace_id_is_refused_before_the_call() -> None:
+    session = FakeHttpSession(body=SSE_BODY)
+    with pytest.raises(PlatformError) as excinfo:
+        _invoker(session).invoke(
+            TRACED_RESOURCE, message="ping", user_id="smoke", trace_id="nope"
+        )
+    assert excinfo.value.code == "trace_id_invalid"
+    assert session.calls == []

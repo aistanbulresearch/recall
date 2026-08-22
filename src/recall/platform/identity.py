@@ -228,6 +228,64 @@ def reconcile_bucket_policy(
     return _reconcile(live_member_roles, project_id, "staging_bucket")
 
 
+def parse_policy_document(payload: Any) -> Mapping[str, Any]:
+    """Accept an IAM policy only if it actually is one.
+
+    A failed `getIamPolicy` returns an error document, not a policy. Treating
+    that as an empty policy and writing it back would delete every binding on the
+    project, so an error body, a missing etag, or an empty binding list is
+    rejected here rather than being merged into.
+    """
+
+    if not isinstance(payload, Mapping):
+        raise PlatformError("iam_policy_malformed", type(payload).__name__)
+    if "error" in payload:
+        error = payload.get("error")
+        code = error.get("code") if isinstance(error, Mapping) else "unknown"
+        raise PlatformError("iam_policy_fetch_failed", str(code))
+    bindings = payload.get("bindings")
+    if not isinstance(bindings, list) or not bindings:
+        raise PlatformError("iam_policy_empty")
+    if not payload.get("etag"):
+        raise PlatformError("iam_policy_etag_missing")
+    return payload
+
+
+def _grant_pairs(policy: Mapping[str, Any]) -> set[tuple[str, str]]:
+    pairs: set[tuple[str, str]] = set()
+    for binding in policy.get("bindings", []):
+        if not isinstance(binding, Mapping):
+            continue
+        role = str(binding.get("role", ""))
+        for member in binding.get("members", []) or []:
+            pairs.add((role, str(member)))
+    return pairs
+
+
+def assert_additive_policy_write(
+    original: Mapping[str, Any], updated: Mapping[str, Any]
+) -> tuple[str, ...]:
+    """Allow a policy write only when it adds grants and removes none.
+
+    Returns the added `role:member` pairs. Any dropped grant, a changed etag, or
+    an unusable original raises instead of being written.
+    """
+
+    parse_policy_document(original)
+    if not isinstance(updated, Mapping):
+        raise PlatformError("iam_policy_malformed", "updated")
+    if updated.get("etag") != original.get("etag"):
+        raise PlatformError("iam_policy_etag_changed")
+    before, after = _grant_pairs(original), _grant_pairs(updated)
+    removed = before - after
+    if removed:
+        raise PlatformError(
+            "iam_policy_would_remove_grant",
+            ",".join(sorted(f"{role}:{member}" for role, member in removed)),
+        )
+    return tuple(sorted(f"{role}:{member}" for role, member in after - before))
+
+
 class AgentIdentityClient(Protocol):
     """Read-only Agent Identity surface used by this lane."""
 

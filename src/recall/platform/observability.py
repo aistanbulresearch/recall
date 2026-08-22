@@ -223,11 +223,8 @@ class RestTraceClient:
             raise PlatformError("trace_fetch_failed", f"{trace_id}:{response.status_code}")
         return response.json()
 
-    def list_traces(self, *, page_size: int = 20) -> Mapping[str, Any]:
-        url = f"{self.BASE}/projects/{self._project}/traces"
-        response = self._session.get(
-            url, params={"pageSize": str(page_size), "view": "COMPLETE"}, timeout=30
-        )
-        if response.status_code != 200:
-            raise PlatformError("trace_list_failed", str(response.status_code))
-        return response.json()
+    # There is deliberately no list or search method here. Cloud Trace v1
+    # projects.traces.list returned zero results for a trace that
+    # projects.traces.get returned immediately and correctly, so searching is
+    # not a usable way to find a trace. The caller mints the trace id, so it
+    # always knows which id to fetch.

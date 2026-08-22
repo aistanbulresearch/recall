@@ -104,13 +104,34 @@
     {
       "id": "cloud-trace-empty",
       "detail": "Agent Engine deployed with enable_tracing=True under a service account holding roles/cloudtrace.agent produced no readable spans. cloudtrace.googleapis.com and telemetry.googleapis.com are both enabled, cloudtrace v1 traces.list returns 0 over a 3 hour window in COMPLETE and ROOTSPAN views, telemetry.googleapis.com exposes no v1 trace read path, and the engine logged no warning.",
-      "status": "UNRESOLVED",
-      "effect": "ManagedPathReceipt reports managed_status UNAVAILABLE with reason trace_has_no_spans rather than claiming a healthy managed path"
+      "status": "RESOLVED",
+      "effect": "ManagedPathReceipt reports managed_status UNAVAILABLE with reason trace_has_no_spans rather than claiming a healthy managed path",
+      "root_cause": [
+        "write: enable_tracing=True is overridden by the Agent Engine runtime; telemetry is configured by environment variable instead",
+        "read: Cloud Trace v1 projects.traces.list returns 0 even for a trace that projects.traces.get returns immediately, so search is not a usable lookup path"
+      ],
+      "fix": [
+        "deploy with GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY=true, OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental, OTEL_SERVICE_NAME, and ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false",
+        "the caller mints the 32 hex trace id, injects it as a W3C traceparent on the :streamQuery call, and reads it back with projects.traces.get"
+      ],
+      "privacy_note": "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is deliberately left unset and ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS is false, because those switches put prompt and response text into spans and the artifact contracts forbid raw sensitive text in cloud artifacts"
     },
     {
       "id": "gcloud-cli-stalls",
       "detail": "When the gcloud CLI credential expires it waits on an interactive reauth prompt that never arrives. Scripts now cap every gcloud call and infra/smoke/env.sh reads the project from the gcloud configuration file instead of calling `gcloud config get-value`.",
       "status": "MITIGATED"
+    },
+    {
+      "id": "iam-policy-write-guard",
+      "detail": "A failed getIamPolicy returns an error document. Merging grants into that and writing it back would have deleted every binding on the project; the write was only rejected because the Cloud Resource Manager API was disabled.",
+      "status": "MITIGATED",
+      "mitigation": "parse_policy_document rejects error bodies, empty binding lists and missing etags; assert_additive_policy_write refuses any write that drops an existing grant or carries a changed etag. Both are covered by tests in tests/platform/test_iam_policy_guard.py."
+    },
+    {
+      "id": "project-venv-corruption",
+      "detail": "The project virtualenv lost every .py file under google/protobuf while dist-info still reported protobuf 7.36.0, which broke test collection. Repaired with an in-place reinstall of the same version; pyproject.toml and uv.lock were not touched.",
+      "status": "REPAIRED",
+      "suspected_cause": "OneDrive sync of the .venv directory"
     }
   ],
   "service_accounts": {
@@ -174,5 +195,16 @@
       "the configured project id"
     ],
     "note": "added after the project number leaked through the Agent Registry URN form, which the earlier path-only masking did not cover"
+  },
+  "owner_notes": {
+    "trace_probe_spans": {
+      "ids": [
+        "recall-trace-ingest-probe",
+        "recall-trace-list-probe"
+      ],
+      "origin": "owner",
+      "nature": "synthetic probe spans written by hand to prove the read path; not Recall evidence",
+      "expiry": "30 days"
+    }
   }
 }

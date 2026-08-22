@@ -16,6 +16,7 @@ the live policy does not match the declaration, so a missing grant fails loudly.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import logging
 import shutil
@@ -33,8 +34,10 @@ from recall.platform.errors import PlatformError  # noqa: E402
 from recall.platform.identity import (  # noqa: E402
     SERVICE_IDENTITIES,
     RestAgentIdentityClient,
+    assert_additive_policy_write,
     declared_inventory,
     observe_agent_identity,
+    parse_policy_document,
     reconcile_bucket_policy,
     reconcile_project_policy,
 )
@@ -158,10 +161,17 @@ def _apply_project_bindings(project: str) -> None:
     policy_raw = _run(
         ["gcloud", "projects", "get-iam-policy", project, "--format=json"]
     ).stdout
-    policy = json.loads(policy_raw)
+    try:
+        fetched = json.loads(policy_raw)
+    except json.JSONDecodeError as exc:
+        raise PlatformError("iam_policy_malformed", "not_json") from exc
+    # Reject anything that is not a real policy before merging into it. A failed
+    # fetch returns an error document, and merging into that then writing it back
+    # would delete every binding on the project.
+    original = parse_policy_document(fetched)
+    policy = copy.deepcopy(dict(original))
     bindings = policy.setdefault("bindings", [])
     by_role = {binding.get("role"): binding for binding in bindings}
-    added = 0
     for identity in SERVICE_IDENTITIES:
         member = identity.member(project)
         for role in identity.project_roles:
@@ -173,10 +183,12 @@ def _apply_project_bindings(project: str) -> None:
             members = binding.setdefault("members", [])
             if member not in members:
                 members.append(member)
-                added += 1
-    if not added:
+    # Refuse a write that would drop any existing grant, ours or anyone else's.
+    added_pairs = assert_additive_policy_write(original, policy)
+    if not added_pairs:
         print("project bindings already complete")
         return
+    added = len(added_pairs)
     with tempfile.NamedTemporaryFile(
         "w", suffix=".json", delete=False, encoding="utf-8"
     ) as handle:

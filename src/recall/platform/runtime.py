@@ -18,6 +18,7 @@ A deployment that cannot be read back produces no VALID receipt.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -28,6 +29,7 @@ from recall.contracts.enums import ArtifactStatus, DataMode
 
 from .config import PlatformConfig
 from .errors import PlatformError
+from .observability import new_span_id, new_trace_id, traceparent
 from .receipts import deployment_receipt, utc_timestamp
 
 logger = logging.getLogger(__name__)
@@ -224,6 +226,109 @@ class AgentRuntime:
             data_mode=data_mode,
             status=status,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class TracedInvocation:
+    """One agent call and the trace it was made under."""
+
+    trace_id: str
+    span_id: str
+    traceparent: str
+    events: tuple[Mapping[str, Any], ...]
+
+
+class HttpSession(Protocol):
+    def request(self, method: str, url: str, **kwargs: Any) -> Any: ...
+
+
+class TracedRuntimeInvoker:
+    """Call a deployed agent over REST with a caller-supplied trace context.
+
+    The Vertex SDK offers no hook for request headers, so the managed runtime is
+    called through its published `:streamQuery` endpoint. That is the same URL the
+    Agent Registry catalog advertises, and it lets the caller inject a W3C
+    `traceparent`, which is what puts the Controller and the agent it invokes on
+    one trace id instead of leaving each to mint its own.
+    """
+
+    def __init__(self, config: PlatformConfig, session: HttpSession | None = None):
+        self._config = config
+        self._session = session if session is not None else self._authorised_session()
+
+    @staticmethod
+    def _authorised_session() -> Any:
+        try:
+            import google.auth
+            from google.auth.transport.requests import AuthorizedSession
+        except ImportError as exc:  # pragma: no cover - depends on environment
+            raise PlatformError("runtime_sdk_unavailable", str(exc)) from exc
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        return AuthorizedSession(credentials)
+
+    def stream_query_url(self, resource_name: str) -> str:
+        region = _read_back_region(resource_name)
+        return (
+            f"https://{region}-aiplatform.googleapis.com/v1/"
+            f"{resource_name}:streamQuery?alt=sse"
+        )
+
+    def invoke(
+        self,
+        resource_name: str,
+        *,
+        message: str,
+        user_id: str,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+    ) -> TracedInvocation:
+        trace = trace_id or new_trace_id()
+        span = span_id or new_span_id()
+        header = traceparent(trace, span)
+        response = self._session.request(
+            "POST",
+            self.stream_query_url(resource_name),
+            headers={"traceparent": header, "Content-Type": "application/json"},
+            json={
+                "class_method": "stream_query",
+                "input": {"message": message, "user_id": user_id},
+            },
+            timeout=120,
+        )
+        status = getattr(response, "status_code", None)
+        if status != 200:
+            raise PlatformError("runtime_query_failed", f"{resource_name}:{status}")
+        events = _parse_sse_events(getattr(response, "text", "") or "")
+        if not events:
+            raise PlatformError("runtime_query_empty", resource_name)
+        return TracedInvocation(
+            trace_id=trace,
+            span_id=span,
+            traceparent=header,
+            events=tuple(events),
+        )
+
+
+def _parse_sse_events(body: str) -> list[Mapping[str, Any]]:
+    """Read the server-sent event stream the runtime returns."""
+
+    events: list[Mapping[str, Any]] = []
+    for raw in body.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        payload = line[len("data:") :].strip() if line.startswith("data:") else line
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            parsed = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, Mapping):
+            events.append(parsed)
+    return events
 
 
 class VertexAgentEngineClient:
