@@ -1,0 +1,72 @@
+{
+  "lane": "l1",
+  "policy": {
+    "name_prefix": "recall-",
+    "required_labels": { "lane": "l1" },
+    "daily_budget_usd": 15,
+    "identifier_redaction": "project ids, billing ids, account addresses, and tokens are never recorded here"
+  },
+  "baseline_2026-08-22": {
+    "storage_buckets": [],
+    "service_accounts_recall_prefix": [],
+    "reasoning_engines_us_central1": [],
+    "captured_at": "2026-08-22T05:40:00Z",
+    "note": "empty project before any lane L1 resource was created"
+  },
+  "resources": [
+    {
+      "id": "recall-agent-engine-staging-68a6850a",
+      "kind": "storage.bucket",
+      "region": "us-central1",
+      "labels": { "lane": "l1", "component": "agent-engine-staging" },
+      "uniform_bucket_level_access": true,
+      "public_access_prevention": "enforced",
+      "lifecycle": "persistent",
+      "purpose": "Agent Engine build and pickle staging for deployed agents",
+      "created_at": "2026-08-22T05:44:00Z",
+      "created_by": "infra/scripts/create_staging_bucket.ps1",
+      "delete_command": "infra/scripts/delete_staging_bucket.ps1 -Suffix 68a6850a",
+      "status": "active"
+    },
+    {
+      "id": "recall-hello-smoke",
+      "kind": "aiplatform.reasoningEngine",
+      "region": "us-central1",
+      "labels": { "lane": "l1", "component": "runtime-smoke" },
+      "lifecycle": "temporary",
+      "purpose": "day-zero managed runtime proof: deploy, invoke, receipt, delete",
+      "created_at": "2026-08-22T05:43:55Z",
+      "created_by": "infra/smoke/hello_agent_engine.py deploy",
+      "delete_command": "infra/scripts/delete_agent_engine.ps1 -ResourceName <resource-name> -Force",
+      "delete_due": "2026-08-22",
+      "deleted_at": "2026-08-22T05:58:24Z",
+      "status": "deleted",
+      "absence_verified_by": [
+        "infra/smoke/hello_agent_engine.py delete (SDK list, empty)",
+        "infra/scripts/list_agent_engines.ps1 (REST list, none in us-central1)"
+      ],
+      "note": "resource name is recorded in the lane report, not here, because it carries the project identifier"
+    }
+  ],
+  "known_constraints": [
+    {
+      "id": "agent-engine-labels",
+      "detail": "vertexai.agent_engines.create() in aiplatform 1.165.1 has no labels parameter, so an Agent Engine is unlabelled at create. Labels are applied by a PATCH with updateMask=labels and then read back.",
+      "mitigation": "infra/scripts/label_agent_engine.ps1",
+      "verified": "2026-08-22, labels {lane: l1, component: runtime-smoke} written and read back on the smoke engine"
+    },
+    {
+      "id": "model-location",
+      "detail": "gemini-3.7-flash returns HTTP 404 in us-central1 and HTTP 200 at global. Deployed agents run in us-central1 with GOOGLE_CLOUD_LOCATION=global in the engine environment.",
+      "verified": "2026-08-22, deployed agent answered with model_version gemini-3.7-flash"
+    }
+  ],
+  "not_yet_created": [
+    "recall-sa-coordinator",
+    "recall-sa-watcher",
+    "recall-sa-assessor",
+    "recall-sa-auditor",
+    "recall-sa-controller",
+    "recall-model-armor-template"
+  ]
+}
