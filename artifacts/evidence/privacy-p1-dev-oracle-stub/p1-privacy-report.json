@@ -1,261 +1,1127 @@
 {
+  "arms": {
+    "primary": {
+      "arm": "model_offsets",
+      "description": "The offsets the model returned are scored directly against the ground truth, exact boundary.",
+      "status": "preregistered primary"
+    },
+    "secondary": {
+      "ambiguity_rule": "Fixed before the run: one occurrence gives that position; several occurrences each become their own candidate proposal; no occurrence refuses that proposal with model_response_surface_not_found.",
+      "arm": "surface_exact_search",
+      "description": "Each returned surface string is placed by deterministic exact search over the note, then scored exact boundary. Same model call, same tokens, no additional run.",
+      "status": "declared secondary, exploratory"
+    }
+  },
   "baseline": {
-    "document_level": {
-      "acceptance_rate": {
-        "high": 0.050653,
-        "low": 0.0,
-        "point": 0.0
+    "combined": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.050653,
+          "low": 0.0,
+          "point": 0.0
+        },
+        "accepted": 0,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 72,
+        "records": 72,
+        "records_with_escaped_direct_identifier": 0
       },
-      "accepted": 0,
-      "escaped_direct_identifier_surfaces": 0,
-      "false_quarantine": 0,
-      "quarantined": 72,
-      "records": 72,
-      "records_with_escaped_direct_identifier": 0
-    },
-    "egress_profile": "SUMMARY_TEXT",
-    "local_model": {
-      "approved_residual_spans": 0,
-      "latency_ms_max": null,
-      "latency_ms_p50": null,
-      "latency_ms_p95": null,
-      "status_counts": {
-        "DISABLED": 72
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 72
+        }
+      },
+      "mode": "deterministic_only",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 25,
+          "false_positive": 8,
+          "true_positive": 23
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "EVENT_DATE": {
+          "false_negative": 72,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 45,
+          "false_positive": 0,
+          "true_positive": 99
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "OCCUPATION": {
+          "false_negative": 8,
+          "false_positive": 0,
+          "true_positive": 16
+        },
+        "PERSON_NAME": {
+          "false_negative": 38,
+          "false_positive": 0,
+          "true_positive": 106
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        }
+      },
+      "span_level": {
+        "detected_spans": 684,
+        "exact_precision": {
+          "high": 0.994062,
+          "low": 0.977092,
+          "point": 0.988304
+        },
+        "exact_recall": {
+          "high": 0.808638,
+          "low": 0.753677,
+          "point": 0.782407
+        },
+        "false_negative": 188,
+        "false_positive": 8,
+        "ground_truth_spans": 864,
+        "overlap_recall": {
+          "high": 0.817426,
+          "low": 0.763325,
+          "point": 0.791667
+        },
+        "true_positive": 676
       }
     },
-    "mode": "deterministic_only",
-    "per_class": {
-      "ADDRESS": {
-        "false_negative": 25,
-        "false_positive": 8,
-        "true_positive": 23
+    "en": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.096422,
+          "low": 0.0,
+          "point": 0.0
+        },
+        "accepted": 0,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 36,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
       },
-      "AGE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 36
+        }
       },
-      "CLINICIAN_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
+      "mode": "deterministic_only",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 13,
+          "false_positive": 6,
+          "true_positive": 11
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 36,
+          "false_positive": 0,
+          "true_positive": 36
+        },
+        "FACILITY_NAME": {
+          "false_negative": 19,
+          "false_positive": 0,
+          "true_positive": 53
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 4,
+          "false_positive": 0,
+          "true_positive": 8
+        },
+        "PERSON_NAME": {
+          "false_negative": 22,
+          "false_positive": 0,
+          "true_positive": 50
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
       },
-      "DATE_OF_BIRTH": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
+      "span_level": {
+        "detected_spans": 344,
+        "exact_precision": {
+          "high": 0.991982,
+          "low": 0.962475,
+          "point": 0.982558
+        },
+        "exact_recall": {
+          "high": 0.818735,
+          "low": 0.741101,
+          "point": 0.782407
+        },
+        "false_negative": 94,
+        "false_positive": 6,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 0.831587,
+          "low": 0.755783,
+          "point": 0.796296
+        },
+        "true_positive": 338
+      }
+    },
+    "tr": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.096422,
+          "low": 0.0,
+          "point": 0.0
+        },
+        "accepted": 0,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 36,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
       },
-      "EMAIL": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 36
+        }
       },
-      "EVENT_DATE": {
-        "false_negative": 72,
-        "false_positive": 0,
-        "true_positive": 72
+      "mode": "deterministic_only",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 12,
+          "false_positive": 2,
+          "true_positive": 12
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 36,
+          "false_positive": 0,
+          "true_positive": 36
+        },
+        "FACILITY_NAME": {
+          "false_negative": 26,
+          "false_positive": 0,
+          "true_positive": 46
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 4,
+          "false_positive": 0,
+          "true_positive": 8
+        },
+        "PERSON_NAME": {
+          "false_negative": 16,
+          "false_positive": 0,
+          "true_positive": 56
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
       },
-      "FACILITY_NAME": {
-        "false_negative": 45,
-        "false_positive": 0,
-        "true_positive": 99
+      "span_level": {
+        "detected_spans": 340,
+        "exact_precision": {
+          "high": 0.998385,
+          "low": 0.978809,
+          "point": 0.994118
+        },
+        "exact_recall": {
+          "high": 0.818735,
+          "low": 0.741101,
+          "point": 0.782407
+        },
+        "false_negative": 94,
+        "false_positive": 2,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 0.823026,
+          "low": 0.745988,
+          "point": 0.787037
+        },
+        "true_positive": 338
+      }
+    }
+  },
+  "comparison_arm_a": {
+    "combined": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.942612,
+          "low": 0.795769,
+          "point": 0.888889
+        },
+        "accepted": 64,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 8,
+        "quarantined": 8,
+        "records": 72,
+        "records_with_escaped_direct_identifier": 0
       },
-      "MEDICAL_RECORD_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 180,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 72
+        }
       },
-      "NATIONAL_ID": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
+      "mode": "deterministic_plus_oracle_stub/model_offsets",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 5,
+          "false_positive": 8,
+          "true_positive": 43
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 144
+        },
+        "FACILITY_NAME": {
+          "false_negative": 3,
+          "false_positive": 0,
+          "true_positive": 141
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 144
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        }
       },
-      "OCCUPATION": {
+      "span_level": {
+        "detected_spans": 864,
+        "exact_precision": {
+          "high": 0.995301,
+          "low": 0.981836,
+          "point": 0.990741
+        },
+        "exact_recall": {
+          "high": 0.995301,
+          "low": 0.981836,
+          "point": 0.990741
+        },
         "false_negative": 8,
-        "false_positive": 0,
-        "true_positive": 16
-      },
-      "PERSON_NAME": {
-        "false_negative": 38,
-        "false_positive": 0,
-        "true_positive": 106
-      },
-      "PHONE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "PROTOCOL_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "RELATIVE_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      }
-    },
-    "span_level": {
-      "detected_spans": 684,
-      "exact_precision": {
-        "high": 0.994062,
-        "low": 0.977092,
-        "point": 0.988304
-      },
-      "exact_recall": {
-        "high": 0.808638,
-        "low": 0.753677,
-        "point": 0.782407
-      },
-      "false_negative": 188,
-      "false_positive": 8,
-      "ground_truth_spans": 864,
-      "overlap_recall": {
-        "high": 0.817426,
-        "low": 0.763325,
-        "point": 0.791667
-      },
-      "true_positive": 676
-    }
-  },
-  "comparison": {
-    "document_level": {
-      "acceptance_rate": {
-        "high": 0.942612,
-        "low": 0.795769,
-        "point": 0.888889
-      },
-      "accepted": 64,
-      "escaped_direct_identifier_surfaces": 0,
-      "false_quarantine": 8,
-      "quarantined": 8,
-      "records": 72,
-      "records_with_escaped_direct_identifier": 0
-    },
-    "egress_profile": "SUMMARY_TEXT",
-    "local_model": {
-      "approved_residual_spans": 180,
-      "latency_ms_max": 0,
-      "latency_ms_p50": 0.0,
-      "latency_ms_p95": 0.0,
-      "status_counts": {
-        "OK": 72
-      }
-    },
-    "mode": "deterministic_plus_oracle_stub",
-    "per_class": {
-      "ADDRESS": {
-        "false_negative": 5,
         "false_positive": 8,
-        "true_positive": 43
-      },
-      "AGE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "CLINICIAN_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "DATE_OF_BIRTH": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      },
-      "EMAIL": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "EVENT_DATE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 144
-      },
-      "FACILITY_NAME": {
-        "false_negative": 3,
-        "false_positive": 0,
-        "true_positive": 141
-      },
-      "MEDICAL_RECORD_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      },
-      "NATIONAL_ID": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "OCCUPATION": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      },
-      "PERSON_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 144
-      },
-      "PHONE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "PROTOCOL_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "RELATIVE_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
+        "ground_truth_spans": 864,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.995573,
+          "point": 1.0
+        },
+        "true_positive": 856
       }
     },
-    "span_level": {
-      "detected_spans": 864,
-      "exact_precision": {
-        "high": 0.995301,
-        "low": 0.981836,
-        "point": 0.990741
+    "en": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.921297,
+          "low": 0.681089,
+          "point": 0.833333
+        },
+        "accepted": 30,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 6,
+        "quarantined": 6,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
       },
-      "exact_recall": {
-        "high": 0.995301,
-        "low": 0.981836,
-        "point": 0.990741
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 88,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 36
+        }
       },
-      "false_negative": 8,
-      "false_positive": 8,
-      "ground_truth_spans": 864,
-      "overlap_recall": {
-        "high": 1.0,
-        "low": 0.995573,
-        "point": 1.0
+      "mode": "deterministic_plus_oracle_stub/model_offsets",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 3,
+          "false_positive": 6,
+          "true_positive": 21
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 3,
+          "false_positive": 0,
+          "true_positive": 69
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
       },
-      "true_positive": 856
+      "span_level": {
+        "detected_spans": 432,
+        "exact_precision": {
+          "high": 0.99362,
+          "low": 0.970033,
+          "point": 0.986111
+        },
+        "exact_recall": {
+          "high": 0.99362,
+          "low": 0.970033,
+          "point": 0.986111
+        },
+        "false_negative": 6,
+        "false_positive": 6,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.991186,
+          "point": 1.0
+        },
+        "true_positive": 426
+      }
+    },
+    "tr": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.98463,
+          "low": 0.81855,
+          "point": 0.944444
+        },
+        "accepted": 34,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 2,
+        "quarantined": 2,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
+      },
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 92,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 36
+        }
+      },
+      "mode": "deterministic_plus_oracle_stub/model_offsets",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 2,
+          "false_positive": 2,
+          "true_positive": 22
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
+      },
+      "span_level": {
+        "detected_spans": 432,
+        "exact_precision": {
+          "high": 0.998729,
+          "low": 0.983279,
+          "point": 0.99537
+        },
+        "exact_recall": {
+          "high": 0.998729,
+          "low": 0.983279,
+          "point": 0.99537
+        },
+        "false_negative": 2,
+        "false_positive": 2,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.991186,
+          "point": 1.0
+        },
+        "true_positive": 430
+      }
     }
   },
-  "content_hash": "80dfb8e12af9933b8bb01c25aab9194d8bedd8b87cdf5788120787766804850c",
+  "comparison_arm_b": {
+    "combined": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.922774,
+          "low": 0.762866,
+          "point": 0.861111
+        },
+        "accepted": 62,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 10,
+        "quarantined": 10,
+        "records": 72,
+        "records_with_escaped_direct_identifier": 0
+      },
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 180,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 72
+        }
+      },
+      "mode": "deterministic_plus_oracle_stub/surface_exact_search",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 5,
+          "false_positive": 10,
+          "true_positive": 43
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 144
+        },
+        "FACILITY_NAME": {
+          "false_negative": 5,
+          "false_positive": 0,
+          "true_positive": 139
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 144
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        }
+      },
+      "span_level": {
+        "detected_spans": 864,
+        "exact_precision": {
+          "high": 0.993701,
+          "low": 0.978826,
+          "point": 0.988426
+        },
+        "exact_recall": {
+          "high": 0.993701,
+          "low": 0.978826,
+          "point": 0.988426
+        },
+        "false_negative": 10,
+        "false_positive": 10,
+        "ground_truth_spans": 864,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.995573,
+          "point": 1.0
+        },
+        "true_positive": 854
+      }
+    },
+    "en": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.882838,
+          "low": 0.61915,
+          "point": 0.777778
+        },
+        "accepted": 28,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 8,
+        "quarantined": 8,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
+      },
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 88,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 36
+        }
+      },
+      "mode": "deterministic_plus_oracle_stub/surface_exact_search",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 3,
+          "false_positive": 8,
+          "true_positive": 21
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 5,
+          "false_positive": 0,
+          "true_positive": 67
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
+      },
+      "span_level": {
+        "detected_spans": 432,
+        "exact_precision": {
+          "high": 0.990587,
+          "low": 0.963888,
+          "point": 0.981481
+        },
+        "exact_recall": {
+          "high": 0.990587,
+          "low": 0.963888,
+          "point": 0.981481
+        },
+        "false_negative": 8,
+        "false_positive": 8,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.991186,
+          "point": 1.0
+        },
+        "true_positive": 424
+      }
+    },
+    "tr": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 0.98463,
+          "low": 0.81855,
+          "point": 0.944444
+        },
+        "accepted": 34,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 2,
+        "quarantined": 2,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
+      },
+      "egress_profile": "SUMMARY_TEXT",
+      "local_model": {
+        "approved_residual_spans": 92,
+        "latency_ms_max": 0,
+        "latency_ms_p50": 0.0,
+        "latency_ms_p95": 0.0,
+        "status_counts": {
+          "OK": 36
+        }
+      },
+      "mode": "deterministic_plus_oracle_stub/surface_exact_search",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 2,
+          "false_positive": 2,
+          "true_positive": 22
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "PERSON_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
+      },
+      "span_level": {
+        "detected_spans": 432,
+        "exact_precision": {
+          "high": 0.998729,
+          "low": 0.983279,
+          "point": 0.99537
+        },
+        "exact_recall": {
+          "high": 0.998729,
+          "low": 0.983279,
+          "point": 0.99537
+        },
+        "false_negative": 2,
+        "false_positive": 2,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 1.0,
+          "low": 0.991186,
+          "point": 1.0
+        },
+        "true_positive": 430
+      }
+    }
+  },
+  "content_hash": "32873918a5fabc24550bbea7abfa21ec720dde415c6bf9116b98ead6742ea3af",
   "corpus_seed": 20260822,
   "corpus_version": "1.0.0",
   "evidence_scope": "DEVELOPMENT_SMOKE_ON_DEV_SPLIT",
   "frozen_test_run_id": null,
   "generator_sha256": "2b0a70c3d2455c6e6dedb4073e9cc6c17707306cc51c307e9fb9f891bb866944",
-  "incremental": {
+  "incremental_arm_a": {
     "incremental_accepted_escapes": 0,
     "incremental_accepted_payloads": 64,
     "incremental_false_positive": 0,
     "incremental_true_positive": 180
   },
+  "incremental_arm_b": {
+    "incremental_accepted_escapes": 0,
+    "incremental_accepted_payloads": 62,
+    "incremental_false_positive": 2,
+    "incremental_true_positive": 178
+  },
   "limitations": [
     "Synthetic corpus only. No real, clinical, or regulatory privacy claim is supported.",
     "Residual identifier rate is a property of the committed corpus design, not an estimate for real text.",
     "The outbound allowlist is derived from the training split and reflects the synthetic template vocabulary.",
-    "Acceptance under the structured-only egress profile is a property of the payload shape, not a detection result. The payload declares no free-text field, so no identifier the detectors missed has a field to travel in. This number must never be reported as detector or local-model performance."
+    "Acceptance under the structured-only egress profile is a property of the payload shape, not a detection result. The payload declares no free-text field, so no identifier the detectors missed has a field to travel in. This number must never be reported as detector or local-model performance.",
+    "Approved residual span counts follow the primary arm, because the gate adjudicates the offsets the model returned."
   ],
   "local_model": {
     "disclaimer": "The oracle stub replays ground-truth residual spans. It measures the gate's behaviour when residual spans are supplied. It is not a local model result and must never be reported as Gemma performance.",
@@ -264,9 +1130,9 @@
     "mode": "deterministic_plus_oracle_stub",
     "model_id": null,
     "prompt": {
-      "adapter_version": "gemma-span-adapter@1.0.0",
-      "instruction_characters": 329,
-      "prompt_sha256": "09fc9ce07ec28fd0f2288d386ad5f78f78dc89225ca1f89b4ced94ee390434da"
+      "adapter_version": "gemma-span-adapter@1.1.0",
+      "instruction_characters": 853,
+      "prompt_sha256": "90108cca831ab6fbc4aca2a60969a7b4520b19061968697c24d4f2166a7dafb5"
     }
   },
   "mandatory_safety_gate": {
@@ -276,130 +1142,389 @@
     "rule": "zero seeded direct-identifier spans in accepted payloads",
     "structured_only_escapes": 0
   },
+  "measurement_constraints": {
+    "concurrency": 3,
+    "max_proposals": {
+      "rationale": "Denial-of-service bound only, never a recall bound. The development split carries 10 to 15 seeded spans per note, so a cap below that floor would make a complete answer impossible to accept and would measure the cap instead of the model. The prompt states no number.",
+      "value": 24
+    },
+    "reasoning_effort": {
+      "rationale": "A reasoning budget is not viable at this CPU throughput: the model spent its entire completion budget on reasoning and returned empty content. This is a limit of the local CPU deployment, not of the model.",
+      "value": null
+    },
+    "resumed": false,
+    "timeout_seconds": 8.0,
+    "transport": {
+      "server_kind": "oracle_stub"
+    }
+  },
   "preregistration_approval": null,
   "protocol_version": "P1/1.0.0",
   "record_count": 72,
+  "record_selection": "full split",
   "run_id": "privacy-p1-dev-oracle-stub",
   "split": "dev",
   "split_sha256": "05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5",
   "structured_only_egress": {
-    "document_level": {
-      "acceptance_rate": {
-        "high": 1.0,
-        "low": 0.949347,
-        "point": 1.0
+    "combined": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 1.0,
+          "low": 0.949347,
+          "point": 1.0
+        },
+        "accepted": 72,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 0,
+        "records": 72,
+        "records_with_escaped_direct_identifier": 0
       },
-      "accepted": 72,
-      "escaped_direct_identifier_surfaces": 0,
-      "false_quarantine": 0,
-      "quarantined": 0,
-      "records": 72,
-      "records_with_escaped_direct_identifier": 0
-    },
-    "egress_profile": "STRUCTURED_ONLY",
-    "local_model": {
-      "approved_residual_spans": 0,
-      "latency_ms_max": null,
-      "latency_ms_p50": null,
-      "latency_ms_p95": null,
-      "status_counts": {
-        "DISABLED": 72
-      }
-    },
-    "mode": "deterministic_structured_only_egress",
-    "per_class": {
-      "ADDRESS": {
-        "false_negative": 25,
+      "egress_profile": "STRUCTURED_ONLY",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 72
+        }
+      },
+      "mode": "deterministic_structured_only_egress",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 25,
+          "false_positive": 8,
+          "true_positive": 23
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "EVENT_DATE": {
+          "false_negative": 72,
+          "false_positive": 0,
+          "true_positive": 72
+        },
+        "FACILITY_NAME": {
+          "false_negative": 45,
+          "false_positive": 0,
+          "true_positive": 99
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "OCCUPATION": {
+          "false_negative": 8,
+          "false_positive": 0,
+          "true_positive": 16
+        },
+        "PERSON_NAME": {
+          "false_negative": 38,
+          "false_positive": 0,
+          "true_positive": 106
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 48
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        }
+      },
+      "span_level": {
+        "detected_spans": 684,
+        "exact_precision": {
+          "high": 0.994062,
+          "low": 0.977092,
+          "point": 0.988304
+        },
+        "exact_recall": {
+          "high": 0.808638,
+          "low": 0.753677,
+          "point": 0.782407
+        },
+        "false_negative": 188,
         "false_positive": 8,
-        "true_positive": 23
-      },
-      "AGE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "CLINICIAN_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "DATE_OF_BIRTH": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      },
-      "EMAIL": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "EVENT_DATE": {
-        "false_negative": 72,
-        "false_positive": 0,
-        "true_positive": 72
-      },
-      "FACILITY_NAME": {
-        "false_negative": 45,
-        "false_positive": 0,
-        "true_positive": 99
-      },
-      "MEDICAL_RECORD_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
-      },
-      "NATIONAL_ID": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "OCCUPATION": {
-        "false_negative": 8,
-        "false_positive": 0,
-        "true_positive": 16
-      },
-      "PERSON_NAME": {
-        "false_negative": 38,
-        "false_positive": 0,
-        "true_positive": 106
-      },
-      "PHONE": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "PROTOCOL_NUMBER": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 48
-      },
-      "RELATIVE_NAME": {
-        "false_negative": 0,
-        "false_positive": 0,
-        "true_positive": 24
+        "ground_truth_spans": 864,
+        "overlap_recall": {
+          "high": 0.817426,
+          "low": 0.763325,
+          "point": 0.791667
+        },
+        "true_positive": 676
       }
     },
-    "span_level": {
-      "detected_spans": 684,
-      "exact_precision": {
-        "high": 0.994062,
-        "low": 0.977092,
-        "point": 0.988304
+    "en": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 1.0,
+          "low": 0.903578,
+          "point": 1.0
+        },
+        "accepted": 36,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 0,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
       },
-      "exact_recall": {
-        "high": 0.808638,
-        "low": 0.753677,
-        "point": 0.782407
+      "egress_profile": "STRUCTURED_ONLY",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 36
+        }
       },
-      "false_negative": 188,
-      "false_positive": 8,
-      "ground_truth_spans": 864,
-      "overlap_recall": {
-        "high": 0.817426,
-        "low": 0.763325,
-        "point": 0.791667
+      "mode": "deterministic_structured_only_egress",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 13,
+          "false_positive": 6,
+          "true_positive": 11
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 36,
+          "false_positive": 0,
+          "true_positive": 36
+        },
+        "FACILITY_NAME": {
+          "false_negative": 19,
+          "false_positive": 0,
+          "true_positive": 53
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 4,
+          "false_positive": 0,
+          "true_positive": 8
+        },
+        "PERSON_NAME": {
+          "false_negative": 22,
+          "false_positive": 0,
+          "true_positive": 50
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
       },
-      "true_positive": 676
+      "span_level": {
+        "detected_spans": 344,
+        "exact_precision": {
+          "high": 0.991982,
+          "low": 0.962475,
+          "point": 0.982558
+        },
+        "exact_recall": {
+          "high": 0.818735,
+          "low": 0.741101,
+          "point": 0.782407
+        },
+        "false_negative": 94,
+        "false_positive": 6,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 0.831587,
+          "low": 0.755783,
+          "point": 0.796296
+        },
+        "true_positive": 338
+      }
+    },
+    "tr": {
+      "document_level": {
+        "acceptance_rate": {
+          "high": 1.0,
+          "low": 0.903578,
+          "point": 1.0
+        },
+        "accepted": 36,
+        "escaped_direct_identifier_surfaces": 0,
+        "false_quarantine": 0,
+        "quarantined": 0,
+        "records": 36,
+        "records_with_escaped_direct_identifier": 0
+      },
+      "egress_profile": "STRUCTURED_ONLY",
+      "local_model": {
+        "approved_residual_spans": 0,
+        "latency_ms_max": null,
+        "latency_ms_p50": null,
+        "latency_ms_p95": null,
+        "status_counts": {
+          "DISABLED": 36
+        }
+      },
+      "mode": "deterministic_structured_only_egress",
+      "per_class": {
+        "ADDRESS": {
+          "false_negative": 12,
+          "false_positive": 2,
+          "true_positive": 12
+        },
+        "AGE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "CLINICIAN_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "DATE_OF_BIRTH": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "EMAIL": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "EVENT_DATE": {
+          "false_negative": 36,
+          "false_positive": 0,
+          "true_positive": 36
+        },
+        "FACILITY_NAME": {
+          "false_negative": 26,
+          "false_positive": 0,
+          "true_positive": 46
+        },
+        "MEDICAL_RECORD_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        },
+        "NATIONAL_ID": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "OCCUPATION": {
+          "false_negative": 4,
+          "false_positive": 0,
+          "true_positive": 8
+        },
+        "PERSON_NAME": {
+          "false_negative": 16,
+          "false_positive": 0,
+          "true_positive": 56
+        },
+        "PHONE": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "PROTOCOL_NUMBER": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 24
+        },
+        "RELATIVE_NAME": {
+          "false_negative": 0,
+          "false_positive": 0,
+          "true_positive": 12
+        }
+      },
+      "span_level": {
+        "detected_spans": 340,
+        "exact_precision": {
+          "high": 0.998385,
+          "low": 0.978809,
+          "point": 0.994118
+        },
+        "exact_recall": {
+          "high": 0.818735,
+          "low": 0.741101,
+          "point": 0.782407
+        },
+        "false_negative": 94,
+        "false_positive": 2,
+        "ground_truth_spans": 432,
+        "overlap_recall": {
+          "high": 0.823026,
+          "low": 0.745988,
+          "point": 0.787037
+        },
+        "true_positive": 338
+      }
     }
   },
   "structured_only_egress_note": "Acceptance under the structured-only egress profile is a property of the payload shape, not a detection result. The payload declares no free-text field, so no identifier the detectors missed has a field to travel in. This number must never be reported as detector or local-model performance.",
