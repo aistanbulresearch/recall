@@ -7,7 +7,8 @@
       "email": "recall-sa-coordinator@<project>.iam.gserviceaccount.com",
       "agent_role": "FLEET_COORDINATOR",
       "project_roles": [
-        "roles/aiplatform.user"
+        "roles/aiplatform.user",
+        "roles/cloudtrace.agent"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -19,7 +20,8 @@
       "email": "recall-sa-watcher@<project>.iam.gserviceaccount.com",
       "agent_role": "EVIDENCE_WATCHER",
       "project_roles": [
-        "roles/aiplatform.user"
+        "roles/aiplatform.user",
+        "roles/cloudtrace.agent"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -31,7 +33,8 @@
       "email": "recall-sa-assessor@<project>.iam.gserviceaccount.com",
       "agent_role": "EVIDENCE_ASSESSOR",
       "project_roles": [
-        "roles/aiplatform.user"
+        "roles/aiplatform.user",
+        "roles/cloudtrace.agent"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -43,7 +46,8 @@
       "email": "recall-sa-auditor@<project>.iam.gserviceaccount.com",
       "agent_role": "CITATION_AUDITOR",
       "project_roles": [
-        "roles/aiplatform.user"
+        "roles/aiplatform.user",
+        "roles/cloudtrace.agent"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -56,6 +60,7 @@
       "agent_role": null,
       "project_roles": [
         "roles/aiplatform.user",
+        "roles/cloudtrace.agent",
         "roles/datastore.user"
       ],
       "staging_bucket_roles": []

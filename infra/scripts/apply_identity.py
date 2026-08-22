@@ -72,7 +72,18 @@ def _emit(value: Any, project_id: str, redact: bool) -> None:
     print(_redact(rendered, project_id, redact))
 
 
+def _write_inventory() -> None:
+    INVENTORY_PATH.write_text(
+        json.dumps(declared_inventory(), indent=2) + "\n", encoding="utf-8"
+    )
+
+
 def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Render the declaration. Needs no credentials: the declaration is local."""
+
+    if args.write:
+        _write_inventory()
+        print(f"declaration written to {INVENTORY_PATH.relative_to(REPO_ROOT)}")
     _emit(declared_inventory(), config.project_id, True)
     return 0
 
@@ -256,8 +267,14 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--redact", action="store_true")
     parser = argparse.ArgumentParser(description=__doc__, parents=[common])
     sub = parser.add_subparsers(dest="command", required=True)
+    plan = sub.add_parser("plan", parents=[common])
+    plan.add_argument(
+        "--write",
+        action="store_true",
+        help="refresh infra/iam_inventory.json from the declaration",
+    )
+    plan.set_defaults(handler=cmd_plan)
     for name, handler in (
-        ("plan", cmd_plan),
         ("apply", cmd_apply),
         ("verify", cmd_verify),
         ("observe", cmd_observe),
