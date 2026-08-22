@@ -31,6 +31,7 @@ ARMOR_COMPONENT = "model-armor"
 MATCH_FOUND = "MATCH_FOUND"
 NO_MATCH_FOUND = "NO_MATCH_FOUND"
 INVOCATION_SUCCESS = "SUCCESS"
+TRANSPORT_RETRIES = 3
 
 FILTER_RESULT_KEYS = (
     "piAndJailbreakFilterResult",
@@ -286,12 +287,24 @@ class RestModelArmorClient:
         body: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
         url = f"{self._base(location)}/{path}"
-        response = self._session.request(
-            method, url, params=dict(params or {}), json=body, timeout=30
-        )
-        if response.status_code != 200:
-            raise PlatformError("armor_call_failed", f"{path}:{response.status_code}")
-        return response.json() if response.content else {}
+        last_error: Exception | None = None
+        # The regional endpoint occasionally closes a connection before replying.
+        # Retry the transport error only; a real HTTP status is never retried,
+        # so a 4xx still fails loudly on the first answer.
+        for _ in range(TRANSPORT_RETRIES):
+            try:
+                response = self._session.request(
+                    method, url, params=dict(params or {}), json=body, timeout=30
+                )
+            except OSError as exc:
+                last_error = exc
+                continue
+            if response.status_code != 200:
+                raise PlatformError(
+                    "armor_call_failed", f"{path}:{response.status_code}"
+                )
+            return response.json() if response.content else {}
+        raise PlatformError("armor_transport_failed", f"{path}:{last_error!s:.80}")
 
     def create_template(
         self, location: str, template_id: str, body: Mapping[str, Any]

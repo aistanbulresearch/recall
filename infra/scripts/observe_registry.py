@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recall.platform.config import PlatformConfig  # noqa: E402
+from recall.platform.redaction import redact_identifiers  # noqa: E402
 from recall.platform.registry import (  # noqa: E402
     RestRegistryClient,
     engine_is_catalogued,
@@ -29,12 +30,11 @@ from recall.platform.registry import (  # noqa: E402
 )
 
 logger = logging.getLogger("recall.platform.registry")
-PROJECT_PLACEHOLDER = "<project>"
 
 
 def _emit(value: Any, project_id: str, redact: bool) -> None:
     rendered = value if isinstance(value, str) else json.dumps(value, indent=2)
-    print(rendered.replace(project_id, PROJECT_PLACEHOLDER) if redact else rendered)
+    print(redact_identifiers(rendered, project_id) if redact else rendered)
 
 
 def cmd_catalog(args: argparse.Namespace, config: PlatformConfig) -> int:

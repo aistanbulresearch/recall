@@ -29,9 +29,9 @@ from recall.platform.armor import (  # noqa: E402
     armor_template_body,
 )
 from recall.platform.config import PlatformConfig  # noqa: E402
+from recall.platform.redaction import redact_identifiers  # noqa: E402
 
 logger = logging.getLogger("recall.platform.armor")
-PROJECT_PLACEHOLDER = "<project>"
 
 BENIGN = (
     "Summarise the publicly available evidence records for this monitoring case "
@@ -46,7 +46,7 @@ HOSTILE = (
 
 def _emit(value: Any, project_id: str, redact: bool) -> None:
     rendered = value if isinstance(value, str) else json.dumps(value, indent=2)
-    print(rendered.replace(project_id, PROJECT_PLACEHOLDER) if redact else rendered)
+    print(redact_identifiers(rendered, project_id) if redact else rendered)
 
 
 def cmd_create(args: argparse.Namespace, config: PlatformConfig) -> int:

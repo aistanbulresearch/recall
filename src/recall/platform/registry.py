@@ -285,6 +285,41 @@ def observe_catalog(client: RegistryClient, location: str) -> dict[str, Any]:
     return observation
 
 
+RUNTIME_REFERENCE_ATTRIBUTE = "agentregistry.googleapis.com/system/RuntimeReference"
+RUNTIME_IDENTITY_ATTRIBUTE = "agentregistry.googleapis.com/system/RuntimeIdentity"
+FRAMEWORK_ATTRIBUTE = "agentregistry.googleapis.com/system/Framework"
+
+
+def _engine_reference(agent: Mapping[str, Any]) -> str:
+    """Collect the fields that tie a catalog entry back to a runtime resource.
+
+    The catalog `name` is a registry-assigned `agentregistry-...` id and never
+    contains the engine id, so matching on it alone reports a catalogued agent as
+    absent. The link lives in `agentId` and in the RuntimeReference attribute.
+    """
+
+    attributes = agent.get("attributes")
+    reference = ""
+    if isinstance(attributes, Mapping):
+        runtime = attributes.get(RUNTIME_REFERENCE_ATTRIBUTE)
+        if isinstance(runtime, Mapping):
+            reference = str(runtime.get("uri", ""))
+    return f"{agent.get('agentId', '')}|{reference}"
+
+
+def runtime_identity(agent: Mapping[str, Any]) -> str | None:
+    """Return the service account the catalog reports for this agent, if any."""
+
+    attributes = agent.get("attributes")
+    if not isinstance(attributes, Mapping):
+        return None
+    identity = attributes.get(RUNTIME_IDENTITY_ATTRIBUTE)
+    if not isinstance(identity, Mapping):
+        return None
+    principal = identity.get("principal")
+    return str(principal) if principal else None
+
+
 def engine_is_catalogued(
     client: RegistryClient, location: str, resource_name: str
 ) -> bool:
@@ -295,11 +330,13 @@ def engine_is_catalogued(
     """
 
     engine_id = resource_name.rsplit("/", 1)[-1]
+    if not engine_id:
+        raise PlatformError("runtime_resource_name_invalid", resource_name)
     payload = client.list_agents(location)
     agents = payload.get("agents")
     if not isinstance(agents, list):
         return False
-    return any(engine_id in str(agent.get("name", "")) for agent in agents)
+    return any(engine_id in _engine_reference(agent) for agent in agents)
 
 
 def agent_engine_service_body(
@@ -402,7 +439,9 @@ def catalog_from_agents(
     catalog: dict[str, dict[str, Any]] = {}
     for agent in agents:
         agent_id = str(agent.get("agentId") or agent.get("name") or "")
-        capability = capability_by_agent.get(agent_id)
+        capability = capability_by_agent.get(agent_id) or capability_by_agent.get(
+            str(agent.get("displayName") or "")
+        )
         if not capability:
             continue
         catalog[capability] = {
@@ -411,7 +450,14 @@ def catalog_from_agents(
             "revision": str(agent.get("version") or agent.get("updateTime") or ""),
             "binding_id": str(agent.get("uid") or agent.get("name") or ""),
             "region": str(agent.get("location") or ""),
-            "card": agent.get("card") or {},
+            "runtime_identity": runtime_identity(agent) or "",
+            "endpoints": sorted(
+                str(interface.get("url", ""))
+                for protocol in agent.get("protocols") or []
+                if isinstance(protocol, Mapping)
+                for interface in protocol.get("interfaces") or []
+                if isinstance(interface, Mapping)
+            ),
         }
     return catalog
 

@@ -22,6 +22,7 @@ from recall.platform.registry import (
     engine_is_catalogued,
     observe_catalog,
     resolve_capabilities,
+    runtime_identity,
 )
 
 REGION = "us-central1"
@@ -195,19 +196,86 @@ def test_catalog_observation_separates_empty_from_unreachable() -> None:
     assert degraded["agents"]["detail"] == "agents:403"
 
 
+ENGINE_ID = "1111222233334444"  # synthetic stand-in for the observed engine id
+
+# Shape observed live on 2026-08-22: the catalog name is a registry-assigned id
+# that never contains the engine id, so the runtime link must come from agentId
+# and the RuntimeReference attribute.
+LIVE_AGENT_RECORD: dict[str, Any] = {
+    "name": "projects/p/locations/us-central1/agents/agentregistry-00000000-0000-0000-9c4a-f3973fb10599",
+    "agentId": (
+        "urn:agent:projects-000:projects:000:locations:us-central1:aiplatform"
+        f":reasoningEngines:{ENGINE_ID}"
+    ),
+    "location": "us-central1",
+    "displayName": "recall-hello-smoke",
+    "uid": "agentregistry-00000000-0000-0000-9c4a-f3973fb10599",
+    "updateTime": "2026-08-22T14:38:21.116595Z",
+    "protocols": [
+        {
+            "type": "CUSTOM",
+            "interfaces": [
+                {
+                    "url": f"https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/us-central1/reasoningEngines/{ENGINE_ID}:query",
+                    "protocolBinding": "HTTP_JSON",
+                },
+                {
+                    "url": f"https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/us-central1/reasoningEngines/{ENGINE_ID}:streamQuery",
+                    "protocolBinding": "HTTP_JSON",
+                },
+            ],
+        }
+    ],
+    "attributes": {
+        "agentregistry.googleapis.com/system/Framework": {"framework": "google-adk"},
+        "agentregistry.googleapis.com/system/RuntimeReference": {
+            "uri": f"//aiplatform.googleapis.com/projects/p/locations/us-central1/reasoningEngines/{ENGINE_ID}"
+        },
+        "agentregistry.googleapis.com/system/RuntimeIdentity": {
+            "principal": "sa://recall-sa-watcher@p.iam.gserviceaccount.com"
+        },
+    },
+}
+RESOURCE = f"projects/p/locations/us-central1/reasoningEngines/{ENGINE_ID}"
+
+
 def test_engine_absent_from_catalog_is_not_catalogued() -> None:
     client = FakeRegistryClient([{"name": "projects/p/locations/us-central1/agents/x"}])
-    resource = "projects/p/locations/us-central1/reasoningEngines/3891525143687593984"
-    assert engine_is_catalogued(client, REGION, resource) is False
+    assert engine_is_catalogued(client, REGION, RESOURCE) is False
 
 
-def test_engine_present_in_catalog_is_catalogued() -> None:
-    engine_id = "3891525143687593984"
-    client = FakeRegistryClient(
-        [{"name": f"projects/p/locations/us-central1/agents/{engine_id}"}]
+def test_registry_name_alone_never_proves_cataloguing() -> None:
+    # The registry-assigned name must not be mistaken for the runtime link.
+    stripped = {k: v for k, v in LIVE_AGENT_RECORD.items() if k not in ("agentId", "attributes")}
+    assert engine_is_catalogued(FakeRegistryClient([stripped]), REGION, RESOURCE) is False
+
+
+def test_live_catalog_record_is_recognised() -> None:
+    client = FakeRegistryClient([LIVE_AGENT_RECORD])
+    assert engine_is_catalogued(client, REGION, RESOURCE) is True
+
+
+def test_runtime_reference_alone_is_enough() -> None:
+    record = {k: v for k, v in LIVE_AGENT_RECORD.items() if k != "agentId"}
+    assert engine_is_catalogued(FakeRegistryClient([record]), REGION, RESOURCE) is True
+
+
+def test_catalog_reports_the_per_role_service_account() -> None:
+    assert (
+        runtime_identity(LIVE_AGENT_RECORD)
+        == "sa://recall-sa-watcher@p.iam.gserviceaccount.com"
     )
-    resource = f"projects/p/locations/us-central1/reasoningEngines/{engine_id}"
-    assert engine_is_catalogued(client, REGION, resource) is True
+    assert runtime_identity({"attributes": {}}) is None
+
+
+def test_live_record_projects_into_a_resolvable_catalog() -> None:
+    catalog = catalog_from_agents(
+        {"agents": [LIVE_AGENT_RECORD]}, {"recall-hello-smoke": "evidence.watch"}
+    )
+    entry = catalog["evidence.watch"]
+    assert entry["runtime_identity"].endswith("recall-sa-watcher@p.iam.gserviceaccount.com")
+    assert len(entry["endpoints"]) == 2
+    assert all(url.startswith("https://") for url in entry["endpoints"])
 
 
 def test_catalog_projection_keeps_only_mapped_agents() -> None:

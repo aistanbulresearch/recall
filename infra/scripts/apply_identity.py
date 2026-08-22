@@ -21,6 +21,7 @@ import logging
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recall.platform.config import PlatformConfig  # noqa: E402
 from recall.platform.errors import PlatformError  # noqa: E402
 from recall.platform.identity import (  # noqa: E402
-    PROJECT_PLACEHOLDER,
     SERVICE_IDENTITIES,
     RestAgentIdentityClient,
     declared_inventory,
@@ -38,10 +38,12 @@ from recall.platform.identity import (  # noqa: E402
     reconcile_bucket_policy,
     reconcile_project_policy,
 )
+from recall.platform.redaction import redact_identifiers  # noqa: E402
 
 logger = logging.getLogger("recall.platform.identity")
 
 INVENTORY_PATH = REPO_ROOT / "infra" / "iam_inventory.json"
+GCLOUD_TIMEOUT_SECONDS = 120
 
 
 def _gcloud_executable() -> str:
@@ -55,16 +57,27 @@ def _gcloud_executable() -> str:
 
 def _run(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
     logger.info("gcloud %s", " ".join(args[1:3]))
-    result = subprocess.run(
-        [_gcloud_executable(), *args[1:]], capture_output=True, text=True, check=False
-    )
+    # Cap every call: an expired credential makes gcloud wait on an interactive
+    # reauth prompt that never arrives, which would otherwise hang the script.
+    try:
+        result = subprocess.run(
+            [_gcloud_executable(), *args[1:]],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GCLOUD_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise PlatformError(
+            "gcloud_timeout", f"{' '.join(args[1:3])}:{GCLOUD_TIMEOUT_SECONDS}s"
+        ) from exc
     if check and result.returncode != 0:
         raise PlatformError("gcloud_failed", result.stderr.strip()[:400])
     return result
 
 
 def _redact(text: str, project_id: str, enabled: bool) -> str:
-    return text.replace(project_id, PROJECT_PLACEHOLDER) if enabled else text
+    return redact_identifiers(text, project_id) if enabled else text
 
 
 def _emit(value: Any, project_id: str, redact: bool) -> None:
@@ -115,19 +128,6 @@ def cmd_apply(args: argparse.Namespace, config: PlatformConfig) -> int:
                     f"--project={project}",
                 ]
             )
-        for role in identity.project_roles:
-            _run(
-                [
-                    "gcloud",
-                    "projects",
-                    "add-iam-policy-binding",
-                    project,
-                    f"--member={identity.member(project)}",
-                    f"--role={role}",
-                    "--condition=None",
-                    "--format=none",
-                ]
-            )
         for role in identity.bucket_roles:
             _run(
                 [
@@ -141,11 +141,61 @@ def cmd_apply(args: argparse.Namespace, config: PlatformConfig) -> int:
                     "--format=none",
                 ]
             )
-    INVENTORY_PATH.write_text(
-        json.dumps(declared_inventory(), indent=2) + "\n", encoding="utf-8"
-    )
+    _apply_project_bindings(project)
+    _write_inventory()
     print(f"declared inventory written to {INVENTORY_PATH.relative_to(REPO_ROOT)}")
     return cmd_verify(args, config)
+
+
+def _apply_project_bindings(project: str) -> None:
+    """Add every declared project grant in one read-modify-write.
+
+    Per-role `add-iam-policy-binding` calls each re-read and re-write the whole
+    policy, so a five-account roster contends with itself on the policy etag and
+    can stall. One get, one merge, one set avoids that entirely.
+    """
+
+    policy_raw = _run(
+        ["gcloud", "projects", "get-iam-policy", project, "--format=json"]
+    ).stdout
+    policy = json.loads(policy_raw)
+    bindings = policy.setdefault("bindings", [])
+    by_role = {binding.get("role"): binding for binding in bindings}
+    added = 0
+    for identity in SERVICE_IDENTITIES:
+        member = identity.member(project)
+        for role in identity.project_roles:
+            binding = by_role.get(role)
+            if binding is None:
+                binding = {"role": role, "members": []}
+                bindings.append(binding)
+                by_role[role] = binding
+            members = binding.setdefault("members", [])
+            if member not in members:
+                members.append(member)
+                added += 1
+    if not added:
+        print("project bindings already complete")
+        return
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".json", delete=False, encoding="utf-8"
+    ) as handle:
+        json.dump(policy, handle)
+        policy_path = handle.name
+    try:
+        _run(
+            [
+                "gcloud",
+                "projects",
+                "set-iam-policy",
+                project,
+                policy_path,
+                "--format=none",
+            ]
+        )
+        print(f"added {added} project binding(s)")
+    finally:
+        Path(policy_path).unlink(missing_ok=True)
 
 
 def _member_roles(policy: dict[str, Any]) -> dict[str, list[str]]:

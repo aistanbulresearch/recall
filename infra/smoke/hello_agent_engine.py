@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import subprocess
 import sys
 import uuid
@@ -32,9 +31,10 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recall.contracts.enums import ArtifactStatus, DataMode  # noqa: E402
 from recall.platform.config import PlatformConfig  # noqa: E402
-from recall.platform.identity import BY_ACCOUNT_ID  # noqa: E402
 from recall.platform.errors import PlatformError  # noqa: E402
+from recall.platform.identity import BY_ACCOUNT_ID  # noqa: E402
 from recall.platform.receipts import utc_timestamp  # noqa: E402
+from recall.platform.redaction import redact_identifiers  # noqa: E402
 from recall.platform.runtime import (  # noqa: E402
     AgentRuntime,
     AgentSpec,
@@ -51,17 +51,11 @@ INSTRUCTION = (
     "You are a deployment smoke probe for the Recall platform lane. "
     "Answer in one short sentence. Handle no clinical or personal content."
 )
-PROJECT_SEGMENT = re.compile(r"projects/[^/\"'\s,]+")
 _PROJECT_ID = ""
 
 
 def _redact(text: str, enabled: bool) -> str:
-    if not enabled:
-        return text
-    masked = PROJECT_SEGMENT.sub("projects/<project>", text)
-    if _PROJECT_ID:
-        masked = masked.replace(_PROJECT_ID, "<project>")
-    return masked
+    return redact_identifiers(text, _PROJECT_ID) if enabled else text
 
 
 def identity_email(account_id: str, project_id: str) -> str:
