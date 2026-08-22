@@ -46,7 +46,16 @@ logger = logging.getLogger("recall.platform.smoke")
 DISPLAY_NAME = "recall-hello-smoke"
 AGENT_NAME = "recall_hello_smoke"
 DESCRIPTION = "Lane L1 day-zero managed runtime smoke. Temporary; deleted same day."
-REQUIREMENTS = ("google-cloud-aiplatform[adk,agent_engines]",)
+# The runtime logs "telemetry enabled but proceeding without ... instrumentation"
+# and emits no spans unless these are installed in the deployed image. The
+# google-genai one is the load-bearing package: without it the model call
+# produces no GenAI span at all.
+REQUIREMENTS = (
+    "google-cloud-aiplatform[adk,agent_engines]",
+    "opentelemetry-instrumentation-google-genai",
+    "opentelemetry-instrumentation-grpc",
+    "opentelemetry-instrumentation-httpx",
+)
 INSTRUCTION = (
     "You are a deployment smoke probe for the Recall platform lane. "
     "Answer in one short sentence. Handle no clinical or personal content."
@@ -85,12 +94,21 @@ def _runtime(config: PlatformConfig) -> AgentRuntime:
     return AgentRuntime(VertexAgentEngineClient(config), config)
 
 
-def _hello_app(config: PlatformConfig, *, tracing: bool) -> Any:
+def _hello_app(config: PlatformConfig) -> Any:
+    """Build the app without the enable_tracing parameter.
+
+    The runtime logs: "To fix this and control telemetry, please remove the
+    'enable_tracing' parameter from your deployment code... The Cloud Console may
+    incorrectly show telemetry as On when it is actually Off." Passing the
+    parameter at all, even as False, takes telemetry away from the environment
+    variables, so it is not passed.
+    """
+
     from google.adk.agents import Agent
     from vertexai import agent_engines
 
     agent = Agent(model=config.model, name=AGENT_NAME, instruction=INSTRUCTION)
-    return agent_engines.AdkApp(agent=agent, enable_tracing=tracing)
+    return agent_engines.AdkApp(agent=agent)
 
 
 def _spec(config: PlatformConfig, service_account: str | None) -> AgentSpec:
@@ -123,9 +141,7 @@ def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
     account = None
     if args.service_account_id:
         account = identity_email(args.service_account_id, config.project_id)
-    engine = runtime.deploy(
-        _spec(config, account), _hello_app(config, tracing=args.tracing)
-    )
+    engine = runtime.deploy(_spec(config, account), _hello_app(config))
     _emit(
         {
             "started_at": started,
@@ -205,7 +221,6 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     deploy = sub.add_parser("deploy", parents=[common])
-    deploy.add_argument("--tracing", action="store_true")
     deploy.add_argument(
         "--service-account-id",
         default=None,

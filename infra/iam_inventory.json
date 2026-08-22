@@ -8,7 +8,8 @@
       "agent_role": "FLEET_COORDINATOR",
       "project_roles": [
         "roles/aiplatform.user",
-        "roles/cloudtrace.agent"
+        "roles/cloudtrace.agent",
+        "roles/monitoring.metricWriter"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -21,7 +22,8 @@
       "agent_role": "EVIDENCE_WATCHER",
       "project_roles": [
         "roles/aiplatform.user",
-        "roles/cloudtrace.agent"
+        "roles/cloudtrace.agent",
+        "roles/monitoring.metricWriter"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -34,7 +36,8 @@
       "agent_role": "EVIDENCE_ASSESSOR",
       "project_roles": [
         "roles/aiplatform.user",
-        "roles/cloudtrace.agent"
+        "roles/cloudtrace.agent",
+        "roles/monitoring.metricWriter"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -47,7 +50,8 @@
       "agent_role": "CITATION_AUDITOR",
       "project_roles": [
         "roles/aiplatform.user",
-        "roles/cloudtrace.agent"
+        "roles/cloudtrace.agent",
+        "roles/monitoring.metricWriter"
       ],
       "staging_bucket_roles": [
         "roles/storage.objectViewer"
@@ -61,7 +65,8 @@
       "project_roles": [
         "roles/aiplatform.user",
         "roles/cloudtrace.agent",
-        "roles/datastore.user"
+        "roles/datastore.user",
+        "roles/monitoring.metricWriter"
       ],
       "staging_bucket_roles": []
     }

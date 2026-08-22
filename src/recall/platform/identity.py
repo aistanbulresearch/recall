@@ -29,12 +29,18 @@ logger = logging.getLogger(__name__)
 
 # Agents call Vertex and write their own spans; they read the staging bucket
 # only. Trace write is required for the managed-path trace id to exist at all.
-AGENT_PROJECT_ROLES = ("roles/aiplatform.user", "roles/cloudtrace.agent")
+AGENT_PROJECT_ROLES = (
+    "roles/aiplatform.user",
+    "roles/cloudtrace.agent",
+    # Without this the runtime logs "Failed to export metrics batch code: 403".
+    "roles/monitoring.metricWriter",
+)
 AGENT_BUCKET_ROLES = ("roles/storage.objectViewer",)
 CONTROLLER_PROJECT_ROLES = (
     "roles/aiplatform.user",
     "roles/cloudtrace.agent",
     "roles/datastore.user",
+    "roles/monitoring.metricWriter",
 )
 
 SERVICE_ACCOUNT_DOMAIN = "iam.gserviceaccount.com"
