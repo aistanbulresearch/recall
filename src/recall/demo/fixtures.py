@@ -126,7 +126,10 @@ def append_fixture_artifacts(
         artifact_id = str(uuid5(NAMESPACE_URL, f"{run_id}:{schema}"))
         wire = build_artifact(
             schema_name=schema,
-            schema_version="2.0.0" if schema == "DataModeReceipt" else "1.0.0",
+            schema_version={
+                "DataModeReceipt": "2.0.0",
+                "RegistryResolutionReceipt": "1.1.0",
+            }.get(schema, "1.0.0"),
             artifact_id=artifact_id,
             case_id=case_id,
             run_id=run_id,
@@ -150,7 +153,7 @@ def append_fixture_artifacts(
         "PrivacyReceipt",
         "privacy-gate",
         {
-            "decision": "PASS",
+            "decision": "ACCEPTED",
             "detector_versions": {"deterministic": "1.0.0", "gemma": "not-invoked"},
             "identifier_classes_checked": ["synthetic-fixture"],
             "detectors": {
@@ -168,7 +171,11 @@ def append_fixture_artifacts(
                 "raw_text_field_count": 0,
             },
             "payload_hash": "a" * 64,
-            "signature_ref": "fixture-signature",
+            "signature_ref": {
+                "key_id": "fixture-key",
+                "algorithm": "HMAC-SHA256",
+                "signature": "f" * 64,
+            },
         },
         DataMode.SYNTHETIC,
     )
@@ -178,6 +185,7 @@ def append_fixture_artifacts(
         {
             "requested_capabilities": ["evidence-watch"],
             "bindings": [],
+            "resolution_mode": "PINNED_FALLBACK",
             "validation_status": "PASS",
             "reason_codes": [],
         },

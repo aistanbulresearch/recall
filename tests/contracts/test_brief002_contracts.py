@@ -4,7 +4,12 @@ from copy import deepcopy
 
 import pytest
 
-from recall.contracts import ArtifactStatus, ContractError, DataMode, build_artifact
+from recall.contracts import (
+    ArtifactStatus,
+    ContractError,
+    DataMode,
+    build_artifact,
+)
 from recall.ledger.producers import PRODUCER_REGISTRY
 
 
@@ -168,10 +173,25 @@ def test_citation_audit_uses_complete_incomplete_and_verdict_enums() -> None:
     assert wire["claim_verdicts"][0]["verdict"] == "VERIFIED"
 
 
-def test_pass_snapshot_requires_source_cursor_and_normalized_facts() -> None:
+@pytest.mark.parametrize(
+    ("source_cursors", "normalized_facts", "expected_code"),
+    [
+        ({}, {"observation_count": 1}, "source_cursor_required"),
+        (
+            {"captured-replay": "stage-1"},
+            {},
+            "normalized_facts_required",
+        ),
+    ],
+)
+def test_pass_snapshot_rejects_each_empty_content_path(
+    source_cursors: dict[str, str],
+    normalized_facts: dict[str, object],
+    expected_code: str,
+) -> None:
     with pytest.raises(
         ContractError,
-        match="contract_required_value_missing:source_cursors_or_normalized_facts",
+        match=expected_code,
     ):
         build_artifact(
             schema_name="EvidenceSnapshot",
@@ -192,10 +212,128 @@ def test_pass_snapshot_requires_source_cursor_and_normalized_facts() -> None:
                 "effective_at": COMMON["created_at"],
                 "observation_ids": [],
                 "coverage_status": "PASS",
-                "source_cursors": {},
-                "normalized_facts": {},
+                "source_cursors": source_cursors,
+                "normalized_facts": normalized_facts,
                 "conflicts": [],
                 "snapshot_hash": "b" * 64,
             },
             authorized_producers=PRODUCER_REGISTRY,
+        )
+
+
+@pytest.mark.parametrize(
+    "resolution_mode", ["REGISTRY", "MANUAL_SERVICE", "PINNED_FALLBACK"]
+)
+def test_registry_resolution_1_1_accepts_only_closed_resolution_modes(
+    resolution_mode: str,
+) -> None:
+    wire = build_artifact(
+        schema_name="RegistryResolutionReceipt",
+        schema_version="1.1.0",
+        artifact_id=COMMON["artifact_id"],
+        case_id=COMMON["case_id"],
+        run_id=COMMON["run_id"],
+        producer={
+            "component": "controller",
+            "version": "0.1.0",
+            "identity": "controller",
+        },
+        created_at=COMMON["created_at"],
+        input_artifact_ids=(),
+        data_mode=DataMode.SYNTHETIC,
+        status=ArtifactStatus.VALID,
+        payload={
+            "requested_capabilities": ["evidence-watch"],
+            "bindings": [],
+            "resolution_mode": resolution_mode,
+            "validation_status": "PASS",
+            "reason_codes": [],
+        },
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert wire["resolution_mode"] == resolution_mode
+
+
+def test_registry_resolution_rejects_unknown_mode() -> None:
+    with pytest.raises(ContractError, match="contract_enum_invalid:resolution_mode"):
+        build_artifact(
+            schema_name="RegistryResolutionReceipt",
+            schema_version="1.1.0",
+            artifact_id=COMMON["artifact_id"],
+            case_id=COMMON["case_id"],
+            run_id=COMMON["run_id"],
+            producer={
+                "component": "controller",
+                "version": "0.1.0",
+                "identity": "controller",
+            },
+            created_at=COMMON["created_at"],
+            input_artifact_ids=(),
+            data_mode=DataMode.SYNTHETIC,
+            status=ArtifactStatus.VALID,
+            payload={
+                "requested_capabilities": ["evidence-watch"],
+                "bindings": [],
+                "resolution_mode": "UNBOUNDED_DISCOVERY",
+                "validation_status": "PASS",
+                "reason_codes": [],
+            },
+            authorized_producers=PRODUCER_REGISTRY,
+        )
+
+
+def test_privacy_signature_ref_is_strict_nested_object() -> None:
+    wire = build_artifact(
+        schema_name="PrivacyReceipt",
+        schema_version="1.0.0",
+        artifact_id=COMMON["artifact_id"],
+        case_id=COMMON["case_id"],
+        run_id=COMMON["run_id"],
+        producer={
+            "component": "privacy-gate",
+            "version": "0.1.0",
+            "identity": "privacy-gate",
+        },
+        created_at=COMMON["created_at"],
+        input_artifact_ids=(),
+        data_mode=DataMode.SYNTHETIC,
+        status=ArtifactStatus.VALID,
+        payload={
+            "decision": "ACCEPTED",
+            "detector_versions": {"deterministic": "1.0.0", "gemma": "1.0.0"},
+            "identifier_classes_checked": ["synthetic-fixture"],
+            "detectors": {
+                "deterministic": {"version": "1.0.0", "approved_spans": []},
+                "gemma": {
+                    "version": "1.0.0",
+                    "invoked": True,
+                    "schema_valid": True,
+                    "approved_residual_spans": [],
+                },
+            },
+            "outbound": {
+                "scan_status": "PASS",
+                "allowed_field_paths": ["$.synthetic_record"],
+                "raw_text_field_count": 0,
+            },
+            "payload_hash": "a" * 64,
+            "signature_ref": {
+                "key_id": "local-test-key",
+                "algorithm": "HMAC-SHA256",
+                "signature": "b" * 64,
+            },
+        },
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert wire["signature_ref"]["algorithm"] == "HMAC-SHA256"
+
+    broken = deepcopy(wire)
+    broken["signature_ref"]["unexpected"] = True
+    with pytest.raises(ContractError, match="contract_unknown_field:signature_ref"):
+        from recall.contracts import parse_artifact
+
+        parse_artifact(
+            broken,
+            authorized_producers=PRODUCER_REGISTRY,
+            verify_hash=False,
         )

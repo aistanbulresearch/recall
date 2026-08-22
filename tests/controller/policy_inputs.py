@@ -27,6 +27,7 @@ def append_policy_artifacts(
             schema_name=schema,
             schema_version={
                 "DataModeReceipt": "2.0.0",
+                "RegistryResolutionReceipt": "1.1.0",
             }.get(schema, "1.0.0"),
             artifact_id=artifact_id,
             case_id=case_id,
@@ -51,7 +52,7 @@ def append_policy_artifacts(
         "PrivacyReceipt",
         "privacy-gate",
         {
-            "decision": "PASS",
+            "decision": "ACCEPTED",
             "detector_versions": {"deterministic": "1.0.0", "gemma": "not-invoked"},
             "identifier_classes_checked": ["synthetic-fixture"],
             "detectors": {
@@ -69,7 +70,11 @@ def append_policy_artifacts(
                 "raw_text_field_count": 0,
             },
             "payload_hash": "a" * 64,
-            "signature_ref": "fixture-signature",
+            "signature_ref": {
+                "key_id": "fixture-key",
+                "algorithm": "HMAC-SHA256",
+                "signature": "f" * 64,
+            },
         },
     )
     append(
@@ -78,6 +83,7 @@ def append_policy_artifacts(
         {
             "requested_capabilities": ["evidence-watch"],
             "bindings": [],
+            "resolution_mode": "PINNED_FALLBACK",
             "validation_status": "PASS",
             "reason_codes": [],
         },

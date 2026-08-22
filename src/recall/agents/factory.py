@@ -7,12 +7,20 @@ import os
 from typing import Any
 
 from google.adk import Agent
+from google.genai.types import GenerateContentConfig, ThinkingConfig
 from vertexai.agent_engines import AdkApp
 import vertexai
 
 from recall.contracts import AgentRole
 
-from .config import MODEL_ID, REQUIREMENTS, ROLE_NAMES, ROLE_TOOL_IDS
+from .config import (
+    MODEL_ID,
+    MODEL_MAX_OUTPUT_TOKENS,
+    MODEL_THINKING_BUDGET,
+    REQUIREMENTS,
+    ROLE_NAMES,
+    ROLE_TOOL_IDS,
+)
 from .schemas import (
     AssessmentAgentOutput,
     CitationAuditOutput,
@@ -56,7 +64,7 @@ def build_agent_bundle(
     tools: Mapping[str, Callable[..., Any]],
     model: str | Any = MODEL_ID,
 ) -> AgentBundle:
-    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
+    os.environ["GOOGLE_GENAI_USE_ENTERPRISE"] = "1"
     os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
     expected = ROLE_TOOL_IDS[role]
     if frozenset(tools) != expected:
@@ -69,6 +77,12 @@ def build_agent_bundle(
         instruction=instruction,
         tools=[tools[tool_id] for tool_id in sorted(expected)],
         output_schema=OUTPUT_SCHEMAS[role],
+        generate_content_config=GenerateContentConfig(
+            max_output_tokens=MODEL_MAX_OUTPUT_TOKENS,
+            thinking_config=ThinkingConfig(
+                thinking_budget=MODEL_THINKING_BUDGET
+            ),
+        ),
         disallow_transfer_to_parent=True,
         disallow_transfer_to_peers=True,
         include_contents="none",

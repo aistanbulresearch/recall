@@ -1,5 +1,6 @@
 from .canonical import canonical_json_bytes, content_hash
 from .builder import build_artifact
+from .cloud_payload import CloudBoundPayload, parse_cloud_bound_payload
 from .enums import (
     AgentRole,
     ArtifactStatus,
@@ -9,7 +10,10 @@ from .enums import (
     FactState,
     FailureTerminal,
     PolicyOutcome,
+    PresenceState,
+    PrivacyDecision,
     ReplayStage,
+    ResolutionMode,
     TerminalState,
     ToolDecision,
 )
@@ -26,12 +30,16 @@ __all__ = [
     "ArtifactStatus",
     "AuditStatus",
     "CitationVerdict",
+    "CloudBoundPayload",
     "ContractError",
     "DataMode",
     "FactState",
     "FailureTerminal",
     "PolicyOutcome",
+    "PresenceState",
+    "PrivacyDecision",
     "ReplayStage",
+    "ResolutionMode",
     "TerminalState",
     "ToolDecision",
     "authorize_tool_request",
@@ -39,5 +47,6 @@ __all__ = [
     "canonical_json_bytes",
     "content_hash",
     "parse_artifact",
+    "parse_cloud_bound_payload",
     "parse_fault_fixture",
 ]

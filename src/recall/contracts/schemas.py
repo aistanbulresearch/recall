@@ -106,14 +106,15 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
             }
         ),
         parse_privacy_receipt_payload,
-        True,
+        False,
     ),
     "RegistryResolutionReceipt": (
-        "1.0.0",
+        "1.1.0",
         frozenset(
             {
                 "requested_capabilities",
                 "bindings",
+                "resolution_mode",
                 "validation_status",
                 "reason_codes",
             }

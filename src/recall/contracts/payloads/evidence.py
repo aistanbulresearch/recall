@@ -59,10 +59,10 @@ def parse_evidence_snapshot_payload(
     coverage_status = enum_value(
         FactState, value["coverage_status"], "coverage_status"
     )
-    if coverage_status is FactState.PASS and (not cursors or not facts):
-        raise ContractError(
-            "contract_required_value_missing", "source_cursors_or_normalized_facts"
-        )
+    if coverage_status is FactState.PASS and not cursors:
+        raise ContractError("source_cursor_required")
+    if coverage_status is FactState.PASS and not facts:
+        raise ContractError("normalized_facts_required")
     return EvidenceSnapshotPayload(
         effective_at=_timestamp(value["effective_at"], "effective_at"),
         observation_ids=observation_ids,

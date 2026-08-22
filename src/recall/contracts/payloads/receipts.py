@@ -5,7 +5,13 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from ..enums import AuditStatus, CitationVerdict, FactState
+from ..enums import (
+    AuditStatus,
+    CitationVerdict,
+    FactState,
+    PrivacyDecision,
+    ResolutionMode,
+)
 from ..errors import ContractError
 from ..validation import (
     SHA256,
@@ -42,8 +48,7 @@ def _privacy_detectors(value: Any) -> Mapping[str, object]:
         ("approved_spans", deterministic["approved_spans"]),
         ("approved_residual_spans", gemma["approved_residual_spans"]),
     ):
-        if not isinstance(raw, list) or raw:
-            raise ContractError("contract_type_invalid", f"detectors.{field}")
+        tuple_of_strings(raw, f"detectors.{field}")
     if not isinstance(gemma["invoked"], bool) or not isinstance(
         gemma["schema_valid"], bool
     ):
@@ -57,13 +62,13 @@ def _privacy_detectors(value: Any) -> Mapping[str, object]:
 
 @dataclass(frozen=True, slots=True)
 class PrivacyReceiptPayload:
-    decision: FactState
+    decision: PrivacyDecision
     detector_versions: Mapping[str, object]
     identifier_classes_checked: tuple[str, ...]
     detectors: Mapping[str, object]
     outbound: Mapping[str, object]
     payload_hash: str
-    signature_ref: str
+    signature_ref: Mapping[str, str]
 
     def to_wire(self) -> dict[str, object]:
         return {
@@ -73,7 +78,7 @@ class PrivacyReceiptPayload:
             "detectors": dict(self.detectors),
             "outbound": dict(self.outbound),
             "payload_hash": self.payload_hash,
-            "signature_ref": self.signature_ref,
+            "signature_ref": dict(self.signature_ref),
         }
 
 
@@ -83,13 +88,18 @@ def parse_privacy_receipt_payload(
     payload_hash = value["payload_hash"]
     if not isinstance(payload_hash, str) or not SHA256.fullmatch(payload_hash):
         raise ContractError("contract_hash_invalid", "payload_hash")
-    signature_ref = value["signature_ref"]
-    if not isinstance(signature_ref, str) or not signature_ref:
-        raise ContractError("contract_type_invalid", "signature_ref")
-    versions = _mapping(value["detector_versions"], "detector_versions")
+    signature_ref = _mapping(value["signature_ref"], "signature_ref")
     require_exact_fields(
-        versions, frozenset({"deterministic", "gemma"}), "detector_versions"
+        signature_ref,
+        frozenset({"key_id", "algorithm", "signature"}),
+        "signature_ref",
     )
+    for field in signature_ref:
+        non_empty_string(signature_ref[field], f"signature_ref.{field}")
+    versions = _mapping(value["detector_versions"], "detector_versions")
+    for key, item in versions.items():
+        non_empty_string(key, "detector_versions.key")
+        non_empty_string(item, f"detector_versions.{key}")
     outbound = _mapping(value["outbound"], "outbound")
     require_exact_fields(
         outbound,
@@ -102,7 +112,7 @@ def parse_privacy_receipt_payload(
     ):
         raise ContractError("contract_type_invalid", "outbound.raw_text_field_count")
     return PrivacyReceiptPayload(
-        decision=enum_value(FactState, value["decision"], "decision"),
+        decision=enum_value(PrivacyDecision, value["decision"], "decision"),
         detector_versions=versions,
         identifier_classes_checked=tuple_of_strings(
             value["identifier_classes_checked"], "identifier_classes_checked"
@@ -118,6 +128,7 @@ def parse_privacy_receipt_payload(
 class RegistryResolutionPayload:
     requested_capabilities: tuple[str, ...]
     bindings: tuple[Mapping[str, object], ...]
+    resolution_mode: ResolutionMode
     validation_status: FactState
     reason_codes: tuple[str, ...]
 
@@ -125,6 +136,7 @@ class RegistryResolutionPayload:
         return {
             "requested_capabilities": list(self.requested_capabilities),
             "bindings": [dict(item) for item in self.bindings],
+            "resolution_mode": self.resolution_mode.value,
             "validation_status": self.validation_status.value,
             "reason_codes": list(self.reason_codes),
         }
@@ -161,6 +173,9 @@ def parse_registry_resolution_payload(
             value["requested_capabilities"], "requested_capabilities"
         ),
         bindings=tuple(parsed_bindings),
+        resolution_mode=enum_value(
+            ResolutionMode, value["resolution_mode"], "resolution_mode"
+        ),
         validation_status=enum_value(
             FactState, value["validation_status"], "validation_status"
         ),
@@ -251,14 +266,27 @@ def parse_citation_audit_payload(value: Mapping[str, Any]) -> CitationAuditPaylo
             CitationVerdict, item["verdict"], "claim_verdicts.verdict"
         )
         claim_id = non_empty_string(item["claim_id"], "claim_verdicts.claim_id")
-        source = _mapping(item["refetched_source"], "claim_verdicts.refetched_source")
-        require_exact_fields(source, source_fields, "claim_verdicts.refetched_source")
-        for field in source_fields - {"content_hash"}:
-            non_empty_string(source[field], f"claim_verdicts.refetched_source.{field}")
-        if not isinstance(source["content_hash"], str) or not SHA256.fullmatch(
-            source["content_hash"]
-        ):
-            raise ContractError("contract_hash_invalid", "refetched_source.content_hash")
+        raw_source = item["refetched_source"]
+        if (verdict is CitationVerdict.UNAVAILABLE) is not (raw_source is None):
+            raise ContractError(
+                "contract_value_invalid", "claim_verdicts.refetched_source"
+            )
+        source: Mapping[str, object] | None = None
+        if raw_source is not None:
+            source = _mapping(raw_source, "claim_verdicts.refetched_source")
+            require_exact_fields(
+                source, source_fields, "claim_verdicts.refetched_source"
+            )
+            for field in source_fields - {"content_hash"}:
+                non_empty_string(
+                    source[field], f"claim_verdicts.refetched_source.{field}"
+                )
+            if not isinstance(source["content_hash"], str) or not SHA256.fullmatch(
+                source["content_hash"]
+            ):
+                raise ContractError(
+                    "contract_hash_invalid", "refetched_source.content_hash"
+                )
         parsed_claims.append(
             MappingProxyType(
                 {
@@ -267,7 +295,9 @@ def parse_citation_audit_payload(value: Mapping[str, Any]) -> CitationAuditPaylo
                     "reason_codes": list(
                         tuple_of_strings(item["reason_codes"], "claim_verdicts.reason_codes")
                     ),
-                    "refetched_source": dict(source),
+                    "refetched_source": (
+                        None if source is None else dict(source)
+                    ),
                 }
             )
         )

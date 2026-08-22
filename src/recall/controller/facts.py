@@ -66,7 +66,11 @@ def build_policy_input_facts(
 
     privacy = _latest(payloads, PrivacyReceiptPayload)
     if privacy is not None:
-        facts["privacy_accepted"] = privacy.decision.value
+        facts["privacy_accepted"] = (
+            FactState.PASS.value
+            if privacy.decision.value == "ACCEPTED"
+            else FactState.FAIL.value
+        )
     registry = _latest(payloads, RegistryResolutionPayload)
     if registry is not None:
         facts["registry_resolution_valid"] = registry.validation_status.value

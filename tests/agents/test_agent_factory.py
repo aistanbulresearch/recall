@@ -3,7 +3,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from recall.agents.config import MODEL_ID, REQUIREMENTS, VERTEX_LOCATION
+from recall.agents.config import (
+    LIVE_TOOL_ROUND_TIMEOUT_SECONDS,
+    MODEL_ID,
+    MODEL_MAX_OUTPUT_TOKENS,
+    MODEL_THINKING_BUDGET,
+    REQUIREMENTS,
+    VERTEX_LOCATION,
+)
 from recall.agents.factory import build_agent_bundle
 from recall.agents.schemas import (
     AssessmentAgentOutput,
@@ -60,6 +67,11 @@ def test_four_roles_have_exact_model_schema_tools_and_versioned_prompts() -> Non
         bundle = build_agent_bundle(role, tools=tools)
         assert bundle.agent.model == MODEL_ID
         assert bundle.agent.output_schema is output_schema
+        generation = bundle.agent.generate_content_config
+        assert generation is not None
+        assert generation.max_output_tokens == MODEL_MAX_OUTPUT_TOKENS
+        assert generation.thinking_config is not None
+        assert generation.thinking_config.thinking_budget == MODEL_THINKING_BUDGET
         assert {tool.__name__ for tool in bundle.agent.tools} == expected_tools
         assert bundle.agent.disallow_transfer_to_parent is True
         assert bundle.agent.disallow_transfer_to_peers is True
@@ -67,7 +79,7 @@ def test_four_roles_have_exact_model_schema_tools_and_versioned_prompts() -> Non
         assert bundle.requirements == REQUIREMENTS
         assert bundle.prompt_path.name.endswith("-v1.txt")
         assert Path(bundle.prompt_path).is_file()
-        assert os.environ["GOOGLE_GENAI_USE_VERTEXAI"] == "1"
+        assert os.environ["GOOGLE_GENAI_USE_ENTERPRISE"] == "1"
         assert os.environ["GOOGLE_CLOUD_LOCATION"] == "global"
 
 
@@ -81,6 +93,9 @@ def test_watcher_is_adk_app_compatible_without_cloud_call() -> None:
     assert app._tmpl_attrs["agent"] is bundle.agent
     assert MODEL_ID == "gemini-3.7-flash"
     assert VERTEX_LOCATION == "global"
+    assert MODEL_MAX_OUTPUT_TOKENS == 2048
+    assert MODEL_THINKING_BUDGET == 512
+    assert LIVE_TOOL_ROUND_TIMEOUT_SECONDS == 120
     assert "google-adk==2.7.1" in REQUIREMENTS
     assert "google-cloud-aiplatform[agent_engines]==1.165.1" in REQUIREMENTS
 

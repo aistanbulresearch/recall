@@ -53,6 +53,17 @@ class ReplayStage(StrEnum):
     STAGE_2 = "stage-2"
 
 
+class ResolutionMode(StrEnum):
+    REGISTRY = "REGISTRY"
+    MANUAL_SERVICE = "MANUAL_SERVICE"
+    PINNED_FALLBACK = "PINNED_FALLBACK"
+
+
+class PrivacyDecision(StrEnum):
+    ACCEPTED = "ACCEPTED"
+    QUARANTINED = "QUARANTINED"
+
+
 class PresenceState(StrEnum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"

@@ -7,6 +7,9 @@ from recall.contracts import AgentRole
 
 MODEL_ID = "gemini-3.7-flash"
 VERTEX_LOCATION = "global"
+MODEL_MAX_OUTPUT_TOKENS = 2048
+MODEL_THINKING_BUDGET = 512
+LIVE_TOOL_ROUND_TIMEOUT_SECONDS = 120
 REQUIREMENTS = (
     "google-adk==2.7.1",
     "google-cloud-aiplatform[agent_engines]==1.165.1",
