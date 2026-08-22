@@ -1,95 +1,150 @@
 # Recall Four-Minute Demo Storyboard
 
-- Status: verified design; execution evidence not yet available
+- Status: version 2 shot plan; **awaiting owner approval** (lane L3 stop point 4)
+- Version: 2.0.0, replacing the 2026-08-15 version 1 ordering
 - Tasks: RCL-207 and RCL-904
-- Updated: 2026-08-15
-- Target duration: 3 minutes 45 seconds
-- Hard maximum: 4 minutes
+- Updated: 2026-08-22
+- Target duration: 3 minutes 40 seconds
+- Hard maximum: 4 minutes; rehearsal ceiling 3 minutes 50 seconds
 - Language: English narration and English subtitles
 
-This is the shot and evidence plan, not the final word-for-word script. RCL-904 writes and times the final English script only after the critical path exists.
+This is the shot and evidence plan, not the final word-for-word script. RCL-904
+writes and times the final script only after the critical path exists.
+
+## What changed from version 1
+
+| Change | Reason |
+|---|---|
+| Registry and role separation moved ahead of the privacy segment | The fleet claim is the architecture spine; the jury should see who may act before seeing what is protected |
+| Privacy and local model became one conditional segment | The local model earns screen time only if protocol P1 measures an incremental contribution |
+| Week timeline and fleet board moved after the fault run | Durable monitoring reads as a consequence of the audited run, not as a preamble |
+| Closing numbers segment made explicit | Every spoken number must map to a committed artifact, so it needs its own shot |
+| Target trimmed from 3:45 to 3:40 | Leaves rehearsal headroom below the 3:50 ceiling and the 4:00 hard maximum |
+| Autonomy framing sentence and the Controller-level `ToolAuthorization` wording restored from the version 1 storyboard | Both were lost in the version 2 rewrite; the autonomy sentence is required in the first twenty seconds and the fault run is a Controller decision attributed to Assessor identity, not an agent action |
+| Privacy claim separated from the local-model claim | The demonstrated boundary is the structured-only egress profile, which is deterministic; only the residual-span contribution depends on the P1 result |
 
 ## Demo thesis
 
-Recall autonomously monitors, cites, audits, rejects, and queues; a human makes the final decision. Autonomous agents normally fail by turning plausible model output into action. Recall makes that structurally impossible: specialist agents can propose and audit evidence, but only deterministic policy can create a simulated review task from a complete, independently verified artifact set.
+Recall autonomously monitors, cites, audits, rejects, and queues; a human makes
+the final decision. Autonomous agents normally fail by turning plausible model
+output into action.
+Recall makes that structurally impossible: specialist agents may propose and
+audit evidence, but only deterministic policy can create a simulated review task
+from a complete, independently verified artifact set.
 
 ## Viewer contract
 
-The video must remain understandable without genetics expertise. It must visibly state:
+The video must remain understandable without genetics expertise, and must state:
 
 - all institutional records are synthetic;
-- public evidence is either `CAPTURED_REPLAY` or separately labeled `LIVE_PUBLIC`;
+- public evidence is `CAPTURED_REPLAY` or separately labelled `LIVE_PUBLIC`;
 - execution is live even when the evidence input is a captured replay;
 - the contest build is a non-clinical research prototype;
-- no AI classifies a variant, changes a report, contacts a patient, or creates a clinical decision;
+- no model classifies a variant, changes a report, or contacts a patient;
 - every result on screen comes from the exact run artifacts being shown.
 
 ## Timed storyboard
 
 | Time | Duration | Screen and action | Narration objective | Visible proof | Score rows |
 |---|---:|---|---|---|---|
-| 00:00-00:15 | 15s | Open directly on the workload panel. One synthetic watch case is waiting; no logo animation or team introduction. | State the autonomy boundary and human friction: Recall monitors and audits continuously, but a human decides; a specialist cannot repeatedly reopen every old uncertain result whenever public evidence changes. | `SYNTHETIC` badge, source links, and the bounded case-specific statement: the evidence appeared 472 days before the later public classification appeared. This is historical chronology, not product performance or causality. | Operational utility, Unlikely Hero, Demo clarity |
-| 00:15-00:30 | 15s | Reveal the single-screen agent lanes and authority boundary. | One sentence: Recall continuously scans approved public evidence, independently audits every material claim, and lets deterministic policy decide whether a simulated review is allowed. | Four named roles, deterministic Controller, independent Auditor, Policy Gate, and forbidden direct path from agents to review queue. | Multi-agent complexity, strict separation |
-| 00:30-00:50 | 20s | Submit a strict synthetic record. Deterministic minimization, provenance validation, and outbound scan run before any cloud-bound request; if RCL-314 produces real incremental evidence, the same shot also shows bounded Gemma residual-span assistance. | Show that privacy and provenance are enforced locally and that optional Gemma, if admitted, is useful but never authoritative. | `PrivacyReceipt`, input hash, outbound result, `SYNTHETIC` plus `CAPTURED_REPLAY` composition, zero raw-text cloud fields, and optional measured Gemma delta. | Architecture, privacy boundary, conditional bonus |
-| 00:50-02:05 | 75s | One uninterrupted click starts `Run audited replay`. Keep the screen recording uncut while the managed run updates agent lanes, Firestore-backed state, and the evidence panel. | Let the system explain itself through motion: Registry or pinned-manifest resolution, Watcher observation, Assessor proposal, independent citation verification, deterministic policy, one simulated task. | Exact deployed and agent revisions, resolution receipt, live state transitions, captured public evidence label, citation verdicts, policy reason codes, one idempotent simulated `ReviewTask`, run ID, trace ID, modes, hashes, activations, and latency. The optional `RunEvidenceManifest` appears only if owner-approved. Retain 75 seconds only after measured latency supports it. | Proof of Action, delegation, managed discovery, state discipline, product demo |
-| 02:05-02:55 | 50s | Start a second synthetic fault run. A `CAPTURED_REPLAY` fixture carries a mismatched material citation, while the Controller evaluates a deterministic `ToolAuthorization` request attributed to Assessor identity for a forbidden task-creation tool. | State the standard autonomous-agent weakness, then show why Recall cannot take the unsafe path. | Tool authorization denial, independent citation refetch failure, reason codes derived from the actual evaluated facts, deterministic `ABSTAIN`, preserved pending evidence, and explicit proof that no review task was created. The fixture selects inputs, never an outcome. | Hallucination recovery, strict separation, failure-tolerant routing, Demo |
-| 02:55-03:25 | 30s | Open the managed-proof drawer, fleet dashboard, then the matching Google Cloud console/log view. | Prove the backend is not a local mock and connect each managed service to one visible control. | Cloud Run revision, sanitized trace, Firestore transitions, deployed URL, exact run/trace correlation, and any actually executed Registry, IAM/Model Armor, or Agent Runtime extension. No unavailable extension is simulated or implied. | Managed deployment, Architecture, Fleet, production readiness |
-| 03:25-03:45 | 20s | Return to the result comparison: audited run produced one simulated task; unsafe run produced none. End on the authority statement and limitations badge. | Close with the user and the structural contrast: the specialist sees only audited candidates; agents may reason, but they cannot decide. | Derived counts, linked source artifacts, `NON-CLINICAL RESEARCH PROTOTYPE`, the exact `SYNTHETIC` plus `CAPTURED_REPLAY` composition, clinician final authority. | Operational utility, derived presentation, trustworthy close |
+| 00:00-00:15 | 15s | Open on the specialist review queue with one synthetic watch case due. No logo, no team slide. | State the autonomy boundary and the human friction: Recall autonomously monitors, cites, audits, rejects, and queues while a human makes the final decision, because a specialist cannot reopen every old uncertain result whenever public evidence changes. | `UI-GLOBAL-MODE`, `UI-WATCH-STATUS`, `UI-WATCH-LAST-SCAN`, `UI-WATCH-NEXT-SCAN`, non-clinical label | Operational utility, demo clarity |
+| 00:15-00:35 | 20s | Registry resolution and the four agent lanes with exact revisions, then the authority boundary. | Introduce the fleet before any run: four separated roles, registry-resolved revisions, deterministic controller, deterministic policy. | `UI-CLOUD-REGISTRY-COUNT`, `UI-AGENT-ROSTER` with role, agent, revision, binding status, `UI-ROUTE-STATUS` | Architecture, multi-agent separation, managed discovery |
+| 00:35-00:55 | 20s | Submit a synthetic laboratory note. Deterministic detectors run, the local model proposes residual spans, deterministic adjudication runs, and the structured-only egress profile decides which field paths may exist in the cloud-bound payload at all. | Show that prose never leaves because the payload has no prose field, and that the local model is useful but never authoritative. | `UI-PRIVACY-STATUS`, `UI-PRIVACY-DETERMINISTIC-SPANS`, `UI-PRIVACY-GEMMA-SPANS`, `UI-PRIVACY-OUTBOUND-FIELDS`, `UI-PRIVACY-EGRESS-PROFILE`, `UI-PRIVACY-RAW-TEXT-EGRESS` reading zero | Model bonus, privacy boundary, architecture |
+| 00:55-02:10 | 75s | One uninterrupted click starts the audited replay. The screen recording is uncut while lanes, persisted transitions, evidence, and audit update. | Let the system explain itself through motion: registry resolution, observation, candidate comparison, independent citation verification, deterministic policy, one simulated task. | `UI-GLOBAL-RUN-ID`, `UI-GLOBAL-TRACE-ID`, `UI-AGENT-STATE`, `UI-CLOUD-TRANSITIONS`, `UI-EVIDENCE-CANDIDATE`, `UI-CITATION-TOTAL`, `UI-CITATION-VERIFIED`, `UI-CITATION-STATUS`, `UI-POLICY-OUTCOME`, `UI-POLICY-REASONS`, `UI-TASK-COUNT-RUN` | Proof of action, delegation, state discipline, product demo |
+| 02:10-02:55 | 45s | Second run with a fault fixture: one mismatched material citation, and a deterministic Controller-level `ToolAuthorization` request attributed to Assessor identity for a forbidden task-creation tool. | Name the standard autonomous-agent failure, then show why Recall cannot take the unsafe path. | `UI-TOOL-DENIAL` with role, tool, and reason codes, `UI-CITATION-STATUS` incomplete, `UI-POLICY-OUTCOME` abstain, `UI-POLICY-MISSING`, `UI-TASK-COUNT-RUN` read back from the task ledger, `UI-WATCH-PENDING` retained | Hallucination recovery, strict separation, failure-tolerant routing |
+| 02:55-03:20 | 25s | Week timeline and fleet board, then the managed-proof drawer and the matching cloud console view. | Durable monitoring without a running model process, and proof the backend is not a local mock. | `UI-WATCH-SCAN-COUNT`, `UI-WATCH-PENDING`, `UI-WATCH-ATTENTION`, `UI-CLOUD-RUNTIME-REV`, `UI-CLOUD-HEALTH`, correlated run and trace identifiers | Managed deployment, architecture, production readiness |
+| 03:20-03:40 | 20s | Return to the contrast: the audited run produced one simulated task, the unsafe run produced none. Close on authority and limitations. | The specialist sees only audited candidates. Agents may reason; they cannot decide. | Derived counts with source links, `NON-CLINICAL RESEARCH PROTOTYPE`, exact `SYNTHETIC` plus `CAPTURED_REPLAY` composition, clinician final authority | Operational utility, derived presentation, trustworthy close |
 
-Target runtime is 225 seconds, leaving 15 seconds below the binding four-minute maximum for natural pauses and edit variance.
+Total runtime 220 seconds. The rehearsal ceiling is 230 seconds and the binding
+maximum is 240 seconds.
+
+## Conditional privacy segment
+
+The privacy claim itself is not conditional. The demonstrated egress profile is
+`STRUCTURED_ONLY`: the cloud-bound payload declares only registered structured
+field paths and no free-text field, so laboratory prose has no field to travel
+in and `UI-PRIVACY-RAW-TEXT-EGRESS` reads zero structurally rather than because
+a detector stayed silent. That segment is spoken in every version below.
+
+Only the **local-model** part of the 00:35-00:55 segment is conditional, and it
+is selected only by the frozen P1 result:
+
+| P1 result | Segment | Duration | Spoken claim |
+|---|---|---:|---|
+| Local model adds at least one incremental true positive and adds no accepted escape | Full version above | 20s | The local model found a residual identifier the rules missed; deterministic redaction and the outbound gate decided |
+| Local model adds nothing, or the measurement did not run | Deterministic-only version: submit the note, show detections, the structured-only egress profile, and the released field paths | 12s | The payload carries registered structured fields and no prose field at all, so nothing unrecognised can leave |
+| Local model increases accepted escapes | Segment removed entirely | 0s | No local-model claim is spoken |
+
+The segment version is chosen from the committed P1 manifest, never from a
+rehearsal impression. Until that manifest exists, the deterministic-only version
+is the default.
 
 ## Critical live path
 
-The 00:50-02:05 segment is the primary unedited Proof of Action. It must show one real invocation of the deployed backend. The evidence source may be a frozen captured replay for reliability, but the controller, agent invocations, artifact writes, policy evaluation, database transitions, and UI updates must execute during recording.
+The 00:55-02:10 segment is the primary unedited proof of action. It must show
+one real invocation of the deployed backend. The evidence source may be a frozen
+captured replay, but the controller, agent invocations, artifact writes, policy
+evaluation, database transitions, and interface updates must execute during
+recording.
 
-The run is invalid as demo evidence if:
-
-- a prerecorded video is played inside the UI;
-- the UI advances from timers rather than authoritative state;
-- a preset label directly determines the displayed outcome;
-- a model or frontend writes the terminal result;
-- the cloud view cannot be correlated to the same run and trace;
-- any mode badge is missing or manually overlaid during editing.
+The run is invalid as demo evidence if a prerecorded video plays inside the
+interface, the interface advances on timers rather than persisted state, a preset
+label determines a displayed outcome, a model or the frontend writes the terminal
+result, the cloud view cannot be correlated to the same run and trace, or a mode
+badge is missing or overlaid in editing.
 
 ## Fault-run contract
 
-The fault button selects an input fixture, not an output. The fixture manifest contains:
+The fault button selects an input fixture, not an output. The fixture manifest
+contains:
 
 - a synthetic case reference;
 - one captured replay reference;
 - one deliberately mismatched citation input;
-- one deterministic Controller-level `ToolAuthorization` request attributed to Assessor identity for a forbidden tool;
+- one deterministic Controller-level `ToolAuthorization` request attributed to
+  Assessor identity for a forbidden tool;
 - expected safety invariants, but no hard-coded terminal outcome.
 
-The actual result is derived by the normal Controller, Citation Auditor, authorization layer, and Policy Gate. The run passes only if the denial and audit receipts exist and authoritative read-back confirms that no task was created.
+The result is produced by the normal controller, citation auditor, authorisation
+layer, and policy gate. The run passes only if the denial and audit receipts
+exist and authoritative read-back confirms that no task was created.
 
-## Historical lead-time claim gate
+## Claim gates
 
-The phrase “before the classification changed” may appear only if RCL-205 and RCL-206 produce a source-attributed historical timeline and frozen comparison protocol that verify it. If that gate does not pass, the demo uses the bounded wording “Recall found a new evidence signal while the captured classification snapshot remained unchanged.” If even that statement is not proven, it is removed.
-
-No numerical workload reduction, lead time, accuracy, privacy improvement, or false-positive claim is spoken until its evaluation artifact is frozen in the Claim Evidence Ledger.
+- The phrase "before the classification changed" may appear only if RCL-205 and
+  RCL-206 produce a source-attributed timeline and a frozen comparison protocol
+  that verify it. Otherwise the bounded wording is "Recall found a new evidence
+  signal while the captured classification snapshot stayed unchanged". If even
+  that is unproven, the sentence is removed.
+- No workload reduction, lead time, accuracy, privacy, or false-positive number
+  is spoken until its evaluation artifact is frozen in the claim ledger.
+- Privacy results are described as synthetic-corpus results, never as
+  de-identification performance.
 
 ## Required capture checklist
 
-- Public YouTube or Vimeo video, no longer than four minutes.
-- English narration or English subtitles; the plan requires both.
+- Public video no longer than four minutes, English narration and subtitles.
 - Hosted application URL visible.
-- Google Cloud deployment proof visible and correlated to the run.
-- Architecture visible without leaving the critical story.
-- One uninterrupted managed execution.
-- One visibly blocked unsafe execution.
+- Cloud deployment proof visible and correlated to the run.
+- One uninterrupted managed execution and one visibly blocked unsafe execution.
 - Explicit data-mode and non-clinical labels in the captured frames.
-- No third-party advertising or unauthorized logo usage.
-- No credentials, account/project identifiers, raw prompts, chain-of-thought, or sensitive data.
+- No credentials, account or project identifiers, raw prompts, or sensitive data.
 - Every result-bearing frame audited against `DERIVED_VALUE_REGISTRY.md`.
 
-## Cut rules
+## Cut ladder
 
-If time exceeds 3:50 during rehearsal, cut in this order:
+Apply in order if rehearsal exceeds 3:50:
 
-1. shorten the privacy narration while preserving the receipt;
-2. reduce the managed-proof drawer explanation while retaining Google Cloud visual proof;
-3. remove non-critical architecture labels;
-4. shorten any admitted conditional-extension overlay while preserving its real receipt and label.
+1. shorten the privacy narration, keeping the receipt on screen;
+2. use the 12-second deterministic-only privacy segment;
+3. shorten the managed-proof explanation while keeping the cloud view;
+4. drop the fleet board detail, keeping the week timeline;
+5. remove the local model from the video entirely.
 
-Never cut the human friction, uninterrupted live run, independent audit, forbidden-action denial, deterministic outcome, cloud proof, data-mode labels, or limitations statement.
+Removing the local model does not remove the privacy segment. The structured-only
+egress profile is deterministic and model-independent, and it is what the
+zero-raw-text claim rests on.
+
+Never cut the human friction, the uninterrupted live run, the independent audit,
+the forbidden-action denial, the deterministic outcome, the cloud proof, the
+data-mode labels, or the limitations statement.

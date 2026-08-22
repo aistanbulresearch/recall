@@ -1,0 +1,732 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "4a3b271e-f192-5b1b-8267-6d5a3b032dae",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "23370b13ebb43bfeaa1971241cc7186336edc57d9736d12b5946608fb31d492b",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "decision": "ACCEPTED",
+      "detector_versions": {
+        "adjudicator": "span-adjudicator@1.0.0",
+        "deterministic": "deterministic-detectors@1.0.0",
+        "egress_profile": "STRUCTURED_ONLY@1.0.0",
+        "gemma_adapter": "gemma-span-adapter@1.0.0",
+        "lab_directory": "1.0.0",
+        "outbound_lexicon": "1.0.0",
+        "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+        "privacy_gate": "0.1.0",
+        "redactor": "deterministic-redactor@1.0.0"
+      },
+      "detectors": {
+        "deterministic": {
+          "approved_spans": [
+            {
+              "end": 50,
+              "identifier_class": "PERSON_NAME",
+              "span_hash": "b70978a12f9077cfa9be79eae06a4d7c4a8685169871322aeb3c5e4191003cc0",
+              "start": 36
+            },
+            {
+              "end": 58,
+              "identifier_class": "AGE",
+              "span_hash": "8b1aa645557a74710fbd339bd87af7c662cb6a527ea62339c0ae8b3485f5c36f",
+              "start": 56
+            },
+            {
+              "end": 85,
+              "identifier_class": "OCCUPATION",
+              "span_hash": "491c6fec04b484436889ea3e4fcc140bd661e7ff4eabbf7c76e4490874b2cdd5",
+              "start": 71
+            },
+            {
+              "end": 115,
+              "identifier_class": "RELATIVE_NAME",
+              "span_hash": "fb09c6a09e53639ed9cd08ee83fc7cc217ba749e6a6163c12540413de53cd9eb",
+              "start": 98
+            },
+            {
+              "end": 167,
+              "identifier_class": "EVENT_DATE",
+              "span_hash": "751aac73479d28ef487f2c8c5f0f227cc29e6484d2b5aa0da5e51f00b10ffe80",
+              "start": 151
+            },
+            {
+              "end": 219,
+              "identifier_class": "FACILITY_NAME",
+              "span_hash": "26fbe79d10dc868f19b267e609cb9b34eed3c89b92dea374223ab25f03495791",
+              "start": 191
+            },
+            {
+              "end": 240,
+              "identifier_class": "PROTOCOL_NUMBER",
+              "span_hash": "77feb1a7c7f87a9c6948954bc5c0d7d303d80a039ec701eecffe9dbda29c3199",
+              "start": 230
+            },
+            {
+              "end": 406,
+              "identifier_class": "EMAIL",
+              "span_hash": "f3f9e07e448200a10ed7f1595aba277ef6bd9eb0aa119bc0dd161ba43bb4a1d2",
+              "start": 375
+            },
+            {
+              "end": 459,
+              "identifier_class": "PERSON_NAME",
+              "span_hash": "1a974e1532ea94045bc0215b5aa4b1685a7ac1b54aa56cf7763dc1692881454a",
+              "start": 445
+            },
+            {
+              "end": 505,
+              "identifier_class": "FACILITY_NAME",
+              "span_hash": "1c1959ae6c98f5d003899b848e573649f13662f893fef3090cde8107d67fb396",
+              "start": 476
+            }
+          ],
+          "version": "deterministic-detectors@1.0.0"
+        },
+        "gemma": {
+          "approved_residual_spans": [
+            {
+              "end": 556,
+              "identifier_class": "EVENT_DATE",
+              "span_hash": "30a69fa99630a1fe05be30b8ead8a9df5c8a467fdec4c82e9ecdcc775e0e9483",
+              "start": 548
+            }
+          ],
+          "invoked": true,
+          "schema_valid": true,
+          "version": "gemma-span-adapter@1.0.0"
+        }
+      },
+      "extensions": {},
+      "identifier_classes_checked": [
+        "ADDRESS",
+        "AGE",
+        "CLINICIAN_NAME",
+        "DATE_OF_BIRTH",
+        "EMAIL",
+        "EVENT_DATE",
+        "FACILITY_NAME",
+        "MEDICAL_RECORD_NUMBER",
+        "NATIONAL_ID",
+        "OCCUPATION",
+        "PERSON_NAME",
+        "PHONE",
+        "PROTOCOL_NUMBER",
+        "RELATIVE_NAME"
+      ],
+      "input_artifact_ids": [],
+      "outbound": {
+        "allowed_field_paths": [
+          "$.case_token",
+          "$.data_mode",
+          "$.payload_kind",
+          "$.payload_version",
+          "$.region",
+          "$.tenant_id",
+          "$.variant.assembly",
+          "$.variant.gene",
+          "$.variant.hgvs_c",
+          "$.variant.hgvs_p"
+        ],
+        "raw_text_field_count": 0,
+        "scan_status": "CLEAR"
+      },
+      "payload_hash": "4f1371928b5430ed3d217ddea27a78b65067302e807d94547836bf0690e0f6a4",
+      "producer": {
+        "component": "local-privacy-gate",
+        "identity": "lab-privacy-gate",
+        "version": "0.1.0"
+      },
+      "run_id": null,
+      "schema_name": "PrivacyReceipt",
+      "schema_version": "1.0.0",
+      "signature_ref": {
+        "algorithm": "HMAC-SHA256",
+        "key_id": "demo-lab-key",
+        "signature": "4101c8deba7843977fac20b4a769d7b26b3d42acdd8ca3daa5c4a8208708a6ba"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "998ac916-83cf-5987-9c3b-86cd52918860",
+      "attention_marker": {
+        "first_seen_at": "2026-08-22T09:00:00Z",
+        "last_seen_at": "2026-08-22T09:00:00Z",
+        "operator_action_required": true,
+        "reason_codes": [
+          "ledger_integrity_unavailable"
+        ],
+        "related_run_ids": [
+          "a585c20a-0db5-5987-9d08-f618fabc0695"
+        ]
+      },
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "5ce76e627ac13eeda83181135638593808c67e0e0f057c0fb6cebd1a4433f8dc",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "last_verified_scan": {
+        "completed_at": "2026-08-15T06:04:00Z",
+        "run_id": "bd08fc53-18fb-5cea-bf90-a508d6d9f6de"
+      },
+      "last_verified_snapshot_id": "451afa9d-2acd-59f2-856d-90c0cf098ef0",
+      "monitoring_policy": "weekly-public-evidence-scan",
+      "monitoring_started_at": "2026-06-15T08:00:00Z",
+      "next_scan_at": null,
+      "open_review_task_id": null,
+      "pending_observation_hashes": [
+        "a9ec95c6-4c55-53ea-a378-8bb272fe"
+      ],
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "region": "eu-central",
+      "retention_policy": "contest-synthetic-30d",
+      "run_id": null,
+      "schema_name": "WatchCase",
+      "schema_version": "2.0.0",
+      "source_cursors": {
+        "clinvar": "2026-08-15",
+        "pubmed": "2026-08-18"
+      },
+      "state": "ATTENTION_REQUIRED",
+      "status": "VALID",
+      "tenant_id": "lab-demo",
+      "warnings": []
+    },
+    {
+      "artifact_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "attempt": 1,
+      "budget_snapshot": {
+        "agent_retries": 1,
+        "connector_retries": 3,
+        "delegation_depth": 1,
+        "model_calls_per_role": 1,
+        "repeated_state_limit": 2,
+        "schema_repairs": 1,
+        "specialist_invocations": 3,
+        "step_deadlines": {
+          "assessing": 60,
+          "auditing": 90,
+          "routing": 20,
+          "watching": 90
+        },
+        "token_ceilings": {
+          "assessor": 6000,
+          "auditor": 6000,
+          "coordinator": 2000,
+          "watcher": 4000
+        },
+        "wall_time_seconds": 300
+      },
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "6291da41dec72a3e636c5c162abc9d63075527672e518616ebb532c4106d112c",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "deadline_at": "2026-08-22T06:05:00Z",
+      "extensions": {},
+      "failure_receipt_ids": [
+        "3bfb7170-b742-5fb6-bd86-da4235bb122b"
+      ],
+      "idempotency_key": "998ac916-83cf-5987-9c3b-86cd52918860:2026-08-22",
+      "input_artifact_ids": [
+        "4a3b271e-f192-5b1b-8267-6d5a3b032dae"
+      ],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "scheduled_for": "2026-08-22T06:00:00Z",
+      "schema_name": "ScanRun",
+      "schema_version": "1.0.0",
+      "state": "HALTED",
+      "status": "VALID",
+      "terminal_policy_decision_id": null,
+      "trace_id": "14f7a51631215a2ba2a7a4010aeb4ac1",
+      "warnings": [],
+      "watch_case_id": "998ac916-83cf-5987-9c3b-86cd52918860"
+    },
+    {
+      "agent_id": "workflow-controller",
+      "artifact_id": "8f11ec9f-3072-514a-9d2b-6df483d9f7a9",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "122f0ce59ecd9df863c0f17db5d1051407f0397398ac6e81607d77eec218dfa6",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_queued",
+      "event_id": "8d2805d0-0e19-5de3-a280-cec6b56479da",
+      "extensions": {},
+      "from_state": "CREATED",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 1,
+      "status": "VALID",
+      "to_state": "QUEUED",
+      "warnings": []
+    },
+    {
+      "agent_id": "fleet-coordinator",
+      "artifact_id": "b7b6a849-0b6a-587c-a4b7-b03355c1c05b",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "eb7383b908e225b1c2aedf81f5a415bc21f35bfff75fdfe6e203ac705e41c20c",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_routing",
+      "event_id": "3576b5f3-6207-5e16-8e49-dcc85db0b859",
+      "extensions": {},
+      "from_state": "QUEUED",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 2,
+      "status": "VALID",
+      "to_state": "ROUTING",
+      "warnings": []
+    },
+    {
+      "agent_id": "evidence-watcher",
+      "artifact_id": "b173d95b-9934-5cbb-83dd-8ddf8a4f3b4b",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "c2602f7c6625b9a3ed1bb135e808b39db8ea2e0bde6bf80ea249215545a5b80c",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_watching",
+      "event_id": "65182362-58f7-5cf1-bc7c-daa879c25b55",
+      "extensions": {},
+      "from_state": "ROUTING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 3,
+      "status": "VALID",
+      "to_state": "WATCHING",
+      "warnings": []
+    },
+    {
+      "agent_id": "workflow-controller",
+      "artifact_id": "e4d8928b-3b2f-55b4-9d32-8dd2ae2345b6",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "858b4a305e2454243c2002544751d79f1c34903b9af7b85c1845e7f0f987acb2",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_halted",
+      "event_id": "4e16c772-6602-5ab2-8aa9-f0c576c38441",
+      "extensions": {},
+      "from_state": "WATCHING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 4,
+      "status": "VALID",
+      "to_state": "HALTED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "e7a1cbfe-afdc-554e-a532-4fd7e16c92b2",
+      "bindings": [
+        {
+          "agent_id": "fleet-coordinator",
+          "binding_id": "497c2d94-dad2-5b57-af95-0943db3a91c9",
+          "capability": "route.propose",
+          "manifest_digest": "sha256:73dcddc91b3553d3ba6570075ecde45b",
+          "region": "eu-central",
+          "revision": "0.3.1",
+          "role": "FLEET_COORDINATOR",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "evidence-watcher",
+          "binding_id": "495e032e-ec55-52fe-8598-8347481fe11c",
+          "capability": "evidence.watch",
+          "manifest_digest": "sha256:f37ad54a401351aa9e74e6896f9a373a",
+          "region": "eu-central",
+          "revision": "0.3.4",
+          "role": "EVIDENCE_WATCHER",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "evidence-assessor",
+          "binding_id": "48759c8d-a396-500e-b14e-2c12b139d65b",
+          "capability": "evidence.assess",
+          "manifest_digest": "sha256:e3183388e35851feab4ba1b843c0ebbc",
+          "region": "eu-central",
+          "revision": "0.3.2",
+          "role": "EVIDENCE_ASSESSOR",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "citation-auditor",
+          "binding_id": "9c6b859d-3261-538a-8b51-c56915f62abe",
+          "capability": "citation.audit",
+          "manifest_digest": "sha256:3507d910f1ab582583558251ebefe2fa",
+          "region": "eu-central",
+          "revision": "0.3.5",
+          "role": "CITATION_AUDITOR",
+          "validation_status": "VALIDATED"
+        }
+      ],
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "68ba5694a1d053e5627ba1efe5744c160bd7ccd6236264920c3997fd144afeb9",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [],
+      "requested_capabilities": [
+        "route.propose",
+        "evidence.watch",
+        "evidence.assess",
+        "citation.audit"
+      ],
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "RegistryResolutionReceipt",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "validation_status": "VALIDATED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "722dfd6b-266c-5811-93a0-7a3123a3e054",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "527d1d41d8049f665c14b2f2a578507285d0c2b286f119b0aaca3843ef418856",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "fleet-coordinator",
+        "identity": "coordinator-agent",
+        "version": "0.1.0"
+      },
+      "proposed_bindings": [
+        {
+          "agent_id": "fleet-coordinator",
+          "capability": "route.propose"
+        },
+        {
+          "agent_id": "evidence-watcher",
+          "capability": "evidence.watch"
+        },
+        {
+          "agent_id": "evidence-assessor",
+          "capability": "evidence.assess"
+        },
+        {
+          "agent_id": "citation-auditor",
+          "capability": "citation.audit"
+        }
+      ],
+      "rationale_codes": [
+        "capability_match",
+        "revision_pinned"
+      ],
+      "requested_capabilities": [
+        "route.propose",
+        "evidence.watch",
+        "evidence.assess",
+        "citation.audit"
+      ],
+      "route_order": [
+        "fleet-coordinator",
+        "evidence-watcher",
+        "evidence-assessor",
+        "citation-auditor"
+      ],
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "RoutingPlan",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "validation_status": "VALIDATED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "2a55b6a4-06d9-53eb-a01d-0c48ab894200",
+      "candidate_delta_state": "UNKNOWN",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "b0ee78cc5b7395f2bbc002ff5d79d89217601576799aacaee135b4b40fe27734",
+      "created_at": "2026-08-22T09:00:00Z",
+      "current_snapshot_id": "bf850e42-2d88-59bb-bc4c-65cee0167222",
+      "data_mode": "CAPTURED_REPLAY",
+      "exact_allele_match": true,
+      "extensions": {},
+      "input_artifact_ids": [],
+      "new_observation_hashes": [
+        "8a15cb41f4d15b7088d705c1bf078603"
+      ],
+      "previous_snapshot_id": "451afa9d-2acd-59f2-856d-90c0cf098ef0",
+      "producer": {
+        "component": "evidence-normalizer",
+        "identity": "normalizer-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [
+        "snapshot_incomplete"
+      ],
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "CandidateDeltaReceipt",
+      "schema_version": "1.0.0",
+      "scope_match": true,
+      "snapshot_complete": false,
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "451afa9d-2acd-59f2-856d-90c0cf098ef0",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "conflicts": [],
+      "content_hash": "eaf6cc25804ddf9f0e499c54eab48cbe5efae0fe0a96478f98b8ec1214f6712e",
+      "coverage_status": "INCOMPLETE",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "effective_at": "2026-06-15T00:00:00Z",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "normalized_facts": {
+        "submission_count": 3
+      },
+      "observation_ids": [
+        "e3f3876e-bab1-5c56-89c9-3431bfa7407a",
+        "d4481c01-3d8c-5fb8-a80d-0031271a769f"
+      ],
+      "producer": {
+        "component": "evidence-watcher",
+        "identity": "watcher-agent",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "EvidenceSnapshot",
+      "schema_version": "1.0.0",
+      "snapshot_hash": "sha256:fb87307341265378ab8fec71f12dfd10",
+      "source_cursors": {
+        "clinvar": "2026-06-15",
+        "pubmed": "2026-06-15"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "bf850e42-2d88-59bb-bc4c-65cee0167222",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "conflicts": [],
+      "content_hash": "b90cd68126d375886185ca8654c61225360da8c076e4121aee4a9c5ca8b088c5",
+      "coverage_status": "INCOMPLETE",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "effective_at": "2026-08-22T00:00:00Z",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "normalized_facts": {
+        "submission_count": 4
+      },
+      "observation_ids": [
+        "1c62b90a-2215-5803-a2ff-85fa8e8ac01a",
+        "93bcdb07-6778-54d3-9c7e-0e79282dd468"
+      ],
+      "producer": {
+        "component": "evidence-watcher",
+        "identity": "watcher-agent",
+        "version": "0.1.0"
+      },
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "EvidenceSnapshot",
+      "schema_version": "1.0.0",
+      "snapshot_hash": "sha256:0da90f447f795c7b95c02810c57e6adb",
+      "source_cursors": {
+        "clinvar": "2026-08-22",
+        "pubmed": "2026-08-22"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "3bfb7170-b742-5fb6-bd86-da4235bb122b",
+      "attempt": 1,
+      "budget_state": {
+        "agent_retries_used": 0,
+        "connector_retries_used": 0
+      },
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "0dfcfd089d1a5a87a17f4868685bc5d58f9b4954098322cf8579d16b024bb139",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "details": {
+        "blocked_downstream_action": "review_task_creation"
+      },
+      "extensions": {},
+      "failure_code": "ledger_integrity_unavailable",
+      "input_artifact_ids": [],
+      "operator_action": "inspect_source_availability",
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "related_artifact_ids": [
+        "a585c20a-0db5-5987-9d08-f618fabc0695"
+      ],
+      "retryable": false,
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "safe_terminal": true,
+      "schema_name": "FailureReceipt",
+      "schema_version": "1.0.0",
+      "stage": "POLICY_EVALUATION",
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "81b22212-58cd-5484-bffb-052afdbc12bc",
+      "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
+      "content_hash": "0ef24a0db822de80966c623e3fd7e1076c347517dd8bcc6c25e9e301a311ae51",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "declared_composition": "SYNTHETIC_WITH_CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "mode_set": [
+        "CAPTURED_REPLAY",
+        "SYNTHETIC"
+      ],
+      "producer": {
+        "component": "data-mode-gate",
+        "identity": "mode-gate-service",
+        "version": "0.1.0"
+      },
+      "propagation_status": "COMPLETE",
+      "reason_codes": [],
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "DataModeReceipt",
+      "schema_version": "2.0.0",
+      "status": "VALID",
+      "subject_artifact_ids": [
+        "2a55b6a4-06d9-53eb-a01d-0c48ab894200",
+        "3bfb7170-b742-5fb6-bd86-da4235bb122b",
+        "451afa9d-2acd-59f2-856d-90c0cf098ef0",
+        "4a3b271e-f192-5b1b-8267-6d5a3b032dae",
+        "722dfd6b-266c-5811-93a0-7a3123a3e054",
+        "8f11ec9f-3072-514a-9d2b-6df483d9f7a9",
+        "998ac916-83cf-5987-9c3b-86cd52918860",
+        "a585c20a-0db5-5987-9d08-f618fabc0695",
+        "b173d95b-9934-5cbb-83dd-8ddf8a4f3b4b",
+        "b7b6a849-0b6a-587c-a4b7-b03355c1c05b",
+        "bf850e42-2d88-59bb-bc4c-65cee0167222",
+        "e4d8928b-3b2f-55b4-9d32-8dd2ae2345b6",
+        "e7a1cbfe-afdc-554e-a532-4fd7e16c92b2"
+      ],
+      "warnings": []
+    },
+    {
+      "artifact_id": "78aa210f-9463-5fa3-b64b-fe453cd925b2",
+      "case_id": null,
+      "content_hash": "9dfab8c3d1d030a29fae02463940ace9dcfe30e5b1c547144bfe6080a57e6fc3",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "deployed_at": "2026-08-22T09:00:00Z",
+      "deployed_components": [
+        "intake",
+        "controller",
+        "agent-runtime",
+        "reviewer-web"
+      ],
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "release-controller",
+        "identity": "release-service",
+        "version": "0.1.0"
+      },
+      "run_id": null,
+      "runtime": {
+        "read_back_at": "2026-08-22T09:00:00Z",
+        "region": "eu-central",
+        "resource_name": "projects/<project>/locations/eu-central/services/recall-agent-runtime",
+        "revision": "recall-runtime-00007-abc",
+        "service": "recall-agent-runtime"
+      },
+      "schema_name": "DeploymentReceipt",
+      "schema_version": "1.0.0",
+      "source_revision": "0000000",
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "7c71767c-139e-5034-91c9-e72500a40499",
+      "case_id": null,
+      "component_statuses": {
+        "agent_registry": "HEALTHY",
+        "agent_runtime": "HEALTHY",
+        "ledger": "UNAVAILABLE"
+      },
+      "content_hash": "967c0f7d38c84b5fcf58e9f94b16183ee752888ec6046ae918dd3ba1f63ff22d",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "managed_status": "DEGRADED",
+      "producer": {
+        "component": "health-aggregator",
+        "identity": "health-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [
+        "ledger_unavailable"
+      ],
+      "run_id": "a585c20a-0db5-5987-9d08-f618fabc0695",
+      "schema_name": "ManagedPathReceipt",
+      "schema_version": "1.0.0",
+      "status": "DEGRADED",
+      "trace_id": "14f7a51631215a2ba2a7a4010aeb4ac1",
+      "warnings": []
+    }
+  ],
+  "bundle_id": "halted",
+  "bundle_kind": "recall.web.static_artifact_bundle",
+  "bundle_version": "1.0.0",
+  "provenance": {
+    "contract_reference": "docs/contracts/ARTIFACT_CONTRACTS.md",
+    "note": "Contract-shaped stand-in artifacts for lane L3 user interface development. Lane L2 owns the executable contracts and the authoritative run output. Only the PrivacyReceipt is produced by real code in this repository. Nothing here is evidence that a backend run occurred.",
+    "other_artifacts_source": "contract-shaped stand-in pending lane L2 run_fixture output",
+    "privacy_receipt_source": "produced by src/recall/privacy at bundle build time"
+  }
+}

@@ -1,0 +1,968 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "584be0b5-0ded-5768-ab4d-ca7a07a3b19e",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "def04b1eec2a52881dbb98b7b1b57fc2fa351675e7fa1fa79b555ef9b1e684f1",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "decision": "ACCEPTED",
+      "detector_versions": {
+        "adjudicator": "span-adjudicator@1.0.0",
+        "deterministic": "deterministic-detectors@1.0.0",
+        "egress_profile": "STRUCTURED_ONLY@1.0.0",
+        "gemma_adapter": "gemma-span-adapter@1.0.0",
+        "lab_directory": "1.0.0",
+        "outbound_lexicon": "1.0.0",
+        "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+        "privacy_gate": "0.1.0",
+        "redactor": "deterministic-redactor@1.0.0"
+      },
+      "detectors": {
+        "deterministic": {
+          "approved_spans": [
+            {
+              "end": 20,
+              "identifier_class": "PERSON_NAME",
+              "span_hash": "3b6d470544f1d0aa1b934e028bc7923c93ed997ce0adc4f5c5156ad7eccc346f",
+              "start": 7
+            },
+            {
+              "end": 47,
+              "identifier_class": "NATIONAL_ID",
+              "span_hash": "0106f264d4e5c5fa6bf507d4966b2a662d58ed85cf422594991b7ff8e47eafb6",
+              "start": 36
+            },
+            {
+              "end": 73,
+              "identifier_class": "DATE_OF_BIRTH",
+              "span_hash": "c8c57f0056ccf8ed00b9464441c76d4485a94b84f84fc6e5e28f979eb8a140b2",
+              "start": 63
+            },
+            {
+              "end": 77,
+              "identifier_class": "AGE",
+              "span_hash": "241de36b5f117b9c48167d2d828ce1eb8fad5aa5241d9390463aee4afb7682c3",
+              "start": 75
+            },
+            {
+              "end": 108,
+              "identifier_class": "MEDICAL_RECORD_NUMBER",
+              "span_hash": "a8a11bb55cbd2e646d34d1df70a97729e55e5b431dfe6a4cb6e5e0e9f657ff1f",
+              "start": 98
+            },
+            {
+              "end": 133,
+              "identifier_class": "PROTOCOL_NUMBER",
+              "span_hash": "77c2b48a6d6a360e349425afcc1ed69cf10aa64c31ae1dc0a5475d4c9b0f1636",
+              "start": 123
+            },
+            {
+              "end": 169,
+              "identifier_class": "FACILITY_NAME",
+              "span_hash": "7c2c8d9499425fae7f67af0019805a3a8e1f8c1b80115fc89b19b656d128b84c",
+              "start": 142
+            },
+            {
+              "end": 201,
+              "identifier_class": "CLINICIAN_NAME",
+              "span_hash": "cddf7b1019fe4aed489c9ff81966c8406b177bf4a8b38307607ce08cb819d458",
+              "start": 190
+            },
+            {
+              "end": 408,
+              "identifier_class": "PHONE",
+              "span_hash": "35ebff1e37a11d66a531408d299a37ba5586492bc8ad92dae504ceb6e0b0abfa",
+              "start": 394
+            },
+            {
+              "end": 441,
+              "identifier_class": "EMAIL",
+              "span_hash": "bdf4982de1c3430a7a48edb8b716f8104544aecb30cb2da0680f7c5ee7b5ec04",
+              "start": 411
+            },
+            {
+              "end": 476,
+              "identifier_class": "ADDRESS",
+              "span_hash": "79b85e6c9d23b683ce0cea1b7591d5df91fdd6778d87c8db81a953ca7420b014",
+              "start": 449
+            },
+            {
+              "end": 510,
+              "identifier_class": "EVENT_DATE",
+              "span_hash": "b15edb2248b9b06cee5d4946fabf6bf923aaf86cc537af7b63b3abf3c67e4cd6",
+              "start": 497
+            },
+            {
+              "end": 534,
+              "identifier_class": "PERSON_NAME",
+              "span_hash": "67a1c2442361ffbdd1af9165355bbe89b81371bc83f9e17f2bee376bf3f2b8c2",
+              "start": 526
+            },
+            {
+              "end": 574,
+              "identifier_class": "FACILITY_NAME",
+              "span_hash": "894774a489c374f00a03aa6302c2751db92eec3d9be6789f36ba49c9514e4a53",
+              "start": 553
+            }
+          ],
+          "version": "deterministic-detectors@1.0.0"
+        },
+        "gemma": {
+          "approved_residual_spans": [
+            {
+              "end": 622,
+              "identifier_class": "EVENT_DATE",
+              "span_hash": "95df5b34b84b0ba3bb799e08bace9e6d5d97798eb65bfa75ef3e73631455b0a3",
+              "start": 614
+            }
+          ],
+          "invoked": true,
+          "schema_valid": true,
+          "version": "gemma-span-adapter@1.0.0"
+        }
+      },
+      "extensions": {},
+      "identifier_classes_checked": [
+        "ADDRESS",
+        "AGE",
+        "CLINICIAN_NAME",
+        "DATE_OF_BIRTH",
+        "EMAIL",
+        "EVENT_DATE",
+        "FACILITY_NAME",
+        "MEDICAL_RECORD_NUMBER",
+        "NATIONAL_ID",
+        "OCCUPATION",
+        "PERSON_NAME",
+        "PHONE",
+        "PROTOCOL_NUMBER",
+        "RELATIVE_NAME"
+      ],
+      "input_artifact_ids": [],
+      "outbound": {
+        "allowed_field_paths": [
+          "$.case_token",
+          "$.data_mode",
+          "$.payload_kind",
+          "$.payload_version",
+          "$.region",
+          "$.tenant_id",
+          "$.variant.assembly",
+          "$.variant.gene",
+          "$.variant.hgvs_c",
+          "$.variant.hgvs_p"
+        ],
+        "raw_text_field_count": 0,
+        "scan_status": "CLEAR"
+      },
+      "payload_hash": "6b7bef2681bfbcf09ec0d727461b99d0107448e0a7eb643f48b939dd187aa14e",
+      "producer": {
+        "component": "local-privacy-gate",
+        "identity": "lab-privacy-gate",
+        "version": "0.1.0"
+      },
+      "run_id": null,
+      "schema_name": "PrivacyReceipt",
+      "schema_version": "1.0.0",
+      "signature_ref": {
+        "algorithm": "HMAC-SHA256",
+        "key_id": "demo-lab-key",
+        "signature": "44d2c0f53d8a2e3dfd038e850e64311586149cb1b8cdc151497a7b92acc99308"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "bba31659-dd74-588e-85bd-79e2514dcf45",
+      "attention_marker": null,
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "13bb67a2e4127343e7f9aaba139fb19d31ba8360c0a5345e65b765cc718d081a",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "last_verified_scan": {
+        "completed_at": "2026-08-15T06:04:00Z",
+        "run_id": "bd08fc53-18fb-5cea-bf90-a508d6d9f6de"
+      },
+      "last_verified_snapshot_id": "ab854edc-b89d-5a6e-8bce-146f5ee3d362",
+      "monitoring_policy": "weekly-public-evidence-scan",
+      "monitoring_started_at": "2026-06-15T08:00:00Z",
+      "next_scan_at": "2026-08-29T06:00:00Z",
+      "open_review_task_id": "cbf5bfbd-538d-5cdc-aa49-71fbd94c0ad4",
+      "pending_observation_hashes": [],
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "region": "eu-central",
+      "retention_policy": "contest-synthetic-30d",
+      "run_id": null,
+      "schema_name": "WatchCase",
+      "schema_version": "2.0.0",
+      "source_cursors": {
+        "clinvar": "2026-08-15",
+        "pubmed": "2026-08-18"
+      },
+      "state": "AWAITING_HUMAN",
+      "status": "VALID",
+      "tenant_id": "lab-demo",
+      "warnings": []
+    },
+    {
+      "artifact_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "attempt": 1,
+      "budget_snapshot": {
+        "agent_retries": 1,
+        "connector_retries": 3,
+        "delegation_depth": 1,
+        "model_calls_per_role": 1,
+        "repeated_state_limit": 2,
+        "schema_repairs": 1,
+        "specialist_invocations": 3,
+        "step_deadlines": {
+          "assessing": 60,
+          "auditing": 90,
+          "routing": 20,
+          "watching": 90
+        },
+        "token_ceilings": {
+          "assessor": 6000,
+          "auditor": 6000,
+          "coordinator": 2000,
+          "watcher": 4000
+        },
+        "wall_time_seconds": 300
+      },
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "82c42dbccd70897fee2c462f0d60e58f37eac410d44a3b1ba39c41e04e96f07b",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "deadline_at": "2026-08-22T06:05:00Z",
+      "extensions": {},
+      "failure_receipt_ids": [],
+      "idempotency_key": "bba31659-dd74-588e-85bd-79e2514dcf45:2026-08-22",
+      "input_artifact_ids": [
+        "584be0b5-0ded-5768-ab4d-ca7a07a3b19e"
+      ],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "scheduled_for": "2026-08-22T06:00:00Z",
+      "schema_name": "ScanRun",
+      "schema_version": "1.0.0",
+      "state": "REVIEW_REQUIRED",
+      "status": "VALID",
+      "terminal_policy_decision_id": "390b1bc0-ab2e-5840-b274-45bd0230ce14",
+      "trace_id": "b7fe49148eb1554eb9473ee31559deeb",
+      "warnings": [],
+      "watch_case_id": "bba31659-dd74-588e-85bd-79e2514dcf45"
+    },
+    {
+      "agent_id": "workflow-controller",
+      "artifact_id": "10635200-af8f-5026-87ec-e77fb122811d",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "f7fe27c9da94a04d9fef3a5db86cf418a0eb65dbceed18087c9c6baf818cd42d",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_queued",
+      "event_id": "9f19aa1f-2776-5099-9c93-921fa461e389",
+      "extensions": {},
+      "from_state": "CREATED",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 1,
+      "status": "VALID",
+      "to_state": "QUEUED",
+      "warnings": []
+    },
+    {
+      "agent_id": "fleet-coordinator",
+      "artifact_id": "47dae528-db54-5bd6-aacb-e933df1e2348",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "1fa192de107eb5354f101bd6fba9eaf78d8aaecbd1427b0428bfd1fe9a2f9dff",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_routing",
+      "event_id": "93373d6f-6bfc-5cbf-a342-6e51464e02fb",
+      "extensions": {},
+      "from_state": "QUEUED",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 2,
+      "status": "VALID",
+      "to_state": "ROUTING",
+      "warnings": []
+    },
+    {
+      "agent_id": "evidence-watcher",
+      "artifact_id": "72502a33-c93b-55a3-9f13-41dcea81a803",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "749c9bc927e33ca331f0e1e94a4ae79d43c7e8d9a6a26457b549ab23e8c507b6",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_watching",
+      "event_id": "80e2b9e4-7638-52f1-ac88-8dc405861c1d",
+      "extensions": {},
+      "from_state": "ROUTING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 3,
+      "status": "VALID",
+      "to_state": "WATCHING",
+      "warnings": []
+    },
+    {
+      "agent_id": "evidence-assessor",
+      "artifact_id": "82ba37ad-a809-5a0a-9d47-3a8fb5d68926",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "a80c3c5560060b4b2bdf5deb1ac6248785ebd9be318b9907c06751a41dea0910",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_assessing",
+      "event_id": "0e70d603-962c-52c8-9a41-89823eb61cd8",
+      "extensions": {},
+      "from_state": "WATCHING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 4,
+      "status": "VALID",
+      "to_state": "ASSESSING",
+      "warnings": []
+    },
+    {
+      "agent_id": "citation-auditor",
+      "artifact_id": "5e9e880c-4f1f-5f32-b69e-143ebed38367",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "23eb78d146ec2a317db5069bdc3a60534da850306c2a341665d3551ec7b3940c",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_auditing",
+      "event_id": "1142245b-616c-59ed-b4a2-fbaf1bcac90f",
+      "extensions": {},
+      "from_state": "ASSESSING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 5,
+      "status": "VALID",
+      "to_state": "AUDITING",
+      "warnings": []
+    },
+    {
+      "agent_id": "workflow-controller",
+      "artifact_id": "59b7409d-07ba-5ef7-8a32-84797b4d2ed1",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "9fe8bbd68401ff99612167e20b6e725c9caf4ed500dfe43c1b302bc296e41554",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_policy_evaluation",
+      "event_id": "3023ff51-6a33-58f1-b516-1be11fb58726",
+      "extensions": {},
+      "from_state": "AUDITING",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 6,
+      "status": "VALID",
+      "to_state": "POLICY_EVALUATION",
+      "warnings": []
+    },
+    {
+      "agent_id": "workflow-controller",
+      "artifact_id": "bddbec39-9144-55a7-855e-ca7bc1d78210",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "f4dc56fd2cc3d09fb3f2c353d8dd657221bcb20aecf393a004a563e22122abcf",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "event_code": "transition_review_required",
+      "event_id": "8c0f3eee-6de1-55d6-90e6-02d7179ba528",
+      "extensions": {},
+      "from_state": "POLICY_EVALUATION",
+      "input_artifact_ids": [],
+      "lease_epoch": 4,
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ScanRunEvent",
+      "schema_version": "1.0.0",
+      "sequence": 7,
+      "status": "VALID",
+      "to_state": "REVIEW_REQUIRED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "eaacba72-14bf-5748-88d9-87af9ac6b0b8",
+      "bindings": [
+        {
+          "agent_id": "fleet-coordinator",
+          "binding_id": "92910284-582a-5fdb-a248-130999c7c506",
+          "capability": "route.propose",
+          "manifest_digest": "sha256:73dcddc91b3553d3ba6570075ecde45b",
+          "region": "eu-central",
+          "revision": "0.3.1",
+          "role": "FLEET_COORDINATOR",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "evidence-watcher",
+          "binding_id": "071ec96c-7c74-5c23-9421-690bc8acfdd0",
+          "capability": "evidence.watch",
+          "manifest_digest": "sha256:f37ad54a401351aa9e74e6896f9a373a",
+          "region": "eu-central",
+          "revision": "0.3.4",
+          "role": "EVIDENCE_WATCHER",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "evidence-assessor",
+          "binding_id": "0d7e9f20-201c-53e5-a3b8-ba8f9f9ff7a1",
+          "capability": "evidence.assess",
+          "manifest_digest": "sha256:e3183388e35851feab4ba1b843c0ebbc",
+          "region": "eu-central",
+          "revision": "0.3.2",
+          "role": "EVIDENCE_ASSESSOR",
+          "validation_status": "VALIDATED"
+        },
+        {
+          "agent_id": "citation-auditor",
+          "binding_id": "0a1db271-1e69-5f74-876e-ca9ef65fb76d",
+          "capability": "citation.audit",
+          "manifest_digest": "sha256:3507d910f1ab582583558251ebefe2fa",
+          "region": "eu-central",
+          "revision": "0.3.5",
+          "role": "CITATION_AUDITOR",
+          "validation_status": "VALIDATED"
+        }
+      ],
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "3a2902a7e810385c35bb71341881d3e08de917adeb2a8d1ee35c1283166fb98f",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [],
+      "requested_capabilities": [
+        "route.propose",
+        "evidence.watch",
+        "evidence.assess",
+        "citation.audit"
+      ],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "RegistryResolutionReceipt",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "validation_status": "VALIDATED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "234d05a6-09b0-5b8a-9181-984ba82ee31c",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "5f2864c2e54b4ed6367732ec5b6983ff5082bbdc40262c5ecbb0ef34a1891b71",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "fleet-coordinator",
+        "identity": "coordinator-agent",
+        "version": "0.1.0"
+      },
+      "proposed_bindings": [
+        {
+          "agent_id": "fleet-coordinator",
+          "capability": "route.propose"
+        },
+        {
+          "agent_id": "evidence-watcher",
+          "capability": "evidence.watch"
+        },
+        {
+          "agent_id": "evidence-assessor",
+          "capability": "evidence.assess"
+        },
+        {
+          "agent_id": "citation-auditor",
+          "capability": "citation.audit"
+        }
+      ],
+      "rationale_codes": [
+        "capability_match",
+        "revision_pinned"
+      ],
+      "requested_capabilities": [
+        "route.propose",
+        "evidence.watch",
+        "evidence.assess",
+        "citation.audit"
+      ],
+      "route_order": [
+        "fleet-coordinator",
+        "evidence-watcher",
+        "evidence-assessor",
+        "citation-auditor"
+      ],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "RoutingPlan",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "validation_status": "VALIDATED",
+      "warnings": []
+    },
+    {
+      "artifact_id": "282f9bf1-d0db-5320-b45a-d876d6e6333c",
+      "candidate_delta_state": "PRESENT",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "06fe4efe709562d2c6da0f9e05985fb4a007c78b7eff3c258fedcf1c235ddec2",
+      "created_at": "2026-08-22T09:00:00Z",
+      "current_snapshot_id": "85cb8c32-2170-59ab-bb03-4231da4c1d2c",
+      "data_mode": "CAPTURED_REPLAY",
+      "exact_allele_match": true,
+      "extensions": {},
+      "input_artifact_ids": [],
+      "new_observation_hashes": [
+        "e909031ef2ef5890bc73874b76571851"
+      ],
+      "previous_snapshot_id": "ab854edc-b89d-5a6e-8bce-146f5ee3d362",
+      "producer": {
+        "component": "evidence-normalizer",
+        "identity": "normalizer-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "CandidateDeltaReceipt",
+      "schema_version": "1.0.0",
+      "scope_match": true,
+      "snapshot_complete": true,
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "ab854edc-b89d-5a6e-8bce-146f5ee3d362",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "conflicts": [],
+      "content_hash": "a99373c00017f5a56317e2cdecee0fda505bbd26ad1c2d497eb9780169649475",
+      "coverage_status": "COMPLETE",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "effective_at": "2026-06-15T00:00:00Z",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "normalized_facts": {
+        "submission_count": 3
+      },
+      "observation_ids": [
+        "1bca1c1f-263a-5b2f-95ab-d91ffc64a382",
+        "fc8a494b-2278-5e9f-ae8c-094b7cb91c69"
+      ],
+      "producer": {
+        "component": "evidence-watcher",
+        "identity": "watcher-agent",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "EvidenceSnapshot",
+      "schema_version": "1.0.0",
+      "snapshot_hash": "sha256:252be0afd10558598c640a2c8c9a5924",
+      "source_cursors": {
+        "clinvar": "2026-06-15",
+        "pubmed": "2026-06-15"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "85cb8c32-2170-59ab-bb03-4231da4c1d2c",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "conflicts": [],
+      "content_hash": "39845429d5c80b2a8ce85107a421ebdce08425dada066bd698c56c427333689e",
+      "coverage_status": "COMPLETE",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "effective_at": "2026-08-22T00:00:00Z",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "normalized_facts": {
+        "submission_count": 4
+      },
+      "observation_ids": [
+        "7f373b94-5943-5686-a136-6c9ced2b7073",
+        "342b95a0-1d88-56df-ba6a-f75cf0048e44"
+      ],
+      "producer": {
+        "component": "evidence-watcher",
+        "identity": "watcher-agent",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "EvidenceSnapshot",
+      "schema_version": "1.0.0",
+      "snapshot_hash": "sha256:f0054d6c320a5e3c87a47412cb55098b",
+      "source_cursors": {
+        "clinvar": "2026-08-22",
+        "pubmed": "2026-08-22"
+      },
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "added_observation_refs": [
+        "7f373b94-5943-5686-a136-6c9ced2b7073"
+      ],
+      "artifact_id": "c621a15c-0ad5-58a0-9e44-6e82bb355eea",
+      "candidate_receipt_id": "282f9bf1-d0db-5320-b45a-d876d6e6333c",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "change_items": [
+        {
+          "change_code": "new_functional_study",
+          "observation_ref": "7f373b94-5943-5686-a136-6c9ced2b7073"
+        }
+      ],
+      "comparison": {
+        "classification_changed": false,
+        "classification_source_refs": [
+          "1bca1c1f-263a-5b2f-95ab-d91ffc64a382"
+        ]
+      },
+      "content_hash": "aaeaba93decbc1bd94ff0daf0b350b13408301952b56bf88f9ea377b34938dfe",
+      "counter_evidence_refs": [
+        "342b95a0-1d88-56df-ba6a-f75cf0048e44"
+      ],
+      "created_at": "2026-08-22T09:00:00Z",
+      "current_snapshot_id": "85cb8c32-2170-59ab-bb03-4231da4c1d2c",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [
+        "282f9bf1-d0db-5320-b45a-d876d6e6333c"
+      ],
+      "materiality_proposal": "MATERIAL_CANDIDATE",
+      "previous_snapshot_id": "ab854edc-b89d-5a6e-8bce-146f5ee3d362",
+      "producer": {
+        "component": "evidence-assessor",
+        "identity": "assessor-agent",
+        "version": "0.1.0"
+      },
+      "removed_observation_refs": [],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "EvidenceDelta",
+      "schema_version": "2.0.0",
+      "status": "VALID",
+      "uncertainties": [
+        "single_source_functional_evidence"
+      ],
+      "warnings": []
+    },
+    {
+      "artifact_id": "405ac2c4-4522-534a-8e45-4878dd947979",
+      "assessment_id": "5229bd41-a489-58e6-b6c1-fa91e9ba2d9b",
+      "audit_completeness": true,
+      "audit_status": "COMPLETE",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "claim_verdicts": [
+        {
+          "claim_id": "claim-1",
+          "reason_codes": [
+            "metadata_matched"
+          ],
+          "refetched_source": {
+            "content_hash": "sha256:24c4875c5a035e6ba7b91707a8d23cc6",
+            "identifier": "PMID39779848",
+            "locator": "https://pubmed.ncbi.nlm.nih.gov/39779848/",
+            "title": "Saturation genome editing of BRCA2"
+          },
+          "verdict": "VERIFIED"
+        },
+        {
+          "claim_id": "claim-2",
+          "reason_codes": [
+            "metadata_matched"
+          ],
+          "refetched_source": {
+            "content_hash": "sha256:d1b1b062020c5eb2bef28c3b6b3aaa43",
+            "identifier": "PMID39779857",
+            "locator": "https://pubmed.ncbi.nlm.nih.gov/39779857/",
+            "title": "Functional characterisation follow-up"
+          },
+          "verdict": "VERIFIED"
+        }
+      ],
+      "content_hash": "757d595bb25492e0691e981ab84b0abd92f461357c4d3c21a48113a53ea736e8",
+      "counter_evidence_coverage": "COMPLETE",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "metadata_refetches": 2,
+      "producer": {
+        "component": "citation-auditor",
+        "identity": "auditor-agent",
+        "version": "0.1.0"
+      },
+      "rejected_claim_ids": [],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "CitationAuditReceipt",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "390b1bc0-ab2e-5840-b274-45bd0230ce14",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "dfc21ccc18d9402afee42fa3012cc845b4d676dbc89ff3b6180c85bb72d993e4",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "existing_task_id": null,
+      "extensions": {},
+      "input_artifact_ids": [
+        "282f9bf1-d0db-5320-b45a-d876d6e6333c",
+        "405ac2c4-4522-534a-8e45-4878dd947979"
+      ],
+      "input_facts": {
+        "all_material_claims_verified": "PASS",
+        "assessment_valid": "PASS",
+        "budget_or_loop_failure_state": "ABSENT",
+        "candidate_delta_state": "PRESENT",
+        "citation_audit_complete": "PASS",
+        "counter_evidence_complete": "PASS",
+        "data_mode_valid": "PASS",
+        "existing_open_task_state": "ABSENT",
+        "privacy_accepted": "PASS",
+        "registry_resolution_valid": "PASS",
+        "route_valid": "PASS",
+        "snapshot_integrity_valid": "PASS",
+        "source_retrieval_complete": "PASS",
+        "source_schema_valid": "PASS",
+        "tool_authorization_complete": "PASS",
+        "unresolved_conflict_state": "ABSENT"
+      },
+      "missing_prerequisites": [],
+      "outcome": "REVIEW_REQUIRED",
+      "policy_version": "1.0.1",
+      "producer": {
+        "component": "policy-gate",
+        "identity": "policy-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [
+        "all_prerequisites_verified",
+        "material_change_candidate_present"
+      ],
+      "review_trigger": true,
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "PolicyDecision",
+      "schema_version": "2.0.0",
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "cbf5bfbd-538d-5cdc-aa49-71fbd94c0ad4",
+      "audit_receipt_id": "405ac2c4-4522-534a-8e45-4878dd947979",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "claim_ids": [
+        "claim-1",
+        "claim-2"
+      ],
+      "content_hash": "9463d8629cbc3104f5df7d48e4a0d3663e50030b6d83ec5a8eeb03a80e23d2b6",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "deduplication_key": "bba31659-dd74-588e-85bd-79e2514dcf45:390b1bc0-ab2e-5840-b274-45bd0230ce14",
+      "extensions": {},
+      "input_artifact_ids": [
+        "390b1bc0-ab2e-5840-b274-45bd0230ce14"
+      ],
+      "priority_band": "REVIEW_SOON",
+      "producer": {
+        "component": "workflow-controller",
+        "identity": "controller-outbox",
+        "version": "0.1.0"
+      },
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ReviewTask",
+      "schema_version": "1.0.0",
+      "simulation": true,
+      "state": "OPEN",
+      "status": "VALID",
+      "trigger_decision_id": "390b1bc0-ab2e-5840-b274-45bd0230ce14",
+      "warnings": [],
+      "watch_case_id": "bba31659-dd74-588e-85bd-79e2514dcf45"
+    },
+    {
+      "artifact_id": "a7106095-1645-5a72-940d-69ef987229ee",
+      "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
+      "content_hash": "fb197b72a1d66ebef0510af829c60fba1055018a42dedb971a92341500d03c2e",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "declared_composition": "SYNTHETIC_WITH_CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "mode_set": [
+        "CAPTURED_REPLAY",
+        "SYNTHETIC"
+      ],
+      "producer": {
+        "component": "data-mode-gate",
+        "identity": "mode-gate-service",
+        "version": "0.1.0"
+      },
+      "propagation_status": "COMPLETE",
+      "reason_codes": [],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "DataModeReceipt",
+      "schema_version": "2.0.0",
+      "status": "VALID",
+      "subject_artifact_ids": [
+        "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+        "10635200-af8f-5026-87ec-e77fb122811d",
+        "234d05a6-09b0-5b8a-9181-984ba82ee31c",
+        "282f9bf1-d0db-5320-b45a-d876d6e6333c",
+        "390b1bc0-ab2e-5840-b274-45bd0230ce14",
+        "405ac2c4-4522-534a-8e45-4878dd947979",
+        "47dae528-db54-5bd6-aacb-e933df1e2348",
+        "584be0b5-0ded-5768-ab4d-ca7a07a3b19e",
+        "59b7409d-07ba-5ef7-8a32-84797b4d2ed1",
+        "5e9e880c-4f1f-5f32-b69e-143ebed38367",
+        "72502a33-c93b-55a3-9f13-41dcea81a803",
+        "82ba37ad-a809-5a0a-9d47-3a8fb5d68926",
+        "85cb8c32-2170-59ab-bb03-4231da4c1d2c",
+        "ab854edc-b89d-5a6e-8bce-146f5ee3d362",
+        "bba31659-dd74-588e-85bd-79e2514dcf45",
+        "bddbec39-9144-55a7-855e-ca7bc1d78210",
+        "c621a15c-0ad5-58a0-9e44-6e82bb355eea",
+        "cbf5bfbd-538d-5cdc-aa49-71fbd94c0ad4",
+        "eaacba72-14bf-5748-88d9-87af9ac6b0b8"
+      ],
+      "warnings": []
+    },
+    {
+      "artifact_id": "cfb76fd3-a72d-5234-9cd5-c2115f72b869",
+      "case_id": null,
+      "content_hash": "7f079e30b2c7f94aae5c71937299f9ce53ccf482acd43366357487ffa361a8b1",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "deployed_at": "2026-08-22T09:00:00Z",
+      "deployed_components": [
+        "intake",
+        "controller",
+        "agent-runtime",
+        "reviewer-web"
+      ],
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "release-controller",
+        "identity": "release-service",
+        "version": "0.1.0"
+      },
+      "run_id": null,
+      "runtime": {
+        "read_back_at": "2026-08-22T09:00:00Z",
+        "region": "eu-central",
+        "resource_name": "projects/<project>/locations/eu-central/services/recall-agent-runtime",
+        "revision": "recall-runtime-00007-abc",
+        "service": "recall-agent-runtime"
+      },
+      "schema_name": "DeploymentReceipt",
+      "schema_version": "1.0.0",
+      "source_revision": "0000000",
+      "status": "VALID",
+      "warnings": []
+    },
+    {
+      "artifact_id": "1ecce5bf-21ce-5b08-a687-3b7e6adf7ee7",
+      "case_id": null,
+      "component_statuses": {
+        "agent_registry": "HEALTHY",
+        "agent_runtime": "HEALTHY",
+        "ledger": "HEALTHY"
+      },
+      "content_hash": "76eb57a3ff23504800b3e7c7b7d89ca17689a39e8396881e8b3ebf8164334fec",
+      "created_at": "2026-08-22T09:00:00Z",
+      "data_mode": "SYNTHETIC",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "managed_status": "HEALTHY",
+      "producer": {
+        "component": "health-aggregator",
+        "identity": "health-service",
+        "version": "0.1.0"
+      },
+      "reason_codes": [],
+      "run_id": "0b0c63c5-7c27-509c-b6e2-65adc46d44bd",
+      "schema_name": "ManagedPathReceipt",
+      "schema_version": "1.0.0",
+      "status": "VALID",
+      "trace_id": "b7fe49148eb1554eb9473ee31559deeb",
+      "warnings": []
+    }
+  ],
+  "bundle_id": "golden",
+  "bundle_kind": "recall.web.static_artifact_bundle",
+  "bundle_version": "1.0.0",
+  "provenance": {
+    "contract_reference": "docs/contracts/ARTIFACT_CONTRACTS.md",
+    "note": "Contract-shaped stand-in artifacts for lane L3 user interface development. Lane L2 owns the executable contracts and the authoritative run output. Only the PrivacyReceipt is produced by real code in this repository. Nothing here is evidence that a backend run occurred.",
+    "other_artifacts_source": "contract-shaped stand-in pending lane L2 run_fixture output",
+    "privacy_receipt_source": "produced by src/recall/privacy at bundle build time"
+  }
+}
