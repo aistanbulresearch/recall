@@ -32,7 +32,12 @@ JSON_OBJECT_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 SYSTEM_INSTRUCTION = (
     "You locate residual identifier substrings in a clinical note. "
     "Return only JSON of the form {\"spans\": [{\"start\": int, \"end\": int, \"identifier_class\": str}]}. "
-    "start and end are character offsets into the note. "
+    "start and end are character offsets into the note, counting from zero, where "
+    "note[start:end] is exactly the identifier and nothing else. "
+    "identifier_class must be one of: " + ", ".join(IDENTIFIER_CLASSES) + ". "
+    "Any other class name makes the whole response invalid. "
+    "Return at most " + str(MAX_PROPOSALS) + " spans, the ones you are most confident about; "
+    "a longer list makes the whole response invalid. "
     "Return {\"spans\": []} when you find nothing. "
     "Never return explanations, reasoning, the substring itself, or any other key."
 )
@@ -89,6 +94,9 @@ class LlamaServerTransport:
 
     def __call__(self, note_text: str, timeout_seconds: float) -> str:
         body = {
+            # Sent even when a server ignores it: an OpenAI-compatible server
+            # that hosts more than one model rejects the request without it.
+            "model": self.model_id,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
                 {"role": "user", "content": note_text},

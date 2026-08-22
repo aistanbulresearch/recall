@@ -62,6 +62,11 @@ MODE_LOCAL_MODEL = "deterministic_plus_local_model"
 MODE_ORACLE_STUB = "deterministic_plus_oracle_stub"
 MODE_STRUCTURED_ONLY = "deterministic_structured_only_egress"
 
+# The adapter default suits a GPU-served model. A quantised model on CPU needs
+# a far longer deadline, and a deadline that is too short turns a working model
+# into a wall of timeouts, so the value used is recorded with the results.
+DEFAULT_TIMEOUT_SECONDS = 8.0
+
 STRUCTURED_ONLY_NOTE = (
     "Acceptance under the structured-only egress profile is a property of the "
     "payload shape, not a detection result. The payload declares no free-text "
@@ -380,15 +385,30 @@ def evaluate_record(gate: PrivacyGate, record: dict[str, Any], metrics: PathMetr
             metrics.false_quarantine += 1
 
 
+def extra_body(args: argparse.Namespace) -> dict[str, Any]:
+    """Server-side generation controls that change what the run measures.
+
+    A thinking model spends its whole token budget on reasoning and returns an
+    empty answer, so the reasoning control is part of the measured
+    configuration and is recorded with the results rather than tuned quietly.
+    """
+
+    body: dict[str, Any] = {}
+    if args.reasoning_effort:
+        body["reasoning_effort"] = args.reasoning_effort
+    return body
+
+
 def build_gate(
     signer: LocalSigner,
     transport: Callable[[str, float], str] | None,
     model_id: str,
     egress_profile: str = EGRESS_SUMMARY_TEXT,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> PrivacyGate:
     return PrivacyGate(
         signer=signer,
-        gemma=GemmaResidualDetector(transport, model_id=model_id),
+        gemma=GemmaResidualDetector(transport, model_id=model_id, timeout_seconds=timeout_seconds),
         egress_profile=egress_profile,
     )
 
@@ -418,9 +438,22 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     comparison: PathMetrics | None = None
     if args.gemma_url:
         comparison = PathMetrics(mode=MODE_LOCAL_MODEL)
-        transport = LlamaServerTransport(base_url=args.gemma_url, model_id=args.model_id)
+        transport = LlamaServerTransport(
+            base_url=args.gemma_url,
+            model_id=args.model_id,
+            extra_body=extra_body(args),
+        )
         for record in records:
-            evaluate_record(build_gate(signer, transport, args.model_id), record, comparison)
+            evaluate_record(
+                build_gate(
+                    signer,
+                    transport,
+                    args.model_id,
+                    timeout_seconds=args.timeout_seconds,
+                ),
+                record,
+                comparison,
+            )
     elif args.oracle_stub:
         comparison = PathMetrics(mode=MODE_ORACLE_STUB)
         for record in records:
@@ -456,6 +489,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "model_id": args.model_id if args.gemma_url else None,
             "endpoint_configured": bool(args.gemma_url),
             "identity": args.model_identity_record,
+            "timeout_seconds": args.timeout_seconds,
+            "generation_controls": extra_body(args),
             "prompt": prompt_identity(),
             "disclaimer": ORACLE_STUB_DISCLAIMER if args.oracle_stub else None,
         },
@@ -491,6 +526,17 @@ def main() -> int:
     parser.add_argument("--split", choices=("train", "dev", "test"), default="dev")
     parser.add_argument("--gemma-url", default=None, help="Base URL of the laboratory-local llama.cpp server.")
     parser.add_argument("--model-id", default="unconfigured")
+    parser.add_argument(
+        "--reasoning-effort",
+        default=None,
+        help="Passed through to the local server, for example 'none' to stop a thinking model consuming the answer budget.",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help="Per-note deadline for the local model. Retry stays fixed at zero.",
+    )
     parser.add_argument(
         "--oracle-stub",
         action="store_true",
