@@ -30,11 +30,15 @@ interface does; the interface never invents a field.
 
 ## Privacy fields
 
-All five privacy rows of the registry are implemented and resolve from a real
+All six privacy rows of the registry are implemented and resolve from a real
 `PrivacyReceipt` produced by `src/recall/privacy`:
 
 `UI-PRIVACY-STATUS`, `UI-PRIVACY-DETERMINISTIC-SPANS`, `UI-PRIVACY-GEMMA-SPANS`,
-`UI-PRIVACY-OUTBOUND-FIELDS`, `UI-PRIVACY-RAW-TEXT-EGRESS`.
+`UI-PRIVACY-OUTBOUND-FIELDS`, `UI-PRIVACY-RAW-TEXT-EGRESS`,
+`UI-PRIVACY-EGRESS-PROFILE`.
+
+The last two are rendered together. The raw-text count alone does not say
+whether the payload could have carried prose in the first place.
 
 ## Fleet board and registry view
 

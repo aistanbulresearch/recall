@@ -65,14 +65,23 @@ class LabNote:
         )
 
 
-def build_cloud_bound_payload(note: LabNote, case_token: str, deidentified_summary: str) -> dict[str, Any]:
+def build_cloud_bound_payload(
+    note: LabNote,
+    case_token: str,
+    deidentified_summary: str | None = None,
+) -> dict[str, Any]:
     """Minimal pseudonymous payload proposed to the cloud intake.
+
+    `deidentified_summary` is omitted entirely when it is `None`. That is the
+    structured-only egress shape: the payload has no free-text field to carry
+    laboratory prose, so nothing prose-shaped can leave even if every detector
+    missed something.
 
     This is a laboratory-side wire shape, not a registered artifact contract.
     Lane L2 owns the executable schema that parses it.
     """
 
-    return {
+    payload: dict[str, Any] = {
         "payload_kind": CLOUD_PAYLOAD_KIND,
         "payload_version": CLOUD_PAYLOAD_VERSION,
         "case_token": case_token,
@@ -85,5 +94,7 @@ def build_cloud_bound_payload(note: LabNote, case_token: str, deidentified_summa
             "hgvs_p": note.hgvs_p,
             "assembly": note.assembly,
         },
-        "deidentified_summary": deidentified_summary,
     }
+    if deidentified_summary is not None:
+        payload["deidentified_summary"] = deidentified_summary
+    return payload

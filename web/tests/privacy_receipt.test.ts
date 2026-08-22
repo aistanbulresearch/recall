@@ -43,6 +43,24 @@ describe('privacy receipt in the bundle', () => {
     expect((receipt.outbound as { raw_text_field_count: number }).raw_text_field_count).toBe(0);
   });
 
+  it('releases only registered structured field paths, never a free-text field', () => {
+    const outbound = receiptOf(golden).outbound as {
+      allowed_field_paths: string[];
+      raw_text_field_count: number;
+    };
+    expect(outbound.allowed_field_paths.length).toBeGreaterThan(0);
+    expect(outbound.allowed_field_paths).not.toContain('$.deidentified_summary');
+    expect(outbound.raw_text_field_count).toBe(0);
+  });
+
+  it('names the egress profile that produced the zero', () => {
+    const { fields } = buildViewModel(golden);
+    const profile = fields['UI-PRIVACY-EGRESS-PROFILE'];
+    expect(profile.status).toBe('KNOWN');
+    expect(String(profile.value)).toContain('STRUCTURED_ONLY');
+    expect(profile.source_refs.length).toBeGreaterThan(0);
+  });
+
   it('never carries a raw span surface', () => {
     const spans = (receiptOf(golden).detectors as { deterministic: { approved_spans: Array<Record<string, unknown>> } })
       .deterministic.approved_spans;

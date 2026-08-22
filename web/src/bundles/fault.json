@@ -3,17 +3,18 @@
     {
       "artifact_id": "9ac50ad5-50d4-547f-8a94-677b58b6cea7",
       "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
-      "content_hash": "fb4bc1e4b83eb656b20ec7759995139bb95f5fa52b6a199701a81a7fd01f72aa",
+      "content_hash": "8876544c26ea76735c7b05b386f01ca898f3cabfc59744a7f46632fd98186986",
       "created_at": "2026-08-22T09:00:00Z",
       "data_mode": "SYNTHETIC",
       "decision": "ACCEPTED",
       "detector_versions": {
         "adjudicator": "span-adjudicator@1.0.0",
         "deterministic": "deterministic-detectors@1.0.0",
+        "egress_profile": "STRUCTURED_ONLY@1.0.0",
         "gemma_adapter": "gemma-span-adapter@1.0.0",
         "lab_directory": "1.0.0",
         "outbound_lexicon": "1.0.0",
-        "outbound_scanner": "outbound-allowlist-scanner@1.0.0",
+        "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
         "privacy_gate": "0.1.0",
         "redactor": "deterministic-redactor@1.0.0"
       },
@@ -143,7 +144,6 @@
         "allowed_field_paths": [
           "$.case_token",
           "$.data_mode",
-          "$.deidentified_summary",
           "$.payload_kind",
           "$.payload_version",
           "$.region",
@@ -156,7 +156,7 @@
         "raw_text_field_count": 0,
         "scan_status": "CLEAR"
       },
-      "payload_hash": "732c18f58103d09cfb3ef728f02b011ab51b954ddf7128dfe11c32d5d2d402dd",
+      "payload_hash": "6b7bef2681bfbcf09ec0d727461b99d0107448e0a7eb643f48b939dd187aa14e",
       "producer": {
         "component": "local-privacy-gate",
         "identity": "lab-privacy-gate",
@@ -168,7 +168,7 @@
       "signature_ref": {
         "algorithm": "HMAC-SHA256",
         "key_id": "demo-lab-key",
-        "signature": "6c916f186e9f4016cd8c914d8e9c575d1c9aa8f4304ed0b760cb15079e20828a"
+        "signature": "4c4d81fbf3848120b463351cc6fc508b1bd2bb3ec1a907452aaba887ebc767b7"
       },
       "status": "VALID",
       "warnings": []

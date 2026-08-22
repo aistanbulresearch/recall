@@ -244,6 +244,16 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     goldenPath: false,
   },
   {
+    fieldId: 'UI-PRIVACY-EGRESS-PROFILE',
+    label: 'Egress profile',
+    group: 'privacy',
+    artifactType: 'PrivacyReceipt',
+    jsonPath: '$.detector_versions.egress_profile',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+  },
+  {
     fieldId: 'UI-AGENT-ROSTER',
     label: 'Agent lanes',
     group: 'fleet',

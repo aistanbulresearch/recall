@@ -70,8 +70,22 @@ Every rendered field uses this structure:
 | UI-PRIVACY-GEMMA-SPANS | Gemma residuals | `PrivacyReceipt $.detectors.gemma.approved_residual_spans[*]` | Count spans approved by deterministic adjudication, not raw model proposals | `UNAVAILABLE`; no Gemma-value claim |
 | UI-PRIVACY-OUTBOUND-FIELDS | Cloud fields | `PrivacyReceipt $.outbound.allowed_field_paths[*]` | Count exact allowed paths | `INCOMPLETE`; no egress |
 | UI-PRIVACY-RAW-TEXT-EGRESS | Raw text sent | `PrivacyReceipt $.outbound.raw_text_field_count` | Exact computed count; acceptance requires zero | `UNKNOWN`; quarantine |
+| UI-PRIVACY-EGRESS-PROFILE | Egress profile | `PrivacyReceipt $.detector_versions.egress_profile` | Exact registered profile identifier; render beside the raw-text count, never alone | `UNKNOWN`; no zero-egress claim |
 
 Raw input, original spans, and token mappings are never available to the public web view.
+
+`UI-PRIVACY-RAW-TEXT-EGRESS` is never shown without `UI-PRIVACY-EGRESS-PROFILE`.
+The two answer different questions and the zero means different things:
+
+- under `STRUCTURED_ONLY` the payload declares no free-text field at all, so the
+  zero is a property of the payload shape and holds even if every detector
+  missed every identifier;
+- under `SUMMARY_TEXT` a redacted free-text summary is released, so the zero
+  only says that the outbound allowlist refused nothing, which is a detection
+  result and must be reported as one.
+
+A zero raw-text count is therefore never, on its own, evidence that detection
+worked.
 
 ## Agent routing and execution fields
 

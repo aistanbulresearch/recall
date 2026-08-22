@@ -1,9 +1,16 @@
 """Deterministic outbound gate.
 
-Nothing leaves the laboratory because a detector stayed silent. A field is
-released only when every token in it is positively recognised: a redaction
-placeholder, a registered panel or assembly symbol, registered variant
-notation, or a word on the frozen allowlist. Anything else blocks the payload.
+Nothing leaves the laboratory because a detector stayed silent. Two independent
+rules decide:
+
+* a declared free-text field is released only when every token in it is
+  positively recognised: a redaction placeholder, a registered panel or assembly
+  symbol, registered variant notation, or a word on the frozen allowlist;
+* every structured leaf is released only when its path is registered in
+  `egress.STRUCTURED_FIELD_RULES` and its value matches the registered shape.
+
+The structured rule matters most under the structured-only egress profile, where
+the whole payload is structured and no free-text field is declared at all.
 """
 
 from __future__ import annotations
@@ -14,7 +21,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-OUTBOUND_SCANNER_VERSION = "outbound-allowlist-scanner@1.0.0"
+from recall.privacy.egress import validate_structured_leaf
+
+OUTBOUND_SCANNER_VERSION = "outbound-allowlist-scanner@1.1.0"
 DEFAULT_LEXICON_PATH = Path(__file__).resolve().parent / "data" / "outbound_lexicon.json"
 
 SCAN_STATUS_CLEAR = "CLEAR"
@@ -45,11 +54,12 @@ class OutboundScanResult:
     unknown_token_count: int
     reason_codes: tuple[str, ...]
     field_scans: tuple[FieldScan, ...]
+    blocked_structured_field_paths: tuple[str, ...] = ()
     scanner_version: str = OUTBOUND_SCANNER_VERSION
 
 
 class OutboundScanner:
-    """Positive-allowlist scanner for free-text fields bound for the cloud."""
+    """Positive-allowlist scanner for every field bound for the cloud."""
 
     version = OUTBOUND_SCANNER_VERSION
 
@@ -83,11 +93,18 @@ class OutboundScanner:
         return len(unknown), ("outbound_unknown_token_present",)
 
     def scan_payload(self, payload: dict[str, Any], text_field_paths: tuple[str, ...]) -> OutboundScanResult:
-        """Scan every declared free-text field path of a cloud-bound payload."""
+        """Scan every declared free-text field and every structured leaf.
+
+        `raw_text_field_count` counts declared free-text fields that the token
+        allowlist refused. Under the structured-only profile no free-text field
+        is declared, so the count is zero by construction rather than by a
+        detector's silence.
+        """
 
         field_scans: list[FieldScan] = []
         allowed: list[str] = []
-        blocked: list[str] = []
+        blocked_text: list[str] = []
+        blocked_structured: list[str] = []
         reason_codes: set[str] = set()
         unknown_total = 0
 
@@ -95,35 +112,44 @@ class OutboundScanner:
             value = _resolve_path(payload, field_path)
             if value is None:
                 field_scans.append(FieldScan(field_path, False, 0, ("outbound_field_missing",)))
-                blocked.append(field_path)
+                blocked_text.append(field_path)
                 reason_codes.add("outbound_field_missing")
                 continue
             if not isinstance(value, str):
                 field_scans.append(FieldScan(field_path, False, 0, ("outbound_field_not_text",)))
-                blocked.append(field_path)
+                blocked_text.append(field_path)
                 reason_codes.add("outbound_field_not_text")
                 continue
             unknown_count, field_reasons = self.scan_text(value)
             unknown_total += unknown_count
             if field_reasons:
-                blocked.append(field_path)
+                blocked_text.append(field_path)
                 reason_codes.update(field_reasons)
                 field_scans.append(FieldScan(field_path, False, unknown_count, field_reasons))
             else:
                 allowed.append(field_path)
                 field_scans.append(FieldScan(field_path, True, 0, ()))
 
-        structured_paths = tuple(sorted(_leaf_paths(payload) - set(text_field_paths)))
-        allowed.extend(structured_paths)
+        for field_path in sorted(_leaf_paths(payload) - set(text_field_paths)):
+            accepted, reason_code = validate_structured_leaf(field_path, _resolve_path(payload, field_path))
+            if accepted:
+                allowed.append(field_path)
+                field_scans.append(FieldScan(field_path, True, 0, ()))
+            else:
+                blocked_structured.append(field_path)
+                reason_codes.add(reason_code)
+                field_scans.append(FieldScan(field_path, False, 0, (reason_code,)))
 
+        blocked = blocked_text + blocked_structured
         return OutboundScanResult(
             scan_status=SCAN_STATUS_BLOCKED if blocked else SCAN_STATUS_CLEAR,
             allowed_field_paths=tuple(sorted(allowed)),
             blocked_field_paths=tuple(sorted(blocked)),
-            raw_text_field_count=len(blocked),
+            raw_text_field_count=len(blocked_text),
             unknown_token_count=unknown_total,
             reason_codes=tuple(sorted(reason_codes)),
             field_scans=tuple(field_scans),
+            blocked_structured_field_paths=tuple(sorted(blocked_structured)),
         )
 
 

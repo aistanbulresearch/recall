@@ -3,6 +3,15 @@
 Compares the deterministic baseline against the deterministic-plus-local-model
 path on a frozen synthetic corpus split, then writes an evidence manifest.
 
+Both of those comparators run under the `SUMMARY_TEXT` egress profile, which
+releases a redacted free-text summary. That is where detection quality can
+change the outcome, so it is where the local-model contribution is measurable.
+
+A third arm runs the deterministic gate under the demonstrated `STRUCTURED_ONLY`
+profile, which declares no free-text field at all. Its acceptance rate is
+structural rather than a detector result, and the report says so, but it is
+measured on the same records so the two boundaries can be compared honestly.
+
 Two stop points are enforced in code, not by convention:
 
 * the frozen `test` split refuses to run without a recorded preregistration
@@ -28,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from recall.privacy.detectors import DeterministicDetector  # noqa: E402
+from recall.privacy.egress import EGRESS_STRUCTURED_ONLY, EGRESS_SUMMARY_TEXT  # noqa: E402
 from recall.privacy.gate import PrivacyGate  # noqa: E402
 from recall.privacy.gemma import GemmaResidualDetector, LlamaServerTransport  # noqa: E402
 from recall.privacy.minimizer import LabNote  # noqa: E402
@@ -39,6 +49,14 @@ PROTOCOL_VERSION = "P1/1.0.0"
 MODE_DETERMINISTIC = "deterministic_only"
 MODE_LOCAL_MODEL = "deterministic_plus_local_model"
 MODE_ORACLE_STUB = "deterministic_plus_oracle_stub"
+MODE_STRUCTURED_ONLY = "deterministic_structured_only_egress"
+
+STRUCTURED_ONLY_NOTE = (
+    "Acceptance under the structured-only egress profile is a property of the "
+    "payload shape, not a detection result. The payload declares no free-text "
+    "field, so no identifier the detectors missed has a field to travel in. "
+    "This number must never be reported as detector or local-model performance."
+)
 
 ORACLE_STUB_DISCLAIMER = (
     "The oracle stub replays ground-truth residual spans. It measures the gate's "
@@ -66,6 +84,7 @@ class PathMetrics:
     """Accumulates span-level and document-level counts for one comparator."""
 
     mode: str
+    egress_profile: str = EGRESS_SUMMARY_TEXT
     true_positive: int = 0
     false_positive: int = 0
     false_negative: int = 0
@@ -89,6 +108,7 @@ class PathMetrics:
         detected_total = self.true_positive + self.false_positive
         return {
             "mode": self.mode,
+            "egress_profile": self.egress_profile,
             "span_level": {
                 "ground_truth_spans": self.ground_truth_total,
                 "detected_spans": detected_total,
@@ -219,8 +239,17 @@ def evaluate_record(gate: PrivacyGate, record: dict[str, Any], metrics: PathMetr
             metrics.false_quarantine += 1
 
 
-def build_gate(signer: LocalSigner, transport: Callable[[str, float], str] | None, model_id: str) -> PrivacyGate:
-    return PrivacyGate(signer=signer, gemma=GemmaResidualDetector(transport, model_id=model_id))
+def build_gate(
+    signer: LocalSigner,
+    transport: Callable[[str, float], str] | None,
+    model_id: str,
+    egress_profile: str = EGRESS_SUMMARY_TEXT,
+) -> PrivacyGate:
+    return PrivacyGate(
+        signer=signer,
+        gemma=GemmaResidualDetector(transport, model_id=model_id),
+        egress_profile=egress_profile,
+    )
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -235,9 +264,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         signer = LocalSigner(key_id="ephemeral-eval-key", key=b"evaluation-only-key-material")
 
     detector = DeterministicDetector()
-    baseline = PathMetrics(mode=MODE_DETERMINISTIC)
+    baseline = PathMetrics(mode=MODE_DETERMINISTIC, egress_profile=EGRESS_SUMMARY_TEXT)
     for record in records:
         evaluate_record(build_gate(signer, None, "none"), record, baseline)
+
+    structured_only = PathMetrics(mode=MODE_STRUCTURED_ONLY, egress_profile=EGRESS_STRUCTURED_ONLY)
+    for record in records:
+        evaluate_record(
+            build_gate(signer, None, "none", EGRESS_STRUCTURED_ONLY), record, structured_only
+        )
 
     comparison: PathMetrics | None = None
     if args.gemma_url:
@@ -280,20 +315,26 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "disclaimer": ORACLE_STUB_DISCLAIMER if args.oracle_stub else None,
         },
         "baseline": baseline.to_wire(),
+        "structured_only_egress": structured_only.to_wire(),
+        "structured_only_egress_note": STRUCTURED_ONLY_NOTE,
         "comparison": comparison.to_wire() if comparison is not None else None,
         "incremental": incremental,
         "mandatory_safety_gate": {
             "rule": "zero seeded direct-identifier spans in accepted payloads",
             "baseline_escapes": baseline.escaped_surfaces,
+            "structured_only_escapes": structured_only.escaped_surfaces,
             "comparison_escapes": comparison.escaped_surfaces if comparison is not None else None,
             "result": "PASS"
-            if baseline.escaped_surfaces == 0 and (comparison is None or comparison.escaped_surfaces == 0)
+            if baseline.escaped_surfaces == 0
+            and structured_only.escaped_surfaces == 0
+            and (comparison is None or comparison.escaped_surfaces == 0)
             else "FAIL",
         },
         "limitations": [
             "Synthetic corpus only. No real, clinical, or regulatory privacy claim is supported.",
             "Residual identifier rate is a property of the committed corpus design, not an estimate for real text.",
             "The outbound allowlist is derived from the training split and reflects the synthetic template vocabulary.",
+            STRUCTURED_ONLY_NOTE,
         ],
     }
     result["content_hash"] = content_hash({k: v for k, v in result.items() if k != "content_hash"})
@@ -343,6 +384,12 @@ def main() -> int:
         f"({baseline['span_level']['true_positive']}/{baseline['span_level']['ground_truth_spans']}), "
         f"accepted {baseline['document_level']['accepted']}/{report['record_count']}, "
         f"escapes {baseline['document_level']['escaped_direct_identifier_surfaces']}"
+    )
+    structured = report["structured_only_egress"]
+    print(
+        f"structured-only egress: accepted {structured['document_level']['accepted']}/{report['record_count']}, "
+        f"escapes {structured['document_level']['escaped_direct_identifier_surfaces']}, "
+        f"structural (not a detection result)"
     )
     if report["comparison"]:
         comparison = report["comparison"]

@@ -110,6 +110,7 @@ describe('missing sources never become clean values', () => {
     ['PrivacyReceipt', 'UI-PRIVACY-STATUS', 'INCOMPLETE'],
     ['PrivacyReceipt', 'UI-PRIVACY-DETERMINISTIC-SPANS', 'UNKNOWN'],
     ['PrivacyReceipt', 'UI-PRIVACY-RAW-TEXT-EGRESS', 'UNKNOWN'],
+    ['PrivacyReceipt', 'UI-PRIVACY-EGRESS-PROFILE', 'UNKNOWN'],
     ['CitationAuditReceipt', 'UI-CITATION-STATUS', 'INCOMPLETE'],
     ['CitationAuditReceipt', 'UI-CITATION-VERIFIED', 'UNKNOWN'],
     ['PolicyDecision', 'UI-POLICY-OUTCOME', 'INCOMPLETE'],

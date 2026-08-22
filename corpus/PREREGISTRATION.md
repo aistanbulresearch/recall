@@ -1,6 +1,6 @@
 # Privacy Corpus and P1 Measurement Preregistration
 
-- Status: **awaiting auditor approval** (lane L3 stop point 2). No measurement may run on the frozen test split before this document is approved.
+- Status: **approved by the auditor on 2026-08-22, subject to the three conditions in section 8**. No measurement may run on the frozen test split except under those conditions.
 - Date: 2026-08-22
 - Lane: L3
 - Related tasks: RCL-404, RCL-405; protocol P1 in `docs/evaluation/EVALUATION_PROTOCOLS.md`
@@ -57,13 +57,22 @@ text, and no such generalisation may be published.
 
 ## 4. Frozen comparators
 
-| Path | Description |
-|---|---|
-| A. Deterministic baseline | `DeterministicDetector` only, then redaction and the outbound allowlist scan |
-| B. Deterministic plus local model | Same, plus Gemma residual-span proposals that pass deterministic adjudication |
+| Path | Egress profile | Description |
+|---|---|---|
+| A. Deterministic baseline | `SUMMARY_TEXT` | `DeterministicDetector` only, then redaction and the outbound allowlist scan over the released free-text summary |
+| B. Deterministic plus local model | `SUMMARY_TEXT` | Same, plus Gemma residual-span proposals that pass deterministic adjudication |
+| C. Structured-only egress | `STRUCTURED_ONLY` | `DeterministicDetector` only, and a cloud-bound payload that declares no free-text field at all |
 
-Both paths use the identical redaction, outbound gate, receipt, and signing
-code. The only difference is whether approved residual spans exist.
+Paths A and B use the identical redaction, outbound gate, receipt, and signing
+code. The only difference between them is whether approved residual spans exist,
+so they are the pair that measures the local-model contribution.
+
+Path C is not a detection comparator. It changes the shape of the payload rather
+than the quality of detection: only registered structured field paths whose
+values match a registered shape may be released, and prose has no field to
+travel in. It is reported because it is the demonstrated egress path, and
+because paths A and B cannot be read correctly without it. Its acceptance rate
+must always be labelled structural.
 
 ## 5. Frozen metrics
 
@@ -75,14 +84,17 @@ Span level, computed against the generator ground truth:
 - incremental true positives contributed by approved residual spans;
 - incremental false positives contributed by approved residual spans.
 
-Document level:
+Document level, reported separately for each of the three paths:
 
 - accepted and quarantined payload counts;
 - **seeded direct-identifier escapes among accepted payloads**;
 - false-quarantine count, that is records quarantined although every ground-truth
   identifier was redacted;
 - local model strict-JSON validity rate, timeout rate, unavailable rate, and
-  p50/p95 latency.
+  p50/p95 latency;
+- for path C only, the count of released free-text fields, which is zero by
+  construction, and the count of structured fields refused by the registered
+  field allowlist.
 
 Proportions are reported as numerator over denominator with Wilson 95 percent
 intervals. No percentage is published without its counts.
@@ -118,5 +130,32 @@ intervals. No percentage is published without its counts.
 
 | Gate | Required before | Status |
 |---|---|---|
-| Corpus schema and split manifest approved by the auditor | any run on the frozen test split | **open** |
-| Local model file and licence accepted by the owner | any model download or model-backed measurement | **open** |
+| Corpus schema and split manifest approved by the auditor | any run on the frozen test split | **approved 2026-08-22, conditional** |
+| Local model file and licence accepted by the owner | any model download or model-backed measurement | **open**; candidates and licence analysis in `docs/demo/LOCAL_MODEL_SELECTION.md` |
+
+### Conditions attached to the auditor approval
+
+The first gate is approved subject to all three conditions. Breaking any of them
+withdraws the approval, and the run that broke it may not be reported.
+
+1. **The frozen split is read once.** The `test` split may be read exactly once,
+   by the approved P1 run, and the run identifier and split hash must be
+   recorded in the evidence manifest. No detector rule, gazetteer, outbound
+   allowlist, prompt, threshold, or egress profile may be changed after a
+   test-split read. A second read requires a new auditor approval and a new
+   revision of this document, with the reason recorded.
+
+2. **Both egress boundaries are reported together.** Every P1 report carries
+   paths A, B, and C with their document-level counts, including the
+   deterministic free-text acceptance count even when it is zero. No proportion
+   is published without its numerator and denominator. The path C acceptance
+   rate is labelled as a property of the payload shape, never as detection or
+   local-model performance, and the zero raw-text count is never reported
+   without naming the egress profile that produced it.
+
+3. **No unmeasured model claim.** If the local-model arm does not run, for any
+   reason, the report and the demonstration must say that it was not measured
+   and the model is removed from the demonstration critical path. A spoken or
+   written model claim requires the incremental true positive count and the
+   accepted-escape count from the same frozen run. An oracle-stub result is
+   never a model result, whatever it shows.
