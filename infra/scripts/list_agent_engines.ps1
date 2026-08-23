@@ -11,8 +11,10 @@ $ErrorActionPreference = "Stop"
 if (-not $Project) { $Project = (gcloud config get-value project 2>$null) }
 if (-not $Project) { throw "platform_config_missing:RECALL_GCP_PROJECT" }
 
-$token = (gcloud auth print-access-token)
-if ($LASTEXITCODE -ne 0) { throw "auth_token_failed" }
+. "$PSScriptRoot\gcloud_token.ps1"
+# Bounded: a bare print-access-token can wait forever on a reauth prompt
+# that no one can answer in a non-interactive session.
+$token = Get-RecallAccessToken
 
 $uri = "https://$Location-aiplatform.googleapis.com/v1/projects/$Project/locations/$Location/reasoningEngines"
 $response = Invoke-RestMethod -Method Get -Uri $uri -Headers @{ Authorization = "Bearer $token" }
