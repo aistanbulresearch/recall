@@ -151,6 +151,113 @@ class FleetDeployment:
         }
 
 
+# The one place the fleet's startup configuration is declared. deploy_fleet
+# refuses to start unless the effective configuration matches this exactly.
+# Rationale: a parameter that lives only at a call site is a parameter nobody
+# checks. Three engines rising on the wrong environment would not be visible
+# until the traces were already wrong.
+EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
+    "requirements": FLEET_REQUIREMENTS,
+    "resource_limits": dict(FLEET_RESOURCE_LIMITS),
+    "env_keys": frozenset(
+        {
+            "GOOGLE_CLOUD_LOCATION",
+            "GOOGLE_GENAI_USE_VERTEXAI",
+            "RECALL_MODEL",
+            "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY",
+            "OTEL_SEMCONV_STABILITY_OPT_IN",
+            "OTEL_SERVICE_NAME",
+            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS",
+        }
+    ),
+    "env_values": {
+        "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
+        "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+        "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
+        "GOOGLE_GENAI_USE_VERTEXAI": "1",
+    },
+    "forbidden_env_keys": frozenset(
+        {"enable_tracing", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"}
+    ),
+    "role_service_accounts": {
+        AgentRole.EVIDENCE_WATCHER.value: "recall-sa-watcher",
+        AgentRole.EVIDENCE_ASSESSOR.value: "recall-sa-assessor",
+        AgentRole.CITATION_AUDITOR.value: "recall-sa-auditor",
+    },
+}
+
+TRACING_ATTRIBUTES = ("enable_tracing", "_enable_tracing")
+
+
+def _mismatch(field: str) -> PlatformError:
+    return PlatformError("fleet_config_mismatch", field)
+
+
+def assert_fleet_config(
+    config: PlatformConfig,
+    members: Sequence[FleetMember] = FLEET_MEMBERS,
+    *,
+    expected: Mapping[str, Any] | None = None,
+) -> None:
+    """Refuse to start unless the effective configuration is the locked one.
+
+    Raises `fleet_config_mismatch:<field>` naming the first field that differs,
+    before any engine is created. Recording the actual value in a manifest after
+    the fact is not the same protection: by then the engines exist.
+    """
+
+    # Resolved here, not bound as a default: a default argument captures the
+    # constant once at import, so a later change to it would not be seen and the
+    # check would be reading a snapshot of itself.
+    if expected is None:
+        expected = EXPECTED_FLEET_CONFIG
+    if not members:
+        raise _mismatch("members")
+    declared_roles = {member.role.value for member in members}
+    if declared_roles != set(expected["role_service_accounts"]):
+        raise _mismatch("role_service_accounts")
+
+    for member in members:
+        expected_account = expected["role_service_accounts"][member.role.value]
+        if member.service_account_id != expected_account:
+            raise _mismatch(f"role_service_accounts.{member.role.value}")
+
+        spec = fleet_spec(config, member)
+        if tuple(spec.requirements) != tuple(expected["requirements"]):
+            raise _mismatch("requirements")
+        if dict(spec.resource_limits or {}) != dict(expected["resource_limits"]):
+            raise _mismatch("resource_limits")
+
+        env = dict(spec.env_vars)
+        if set(env) != set(expected["env_keys"]):
+            raise _mismatch("env_keys")
+        for key, value in expected["env_values"].items():
+            if env.get(key) != value:
+                raise _mismatch(f"env_values.{key}")
+        for forbidden in expected["forbidden_env_keys"]:
+            if forbidden in env:
+                raise _mismatch(f"forbidden_env_keys.{forbidden}")
+        if env.get("OTEL_SERVICE_NAME") != member.display_name:
+            raise _mismatch("env_values.OTEL_SERVICE_NAME")
+
+        if not spec.service_account or not spec.service_account.startswith(
+            expected_account + "@"
+        ):
+            raise _mismatch(f"service_account.{member.role.value}")
+
+
+def assert_agent_carries_no_tracing_flag(agent_engine: Any) -> None:
+    """Refuse an agent object built with the overridden enable_tracing flag.
+
+    The runtime reports telemetry as on while it is off when that parameter is
+    passed at all, so a truthy tracing attribute is a configuration mismatch.
+    """
+
+    for attribute in TRACING_ATTRIBUTES:
+        if getattr(agent_engine, attribute, None):
+            raise _mismatch("enable_tracing")
+
+
 AgentFactory = Callable[[FleetMember], Any]
 
 
@@ -172,6 +279,9 @@ def deploy_fleet(
 
     if not members:
         raise PlatformError("fleet_no_members")
+    # Checked before anything is created. A mismatch stops the run with zero
+    # engines in flight.
+    assert_fleet_config(config, members)
 
     def _deploy(member: FleetMember) -> FleetDeployment:
         # Timestamps are recorded per member so 08-24 can measure whether the
@@ -180,9 +290,9 @@ def deploy_fleet(
         error: str | None = None
         for attempt in range(1, retries + 2):
             try:
-                engine = runtime.deploy(
-                    fleet_spec(config, member), agent_factory(member)
-                )
+                agent = agent_factory(member)
+                assert_agent_carries_no_tracing_flag(agent)
+                engine = runtime.deploy(fleet_spec(config, member), agent)
             except Exception as exc:  # noqa: BLE001 - the failure is the result
                 error = f"{type(exc).__name__}:{exc}"[:300]
                 logger.error(
