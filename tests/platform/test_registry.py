@@ -8,6 +8,7 @@ import pytest
 from recall.contracts.enums import FactState
 from recall.contracts.errors import ContractError
 from recall.contracts.models import parse_artifact
+from recall.contracts.schemas import SCHEMAS
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.platform.errors import PlatformError
 from recall.platform.registry import (
@@ -21,6 +22,7 @@ from recall.platform.registry import (
     catalog_from_agents,
     engine_is_catalogued,
     observe_catalog,
+    registered_contract,
     resolve_capabilities,
     runtime_identity,
 )
@@ -315,3 +317,130 @@ def test_service_body_shape() -> None:
     )
     assert body["agentSpec"] == {"type": "NO_SPEC"}
     assert body["interfaces"][0]["protocolBinding"] == "HTTP_JSON"
+
+
+# --- contract version alignment (RegistryResolutionReceipt 1.1.0) -------------
+
+
+def test_emitted_version_matches_the_registered_contract() -> None:
+    """The receipt must never declare a version the Ledger does not validate."""
+
+    version, _fields = registered_contract()
+    wire = build_registry_resolution_receipt(
+        _resolution(),
+        artifact_id=ARTIFACT_ID,
+        run_id=RUN_ID,
+        case_id=None,
+        producer_version="0.1.0",
+        created_at="2026-08-23T10:00:00Z",
+    )
+    assert wire["schema_version"] == version
+    parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+
+
+def test_payload_field_set_matches_the_registered_contract() -> None:
+    _version, fields = registered_contract()
+    payload_keys = set(_resolution().payload())
+    assert payload_keys == set(fields)
+
+
+def _simulate_registry(monkeypatch: Any, version: str, fields: set[str]) -> None:
+    """Point the emitter at a registry entry with the given version and fields."""
+
+    class _StubPayload:
+        """Stands in for the contracts-lane payload object at that version."""
+
+        def __init__(self, value: Mapping[str, Any]) -> None:
+            self._fields = {key: value[key] for key in fields if key in value}
+
+        def to_wire(self) -> dict[str, Any]:
+            return dict(self._fields)
+
+    def _permissive_parser(value: Mapping[str, Any]) -> Any:
+        return _StubPayload(value)
+
+    monkeypatch.setitem(
+        SCHEMAS,
+        "RegistryResolutionReceipt",
+        (version, frozenset(fields), _permissive_parser, True),
+    )
+
+
+CORE_110_FIELDS = {
+    "requested_capabilities",
+    "bindings",
+    "resolution_mode",
+    "validation_status",
+    "reason_codes",
+}
+
+
+def test_against_the_core_1_1_0_contract_the_mode_is_a_payload_field(
+    monkeypatch: Any,
+) -> None:
+    _simulate_registry(monkeypatch, "1.1.0", CORE_110_FIELDS)
+    resolution = resolve_capabilities(
+        list(CATALOG),
+        CATALOG,
+        resolution_mode=ResolutionMode.MANUAL_SERVICE,
+        region=REGION,
+    )
+    payload = resolution.payload()
+    assert payload["resolution_mode"] == "MANUAL_SERVICE"
+    assert set(payload) == CORE_110_FIELDS
+
+
+def test_against_1_1_0_the_transitional_reason_code_is_dropped(
+    monkeypatch: Any,
+) -> None:
+    _simulate_registry(monkeypatch, "1.1.0", CORE_110_FIELDS)
+    resolution = _resolution()
+    assert resolution.reason_codes == ()
+    assert not any(
+        code.startswith("registry_resolution_mode_") for code in resolution.reason_codes
+    )
+
+
+def test_against_1_1_0_unresolved_reason_still_reported(monkeypatch: Any) -> None:
+    _simulate_registry(monkeypatch, "1.1.0", CORE_110_FIELDS)
+    resolution = _resolution([*CATALOG, "evidence.audit"])
+    assert resolution.reason_codes == (UNRESOLVED_REASON,)
+    assert resolution.payload()["resolution_mode"] == "REGISTRY"
+
+
+def test_against_1_1_0_the_receipt_declares_1_1_0(monkeypatch: Any) -> None:
+    _simulate_registry(monkeypatch, "1.1.0", CORE_110_FIELDS)
+    wire = build_registry_resolution_receipt(
+        _resolution(),
+        artifact_id=ARTIFACT_ID,
+        run_id=RUN_ID,
+        case_id=None,
+        producer_version="0.1.0",
+        created_at="2026-08-23T10:00:00Z",
+    )
+    assert wire["schema_version"] == "1.1.0"
+    assert wire["resolution_mode"] == "REGISTRY"
+
+
+@pytest.mark.parametrize("mode", list(ResolutionMode))
+def test_every_mode_round_trips_as_a_field(monkeypatch: Any, mode: Any) -> None:
+    _simulate_registry(monkeypatch, "1.1.0", CORE_110_FIELDS)
+    resolution = resolve_capabilities(
+        list(CATALOG), CATALOG, resolution_mode=mode, region=REGION
+    )
+    assert resolution.payload()["resolution_mode"] == mode.value
+
+
+def test_mode_values_match_the_closed_contract_enum() -> None:
+    assert {mode.value for mode in ResolutionMode} == {
+        "REGISTRY",
+        "MANUAL_SERVICE",
+        "PINNED_FALLBACK",
+    }
+
+
+def test_unregistered_schema_fails_loudly(monkeypatch: Any) -> None:
+    monkeypatch.delitem(SCHEMAS, "RegistryResolutionReceipt")
+    with pytest.raises(PlatformError) as excinfo:
+        registered_contract()
+    assert excinfo.value.code == "registry_schema_unregistered"
