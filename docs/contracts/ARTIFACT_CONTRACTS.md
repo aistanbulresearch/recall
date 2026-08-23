@@ -89,10 +89,10 @@ The catalog field names above are not open objects. These nested structures are 
 
 | Path | Required shape |
 |---|---|
-| `PrivacyReceipt.detectors.deterministic` | `version`, `approved_spans` where each span contains only `span_hash`, `identifier_class`, `start`, and `end` |
-| `PrivacyReceipt.detectors.gemma` | `version`, `invoked`, `schema_valid`, `approved_residual_spans` with the same span shape; no raw span text |
+| `PrivacyReceipt.detectors.deterministic` | `version`, `approved_spans` as an array of keyed span-hash string references; no raw span text, class, or offsets |
+| `PrivacyReceipt.detectors.gemma` | `version`, `invoked`, `schema_valid`, `approved_residual_spans` with the same string-reference shape |
 | `PrivacyReceipt.outbound` | `scan_status`, `allowed_field_paths`, `raw_text_field_count` |
-| `PrivacyReceipt.signature_ref` | Exactly `key_id`, `algorithm`, `signature`; all are non-empty strings and no secret key material is permitted |
+| `PrivacyReceipt.signature_ref` | Exactly `key_id`, `algorithm`, `signature`; all are non-empty strings and no secret key material is permitted; the detached signature covers the unsigned receipt body and the final artifact hash covers the signature reference |
 | `CloudBoundPayload` | Non-artifact intake object at version `1.0.0`: exact required fields `payload_kind`, `payload_version`, `case_token`, `tenant_id`, `region`, `data_mode`, `variant`; optional `deidentified_summary`; `variant` is exactly `gene`, `hgvs_c`, `hgvs_p`, `assembly`; unknown fields fail closed |
 | `WatchCase.last_verified_scan` | `run_id`, `completed_at`; both null together when no verified scan exists |
 | `WatchCase.pending_observation_hashes` | Sorted unique array of unverified observation hashes; empty is valid only after an explicit verified transition cleared the backlog |

@@ -3,7 +3,7 @@
     {
       "artifact_id": "9ac50ad5-50d4-547f-8a94-677b58b6cea7",
       "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
-      "content_hash": "8876544c26ea76735c7b05b386f01ca898f3cabfc59744a7f46632fd98186986",
+      "content_hash": "772d63b2bc86deb2153af362bea38c5945dfad55fdfc1d4f05bc341448a8b966",
       "created_at": "2026-08-22T09:00:00Z",
       "data_mode": "SYNTHETIC",
       "decision": "ACCEPTED",
@@ -11,7 +11,7 @@
         "adjudicator": "span-adjudicator@1.0.0",
         "deterministic": "deterministic-detectors@1.0.0",
         "egress_profile": "STRUCTURED_ONLY@1.0.0",
-        "gemma_adapter": "gemma-span-adapter@1.0.0",
+        "gemma_adapter": "gemma-span-adapter@1.1.0",
         "lab_directory": "1.0.0",
         "outbound_lexicon": "1.0.0",
         "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
@@ -21,105 +21,30 @@
       "detectors": {
         "deterministic": {
           "approved_spans": [
-            {
-              "end": 20,
-              "identifier_class": "PERSON_NAME",
-              "span_hash": "3b6d470544f1d0aa1b934e028bc7923c93ed997ce0adc4f5c5156ad7eccc346f",
-              "start": 7
-            },
-            {
-              "end": 47,
-              "identifier_class": "NATIONAL_ID",
-              "span_hash": "0106f264d4e5c5fa6bf507d4966b2a662d58ed85cf422594991b7ff8e47eafb6",
-              "start": 36
-            },
-            {
-              "end": 73,
-              "identifier_class": "DATE_OF_BIRTH",
-              "span_hash": "c8c57f0056ccf8ed00b9464441c76d4485a94b84f84fc6e5e28f979eb8a140b2",
-              "start": 63
-            },
-            {
-              "end": 77,
-              "identifier_class": "AGE",
-              "span_hash": "241de36b5f117b9c48167d2d828ce1eb8fad5aa5241d9390463aee4afb7682c3",
-              "start": 75
-            },
-            {
-              "end": 108,
-              "identifier_class": "MEDICAL_RECORD_NUMBER",
-              "span_hash": "a8a11bb55cbd2e646d34d1df70a97729e55e5b431dfe6a4cb6e5e0e9f657ff1f",
-              "start": 98
-            },
-            {
-              "end": 133,
-              "identifier_class": "PROTOCOL_NUMBER",
-              "span_hash": "77c2b48a6d6a360e349425afcc1ed69cf10aa64c31ae1dc0a5475d4c9b0f1636",
-              "start": 123
-            },
-            {
-              "end": 169,
-              "identifier_class": "FACILITY_NAME",
-              "span_hash": "7c2c8d9499425fae7f67af0019805a3a8e1f8c1b80115fc89b19b656d128b84c",
-              "start": 142
-            },
-            {
-              "end": 201,
-              "identifier_class": "CLINICIAN_NAME",
-              "span_hash": "cddf7b1019fe4aed489c9ff81966c8406b177bf4a8b38307607ce08cb819d458",
-              "start": 190
-            },
-            {
-              "end": 408,
-              "identifier_class": "PHONE",
-              "span_hash": "35ebff1e37a11d66a531408d299a37ba5586492bc8ad92dae504ceb6e0b0abfa",
-              "start": 394
-            },
-            {
-              "end": 441,
-              "identifier_class": "EMAIL",
-              "span_hash": "bdf4982de1c3430a7a48edb8b716f8104544aecb30cb2da0680f7c5ee7b5ec04",
-              "start": 411
-            },
-            {
-              "end": 476,
-              "identifier_class": "ADDRESS",
-              "span_hash": "79b85e6c9d23b683ce0cea1b7591d5df91fdd6778d87c8db81a953ca7420b014",
-              "start": 449
-            },
-            {
-              "end": 510,
-              "identifier_class": "EVENT_DATE",
-              "span_hash": "b15edb2248b9b06cee5d4946fabf6bf923aaf86cc537af7b63b3abf3c67e4cd6",
-              "start": 497
-            },
-            {
-              "end": 534,
-              "identifier_class": "PERSON_NAME",
-              "span_hash": "67a1c2442361ffbdd1af9165355bbe89b81371bc83f9e17f2bee376bf3f2b8c2",
-              "start": 526
-            },
-            {
-              "end": 574,
-              "identifier_class": "FACILITY_NAME",
-              "span_hash": "894774a489c374f00a03aa6302c2751db92eec3d9be6789f36ba49c9514e4a53",
-              "start": 553
-            }
+            "0106f264d4e5c5fa6bf507d4966b2a662d58ed85cf422594991b7ff8e47eafb6",
+            "241de36b5f117b9c48167d2d828ce1eb8fad5aa5241d9390463aee4afb7682c3",
+            "35ebff1e37a11d66a531408d299a37ba5586492bc8ad92dae504ceb6e0b0abfa",
+            "3b6d470544f1d0aa1b934e028bc7923c93ed997ce0adc4f5c5156ad7eccc346f",
+            "67a1c2442361ffbdd1af9165355bbe89b81371bc83f9e17f2bee376bf3f2b8c2",
+            "77c2b48a6d6a360e349425afcc1ed69cf10aa64c31ae1dc0a5475d4c9b0f1636",
+            "79b85e6c9d23b683ce0cea1b7591d5df91fdd6778d87c8db81a953ca7420b014",
+            "7c2c8d9499425fae7f67af0019805a3a8e1f8c1b80115fc89b19b656d128b84c",
+            "894774a489c374f00a03aa6302c2751db92eec3d9be6789f36ba49c9514e4a53",
+            "a8a11bb55cbd2e646d34d1df70a97729e55e5b431dfe6a4cb6e5e0e9f657ff1f",
+            "b15edb2248b9b06cee5d4946fabf6bf923aaf86cc537af7b63b3abf3c67e4cd6",
+            "bdf4982de1c3430a7a48edb8b716f8104544aecb30cb2da0680f7c5ee7b5ec04",
+            "c8c57f0056ccf8ed00b9464441c76d4485a94b84f84fc6e5e28f979eb8a140b2",
+            "cddf7b1019fe4aed489c9ff81966c8406b177bf4a8b38307607ce08cb819d458"
           ],
           "version": "deterministic-detectors@1.0.0"
         },
         "gemma": {
           "approved_residual_spans": [
-            {
-              "end": 622,
-              "identifier_class": "EVENT_DATE",
-              "span_hash": "95df5b34b84b0ba3bb799e08bace9e6d5d97798eb65bfa75ef3e73631455b0a3",
-              "start": 614
-            }
+            "95df5b34b84b0ba3bb799e08bace9e6d5d97798eb65bfa75ef3e73631455b0a3"
           ],
           "invoked": true,
           "schema_valid": true,
-          "version": "gemma-span-adapter@1.0.0"
+          "version": "gemma-span-adapter@1.1.0"
         }
       },
       "extensions": {},
@@ -159,7 +84,7 @@
       "payload_hash": "6b7bef2681bfbcf09ec0d727461b99d0107448e0a7eb643f48b939dd187aa14e",
       "producer": {
         "component": "local-privacy-gate",
-        "identity": "lab-privacy-gate",
+        "identity": "privacy-gate",
         "version": "0.1.0"
       },
       "run_id": null,
@@ -168,7 +93,7 @@
       "signature_ref": {
         "algorithm": "HMAC-SHA256",
         "key_id": "demo-lab-key",
-        "signature": "4c4d81fbf3848120b463351cc6fc508b1bd2bb3ec1a907452aaba887ebc767b7"
+        "signature": "13b7bf365cd994a7fe393f9229fc833ec1f8a6453822232ae932b84682eeb292"
       },
       "status": "VALID",
       "warnings": []

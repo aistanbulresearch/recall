@@ -61,12 +61,12 @@ describe('privacy receipt in the bundle', () => {
     expect(profile.source_refs.length).toBeGreaterThan(0);
   });
 
-  it('never carries a raw span surface', () => {
-    const spans = (receiptOf(golden).detectors as { deterministic: { approved_spans: Array<Record<string, unknown>> } })
-      .deterministic.approved_spans;
+  it('carries only keyed span-hash references, never raw span metadata', () => {
+    const spans = (receiptOf(golden).detectors as { deterministic: { approved_spans: string[] } }).deterministic
+      .approved_spans;
     expect(spans.length).toBeGreaterThan(0);
     for (const span of spans) {
-      expect(Object.keys(span).sort()).toEqual(['end', 'identifier_class', 'span_hash', 'start']);
+      expect(span).toMatch(/^[0-9a-f]{64}$/);
     }
   });
 

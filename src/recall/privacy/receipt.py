@@ -9,12 +9,18 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from recall.privacy.signing import LocalSigner, canonical_json, content_hash
+from recall.contracts.canonical import content_hash as artifact_content_hash
+from recall.privacy.signing import (
+    SIGNING_ALGORITHM,
+    LocalSigner,
+    canonical_json,
+    content_hash,
+)
 
 SCHEMA_NAME = "PrivacyReceipt"
 SCHEMA_VERSION = "1.0.0"
 PRODUCER_COMPONENT = "local-privacy-gate"
-PRODUCER_IDENTITY = "lab-privacy-gate"
+PRODUCER_IDENTITY = "privacy-gate"
 
 DECISION_ACCEPTED = "ACCEPTED"
 DECISION_QUARANTINED = "QUARANTINED"
@@ -46,9 +52,9 @@ def build_privacy_receipt(
 ) -> dict[str, Any]:
     """Assemble, hash, and sign one receipt.
 
-    `content_hash` covers the canonical receipt with `content_hash` and
-    `signature_ref` omitted. The signature then covers that hash, so both the
-    body and the hash are verifiable without a circular definition.
+    The detached signature covers the unsigned receipt body. The final artifact
+    hash then covers that signature reference as well as the body, avoiding a
+    circular signature while keeping the complete wire artifact tamper-evident.
     """
 
     if decision not in (DECISION_ACCEPTED, DECISION_QUARANTINED):
@@ -82,8 +88,9 @@ def build_privacy_receipt(
         "payload_hash": payload_hash,
     }
 
-    receipt["content_hash"] = content_hash(receipt)
-    receipt["signature_ref"] = signer.signature_ref(receipt["content_hash"])
+    signed_body_hash = content_hash(receipt)
+    receipt["signature_ref"] = signer.signature_ref(signed_body_hash)
+    receipt["content_hash"] = artifact_content_hash(receipt)
     return receipt
 
 
@@ -91,13 +98,20 @@ def verify_privacy_receipt(receipt: dict[str, Any], signer: LocalSigner) -> tupl
     """Recompute the content hash and check the signature."""
 
     reasons: list[str] = []
-    body = {key: value for key, value in receipt.items() if key not in ("content_hash", "signature_ref")}
-    if content_hash(body) != receipt.get("content_hash"):
+    if artifact_content_hash(receipt) != receipt.get("content_hash"):
         reasons.append("content_hash_mismatch")
+    body = {
+        key: value
+        for key, value in receipt.items()
+        if key not in ("content_hash", "signature_ref")
+    }
+    signed_body_hash = content_hash(body)
     signature_ref = receipt.get("signature_ref") or {}
     if signature_ref.get("key_id") != signer.key_id:
         reasons.append("signature_key_mismatch")
-    if not signer.verify(str(receipt.get("content_hash")), str(signature_ref.get("signature"))):
+    if signature_ref.get("algorithm") != SIGNING_ALGORITHM:
+        reasons.append("signature_algorithm_mismatch")
+    if not signer.verify(signed_body_hash, str(signature_ref.get("signature"))):
         reasons.append("signature_invalid")
     return (not reasons), tuple(reasons)
 
