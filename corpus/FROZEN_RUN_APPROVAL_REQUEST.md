@@ -25,7 +25,15 @@ against this document.
 | 3 | `locator_version` and strategy | `surface-exact-search-locator@1.0.0`. Exact substring search over the note text, case sensitive, no normalisation, overlaps included. One occurrence places the span there; several occurrences each become their own candidate proposal, counted separately including as false positives; no occurrence refuses that one proposal with `model_response_surface_not_found` and leaves the rest of the response intact. |
 | 4 | Acceptance thresholds | **Unchanged from section 6.** Reproduced verbatim below. |
 | 5 | Three split hashes | `dev` `05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5`; `test` `ef5796b16e037cb59aad2513f1ada62e1e2bef9b67cd97a9a9a7c3d53ebe8dfe`; `train` `4f03932c103149f525f2c1d059e9b38abad359bd5604113529dc61a240d7e1a0` |
-| 6 | Runtime configuration | `reasoning_effort` = `think=false` on the native route; `format` = `json`; `timeout_seconds` = 900; `num_predict` = **1024**, previously 512; defect-fix commit `5de7c3701db58ab9492717c6c43ff46a5bf21d6b`; also `num_ctx` 2048, `num_thread` 14, `concurrency` 3, `keep_alive` 30m |
+| 6 | Runtime configuration | `reasoning_effort` = `think=false` on the native route; `format` = `json`; `timeout_seconds` = 900; `num_predict` = **1024**, previously 512; defect-fix commit `5de7c3701db58ab9492717c6c43ff46a5bf21d6b`, locked by `d2085c4a21f535b179cd78f330ce5194930bba02`; also `num_ctx` 2048, `num_thread` 14, `concurrency` 3, `keep_alive` 30m |
+
+All six values are declared in `corpus/FROZEN_CONFIG.json`, sha256
+`80333f1b3022f205fff238360a5a48884d7b73980e1f550af939fa8c22a1b069`. That file is the machine-checked form of this table:
+the harness compares the effective configuration against it before processing a
+single record and refuses the run on any mismatch, naming the field
+(`feat(privacy): assert the frozen configuration before any run`, commit
+`a32b154d0985d0255e1dede7c87342288bd60b84`). The frozen run cannot start without
+passing that check.
 
 ### Item 4, verbatim from section 6
 
@@ -51,6 +59,19 @@ Commit `5de7c3701db58ab9492717c6c43ff46a5bf21d6b` moves the corrected value into
 the code default, so the frozen run inherits it without depending on an argument.
 The configuration does not change; the default is brought into line with the
 frozen value.
+
+Two layers now guard it rather than code review alone:
+
+- commit `d2085c4a21f535b179cd78f330ce5194930bba02` adds a test asserting the
+  code default is 1024, so a regression fails the suite;
+- commit `a32b154d0985d0255e1dede7c87342288bd60b84` adds the startup check
+  described above, so a drifted value stops the run before any record is
+  processed.
+
+Both refusals are exercised by tests. A demonstration on the frozen split path,
+with only `num_predict` altered in the frozen configuration, exits 1 with
+`frozen_config_mismatch:transport.options.num_predict expected=512 actual=1024`
+and creates no evidence directory.
 
 ## 2. The frozen test split has not been read
 
