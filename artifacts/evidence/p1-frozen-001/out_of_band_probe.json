@@ -1,0 +1,40 @@
+{
+  "authorised_by": "director ruling, 2026-08-23, in place of a harness change",
+  "elapsed_seconds": 380.7,
+  "not_a_run_record": true,
+  "note_on_timing": "Ran concurrently with the frozen run, so elapsed time reflects CPU contention and is not a latency measurement.",
+  "probe_input": {
+    "ground_truth_spans": 15,
+    "record_id": "SYNTH-TR-00108",
+    "split": "dev",
+    "why_this_record": "the record where truncation was diagnosed at num_predict 512; needed 578 completion tokens"
+  },
+  "purpose": "Capture literal done_reason and eval_count, which the harness checkpoint does not carry. The adapter returns response content only, and adding telemetry would modify gemma.py, which is bound value 2 (adapter_version) and would void the auditor approval.",
+  "record_kind": "OUT_OF_BAND_PROBE",
+  "request": {
+    "adapter_version_of_prompt": "gemma-span-adapter@1.1.0",
+    "endpoint": "http://127.0.0.1:11434/api/chat",
+    "format": "json",
+    "keep_alive": "30m",
+    "model": "gemma4:e4b-it-qat",
+    "options": {
+      "num_ctx": 2048,
+      "num_predict": 1024,
+      "num_thread": 14,
+      "temperature": 0.0
+    },
+    "stream": false,
+    "think": false,
+    "timeout_seconds": 1800
+  },
+  "response": {
+    "content_parses_as_json": true,
+    "done": true,
+    "done_reason": "stop",
+    "eval_count": 578,
+    "prompt_eval_count": 491,
+    "span_count": 15
+  },
+  "started_utc": "2026-08-23T21:32:57Z",
+  "touches_the_frozen_split": false
+}
