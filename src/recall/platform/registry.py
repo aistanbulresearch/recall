@@ -11,14 +11,9 @@ module builds it through `recall.contracts.build_artifact` and the result is
 parse-validated rather than merely shaped. The Controller is the authoritative
 producer; this module supplies the resolution it records.
 
-`resolution_mode` is a first-class payload field from contract version 1.1.0. The
-emitter reads the registered version and field set from
-`recall.contracts.schemas.SCHEMAS` rather than hardcoding them, so it cannot
-declare a version the Ledger does not validate against. Hardcoding is what broke
-the first integration: this lane emitted 1.0.0 after core had moved to 1.1.0.
-
-While a registry still predates the field, the mode travels as a typed reason
-code so it is never silently dropped.
+The contract's payload field set is closed and `extensions` must stay empty, so
+`resolution_mode` cannot yet be a first-class field. It is carried losslessly as
+a typed reason code until the contracts lane adds the field.
 """
 
 from __future__ import annotations
@@ -32,7 +27,6 @@ from typing import Any, Protocol
 from recall.contracts.builder import build_artifact
 from recall.contracts.canonical import canonical_json_bytes, content_hash
 from recall.contracts.enums import ArtifactStatus, DataMode, FactState
-from recall.contracts.schemas import SCHEMAS
 from recall.ledger.producers import PRODUCER_REGISTRY
 
 from .config import PlatformConfig
@@ -40,8 +34,7 @@ from .errors import PlatformError
 
 logger = logging.getLogger(__name__)
 
-REGISTRY_RESOLUTION = "RegistryResolutionReceipt"
-RESOLUTION_MODE_FIELD = "resolution_mode"
+REGISTRY_RESOLUTION_VERSION = "1.0.0"
 BINDING_FIELDS = frozenset(
     {
         "capability",
@@ -56,37 +49,12 @@ BINDING_FIELDS = frozenset(
 )
 
 
-try:  # The contracts lane owns this enum from RegistryResolutionReceipt 1.1.0.
-    from recall.contracts.enums import ResolutionMode
-except ImportError:  # pragma: no cover - only before the 1.1.0 contract lands
+class ResolutionMode(StrEnum):
+    """How a capability reached an executable endpoint."""
 
-    class ResolutionMode(StrEnum):  # type: ignore[no-redef]
-        """How a capability reached an executable endpoint."""
-
-        REGISTRY = "REGISTRY"
-        MANUAL_SERVICE = "MANUAL_SERVICE"
-        PINNED_FALLBACK = "PINNED_FALLBACK"
-
-
-def registered_contract() -> tuple[str, frozenset[str]]:
-    """Return the version and payload fields the contracts lane has registered.
-
-    The version is read rather than hardcoded so this emitter cannot drift from
-    the registry the Ledger validates against. That drift is exactly what made
-    the first merge fail: this lane emitted 1.0.0 after core moved to 1.1.0.
-    """
-
-    try:
-        version, fields, _parser, _run_required = SCHEMAS[REGISTRY_RESOLUTION]
-    except KeyError as exc:  # pragma: no cover - the schema is registered
-        raise PlatformError("registry_schema_unregistered", REGISTRY_RESOLUTION) from exc
-    return version, fields
-
-
-def resolution_mode_is_a_field() -> bool:
-    """True once `resolution_mode` is a first-class payload field."""
-
-    return RESOLUTION_MODE_FIELD in registered_contract()[1]
+    REGISTRY = "REGISTRY"
+    MANUAL_SERVICE = "MANUAL_SERVICE"
+    PINNED_FALLBACK = "PINNED_FALLBACK"
 
 
 RESOLUTION_MODE_REASON: Mapping[ResolutionMode, str] = {
@@ -162,25 +130,18 @@ class RegistryResolution:
 
     @property
     def reason_codes(self) -> tuple[str, ...]:
-        codes: set[str] = set()
-        if not resolution_mode_is_a_field():
-            # Transitional only: before the contract carried the field, the mode
-            # travelled as a typed reason code so it was never lost.
-            codes.add(RESOLUTION_MODE_REASON[self.resolution_mode])
+        codes = {RESOLUTION_MODE_REASON[self.resolution_mode]}
         if self.unresolved:
             codes.add(UNRESOLVED_REASON)
         return tuple(sorted(codes))
 
     def payload(self) -> dict[str, Any]:
-        payload: dict[str, Any] = {
+        return {
             "requested_capabilities": list(self.requested_capabilities),
             "bindings": [binding.to_wire() for binding in self.bindings],
             "validation_status": self.validation_status.value,
             "reason_codes": list(self.reason_codes),
         }
-        if resolution_mode_is_a_field():
-            payload[RESOLUTION_MODE_FIELD] = ResolutionMode(self.resolution_mode).value
-        return payload
 
 
 def resolve_capabilities(
@@ -257,15 +218,16 @@ def build_registry_resolution_receipt(
         if resolution.validation_status is FactState.PASS
         else ArtifactStatus.INCOMPLETE
     )
-    version, _fields = registered_contract()
     return build_artifact(
-        schema_name=REGISTRY_RESOLUTION,
-        schema_version=version,
+        schema_name="RegistryResolutionReceipt",
+        schema_version=REGISTRY_RESOLUTION_VERSION,
         artifact_id=artifact_id,
         case_id=case_id,
         run_id=run_id,
         producer={
-            "component": PRODUCER_REGISTRY.authority_label(REGISTRY_RESOLUTION),
+            "component": PRODUCER_REGISTRY.authority_label(
+                "RegistryResolutionReceipt"
+            ),
             "version": producer_version,
             "identity": "controller",
         },
