@@ -69,6 +69,9 @@ which is the manifest hash of the **dev** split. The artifact therefore
 demonstrates from its own contents that the run read the development split and
 not the frozen one.
 
+The interval is measured 41m49s; quoted as 42 minutes in the auditor's paragraph
+above.
+
 This position claims nothing that cannot be checked. It does not assert that the
 declaration existed before the run and was committed later. It states that no
 such assertion is being relied on.
@@ -81,7 +84,11 @@ are retained as evidence for one claim only: **that the measurement was produced
 with the declared configuration.** They are not evidence of when the
 configuration was declared, and they are not to be cited as such.
 
-## 5. Values this amendment binds
+## 5. §8 licence gate
+
+§8 licence gate. The licence row was recorded as closed on 2026-08-22, after the dev runs of the same day (smoke 18:47, full 18:58). The gate exists to prevent measurement with a model whose licence the owner has not accepted. Unlike a claim about ordering in time, the protected condition is a property of the artifact and is verifiable at any time by any reader: the Ollama distribution of gemma4:e4b-it-qat ships a 10,174-byte plain Apache License 2.0 text, and the Hugging Face repository metadata for google/gemma-4-E4B-it-qat-q4_0-gguf declares apache-2.0. The record lagged the acceptance; the licence status did not change and could not have. No frozen-split run took place while the row read open. This is a record-keeping defect, not a licence defect, and it does not bear on the validity of any measurement.
+
+## 6. Values this amendment binds
 
 The auditor approval is bound to the following six values. If any one of them
 changes, the approval lapses and a new one is required:
@@ -91,14 +98,14 @@ changes, the approval lapses and a new one is required:
 | 1 | `prompt_sha256` | `90108cca831ab6fbc4aca2a60969a7b4520b19061968697c24d4f2166a7dafb5` |
 | 2 | `adapter_version` and model identity | `gemma-span-adapter@1.1.0`; `registry.ollama.ai/library/gemma4@e4b-it-qat`, q4_0, file `sha256-e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` |
 | 3 | `locator_version` and matching strategy | `surface-exact-search-locator@1.0.0`; exact substring search, ambiguity rule as declared in section 4 of the preregistration |
-| 4 | acceptance thresholds | unchanged from section 6, reproduced verbatim in section 2 above |
+| 4 | acceptance thresholds | unchanged from section 6 of the preregistration, reproduced verbatim in section 2 above |
 | 5 | three split hashes | `dev` `05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5`, `test` `ef5796b16e037cb59aad2513f1ada62e1e2bef9b67cd97a9a9a7c3d53ebe8dfe`, `train` `4f03932c103149f525f2c1d059e9b38abad359bd5604113529dc61a240d7e1a0` |
 | 6 | runtime configuration | `reasoning_effort` (`think=false` on the native route), `format`, `timeout_seconds` |
 
 Every one of these six is recorded in each evidence manifest, so a reviewer can
 check the binding against the artifact rather than against this document.
 
-## 6. Process rule adopted with this amendment
+## 7. Process rule adopted with this amendment
 
 Configuration and preregistration are committed **before** the run they govern,
 on every lane, without exception. A run whose governing commit does not precede
