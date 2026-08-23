@@ -100,7 +100,7 @@ changes, the approval lapses and a new one is required:
 | 3 | `locator_version` and matching strategy | `surface-exact-search-locator@1.0.0`; exact substring search, ambiguity rule as declared in section 4 of the preregistration |
 | 4 | acceptance thresholds | unchanged from section 6 of the preregistration, reproduced verbatim in section 2 above |
 | 5 | three split hashes | `dev` `05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5`, `test` `ef5796b16e037cb59aad2513f1ada62e1e2bef9b67cd97a9a9a7c3d53ebe8dfe`, `train` `4f03932c103149f525f2c1d059e9b38abad359bd5604113529dc61a240d7e1a0` |
-| 6 | runtime configuration | `reasoning_effort` (`think=false` on the native route), `format`, `timeout_seconds` |
+| 6 | runtime configuration | `reasoning_effort` (`think=false` on the native route), `format`, `timeout_seconds`, `num_predict` = 1024, previously 512: defect fix, falsifiable prediction registered in `corpus/PREDICTION_budget_run.md` before the run it governs |
 
 Every one of these six is recorded in each evidence manifest, so a reviewer can
 check the binding against the artifact rather than against this document.
