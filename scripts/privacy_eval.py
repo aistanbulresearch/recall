@@ -1073,6 +1073,11 @@ def main() -> int:
         help="Replay ground-truth residual spans instead of calling a model. Never a model claim.",
     )
     parser.add_argument("--preregistration-approved", default=None, help="Auditor approval record for the frozen split.")
+    parser.add_argument(
+        "--preregistration-approved-file",
+        default=None,
+        help="Read the approval record from a file, so shell quoting cannot alter the recorded wording.",
+    )
     parser.add_argument("--model-repo", default=None, help="Repository the model file came from.")
     parser.add_argument("--model-revision", default=None, help="Repository revision of the model file.")
     parser.add_argument("--model-quantization", default=None, help="Quantisation of the model file, for example q4_0.")
@@ -1082,6 +1087,13 @@ def main() -> int:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
+
+    if args.preregistration_approved_file:
+        if args.preregistration_approved:
+            raise SystemExit("pass the approval as text or as a file, not both")
+        args.preregistration_approved = (
+            Path(args.preregistration_approved_file).read_text(encoding="utf-8").strip()
+        )
 
     if args.split == "test":
         guard_frozen_split(args)
