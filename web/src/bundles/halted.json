@@ -3,7 +3,7 @@
     {
       "artifact_id": "4a3b271e-f192-5b1b-8267-6d5a3b032dae",
       "case_id": "e858a77c-a76a-5e46-b3ae-c531951e1bf6",
-      "content_hash": "23370b13ebb43bfeaa1971241cc7186336edc57d9736d12b5946608fb31d492b",
+      "content_hash": "f7ae94b9238756fcd2966b2645151decf56568358f5827db71dcb15fef5e674a",
       "created_at": "2026-08-22T09:00:00Z",
       "data_mode": "SYNTHETIC",
       "decision": "ACCEPTED",
@@ -11,7 +11,7 @@
         "adjudicator": "span-adjudicator@1.0.0",
         "deterministic": "deterministic-detectors@1.0.0",
         "egress_profile": "STRUCTURED_ONLY@1.0.0",
-        "gemma_adapter": "gemma-span-adapter@1.0.0",
+        "gemma_adapter": "gemma-span-adapter@1.1.0",
         "lab_directory": "1.0.0",
         "outbound_lexicon": "1.0.0",
         "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
@@ -21,81 +21,26 @@
       "detectors": {
         "deterministic": {
           "approved_spans": [
-            {
-              "end": 50,
-              "identifier_class": "PERSON_NAME",
-              "span_hash": "b70978a12f9077cfa9be79eae06a4d7c4a8685169871322aeb3c5e4191003cc0",
-              "start": 36
-            },
-            {
-              "end": 58,
-              "identifier_class": "AGE",
-              "span_hash": "8b1aa645557a74710fbd339bd87af7c662cb6a527ea62339c0ae8b3485f5c36f",
-              "start": 56
-            },
-            {
-              "end": 85,
-              "identifier_class": "OCCUPATION",
-              "span_hash": "491c6fec04b484436889ea3e4fcc140bd661e7ff4eabbf7c76e4490874b2cdd5",
-              "start": 71
-            },
-            {
-              "end": 115,
-              "identifier_class": "RELATIVE_NAME",
-              "span_hash": "fb09c6a09e53639ed9cd08ee83fc7cc217ba749e6a6163c12540413de53cd9eb",
-              "start": 98
-            },
-            {
-              "end": 167,
-              "identifier_class": "EVENT_DATE",
-              "span_hash": "751aac73479d28ef487f2c8c5f0f227cc29e6484d2b5aa0da5e51f00b10ffe80",
-              "start": 151
-            },
-            {
-              "end": 219,
-              "identifier_class": "FACILITY_NAME",
-              "span_hash": "26fbe79d10dc868f19b267e609cb9b34eed3c89b92dea374223ab25f03495791",
-              "start": 191
-            },
-            {
-              "end": 240,
-              "identifier_class": "PROTOCOL_NUMBER",
-              "span_hash": "77feb1a7c7f87a9c6948954bc5c0d7d303d80a039ec701eecffe9dbda29c3199",
-              "start": 230
-            },
-            {
-              "end": 406,
-              "identifier_class": "EMAIL",
-              "span_hash": "f3f9e07e448200a10ed7f1595aba277ef6bd9eb0aa119bc0dd161ba43bb4a1d2",
-              "start": 375
-            },
-            {
-              "end": 459,
-              "identifier_class": "PERSON_NAME",
-              "span_hash": "1a974e1532ea94045bc0215b5aa4b1685a7ac1b54aa56cf7763dc1692881454a",
-              "start": 445
-            },
-            {
-              "end": 505,
-              "identifier_class": "FACILITY_NAME",
-              "span_hash": "1c1959ae6c98f5d003899b848e573649f13662f893fef3090cde8107d67fb396",
-              "start": 476
-            }
+            "1a974e1532ea94045bc0215b5aa4b1685a7ac1b54aa56cf7763dc1692881454a",
+            "1c1959ae6c98f5d003899b848e573649f13662f893fef3090cde8107d67fb396",
+            "26fbe79d10dc868f19b267e609cb9b34eed3c89b92dea374223ab25f03495791",
+            "491c6fec04b484436889ea3e4fcc140bd661e7ff4eabbf7c76e4490874b2cdd5",
+            "751aac73479d28ef487f2c8c5f0f227cc29e6484d2b5aa0da5e51f00b10ffe80",
+            "77feb1a7c7f87a9c6948954bc5c0d7d303d80a039ec701eecffe9dbda29c3199",
+            "8b1aa645557a74710fbd339bd87af7c662cb6a527ea62339c0ae8b3485f5c36f",
+            "b70978a12f9077cfa9be79eae06a4d7c4a8685169871322aeb3c5e4191003cc0",
+            "f3f9e07e448200a10ed7f1595aba277ef6bd9eb0aa119bc0dd161ba43bb4a1d2",
+            "fb09c6a09e53639ed9cd08ee83fc7cc217ba749e6a6163c12540413de53cd9eb"
           ],
           "version": "deterministic-detectors@1.0.0"
         },
         "gemma": {
           "approved_residual_spans": [
-            {
-              "end": 556,
-              "identifier_class": "EVENT_DATE",
-              "span_hash": "30a69fa99630a1fe05be30b8ead8a9df5c8a467fdec4c82e9ecdcc775e0e9483",
-              "start": 548
-            }
+            "30a69fa99630a1fe05be30b8ead8a9df5c8a467fdec4c82e9ecdcc775e0e9483"
           ],
           "invoked": true,
           "schema_valid": true,
-          "version": "gemma-span-adapter@1.0.0"
+          "version": "gemma-span-adapter@1.1.0"
         }
       },
       "extensions": {},
@@ -135,7 +80,7 @@
       "payload_hash": "4f1371928b5430ed3d217ddea27a78b65067302e807d94547836bf0690e0f6a4",
       "producer": {
         "component": "local-privacy-gate",
-        "identity": "lab-privacy-gate",
+        "identity": "privacy-gate",
         "version": "0.1.0"
       },
       "run_id": null,
@@ -144,7 +89,7 @@
       "signature_ref": {
         "algorithm": "HMAC-SHA256",
         "key_id": "demo-lab-key",
-        "signature": "4101c8deba7843977fac20b4a769d7b26b3d42acdd8ca3daa5c4a8208708a6ba"
+        "signature": "e69bf90d0c0b4c7c9c626d1643b359f13ff071b719879ca658cd636aacf4e5f4"
       },
       "status": "VALID",
       "warnings": []

@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 from conftest import note_from_record, residual_transport
 
+from recall.contracts import parse_artifact
+from recall.contracts.canonical import content_hash as artifact_content_hash
+from recall.ledger.producers import PRODUCER_REGISTRY
+from recall.privacy.egress import EGRESS_SUMMARY_TEXT
 from recall.privacy.receipt import (
     DECISION_ACCEPTED,
     DECISION_QUARANTINED,
@@ -38,7 +43,7 @@ PAYLOAD_FIELDS = {
     "payload_hash",
     "signature_ref",
 }
-SPAN_FIELDS = {"span_hash", "identifier_class", "start", "end"}
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 @pytest.fixture
@@ -74,7 +79,7 @@ def test_warnings_use_the_typed_shape(gate_factory, dev_records) -> None:
         assert set(warning) == {"code", "message_key", "related_artifact_ids"}
 
 
-def test_span_entries_expose_only_hash_class_and_offsets(accepted_receipt) -> None:
+def test_span_entries_expose_only_keyed_hash_references(accepted_receipt) -> None:
     _, result = accepted_receipt
     detectors = result.receipt["detectors"]
     assert set(detectors) == {"deterministic", "gemma"}
@@ -82,8 +87,9 @@ def test_span_entries_expose_only_hash_class_and_offsets(accepted_receipt) -> No
     assert set(detectors["gemma"]) == {"version", "invoked", "schema_valid", "approved_residual_spans"}
     for group in ("deterministic", "gemma"):
         key = "approved_spans" if group == "deterministic" else "approved_residual_spans"
-        for span in detectors[group][key]:
-            assert set(span) == SPAN_FIELDS
+        for span_ref in detectors[group][key]:
+            assert isinstance(span_ref, str)
+            assert SHA256.fullmatch(span_ref)
 
 
 def test_outbound_block_uses_the_contract_shape(accepted_receipt) -> None:
@@ -99,6 +105,35 @@ def test_content_hash_and_signature_verify(accepted_receipt, signer) -> None:
     assert valid, reasons
 
 
+def test_real_receipt_round_trips_through_authoritative_parser(
+    accepted_receipt,
+) -> None:
+    _, result = accepted_receipt
+
+    parsed = parse_artifact(
+        result.receipt,
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+
+    assert parsed.to_wire() == result.receipt
+
+
+def test_real_quarantined_receipt_round_trips_through_authoritative_parser(
+    gate_factory, dev_records
+) -> None:
+    result = gate_factory(None, egress_profile=EGRESS_SUMMARY_TEXT).process(
+        note_from_record(dev_records[0])
+    )
+    assert result.decision == DECISION_QUARANTINED
+
+    parsed = parse_artifact(
+        result.receipt,
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+
+    assert parsed.to_wire() == result.receipt
+
+
 def test_tampering_with_the_decision_breaks_verification(accepted_receipt, signer) -> None:
     _, result = accepted_receipt
     tampered = dict(result.receipt)
@@ -106,6 +141,23 @@ def test_tampering_with_the_decision_breaks_verification(accepted_receipt, signe
     valid, reasons = verify_privacy_receipt(tampered, signer)
     assert valid is False
     assert "content_hash_mismatch" in reasons
+
+
+def test_algorithm_substitution_fails_after_public_hash_refresh(
+    accepted_receipt, signer
+) -> None:
+    _, result = accepted_receipt
+    tampered = dict(result.receipt)
+    tampered["signature_ref"] = {
+        **result.receipt["signature_ref"],
+        "algorithm": "UNSUPPORTED",
+    }
+    tampered["content_hash"] = artifact_content_hash(tampered)
+
+    valid, reasons = verify_privacy_receipt(tampered, signer)
+
+    assert valid is False
+    assert reasons == ("signature_algorithm_mismatch",)
 
 
 def test_receipt_carries_no_identifier_surface(accepted_receipt) -> None:

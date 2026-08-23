@@ -158,7 +158,7 @@ class PrivacyGate:
             else DECISION_QUARANTINED
         )
         released_payload = candidate_payload if decision == DECISION_ACCEPTED else None
-        payload_hash = content_hash(candidate_payload) if released_payload is not None else ""
+        payload_hash = content_hash(candidate_payload)
 
         span_key = self._signer.span_key()
         receipt = build_privacy_receipt(
@@ -172,15 +172,23 @@ class PrivacyGate:
             identifier_classes_checked=self._detector.identifier_classes_checked(),
             deterministic_detector={
                 "version": self._detector.version,
-                "approved_spans": [span.to_wire(note.note_text, span_key) for span in deterministic_spans],
+                "approved_spans": sorted(
+                    {
+                        span.to_receipt_ref(note.note_text, span_key)
+                        for span in deterministic_spans
+                    }
+                ),
             },
             gemma_detector={
                 "version": gemma_outcome.adapter_version,
                 "invoked": gemma_outcome.invoked,
                 "schema_valid": gemma_outcome.schema_valid,
-                "approved_residual_spans": [
-                    span.to_wire(note.note_text, span_key) for span in adjudication.approved
-                ],
+                "approved_residual_spans": sorted(
+                    {
+                        span.to_receipt_ref(note.note_text, span_key)
+                        for span in adjudication.approved
+                    }
+                ),
             },
             outbound={
                 "scan_status": scan.scan_status,

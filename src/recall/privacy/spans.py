@@ -72,6 +72,13 @@ class DetectedSpan:
             "end": self.end,
         }
 
+    def to_receipt_ref(self, text: str, span_key: bytes) -> str:
+        """Return the keyed hash reference permitted in a PrivacyReceipt."""
+
+        return span_hash(
+            text[self.start : self.end], self.identifier_class, span_key
+        )
+
 
 def span_hash(surface: str, identifier_class: str, span_key: bytes) -> str:
     """Keyed hash of an identifier surface.
