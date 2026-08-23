@@ -32,6 +32,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recall.contracts.enums import ArtifactStatus, DataMode  # noqa: E402
 from recall.platform.config import PlatformConfig  # noqa: E402
 from recall.platform.errors import PlatformError  # noqa: E402
+from recall.platform.fleet import FLEET_REQUIREMENTS, fleet_env_vars  # noqa: E402
 from recall.platform.identity import BY_ACCOUNT_ID  # noqa: E402
 from recall.platform.receipts import utc_timestamp  # noqa: E402
 from recall.platform.redaction import redact_identifiers  # noqa: E402
@@ -46,16 +47,9 @@ logger = logging.getLogger("recall.platform.smoke")
 DISPLAY_NAME = "recall-hello-smoke"
 AGENT_NAME = "recall_hello_smoke"
 DESCRIPTION = "Lane L1 day-zero managed runtime smoke. Temporary; deleted same day."
-# The runtime logs "telemetry enabled but proceeding without ... instrumentation"
-# and emits no spans unless these are installed in the deployed image. The
-# google-genai one is the load-bearing package: without it the model call
-# produces no GenAI span at all.
-REQUIREMENTS = (
-    "google-cloud-aiplatform[adk,agent_engines]",
-    "opentelemetry-instrumentation-google-genai",
-    "opentelemetry-instrumentation-grpc",
-    "opentelemetry-instrumentation-httpx",
-)
+# The smoke path deploys exactly what the fleet deploys, so a configuration
+# that passes here cannot differ from what the three agents get on 08-24.
+REQUIREMENTS = FLEET_REQUIREMENTS
 INSTRUCTION = (
     "You are a deployment smoke probe for the Recall platform lane. "
     "Answer in one short sentence. Handle no clinical or personal content."
@@ -116,21 +110,7 @@ def _spec(config: PlatformConfig, service_account: str | None) -> AgentSpec:
         display_name=DISPLAY_NAME,
         description=DESCRIPTION,
         requirements=REQUIREMENTS,
-        env_vars={
-            "GOOGLE_CLOUD_LOCATION": config.model_location,
-            "GOOGLE_GENAI_USE_VERTEXAI": "1",
-            "RECALL_MODEL": config.model,
-            # Telemetry is configured by environment. The enable_tracing flag is
-            # overridden by the runtime and produced no spans.
-            "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
-            "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
-            "OTEL_SERVICE_NAME": DISPLAY_NAME,
-            # Keep prompt and response text out of spans. Recall's contracts
-            # forbid raw sensitive text in cloud artifacts, so both content
-            # capture switches stay off: this one is false and
-            # OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT is left unset.
-            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
-        },
+        env_vars=fleet_env_vars(config, DISPLAY_NAME),
         service_account=service_account,
     )
 

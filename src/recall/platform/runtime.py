@@ -46,6 +46,9 @@ class AgentSpec:
     requirements: tuple[str, ...]
     env_vars: Mapping[str, str] = field(default_factory=dict)
     service_account: str | None = None
+    # Pinned explicitly so the deployed shape is a known quantity rather than a
+    # default that has to be guessed when costing the run.
+    resource_limits: Mapping[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +61,9 @@ class DeployedEngine:
     revision: str
     deployed_at: str
     read_back_at: str
+    # None means the runtime did not report a shape, which is recorded as unread
+    # rather than backfilled with the value we asked for.
+    resource_limits: Mapping[str, str] | None = None
 
     @property
     def engine_id(self) -> str:
@@ -76,6 +82,7 @@ class AgentEngineClient(Protocol):
         requirements: Sequence[str],
         env_vars: Mapping[str, str],
         service_account: str | None,
+        resource_limits: Mapping[str, str] | None = None,
     ) -> Any: ...
 
     def get(self, resource_name: str) -> Any: ...
@@ -108,6 +115,39 @@ def _read_back_region(resource_name: str) -> str:
     return parts[3]
 
 
+def read_back_resource_limits(resource: Any) -> dict[str, str] | None:
+    """Read the deployed instance shape back from the engine resource.
+
+    The field has moved between SDK shapes, so several known locations are tried.
+    When none carries a shape this returns None, and the caller records the shape
+    as unread rather than assuming the value that was requested.
+    """
+
+    candidates = [
+        _resource_attr(resource, "resource_limits"),
+        _resource_attr(resource, "resourceLimits"),
+    ]
+    for holder_name in ("spec", "deployment_spec", "deploymentSpec"):
+        holder = _resource_attr(resource, holder_name)
+        if holder is None:
+            continue
+        for field_name in ("resource_limits", "resourceLimits"):
+            candidates.append(getattr(holder, field_name, None))
+            if isinstance(holder, Mapping):
+                candidates.append(holder.get(field_name))
+            nested = getattr(holder, "deployment_spec", None) or (
+                holder.get("deploymentSpec") if isinstance(holder, Mapping) else None
+            )
+            if nested is not None:
+                candidates.append(getattr(nested, field_name, None))
+                if isinstance(nested, Mapping):
+                    candidates.append(nested.get(field_name))
+    for candidate in candidates:
+        if isinstance(candidate, Mapping) and candidate:
+            return {str(k): str(v) for k, v in candidate.items()}
+    return None
+
+
 def _format_timestamp(value: Any) -> str:
     """Render an Agent Engine timestamp as the RFC 3339 string the contract needs."""
 
@@ -136,6 +176,7 @@ class AgentRuntime:
             requirements=list(spec.requirements),
             env_vars=dict(spec.env_vars),
             service_account=spec.service_account,
+            resource_limits=dict(spec.resource_limits) if spec.resource_limits else None,
         )
         resource_name = _resource_name_of(created)
         if not isinstance(resource_name, str) or not resource_name:
@@ -160,6 +201,7 @@ class AgentRuntime:
             raise PlatformError("runtime_create_time_missing", resource_name)
         display_name = _resource_attr(resource, "display_name") or ""
         return DeployedEngine(
+            resource_limits=read_back_resource_limits(resource),
             resource_name=resource_name,
             display_name=str(display_name),
             region=_read_back_region(resource_name),
@@ -361,6 +403,7 @@ class VertexAgentEngineClient:
         requirements: Sequence[str],
         env_vars: Mapping[str, str],
         service_account: str | None,
+        resource_limits: Mapping[str, str] | None = None,
     ) -> Any:
         kwargs: dict[str, Any] = {
             "agent_engine": agent_engine,
@@ -371,6 +414,8 @@ class VertexAgentEngineClient:
         }
         if service_account:
             kwargs["service_account"] = service_account
+        if resource_limits:
+            kwargs["resource_limits"] = dict(resource_limits)
         return self._engines.create(**kwargs)
 
     def get(self, resource_name: str) -> Any:

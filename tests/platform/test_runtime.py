@@ -29,11 +29,13 @@ class FakeResource:
         update_time: str | None,
         events: Sequence[Mapping[str, Any]] | None = None,
         create_time: str | None = "2026-08-22T05:43:55Z",
+        resource_limits: Mapping[str, str] | None = None,
     ) -> None:
         self.resource_name = resource_name
         self.display_name = display_name
         self.update_time = update_time
         self.create_time = create_time
+        self.resource_limits = resource_limits
         self._events = list(events or [])
 
     def stream_query(self, *, message: str, user_id: str) -> Iterator[dict[str, Any]]:
@@ -66,6 +68,7 @@ class FakeClient:
         requirements: Sequence[str],
         env_vars: Mapping[str, str],
         service_account: str | None,
+        resource_limits: Mapping[str, str] | None = None,
     ) -> Any:
         self.create_kwargs = {
             "agent_engine": agent_engine,
@@ -74,14 +77,17 @@ class FakeClient:
             "requirements": list(requirements),
             "env_vars": dict(env_vars),
             "service_account": service_account,
+            "resource_limits": dict(resource_limits) if resource_limits else None,
         }
         name = f"projects/test-project/locations/{REGION}/reasoningEngines/{self._next_id}"
         self._next_id += 1
+        # The runtime reports back the shape it was asked for.
         self.resources[name] = FakeResource(
             name,
             display_name,
             self._update_time,
             events=[{"content": {"parts": [{"text": "hello from recall"}]}}],
+            resource_limits=dict(resource_limits) if resource_limits else None,
         )
         return FakeResource(name, display_name, self._update_time)
 
@@ -317,3 +323,31 @@ def test_malformed_trace_id_is_refused_before_the_call() -> None:
         )
     assert excinfo.value.code == "trace_id_invalid"
     assert session.calls == []
+
+
+PINNED_SPEC = AgentSpec(
+    display_name="recall-watcher",
+    description="pinned shape",
+    requirements=("google-cloud-aiplatform[adk,agent_engines]",),
+    env_vars={"GOOGLE_CLOUD_LOCATION": "global"},
+    resource_limits={"cpu": "1", "memory": "4Gi"},
+)
+
+
+def test_pinned_instance_shape_reaches_the_create_call() -> None:
+    client = FakeClient()
+    _runtime(client).deploy(PINNED_SPEC, agent_engine=object())
+    assert client.create_kwargs["resource_limits"] == {"cpu": "1", "memory": "4Gi"}
+
+
+def test_instance_shape_is_read_back_from_the_engine() -> None:
+    client = FakeClient()
+    engine = _runtime(client).deploy(PINNED_SPEC, agent_engine=object())
+    assert engine.resource_limits == {"cpu": "1", "memory": "4Gi"}
+
+
+def test_unpinned_spec_sends_no_shape_and_reads_back_none() -> None:
+    client = FakeClient()
+    engine = _runtime(client).deploy(SPEC, agent_engine=object())
+    assert client.create_kwargs["resource_limits"] is None
+    assert engine.resource_limits is None

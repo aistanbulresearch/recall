@@ -97,9 +97,21 @@
       "lifecycle": "temporary",
       "purpose": "prove the managed-path trace end to end after the telemetry fixes",
       "created_at": "2026-08-22T19:25:20Z",
-      "status": "DELETE_ISSUED_NOT_VERIFIED",
+      "status": "DELETED_VERIFIED",
       "delete_command": "python infra/smoke/hello_agent_engine.py delete --resource-name <name> --redact",
-      "note": "two delete attempts were issued and both hung before returning; the credential path stopped responding at the same time. Deletion is NOT verified and must be confirmed once credentials are refreshed."
+      "deleted_at": "2026-08-23T08:21:00Z",
+      "deleted_by": "director",
+      "absence_verified_by": [
+        "director: DELETE ?force=true, reasoningEngines.list read-back 0",
+        "L1 independent re-check 2026-08-23T08:27Z: reasoningEngines.list returned 0 engines"
+      ],
+      "uptime": "12h 55m (ready 2026-08-22T19:25:20Z, deleted 2026-08-23T08:21Z)",
+      "policy_breach": {
+        "rule": "smoke resources are deleted the same day",
+        "outcome": "BREACHED",
+        "cause": "two delete attempts were issued at 2026-08-22T19:40Z and both hung; the gcloud and ADC credential paths stopped responding at the same time, so the engine could not be removed or verified until the director deleted it the next morning",
+        "detection": "L1 recorded the resource as DELETE_ISSUED_NOT_VERIFIED rather than reporting it deleted"
+      }
     },
     {
       "id": "recall-hello-smoke-2b",
@@ -239,5 +251,114 @@
       "nature": "synthetic probe spans written by hand to prove the read path; not Recall evidence",
       "expiry": "30 days"
     }
+  },
+  "spend": {
+    "basis": "estimate from recorded resource lifetimes and published list prices; not read from billing",
+    "billing_not_queried": "billing data lags about 24 hours and the billing account id is deliberately not recorded in this repository",
+    "price_assumptions": {
+      "agent_engine_vcpu_hour_usd": 0.0864,
+      "agent_engine_gb_hour_usd": 0.009,
+      "monthly_free_tier": "50 vCPU-hours and 100 GB-hours",
+      "instance_shape_assumed": "1 vCPU and 4 GB per engine; the deployed shape was not pinned or read back, so this is the largest uncertainty in the estimate"
+    },
+    "engine_hours": {
+      "2026-08-22": 6.02,
+      "2026-08-23": 8.35,
+      "total": 14.37,
+      "detail": [
+        {
+          "engine": "hello-smoke-1",
+          "hours": 0.24,
+          "note": "create to delete"
+        },
+        {
+          "engine": "hello-smoke-2",
+          "hours": 0.86
+        },
+        {
+          "engine": "telemetry-attempt-1",
+          "hours": 0.18
+        },
+        {
+          "engine": "telemetry-attempt-2",
+          "hours": 0.16
+        },
+        {
+          "engine": "hello-smoke-3",
+          "hours": 12.93,
+          "note": "the overnight breach"
+        }
+      ]
+    },
+    "estimate_usd": {
+      "2026-08-22": "0.00 within free tier; about 0.74 if the monthly free tier were already consumed",
+      "2026-08-23": "0.00 within free tier; about 1.02 if the monthly free tier were already consumed",
+      "total": "0.00 within free tier; about 1.76 otherwise",
+      "reasoning": "14.37 vCPU-hours against a 50 vCPU-hour monthly allowance and about 57.5 GB-hours against a 100 GB-hour allowance, so the runtime charge is expected to fall inside the free tier"
+    },
+    "other_lines": {
+      "gemini_tokens": "about 660 tokens across four invocations; negligible",
+      "cloud_build": "five agent engine builds; expected inside the daily build free tier",
+      "storage": "three small staging objects; negligible",
+      "model_armor": "six sanitize calls plus template operations; negligible",
+      "cloud_trace": "a handful of spans against a large monthly free allowance"
+    },
+    "daily_limit_usd": 15,
+    "verdict": "well under the 15 USD daily limit on both days even under the pessimistic reading"
+  },
+  "lifecycle_policy": {
+    "smoke": {
+      "definition": "a resource created only to prove something works",
+      "rule": "deleted the same day it was created",
+      "examples": [
+        "recall-hello-smoke engines",
+        "registry services created for a probe"
+      ],
+      "breach_handling": "record the breach in the resource entry with cause and uptime; never report an unverified delete as deleted"
+    },
+    "persistent": {
+      "definition": "a resource the product needs in order to run",
+      "rule": "lives until the 2026-08-28 freeze and is NOT subject to same-day deletion",
+      "members": [
+        "recall-agent-engine-staging bucket",
+        "the five recall-sa- service accounts",
+        "recall-armor-default Model Armor template",
+        "the three fleet Agent Engines deployed on 2026-08-24"
+      ]
+    },
+    "partial_fleet": {
+      "on_member_failure": [
+        "the members that deployed are kept; redeploying is cheap, deleting and rebuilding is not",
+        "the failed member is retried exactly once",
+        "if the retry also fails, deploy stops and fleet_summary reports INCOMPLETE",
+        "the incomplete fleet is reported to the director rather than silently repaired",
+        "surviving engines stay up: they are persistent resources, so the same-day deletion rule does not apply to them"
+      ],
+      "implemented_by": "deploy_fleet(retries=1) and fleet_summary in src/recall/platform/fleet.py"
+    }
+  },
+  "fleet_deploy_plan_2026-08-24": {
+    "members": [
+      "recall-watcher",
+      "recall-assessor",
+      "recall-auditor"
+    ],
+    "region": "us-central1",
+    "service_accounts": [
+      "recall-sa-watcher",
+      "recall-sa-assessor",
+      "recall-sa-auditor"
+    ],
+    "resource_limits_requested": {
+      "cpu": "1",
+      "memory": "4Gi"
+    },
+    "resource_limits_note": "pinned in the deploy spec and read back afterwards, so the spend line becomes a read value instead of an assumption",
+    "concurrency": "three creates submitted together; deploy_overlap_seconds records whether Vertex actually ran them concurrently or serialised them",
+    "post_deploy_gates": [
+      "catalog read-back with bounded retry, up to 6 attempts at 10 second intervals, recording catalogued_after_seconds per member",
+      "one Controller trace carrying four spans: recall.controller.scan_run plus one per agent"
+    ],
+    "gates_fail_closed": "running out of catalog attempts leaves the report INCOMPLETE; waiting longer is allowed, concluding success without evidence is not"
   }
 }
