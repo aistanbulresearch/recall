@@ -1,0 +1,38 @@
+{
+  "expected": {
+    "adapter_version": "gemma-span-adapter@1.1.0",
+    "concurrency": 3,
+    "corpus_split_sha256": {
+      "dev": "05c1dc8f033fd9a90b59204cb0c4dfb23b13fd41f4bcf79e7fc9cdcfbb37bcb5",
+      "test": "ef5796b16e037cb59aad2513f1ada62e1e2bef9b67cd97a9a9a7c3d53ebe8dfe",
+      "train": "4f03932c103149f525f2c1d059e9b38abad359bd5604113529dc61a240d7e1a0"
+    },
+    "locator_version": "surface-exact-search-locator@1.0.0",
+    "max_proposals": 24,
+    "model": {
+      "file_sha256": "e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+      "quantization": "q4_0",
+      "repository": "registry.ollama.ai/library/gemma4",
+      "revision": "e4b-it-qat"
+    },
+    "prompt_sha256": "90108cca831ab6fbc4aca2a60969a7b4520b19061968697c24d4f2166a7dafb5",
+    "timeout_seconds": 900.0,
+    "transport": {
+      "endpoint": "/api/chat",
+      "format": "json",
+      "keep_alive": "30m",
+      "options": {
+        "num_ctx": 2048,
+        "num_predict": 1024,
+        "num_thread": 14,
+        "temperature": 0.0
+      },
+      "server_kind": "ollama",
+      "think": false
+    }
+  },
+  "frozen_config_version": "1.0.0",
+  "note": "The configuration the auditor approval is bound to. Every value here is copied from the manifest of the run that produced the approved result, not transcribed by hand. privacy_eval.py compares the effective configuration against this file before it processes a single record, and refuses the run on any mismatch. Changing a value here changes what the approval covers and requires a fresh approval.",
+  "source_manifest_sha256": "c3f4cc54db08b077710b213443f39db89f5b0718714d15e2b79d86fd5ec73207",
+  "source_run": "privacy-p1-dev-gemma4-budget"
+}
