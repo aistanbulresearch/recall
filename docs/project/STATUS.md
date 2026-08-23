@@ -111,7 +111,7 @@ scheduler_runtime=NOT_VERIFIED
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
 - RCL-011: `PARTIAL_FAIL_CLOSED / DEFERRED`. Its zero/two/seven evidence matrix and all seven `NOT VERIFIED` rows remain unchanged; they no longer block local Recall product implementation.
 - RCL-106: exposure detected and contained on 2026-08-22.
-- Prize path: target Best Architectural Design first, then Individual/Hobbyist, Fleet, and Honorable Mention. This is execution prioritization, not a score or probability claim.
+- Prize-fit preference remains Best Architectural Design, then Individual/Hobbyist, Fleet, and Honorable Mention; it is not a score or probability claim. The owner-approved active M1 execution path is Fleet-first as of 2026-08-23.
 - The complete external-auditor action register is active planning input. All seven degree-oriented extensions remain planned behind their 2026-08-24 entrance/access/rule gates: scale funnel, Cloud Trace/fleet dashboard, accelerated Week 0/3/6, blog/social/bounded Gemma, Registry plus second consumer, IAM plus Model Armor, and Agent Runtime; `LIVE_PUBLIC` evidence is also retained. None may be removed without owner decision.
 - `RunEvidenceManifest` is a coordinator proposal only and awaits owner approval; the auditor's run/revision/trace/mode/hash/count/latency evidence requirements remain mandatory independently.
 

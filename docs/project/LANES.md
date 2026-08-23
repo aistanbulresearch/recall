@@ -12,4 +12,5 @@
 - Lane branches never merge themselves into core.
 - Codex merges a lane into core with `--no-ff` only when that lane's tests are green.
 - Merge conflicts are returned to the lane owner for resolution.
+- A contract-version increase is reported to L1 and L3 within the same hour with the contract name, old and new versions, required new fields, and commit SHA; it never waits for an integration window.
 - A lane must not write outside its exclusive area without an owner-approved lane update.
