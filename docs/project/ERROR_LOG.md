@@ -1753,3 +1753,17 @@ Post-correction independent staged-tree review returned `PASS`: all seven-, eigh
 | Resolution | Create a binding item-by-item auditor action register; restore every report extension to the plan and evidence ledgers behind its stated gate; preserve base-path versus conditional-extension distinctions; mark `RunEvidenceManifest` as an owner-pending proposal; record DEC-038 reserving all scope removal decisions to the owner. |
 | Verification | Fifty required report markers passed the bounded coverage check. Transcript 25/25, Graphify governance 41/41 plus portability, collaboration 88/88 plus five positive controls, official skill validation, six-file `py_compile`, `git diff --check`, and bounded secret/trailer scans passed. |
 | Status | Resolved locally; owner scope authority is recorded in DEC-038 |
+
+## ERR-2026-08-23-144: Orphaned smoke engine breached same-day deletion rule
+
+| Field | Value |
+|---|---|
+| Task | L1 managed-runtime smoke cleanup |
+| Severity | Medium |
+| Observed | `recall-hello-smoke` was ready at `2026-08-22T19:25:20Z` and deleted at `2026-08-23T08:21:00Z`, an exact elapsed interval of 12 hours, 55 minutes, and 40 seconds (reported operationally as 12 hours 55 minutes). |
+| Breach | The rule "smoke resources are deleted the same day" was breached. |
+| Cause | Two deletion attempts were recorded as hanging at `19:40 TSS`, while `gcloud` and ADC became unresponsive together. That local-time label is retained as incident context but is not used for elapsed-time calculation. |
+| Resolution | The director deleted the engine, authoritative read-back returned zero matching engines, and L1 independently verified the absence. |
+| Cost | The incident remained inside free-tier coverage; estimated incremental cost was less than USD 1. |
+| Timestamp discipline | The initial report said approximately 16 hours because UTC and TSS were mixed. Inventory and ERR records must now use only UTC ISO-8601 timestamps, and durations must be calculated from two UTC timestamps. Daily inventory reconciliation is mandatory without exception; this incident is the justification. |
+| Status | Closed (same day as detection) |
