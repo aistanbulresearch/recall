@@ -5,14 +5,6 @@ from typing import Any
 
 import pytest
 
-from cross_contract import (
-    ContractExpectation,
-    check_against_versions,
-    check_producer_against_contract,
-    local_contract,
-    payload_fields_of,
-    registered_as,
-)
 from recall.contracts.enums import FactState
 from recall.contracts.schemas import SCHEMAS
 from recall.platform.registry import (
@@ -20,6 +12,14 @@ from recall.platform.registry import (
     ResolutionMode,
     build_registry_resolution_receipt,
     resolve_capabilities,
+)
+from recall.testing.cross_contract import (
+    ContractExpectation,
+    check_against_versions,
+    check_producer_against_contract,
+    local_contract,
+    payload_fields_of,
+    registered_as,
 )
 
 REGION = "us-central1"

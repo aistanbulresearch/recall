@@ -11,14 +11,29 @@ that returns an artifact wire dict, plus the contract name and the version and
 field set the target registers, and reports whether the target would accept it
 and exactly which payload fields differ.
 
-    from cross_contract import ContractExpectation, check_producer_against_contract
+Every lane imports it the same way, with no path configuration and no dependence
+on test collection order:
 
-    result = check_producer_against_contract(
-        lambda: build_my_receipt(...),
-        "PrivacyReceipt",
-        ContractExpectation("2.0.0", {"decision", "detectors", ...}),
+    from recall.testing.cross_contract import (
+        ContractExpectation,
+        check_producer_against_contract,
     )
+
+One line asserts a producer against the contract the target registers. For the
+privacy lane, checking a `PrivacyReceipt`:
+
+    assert check_producer_against_contract(
+        lambda: build_privacy_receipt(...),
+        "PrivacyReceipt",
+        ContractExpectation("2.0.0", {"decision", "detector_versions", "detectors"}),
+    ).ok
+
+On failure the result explains itself rather than only being false:
+
+    result = check_producer_against_contract(...)
     assert result.ok, result.summary()
+    # PrivacyReceipt does not satisfy 2.0.0; emitted version 1.0.0;
+    # missing ['detector_versions']; parser rejected with contract_major_unsupported
 
 Read the expectation from the target branch rather than typing it from memory:
 
