@@ -93,10 +93,17 @@ selected afterwards to suit a result:
   `model_response_surface_not_found`. One refused proposal never invalidates
   the response, unlike a schema violation.
 
-Arm A remains the primary result. Arm B exists because character arithmetic and
-identifier recognition are different abilities, and a model can be good at one
-and poor at the other. Any published claim quotes arm A; arm B is reported as
-exploratory and labelled as such.
+Arm B exists because character arithmetic and identifier recognition are
+different abilities, and a model can be good at one and poor at the other.
+
+**Superseded by amendment 001 on 2026-08-22.** Arm A was the primary result as
+originally declared. On the evidence of the development-split run, arm A
+contributes no incremental true positive and arm B contributes 113, so
+`corpus/PREREGISTRATION_AMENDMENT_001.md` promotes arm B to primary and demotes
+arm A to secondary, before any read of the frozen test split. Both arms remain
+fully measured and fully published, including arm A's zero. The amendment
+changes which arm is measured against the section 6 thresholds; it does not
+change any threshold.
 
 ### Proposal cap
 
@@ -171,7 +178,22 @@ intervals. No percentage is published without its counts.
 | Gate | Required before | Status |
 |---|---|---|
 | Corpus schema and split manifest approved by the auditor | any run on the frozen test split | **approved 2026-08-22, conditional** |
-| Local model file and licence accepted by the owner | any model download or model-backed measurement | **open**; candidates and licence analysis in `docs/demo/LOCAL_MODEL_SELECTION.md` |
+| Local model file and licence accepted by the owner | any model download or model-backed measurement | **closed 2026-08-22**; see below |
+
+The licence gate closed on 2026-08-22. The owner accepted
+`google/gemma-4-E4B-it-qat-q4_0-gguf`, served locally as
+`registry.ollama.ai/library/gemma4@e4b-it-qat`, q4_0. The Apache-2.0 position was
+verified three independent ways:
+
+1. the publishing repository's own metadata on the Hugging Face Hub declares
+   `license: apache-2.0`;
+2. the owner confirmed the licence directly;
+3. the local Ollama distribution ships a 10,174-byte licence blob whose contents
+   are the plain text of the Apache License, Version 2.0.
+
+Candidates, the rejected alternatives, and the handling rules are recorded in
+`docs/demo/LOCAL_MODEL_SELECTION.md`. The model file stays on the laboratory
+machine, is never committed, and is never deployed to a cloud runtime.
 
 ### Conditions attached to the auditor approval
 

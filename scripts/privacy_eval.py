@@ -48,6 +48,8 @@ from recall.privacy.egress import EGRESS_STRUCTURED_ONLY, EGRESS_SUMMARY_TEXT  #
 from recall.privacy.gate import PrivacyGate  # noqa: E402
 from recall.privacy.gemma import (  # noqa: E402
     GEMMA_ADAPTER_VERSION,
+    LOCATOR_STRATEGY,
+    LOCATOR_VERSION,
     GemmaOutcome,
     MAX_PROPOSALS,
     OLLAMA_DEFAULT_KEEP_ALIVE,
@@ -124,6 +126,40 @@ MAX_PROPOSALS_RATIONALE = (
     "seeded spans per note, so a cap below that floor would make a complete answer impossible to "
     "accept and would measure the cap instead of the model. The prompt states no number."
 )
+PREREGISTERED_ACCEPTANCE_THRESHOLDS = {
+    "source": "corpus/PREREGISTRATION.md section 6",
+    "status": (
+        "unchanged from section 6; amendment 001 changes which arm is measured, "
+        "not these thresholds"
+    ),
+    "rules": {
+        "1_mandatory_safety_gate": (
+            "Zero seeded direct-identifier spans in accepted payloads. A single escape fails "
+            "the protocol regardless of every other result."
+        ),
+        "2_model_demo_claim": (
+            "The local model earns a demo claim only if it contributes at least one incremental "
+            "true positive on the frozen test split and does not increase accepted escapes."
+        ),
+        "3_failure_handling": (
+            "Every invalid JSON, timeout, unavailable model, or uncertain span must quarantine "
+            "or remain blocked by the deterministic outbound gate."
+        ),
+        "4_removal_rule": (
+            "If the model contributes no incremental true positive, increases escapes, or "
+            "cannot complete inside the allocated privacy segment, it is removed from the demo "
+            "critical path. The deterministic Privacy Gate stays."
+        ),
+    },
+    "gate_decision_rule": (
+        "ACCEPTED requires all three of: the deterministic outbound scan returns CLEAR over "
+        "every declared free-text field and every structured leaf; the candidate payload "
+        "carries no free-text field the egress profile did not declare; and, on a free-text "
+        "profile only, the local model did not fail after being invoked. Anything else is "
+        "QUARANTINED and no payload is released."
+    ),
+}
+
 REASONING_EFFORT_RATIONALE = (
     "A reasoning budget is not viable at this CPU throughput: the model spent its entire "
     "completion budget on reasoning and returned empty content. This is a limit of the local CPU "
@@ -463,6 +499,7 @@ def build_transport(args: argparse.Namespace):
             model_id=args.model_id,
             options=options,
             keep_alive=args.keep_alive,
+            response_format=args.response_format,
         )
         return transport, transport.request_settings()
     transport = LlamaServerTransport(
@@ -795,6 +832,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "run_id": args.run_id,
         "split": args.split,
         "split_sha256": corpus_manifest["splits"][args.split]["sha256"],
+        "corpus_split_sha256": {
+            name: corpus_manifest["splits"][name]["sha256"] for name in ("dev", "test", "train")
+        },
         "record_count": len(records),
         "record_selection": "balanced smoke subset" if args.smoke else "full split",
         "corpus_version": corpus_manifest["corpus_version"],
@@ -819,6 +859,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "value": args.reasoning_effort if args.server_kind == "openai" else "think=false",
                 "rationale": REASONING_EFFORT_RATIONALE,
             },
+            "locator_version": LOCATOR_VERSION,
+            "locator_strategy": LOCATOR_STRATEGY,
+            "acceptance_thresholds": PREREGISTERED_ACCEPTANCE_THRESHOLDS,
             "transport": transport_settings,
             "concurrency": args.concurrency,
             "timeout_seconds": args.timeout_seconds,
@@ -900,8 +943,10 @@ def summarise(report: dict[str, Any]) -> None:
             f"({identity['quantization']}) sha256 {identity['file_sha256'][:16]}"
         )
     print(f"prompt sha256: {report['local_model']['prompt']['prompt_sha256'][:16]}")
-    print(f"max proposals: {report['measurement_constraints']['max_proposals']['value']}  "
-          f"concurrency: {report['measurement_constraints']['concurrency']}")
+    constraints = report["measurement_constraints"]
+    print(f"max proposals: {constraints['max_proposals']['value']}  concurrency: {constraints['concurrency']}")
+    print(f"locator: {constraints['locator_version']}  adapter: {report['local_model']['prompt']['adapter_version']}")
+    print(f"split hashes: " + "  ".join(f"{k}={v[:12]}" for k, v in sorted(report["corpus_split_sha256"].items())))
     print(f"mandatory safety gate: {report['mandatory_safety_gate']['result']}")
 
 
@@ -921,6 +966,11 @@ def main() -> int:
     parser.add_argument("--num-predict", type=int, default=OLLAMA_DEFAULT_OPTIONS["num_predict"])
     parser.add_argument("--keep-alive", default=OLLAMA_DEFAULT_KEEP_ALIVE)
     parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument(
+        "--response-format",
+        default=None,
+        help="Server-side response format constraint, for example 'json'. Recorded with the results.",
+    )
     parser.add_argument("--resume", action="store_true", help="Continue a run of the same identifier from its checkpoint.")
     parser.add_argument("--smoke", action="store_true", help="Balanced six-record subset used to decide whether the full run is worth starting.")
     parser.add_argument(
