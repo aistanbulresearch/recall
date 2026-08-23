@@ -23,6 +23,7 @@ from recall.platform.registry import (
     engine_is_catalogued,
     observe_catalog,
     registered_contract,
+    resolution_mode_is_a_field,
     resolve_capabilities,
     runtime_identity,
 )
@@ -63,9 +64,14 @@ def test_full_resolution_passes() -> None:
     assert resolution.validation_status is FactState.PASS
     assert len(resolution.bindings) == 2
     assert resolution.unresolved == ()
-    assert resolution.reason_codes == (
-        RESOLUTION_MODE_REASON[ResolutionMode.REGISTRY],
-    )
+    # A clean resolution reports no problem. Before the contract carried
+    # resolution_mode, the mode rode along here as a transitional reason code.
+    if resolution_mode_is_a_field():
+        assert resolution.reason_codes == ()
+    else:
+        assert resolution.reason_codes == (
+            RESOLUTION_MODE_REASON[ResolutionMode.REGISTRY],
+        )
 
 
 def test_binding_wire_matches_the_contract_field_set() -> None:
@@ -112,11 +118,23 @@ def test_manifest_digest_tracks_the_catalog_record() -> None:
 
 
 @pytest.mark.parametrize("mode", list(ResolutionMode))
-def test_resolution_mode_survives_as_a_typed_reason_code(mode: ResolutionMode) -> None:
+def test_resolution_mode_is_never_lost(mode: ResolutionMode) -> None:
+    """The mode is recoverable at every contract version.
+
+    From 1.1.0 it is a payload field; before that it travelled as a typed reason
+    code. Either way it must be readable from the emitted resolution.
+    """
+
     resolution = resolve_capabilities(
         list(CATALOG), CATALOG, resolution_mode=mode, region=REGION
     )
-    assert RESOLUTION_MODE_REASON[mode] in resolution.reason_codes
+    payload = resolution.payload()
+    if resolution_mode_is_a_field():
+        assert payload["resolution_mode"] == mode.value
+        assert RESOLUTION_MODE_REASON[mode] not in resolution.reason_codes
+    else:
+        assert RESOLUTION_MODE_REASON[mode] in resolution.reason_codes
+        assert "resolution_mode" not in payload
 
 
 def test_receipt_is_accepted_by_the_registered_parser() -> None:
