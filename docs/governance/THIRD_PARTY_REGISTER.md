@@ -2,7 +2,7 @@
 
 - Status: initial planning inventory
 - Task: RCL-102
-- Updated: 2026-08-16
+- Updated: 2026-08-22
 
 `approved candidate` means the named component's current license or terms have been reviewed for the planned role. It does not authorize an unpinned version or an unreviewed transitive graph.
 
@@ -14,7 +14,7 @@
 | Pydantic | Strict typed contracts | MIT | Python dependency | Approved candidate | Pin exact version and transitive graph; preserve notice. |
 | FastAPI | API edge candidate | MIT | Python dependency and container | Approved candidate, not architecture-selected | Confirm under implementation design; pin exact version and transitive graph. |
 | `llama.cpp` | Local Gemma inference runtime candidate | MIT | Local binary or locally built runtime | Approved candidate | Pin source/release and hash; review build dependencies; isolate runtime. Runtime license does not cover weights. |
-| Gemma model artifacts | Residual identifier span proposals | Custom Gemma Terms and Prohibited Use Policy | Separately downloaded or mounted local artifact | Conditional | No Git/release/container redistribution; operator accepts terms; pin source and hash; synthetic-only contest data; no clinical or workflow decision. |
+| Gemma model artifacts: Ollama `gemma4:e4b-it-qat`, Q4_0, upstream `google/gemma-4-E4B-it-qat-q4_0-gguf` | Residual identifier span proposals inside the laboratory privacy boundary | Apache-2.0, as declared by the publishing repository and confirmed by the owner on 2026-08-22 | Separately downloaded local Ollama blob; never committed, containerised, or deployed to a cloud runtime | Approved for the local privacy lane | Before measurement, record the upstream repository, revision, file name, artifact SHA-256, and immutable Ollama blob digest in the P1 evidence manifest; keep model material under ignored local storage; synthetic corpus only; no clinical or workflow decision; the model proposes spans and never approves, redacts, or releases anything. |
 | Gemini on Google Cloud | Agent reasoning in contest path | Google Cloud agreement and Service Specific Terms | Remote managed service | Conditional, non-clinical only | Synthetic non-clinical research prototype; no clinical-production claim; terms recheck at freeze and submission. |
 | Gemini Enterprise Agent Platform components | Runtime, Registry, governed extensions, and observability | Google Cloud agreement, service terms, and product-specific documentation | Remote managed services | Conditional | Billing/access smoke, region and Pre-GA status, exact service terms, outage contract, and no regulated data in unsupported Pre-GA services. |
 | ClinVar | Public variant evidence and historical replay | NCBI/ClinVar data policy | Live retrieval and attributed captured replay | Conditional | Provenance, weekly-release/retrieval date, attribution, professional-review disclaimer, and no direct diagnostic-use claim. |

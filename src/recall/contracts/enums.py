@@ -36,6 +36,34 @@ class FactState(StrEnum):
     NOT_EVALUATED = "NOT_EVALUATED"
 
 
+class AuditStatus(StrEnum):
+    COMPLETE = "COMPLETE"
+    INCOMPLETE = "INCOMPLETE"
+
+
+class CitationVerdict(StrEnum):
+    VERIFIED = "VERIFIED"
+    MISMATCH = "MISMATCH"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class ReplayStage(StrEnum):
+    STAGE_0 = "stage-0"
+    STAGE_1 = "stage-1"
+    STAGE_2 = "stage-2"
+
+
+class ResolutionMode(StrEnum):
+    REGISTRY = "REGISTRY"
+    MANUAL_SERVICE = "MANUAL_SERVICE"
+    PINNED_FALLBACK = "PINNED_FALLBACK"
+
+
+class PrivacyDecision(StrEnum):
+    ACCEPTED = "ACCEPTED"
+    QUARANTINED = "QUARANTINED"
+
+
 class PresenceState(StrEnum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"

@@ -110,6 +110,7 @@ These denials are normative. A prompt instruction is not an enforcement mechanis
 | TM-18 | Dependency, model, or source license is incompatible | High legal/release risk | Exact lock, integrity hash, license register, SBOM, notices | Release gate and unknown-license failure | Component excluded until resolved |
 | TM-19 | Public demo endpoint is abused | Medium cost/availability risk | Synthetic-only contract, quotas, rate limits, no privileged input/tools | Abuse test and budget alarms | Disable public mutation path |
 | TM-20 | Operator edits or cherry-picks evidence after a run | High credibility failure | Run manifests, artifact hashes, source revision, append-only ledgers | Manifest verification and audit diff | Invalidated evidence is not cited |
+| TM-21 | Empty, etag-less, or error-body IAM policy write | Critical authorization loss | `parse_policy_document` and `assert_additive_policy_write` in `src/recall/platform/identity.py`; no grant may be removed | Eleven tests, including the captured real 403 response body | Refuse the write and preserve the prior policy |
 
 ## Security acceptance tests
 
