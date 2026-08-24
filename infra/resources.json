@@ -228,8 +228,7 @@
   },
   "not_yet_created": [
     "recall-model-armor-template",
-    "recall-registry-service (pending approval)",
-    "recall-registry-binding (pending approval)"
+    "recall-tool-gateway (approved, blocked on the agents lane endpoint contract and image)"
   ],
   "identifier_redaction": {
     "module": "src/recall/platform/redaction.py",
@@ -323,7 +322,8 @@
         "recall-agent-engine-staging bucket",
         "the five recall-sa- service accounts",
         "recall-armor-default Model Armor template",
-        "the three fleet Agent Engines deployed on 2026-08-24"
+        "the three fleet Agent Engines deployed on 2026-08-24",
+        "recall-tool-gateway Cloud Run service (owner-approved 2026-08-24)"
       ]
     },
     "partial_fleet": {
@@ -360,5 +360,33 @@
       "one Controller trace carrying four spans: recall.controller.scan_run plus one per agent"
     ],
     "gates_fail_closed": "running out of catalog attempts leaves the report INCOMPLETE; waiting longer is allowed, concluding success without evidence is not"
+  },
+  "tool_gateway": {
+    "id": "recall-tool-gateway",
+    "kind": "run.service",
+    "region": "us-central1",
+    "lifecycle": "persistent",
+    "status": "APPROVED_NOT_CREATED",
+    "approved_by": "owner, 2026-08-24",
+    "why": "agent tools must not hold data-store access. The Assessor and Auditor accounts have no Firestore role by design and only the Controller writes the ledger, so tools call an authenticated internal Controller endpoint that authorises, records a receipt, invokes the real connector or ledger port, and returns a bounded result.",
+    "architecture_decision": "separate service rather than folded into a Controller service, because zero Cloud Run services exist in the project: there is no Controller service to host it. Measured 2026-08-24, run.services returned 0.",
+    "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+    "unauthenticated_invocation": "refused",
+    "invokers": [
+      "recall-sa-watcher",
+      "recall-sa-assessor",
+      "recall-sa-auditor"
+    ],
+    "invoker_role": "roles/run.invoker",
+    "controller_keeps": "roles/datastore.user; no agent account gains it",
+    "blocked_on": "the agents lane endpoint contract and asset manifest, plus the container image reference. Deployment requirements are read from that file; nothing is inferred.",
+    "create_command": "python infra/scripts/deploy_tool_gateway.py deploy --contract <file> --image <ref>",
+    "verify_command": "python infra/scripts/deploy_tool_gateway.py verify --redact",
+    "delete_command": "python infra/scripts/deploy_tool_gateway.py destroy --redact",
+    "verify_fails_on": [
+      "ingress other than internal",
+      "any allUsers or allAuthenticatedUsers binding on any role",
+      "an agent account missing run.invoker"
+    ]
   }
 }
