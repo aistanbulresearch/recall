@@ -164,7 +164,12 @@ OLLAMA_DEFAULT_OPTIONS: dict[str, Any] = {
     # ample. A larger window is expensive on CPU for no benefit here.
     "num_ctx": 2048,
     "num_thread": 14,
-    "num_predict": 512,
+    # A 15-span note needs 578 completion tokens (measured, run
+    # privacy-p1-dev-gemma4-budget); 512 sat below the corpus floor and
+    # truncated every 15-span note mid-object. 1024 leaves 77% headroom. Like
+    # MAX_PROPOSALS, a budget below the corpus floor measures the cap, not the
+    # model.
+    "num_predict": 1024,
     "temperature": 0.0,
 }
 OLLAMA_DEFAULT_KEEP_ALIVE = "30m"
