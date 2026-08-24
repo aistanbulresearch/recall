@@ -1,0 +1,15 @@
+{
+  "governing_document": "corpus/PREREGISTRATION_AMENDMENT_001.md",
+  "note": "Machine readable form of the arm declaration in amendment 001. The harness reads this file at manifest write time instead of carrying the declaration as a literal, and it validates this file against the governing document before writing, so this file cannot silently disagree with the prose it derives from. Editing this file without editing the amendment makes the harness refuse to write a manifest.",
+  "primary": {
+    "ambiguity_rule": "Fixed before the run: one occurrence gives that position; several occurrences each become their own candidate proposal; no occurrence refuses that proposal with model_response_surface_not_found.",
+    "arm": "surface_exact_search",
+    "description": "Each returned surface string is placed by deterministic exact search over the note, then scored exact boundary. Same model call, same tokens, no additional run.",
+    "status": "primary under amendment 001"
+  },
+  "secondary": {
+    "arm": "model_offsets",
+    "description": "The offsets the model returned are scored directly against the ground truth, exact boundary.",
+    "status": "secondary under amendment 001, fully reported"
+  }
+}
