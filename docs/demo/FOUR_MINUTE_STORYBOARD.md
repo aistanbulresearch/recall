@@ -3,8 +3,10 @@
 - Status: version 2.1 shot plan. Opening narration locked by the owner 2026-08-24 after four review rounds.
   Screen-flow draft returns to the owner for approval before any recording.
 - Version: 2.1.0, replacing 2.0.0
-- **Open timing decision for the owner: see the runtime arithmetic below. The locked
-  opening does not fit the previous runtime without cuts elsewhere.**
+- **Timing decided 2026-08-24 by the external evaluator, ratified by the owner. The
+  allocation below is final, not a proposal.**
+- **The opening is closed. It is locked, measured at 71s, and is not reopened for
+  wordsmithing by any party.**
 - Tasks: RCL-207 and RCL-904
 - Updated: 2026-08-24
 - Target duration: 3 minutes 40 seconds
@@ -126,29 +128,39 @@ Budget remaining after the opening, using the 71.2s planning figure:
 The old six remaining segments total 205 seconds. Fitting them into 148.8
 requires removing 56.2 seconds.
 
-### Proposed allocation, for the owner to accept or replace
+### Decided allocation
 
-This is a proposal, not a decision. It protects everything on the never-cut list
-and takes the reduction from segments that can carry it.
+Ruled by the external evaluator on 2026-08-24 and ratified by the owner. This is
+the allocation, not a proposal.
 
-| Segment | v2.0 | Proposed | Word budget at 155 wpm |
+| Segment | v2.0 | Decided | Word budget at 155 wpm |
 |---|---:|---:|---:|
-| Locked opening | 15 | **71** | 178, fixed |
-| Registry catalog and evidence visuals | 20 | 12 | ~31 |
-| Privacy, full version | 20 | 20 | ~52 |
-| Uninterrupted audited run | 75 | 60 | ~155 |
-| Fault run with denial and abstain | 45 | 30 | ~78 |
-| Cloud proof and fleet board | 25 | 15 | ~39 |
-| Closing numbers and limitations | 20 | 12 | ~31 |
+| Locked opening | 15 | **71** | 178, measured and fixed |
+| Registry catalog and fleet | 20 | 12 | 31 |
+| Privacy, full version | 20 | 20 | 52 |
+| Uninterrupted audited run | 75 | **55** | 142 |
+| Fault run with denial and abstain | 45 | **35** | 90 |
+| Cloud proof and fleet board | 25 | 15 | 39 |
+| Closing numbers and limitations | 20 | 12 | 31 |
 | **Total** | **220** | **220** | |
 
-The uninterrupted run drops from 75 to 60 seconds. It stays uncut in the sense
-the never-cut list means, one continuous unedited take, but 15 seconds is a real
-loss of breathing room and the owner should decide it rather than inherit it.
+### Why the run gives seconds to the fault segment
 
-If the owner prefers to keep the run at 75 seconds, the video lands at 235
-seconds, inside the 240 hard maximum and above the 230 rehearsal ceiling. That is
-the trade: 15 seconds of live run against 5 seconds of rehearsal margin.
+The reasoning travels with the numbers, because a later reader will otherwise
+assume the live run was trimmed for convenience.
+
+The uninterrupted run proves one scored sub-criterion, Proof of Action, and that
+requirement is **binary**: the take is uninterrupted or it is not. Fifty-five
+seconds satisfies it as completely as seventy-five.
+
+The fault run touches **three** scored rows: failure-tolerant inter-agent
+routing, which is the only concrete Architecture sub-question written for this
+track, the abstain behaviour under Innovation, and the narrative payoff of the
+promise made in the opening's final sentence. The five seconds moved from the run
+to the fault segment buy comprehension where scoring density is highest.
+
+Cloud proof holds at 15 seconds as reserve. It is not raided to fund anything
+else.
 
 ## Evidence card, never cut
 
@@ -192,12 +204,12 @@ Vertex AI Agent Engine, and local Gemma 4 for redaction.
 | 00:00-01:11 | 71s | Locked opening narration over the specialist review queue and the evidence card. See the locked text above. | Carry the whole opening verbatim. | `UI-GLOBAL-MODE`, non-clinical label, **evidence card, never cut**, **stack sentence, never cut** | Operational utility, demo clarity, architecture |
 | 01:11-01:23 | 12s | Registry catalog listing with auto-registered agents, exact revisions, and binding status. | Introduce the fleet before any run: four separated roles, registry-resolved revisions, deterministic controller, deterministic policy. | `UI-CLOUD-REGISTRY-COUNT`, `UI-AGENT-ROSTER` with role, agent, revision, binding status, `UI-ROUTE-STATUS` | Architecture, multi-agent separation, managed discovery |
 | 01:23-01:43 | 20s | Submit a synthetic laboratory note. Deterministic detectors run, the local model proposes residual spans, deterministic adjudication runs, and the structured-only egress profile decides which field paths may exist in the cloud-bound payload at all. | Show that prose never leaves because the payload has no prose field, and that the local model is useful but never authoritative. Full version, selected by the frozen manifest. | `UI-PRIVACY-STATUS`, `UI-PRIVACY-DETERMINISTIC-SPANS`, `UI-PRIVACY-GEMMA-SPANS`, `UI-PRIVACY-OUTBOUND-FIELDS`, `UI-PRIVACY-EGRESS-PROFILE`, `UI-PRIVACY-RAW-TEXT-EGRESS` reading zero | Model bonus, privacy boundary, architecture |
-| 01:43-02:43 | 60s | One uninterrupted click starts the audited replay. The screen recording is uncut while lanes, persisted transitions, evidence, and audit update. | Let the system explain itself through motion: registry resolution, observation, candidate comparison, independent citation verification, deterministic policy, one simulated task. | `UI-GLOBAL-RUN-ID`, `UI-GLOBAL-TRACE-ID`, `UI-AGENT-STATE`, `UI-CLOUD-TRANSITIONS`, `UI-EVIDENCE-CANDIDATE`, `UI-CITATION-TOTAL`, `UI-CITATION-VERIFIED`, `UI-CITATION-STATUS`, `UI-POLICY-OUTCOME`, `UI-POLICY-REASONS`, `UI-TASK-COUNT-RUN` | Proof of action, delegation, state discipline, product demo |
-| 02:43-03:13 | 30s | Second run with a fault fixture: one mismatched material citation, and a deterministic Controller-level `ToolAuthorization` request attributed to Assessor identity for a forbidden task-creation tool. | Use the rubric's own words: when a worker agent returns a hallucinated citation, the system recovers, the audit fails it, and policy abstains. At the moment `ABSTAIN` appears, speak the locked callback. | `UI-TOOL-DENIAL` with role, tool, and reason codes, `UI-CITATION-STATUS` incomplete, `UI-POLICY-OUTCOME` abstain, `UI-POLICY-MISSING`, `UI-TASK-COUNT-RUN` read back from the task ledger, `UI-WATCH-PENDING` retained | Hallucination recovery, strict separation, failure-tolerant routing |
+| 01:43-02:38 | 55s | One uninterrupted click starts the audited replay. The screen recording is uncut while lanes, persisted transitions, evidence, and audit update. | Let the system explain itself through motion: registry resolution, observation, candidate comparison, independent citation verification, deterministic policy, one simulated task. | `UI-GLOBAL-RUN-ID`, `UI-GLOBAL-TRACE-ID`, `UI-AGENT-STATE`, `UI-CLOUD-TRANSITIONS`, `UI-EVIDENCE-CANDIDATE`, `UI-CITATION-TOTAL`, `UI-CITATION-VERIFIED`, `UI-CITATION-STATUS`, `UI-POLICY-OUTCOME`, `UI-POLICY-REASONS`, `UI-TASK-COUNT-RUN` | Proof of action, delegation, state discipline, product demo |
+| 02:38-03:13 | 35s | Second run with a fault fixture: one mismatched material citation, and a deterministic Controller-level `ToolAuthorization` request attributed to Assessor identity for a forbidden task-creation tool. | Use the rubric's own words: when a worker agent returns a hallucinated citation, the system recovers, the audit fails it, and policy abstains. At the moment `ABSTAIN` appears, speak the locked callback. The `DENIED` frame must satisfy the comprehension gate below. | `UI-TOOL-DENIAL` with role, tool, and reason codes, `UI-CITATION-STATUS` incomplete, `UI-POLICY-OUTCOME` abstain, `UI-POLICY-MISSING`, `UI-TASK-COUNT-RUN` read back from the task ledger, `UI-WATCH-PENDING` retained | Hallucination recovery, strict separation, failure-tolerant routing |
 | 03:13-03:28 | 15s | Week timeline and fleet board, then the three permanent Agent Engines in the console, the Registry catalog listing showing auto-registration, and the four-span single-trace view. | Durable monitoring without a running model process, and proof the backend is not a local mock. | `UI-WATCH-SCAN-COUNT`, `UI-WATCH-PENDING`, `UI-WATCH-ATTENTION`, `UI-CLOUD-RUNTIME-REV`, `UI-CLOUD-HEALTH`, `UI-ROUTE-STATUS` with the `resolution_mode` badge, correlated run and trace identifiers | Managed deployment, architecture, production readiness |
 | 03:28-03:40 | 12s | Return to the contrast: the audited run produced one simulated task, the unsafe run produced none. Close on authority and limitations. | The specialist sees only audited candidates. Agents may reason; they cannot decide. Frozen privacy numbers are cited from the corrected view, never the raw manifest. | Derived counts with source links, `NON-CLINICAL RESEARCH PROTOTYPE`, exact `SYNTHETIC` plus `CAPTURED_REPLAY` composition, clinician final authority | Operational utility, derived presentation, trustworthy close |
 
-Total 220 seconds under the proposed allocation: 71 + 12 + 20 + 60 + 30 + 15 + 12.
+Total 220 seconds under the decided allocation: 71 + 12 + 20 + 55 + 35 + 15 + 12.
 The rehearsal ceiling is 230 seconds and the binding maximum is 240 seconds.
 
 Only the opening duration is measured from real text. The other six are budgets,
@@ -229,6 +241,33 @@ rehearsal impression.
 version: the primary arm contributes 470 incremental true positives and adds zero
 accepted escapes, so the first row's condition is met. Recorded in
 `corpus/ERRATUM_001_p1-frozen-001.md` and read from the corrected view.
+
+## Comprehension gate on the fault segment
+
+Binding, applied at rehearsal. One question decides the segment:
+
+> Does a first-time viewer understand **what** the system refused and **why**?
+
+If the answer is no, **the fix is not more seconds.** Adding time to an
+unreadable frame produces a longer unreadable frame. The on-screen presentation
+of the `DENIED` receipt changes instead.
+
+### Required shape of the DENIED frame
+
+The frame reads at a glance, then rewards a closer look:
+
+- a **plain-language label** sits next to the receipt, naming the tool and the
+  refusal in ordinary words, for example the tool name followed by
+  "refused: not on this agent's allowlist";
+- the **raw reason codes sit beneath that label**, not in place of it, so the
+  frame keeps its authenticity as a real receipt rather than a caption;
+- the agent identity and the tool identifier are legible without pausing;
+- nothing in the frame is added in editing. The plain label is rendered by the
+  interface from the receipt itself, so it is derived rather than narrated over.
+
+The last point matters: a label typed into an editing timeline would be a preset
+value in the sense the derived-value rule forbids. The label is a view of the
+receipt, produced the same way every other displayed value is produced.
 
 ## Critical live path
 
