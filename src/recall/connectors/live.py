@@ -5,11 +5,10 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from hashlib import sha256
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from recall.contracts import DataMode
+from recall.contracts import DataMode, canonical_json_bytes
 
 
 _PUBMED_ID = re.compile(r"^[1-9][0-9]*$")
@@ -48,6 +47,20 @@ class LiveSourceRecord:
             "locator": self.locator,
             "content_hash": self.content_hash,
         }
+
+
+def canonical_pubmed_metadata_hash(
+    identifier: str, title: str, locator: str
+) -> str:
+    """Hash the same bounded PubMed metadata representation in replay and live."""
+
+    from hashlib import sha256
+
+    return sha256(
+        canonical_json_bytes(
+            {"identifier": identifier, "title": title, "locator": locator}
+        )
+    ).hexdigest()
 
 
 def _stdlib_transport(url: str, timeout_seconds: float) -> bytes:
@@ -111,17 +124,16 @@ class PubMedConnector:
         summary_url = self._build_url(
             "esummary.fcgi", identifier=identifier, retmode="json"
         )
-        fetch_url = self._build_url(
-            "efetch.fcgi", identifier=identifier, retmode="xml"
-        )
         summary_bytes = self._request(summary_url)
-        article_bytes = self._request(fetch_url)
         returned_identifier, title = self._parse_summary(summary_bytes)
+        locator = f"https://pubmed.ncbi.nlm.nih.gov/{returned_identifier}/"
         return LiveSourceRecord(
             identifier=returned_identifier,
             title=title,
-            locator=f"https://pubmed.ncbi.nlm.nih.gov/{returned_identifier}/",
-            content_hash=sha256(article_bytes).hexdigest(),
+            locator=locator,
+            content_hash=canonical_pubmed_metadata_hash(
+                returned_identifier, title, locator
+            ),
         )
 
     def _build_url(self, endpoint: str, *, identifier: str, retmode: str) -> str:

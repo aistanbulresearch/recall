@@ -18,6 +18,8 @@ from recall.contracts import (
 )
 from recall.ledger.producers import PRODUCER_REGISTRY
 
+from .live import canonical_pubmed_metadata_hash
+
 
 _STAGE_SOURCES: Mapping[ReplayStage, tuple[str, ...]] = {
     ReplayStage.STAGE_0: ("clinvar_positive_v1",),
@@ -261,6 +263,8 @@ class ReplayConnector:
             "semantic_anchor": source["semantic_anchor"],
             "manifest_version": self._manifest["manifest_version"],
         }
+        if str(source["source_id"]).endswith("_pubmed_esummary"):
+            fields["citation_metadata"] = self._pubmed_citation_metadata(source)
         if source["source_id"] == "geo_gse248438_results_xlsx":
             row = self._manifest["exact_functional_row"]
             fields.update(
@@ -278,6 +282,42 @@ class ReplayConnector:
                 }
             )
         return fields
+
+    def _pubmed_citation_metadata(
+        self, source: Mapping[str, Any]
+    ) -> dict[str, str]:
+        try:
+            document = json.loads(self._resolve_capture(source).read_bytes())
+            result = document["result"]
+            identifier = result["uids"][0]
+            record = result[identifier]
+            title = record["title"].strip()
+            returned_identifier = record["uid"]
+        except (
+            AttributeError,
+            IndexError,
+            KeyError,
+            OSError,
+            TypeError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as exc:
+            raise ContractError("source_schema_drift", "pubmed_metadata") from exc
+        if (
+            not isinstance(returned_identifier, str)
+            or returned_identifier != identifier
+            or not title
+        ):
+            raise ContractError("source_schema_drift", "pubmed_metadata")
+        locator = f"https://pubmed.ncbi.nlm.nih.gov/{returned_identifier}/"
+        return {
+            "identifier": returned_identifier,
+            "title": title,
+            "locator": locator,
+            "content_hash": canonical_pubmed_metadata_hash(
+                returned_identifier, title, locator
+            ),
+        }
 
     @staticmethod
     def _source_family(source_id: str) -> str:
