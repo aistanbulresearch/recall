@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from recall.privacy.gemma import (
     MAX_PROPOSALS,
+    OLLAMA_DEFAULT_OPTIONS,
     SURFACE_NOT_FOUND,
     GemmaProposal,
     all_occurrences,
@@ -92,3 +93,14 @@ def test_the_prompt_states_no_numeric_span_limit() -> None:
     assert str(MAX_PROPOSALS) not in SYSTEM_INSTRUCTION
     assert "at most" not in SYSTEM_INSTRUCTION
     assert "every identifier" in SYSTEM_INSTRUCTION
+
+
+def test_the_completion_budget_default_stays_above_the_corpus_floor() -> None:
+    """A 15-span note needs 578 completion tokens; 512 truncated every one.
+
+    The correction lived only in a command-line argument, so a forgotten flag
+    would have restored the defect silently. This holds the code default, which
+    is what a run inherits when nobody passes the flag.
+    """
+
+    assert OLLAMA_DEFAULT_OPTIONS["num_predict"] == 1024
