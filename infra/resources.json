@@ -387,6 +387,14 @@
       "ingress other than internal",
       "any allUsers or allAuthenticatedUsers binding on any role",
       "an agent account missing run.invoker"
-    ]
+    ],
+    "concurrency": {
+      "at_most_once_scope": "SHARED_ACROSS_INSTANCES",
+      "evidence": "FirestoreGatewayInvocationStore.reserve and .complete both run under @firestore.transactional against a document keyed by request_id in the tool_gateway_invocations collection, so the reservation is persisted shared state rather than per-process memory",
+      "instance_scaling": "unconstrained; no max-instances cap is required for correctness",
+      "workers_per_instance": 1,
+      "workers_rationale": "throughput only: the bounded backends gain nothing from in-process concurrency. Correctness does not depend on the worker count.",
+      "determined": "2026-08-24, read from the store implementation rather than assumed"
+    }
   }
 }

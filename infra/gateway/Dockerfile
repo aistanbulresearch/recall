@@ -47,8 +47,16 @@ ENV PYTHONPATH=/app/src \
 RUN useradd --create-home --uid 10001 gateway && chown -R gateway:gateway /app
 USER 10001
 
-# Cloud Run supplies PORT. One worker: the invocation store's at-most-once
-# reservation is per request, and extra workers would add concurrency without
-# adding throughput the backends can absorb.
+# Cloud Run supplies PORT.
+#
+# One worker is a throughput choice, NOT a correctness one. At-most-once does not
+# depend on it: FirestoreGatewayInvocationStore reserves and completes under
+# @firestore.transactional on a document keyed by request_id in a shared
+# collection, so the guarantee holds across processes AND across Cloud Run
+# instances. Instance scaling is therefore free and max-instances needs no
+# artificial cap.
+#
+# The single worker is here because the bounded backends, one public source and
+# one ledger, absorb no benefit from in-process concurrency.
 ENV PORT=8080
 CMD exec uvicorn gateway_server:app --host 0.0.0.0 --port ${PORT} --workers 1
