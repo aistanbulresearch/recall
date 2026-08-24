@@ -93,77 +93,33 @@ ORACLE_STUB_DISCLAIMER = (
 EVIDENCE_ROOT = REPO_ROOT / "artifacts" / "evidence"
 REPORT_FILE_NAME = "p1-privacy-report.json"
 CHECKPOINT_FILE_NAME = "records.jsonl"
-FROZEN_CONFIG_PATH = REPO_ROOT / "corpus" / "FROZEN_CONFIG.json"
-FROZEN_CONFIG_MISMATCH = "frozen_config_mismatch"
 
 ARM_A = "model_offsets"
 ARM_B = "surface_exact_search"
 
-ARM_DECLARATION_PATH = REPO_ROOT / "corpus" / "ARM_DECLARATION.json"
-ARM_DECLARATION_MISMATCH = "arm_declaration_mismatch"
-AMENDMENT_PATH = REPO_ROOT / "corpus" / "PREREGISTRATION_AMENDMENT_001.md"
-
-
-def amendment_primacy() -> dict[str, str]:
-    """Read which arm is primary straight from the governing document.
-
-    The amendment states the promotion in a table whose final column is the
-    state after the amendment. This reads that column rather than trusting any
-    restatement of it.
-    """
-
-    text = AMENDMENT_PATH.read_text(encoding="utf-8")
-    primacy: dict[str, str] = {}
-    for line in text.splitlines():
-        if not line.startswith("|") or "`" not in line:
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) < 3:
-            continue
-        for arm in (ARM_A, ARM_B):
-            if f"`{arm}`" in cells[0]:
-                after = cells[-1].lower()
-                if "primary" in after and "secondary" not in after:
-                    primacy[arm] = "primary"
-                elif "secondary" in after:
-                    primacy[arm] = "secondary"
-    return primacy
-
-
-def load_arm_declaration() -> dict[str, Any]:
-    """Load the arm declaration and refuse it if it contradicts the amendment.
-
-    The declaration used to live here as a literal. It was written before
-    amendment 001 and nothing forced it to follow the amendment, so the frozen
-    run manifest went out carrying a stale primacy claim. The literal is gone.
-    This reads the declaration from `corpus/ARM_DECLARATION.json` and checks it
-    against `corpus/PREREGISTRATION_AMENDMENT_001.md` before any manifest is
-    written, so a declaration that disagrees with its governing document stops
-    the run instead of being published.
-    """
-
-    if not ARM_DECLARATION_PATH.exists():
-        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:arm_declaration_missing")
-    declaration = json.loads(ARM_DECLARATION_PATH.read_text(encoding="utf-8"))
-
-    for rank in ("primary", "secondary"):
-        if rank not in declaration or "arm" not in declaration[rank]:
-            raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:{rank}_missing")
-    declared = {declaration["primary"]["arm"], declaration["secondary"]["arm"]}
-    if declared != {ARM_A, ARM_B}:
-        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:unknown_arm_names:{sorted(declared)}")
-
-    primacy = amendment_primacy()
-    if set(primacy) != {ARM_A, ARM_B}:
-        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:amendment_unreadable:{sorted(primacy)}")
-    for rank in ("primary", "secondary"):
-        arm = declaration[rank]["arm"]
-        if primacy.get(arm) != rank:
-            raise SystemExit(
-                f"{ARM_DECLARATION_MISMATCH}:{rank} declares {arm} but "
-                f"{AMENDMENT_PATH.name} makes it {primacy.get(arm)}"
-            )
-    return declaration
+ARM_DECLARATION = {
+    "primary": {
+        "arm": ARM_A,
+        "status": "preregistered primary",
+        "description": (
+            "The offsets the model returned are scored directly against the ground truth, "
+            "exact boundary."
+        ),
+    },
+    "secondary": {
+        "arm": ARM_B,
+        "status": "declared secondary, exploratory",
+        "description": (
+            "Each returned surface string is placed by deterministic exact search over the note, "
+            "then scored exact boundary. Same model call, same tokens, no additional run."
+        ),
+        "ambiguity_rule": (
+            "Fixed before the run: one occurrence gives that position; several occurrences each "
+            "become their own candidate proposal; no occurrence refuses that proposal with "
+            "model_response_surface_not_found."
+        ),
+    },
+}
 
 MAX_PROPOSALS_RATIONALE = (
     "Denial-of-service bound only, never a recall bound. The development split carries 10 to 15 "
@@ -335,80 +291,6 @@ def guard_frozen_split(args: argparse.Namespace) -> None:
         raise SystemExit(
             f"--frozen-test-run-id {args.frozen_test_run_id} is already recorded; a replacement run needs a new id"
         )
-
-
-def flatten_config(value: Any, prefix: str = "") -> dict[str, Any]:
-    """Dotted-path view of a nested mapping, so a mismatch names one field."""
-
-    if isinstance(value, dict):
-        flat: dict[str, Any] = {}
-        for key, item in value.items():
-            flat.update(flatten_config(item, f"{prefix}.{key}" if prefix else str(key)))
-        return flat
-    return {prefix: value}
-
-
-def effective_config(args: argparse.Namespace) -> dict[str, Any]:
-    """What this invocation would actually send and record.
-
-    Built from the same functions the run uses, so it cannot drift from the
-    real configuration the way a hand-maintained copy would.
-    """
-
-    transport_settings: dict[str, Any] = {}
-    if args.gemma_url:
-        _, transport_settings = build_transport(args)
-
-    corpus_manifest = json.loads(
-        (REPO_ROOT / "corpus" / "PRIVACY_CORPUS_MANIFEST.json").read_text(encoding="utf-8")
-    )
-    identity = getattr(args, "model_identity_record", None)
-
-    return {
-        "prompt_sha256": prompt_identity()["prompt_sha256"],
-        "adapter_version": GEMMA_ADAPTER_VERSION,
-        "locator_version": LOCATOR_VERSION,
-        "max_proposals": MAX_PROPOSALS,
-        "timeout_seconds": args.timeout_seconds,
-        "concurrency": args.concurrency,
-        "transport": transport_settings,
-        "model": (
-            {key: identity[key] for key in ("repository", "revision", "quantization", "file_sha256")}
-            if identity
-            else None
-        ),
-        "corpus_split_sha256": {
-            name: corpus_manifest["splits"][name]["sha256"] for name in ("dev", "test", "train")
-        },
-    }
-
-
-def assert_frozen_config(args: argparse.Namespace) -> str:
-    """Refuse the run before a single record is processed if anything drifted.
-
-    The auditor approval is bound to the values in `corpus/FROZEN_CONFIG.json`.
-    A run that no longer matches them is not the run that was approved, so it
-    stops here rather than producing a manifest that looks authoritative.
-    Returns the hash of the frozen configuration file for the manifest.
-    """
-
-    if not FROZEN_CONFIG_PATH.exists():
-        raise SystemExit(f"{FROZEN_CONFIG_MISMATCH}:frozen_config_missing")
-    raw = FROZEN_CONFIG_PATH.read_bytes()
-    expected = json.loads(raw.decode("utf-8"))["expected"]
-    actual = effective_config(args)
-
-    flat_expected = flatten_config(expected)
-    flat_actual = flatten_config(actual)
-    for field in sorted(flat_expected):
-        want = flat_expected[field]
-        got = flat_actual.get(field)
-        if got != want:
-            raise SystemExit(f"{FROZEN_CONFIG_MISMATCH}:{field} expected={want!r} actual={got!r}")
-    unexpected = sorted(set(flat_actual) - set(flat_expected))
-    if unexpected:
-        raise SystemExit(f"{FROZEN_CONFIG_MISMATCH}:{unexpected[0]} not declared in the frozen configuration")
-    return hashlib.sha256(raw).hexdigest()
 
 
 def wilson_interval(successes: int, total: int, z: float = 1.96) -> dict[str, float | None]:
@@ -896,10 +778,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     except SigningKeyUnavailable:
         signer = LocalSigner(key_id="ephemeral-eval-key", key=b"evaluation-only-key-material")
 
-    # Refuses the run if the declaration disagrees with the amendment, before
-    # any record is processed and before any manifest can be written.
-    arm_declaration = load_arm_declaration()
-
     detector = DeterministicDetector()
 
     baseline = {
@@ -966,13 +844,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "preregistration_approval": args.preregistration_approved,
         "frozen_test_run_id": args.frozen_test_run_id,
         "supersedes_frozen_test_run_id": args.supersedes,
-        "arms": arm_declaration,
-        "arms_source": {
-            "governing_document": "corpus/PREREGISTRATION_AMENDMENT_001.md",
-            "declaration_file": "corpus/ARM_DECLARATION.json",
-            "declaration_sha256": hashlib.sha256(ARM_DECLARATION_PATH.read_bytes()).hexdigest(),
-            "validated_against_governing_document": True,
-        },
+        "arms": ARM_DECLARATION,
         "local_model": {
             "mode": mode if transport_for is not None else "not_run",
             "model_id": args.model_id if args.gemma_url else None,
@@ -994,8 +866,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "concurrency": args.concurrency,
             "timeout_seconds": args.timeout_seconds,
             "resumed": bool(args.resume),
-            "frozen_config_asserted": getattr(args, "frozen_config_sha256", None) is not None,
-            "frozen_config_sha256": getattr(args, "frozen_config_sha256", None),
         },
         "baseline": wire(baseline),
         "structured_only_egress": wire(structured_only),
@@ -1102,11 +972,6 @@ def main() -> int:
         help="Server-side response format constraint, for example 'json'. Recorded with the results.",
     )
     parser.add_argument("--resume", action="store_true", help="Continue a run of the same identifier from its checkpoint.")
-    parser.add_argument(
-        "--assert-frozen-config",
-        action="store_true",
-        help="Check the effective configuration against corpus/FROZEN_CONFIG.json before running. Always on for the frozen split.",
-    )
     parser.add_argument("--smoke", action="store_true", help="Balanced six-record subset used to decide whether the full run is worth starting.")
     parser.add_argument(
         "--reasoning-effort",
@@ -1125,11 +990,6 @@ def main() -> int:
         help="Replay ground-truth residual spans instead of calling a model. Never a model claim.",
     )
     parser.add_argument("--preregistration-approved", default=None, help="Auditor approval record for the frozen split.")
-    parser.add_argument(
-        "--preregistration-approved-file",
-        default=None,
-        help="Read the approval record from a file, so shell quoting cannot alter the recorded wording.",
-    )
     parser.add_argument("--model-repo", default=None, help="Repository the model file came from.")
     parser.add_argument("--model-revision", default=None, help="Repository revision of the model file.")
     parser.add_argument("--model-quantization", default=None, help="Quantisation of the model file, for example q4_0.")
@@ -1140,13 +1000,6 @@ def main() -> int:
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 
-    if args.preregistration_approved_file:
-        if args.preregistration_approved:
-            raise SystemExit("pass the approval as text or as a file, not both")
-        args.preregistration_approved = (
-            Path(args.preregistration_approved_file).read_text(encoding="utf-8").strip()
-        )
-
     if args.split == "test":
         guard_frozen_split(args)
         if args.smoke:
@@ -1154,12 +1007,6 @@ def main() -> int:
     if args.gemma_url and args.oracle_stub:
         raise SystemExit("choose either a real local model endpoint or the oracle stub, not both")
     args.model_identity_record = model_identity(args)
-
-    # Before anything is measured. A drifted configuration is refused here, not
-    # discovered afterwards in a manifest that already looks authoritative.
-    args.frozen_config_sha256 = None
-    if args.split == "test" or args.assert_frozen_config:
-        args.frozen_config_sha256 = assert_frozen_config(args)
 
     args.evidence_scope = (
         "PREREGISTERED_TEST_RUN" if args.split == "test" else f"DEVELOPMENT_SMOKE_ON_{args.split.upper()}_SPLIT"

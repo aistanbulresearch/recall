@@ -250,4 +250,4 @@ withdraws the approval, and the run that broke it may not be reported.
 
 | `frozen_test_run_id` | Date | Model identity | Supersedes | Auditor approval record |
 |---|---|---|---|---|
-| `p1-frozen-001` | 2026-08-23 | `registry.ollama.ai/library/gemma4@e4b-it-qat`, q4_0, file `sha256-e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d` | none, first frozen run | `corpus/FROZEN_RUN_APPROVAL.txt`, recorded verbatim in the run manifest's `preregistration_approval` field |
+| _not yet run_ | | | | |
