@@ -376,3 +376,81 @@ def test_nonzero_exit_with_no_output_maps_to_auth_failed(tmp_path: Path) -> None
     stub.write_text("@echo off\r\nexit /b 1\r\n", encoding="utf-8")
     result = _run_helper(stub, timeout_seconds=15)
     assert "ERROR:recall_token_auth_failed:1" in result.stdout
+
+
+# --- the parent environment must not be a dependency of getting a token -------
+#
+# On 2026-08-24 nine of these tests failed in another process tree on this same
+# machine: same PowerShell build (5.1.26100.9168), same script bytes, same stub
+# paths. Every failure said "Cannot index into a null array" and every one of
+# them was a test that calls Get-RecallAccessToken; all fourteen
+# Get-RecallProject tests passed, because only the token function built a
+# ProcessStartInfo.
+#
+# The cause was a line I had annotated "free if it helps":
+#     $psi.EnvironmentVariables['CLOUDSDK_CORE_DISABLE_PROMPTS'] = '1'
+# .NET materialises that property lazily from a snapshot of the whole parent
+# environment. If the getter throws, PowerShell 5.1 swallows the exception and
+# hands back $null, so the index dies before Start() ever runs -- turning an
+# environment quirk in the CALLER into a total failure of the callee.
+#
+# The variable was redundant: --quiet already disables prompts. These two tests
+# keep it gone.
+
+
+def test_the_token_helper_never_reads_the_parent_environment_snapshot() -> None:
+    """Structural on purpose: the invariant is about what the code may touch.
+
+    A behavioural test cannot run here, because reproducing it needs a hostile
+    parent environment that this test cannot construct on demand -- that is
+    precisely why the bug survived local runs. So the rule is enforced against
+    the source: this function must never index a lazily-built snapshot of the
+    caller's environment, however harmless the addition looks.
+    """
+
+    executable = []
+    in_block_comment = False
+    for line in HELPER.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("<#"):
+            in_block_comment = True
+        if in_block_comment:
+            if "#>" in stripped:
+                in_block_comment = False
+            continue
+        if stripped.startswith("#"):
+            continue
+        executable.append(line)
+
+    offenders = [ln for ln in executable if ".EnvironmentVariables" in ln]
+    assert not offenders, (
+        "Get-RecallAccessToken must not read ProcessStartInfo.EnvironmentVariables; "
+        f"found: {offenders}"
+    )
+
+
+def test_a_throwing_property_getter_is_indistinguishable_from_null() -> None:
+    """Executable documentation for why the rule above exists.
+
+    PowerShell 5.1 does not surface an exception thrown inside a .NET property
+    getter. It yields $null, so the next index produces a message that names
+    the symptom and hides the cause. Anyone who meets that message again should
+    suspect a getter, not an array.
+    """
+
+    probe = (
+        "Add-Type -TypeDefinition 'public class RecallGetterProbe { "
+        "public System.Collections.Specialized.StringDictionary P { "
+        "get { throw new System.ArgumentException(\"Item has already been added.\"); } } }'; "
+        "$o = New-Object RecallGetterProbe; "
+        "Write-Output (\"NULL:\" + ($null -eq $o.P)); "
+        "try { $o.P['k'] = 'v'; Write-Output 'INDEX:ok' } "
+        "catch { Write-Output (\"INDEX:\" + $_.Exception.Message) }"
+    )
+    result = subprocess.run(
+        [*POWERSHELL, probe], capture_output=True, text=True, timeout=120
+    )
+    assert "NULL:True" in result.stdout, result.stdout + result.stderr
+    assert "INDEX:Cannot index into a null array." in result.stdout, (
+        result.stdout + result.stderr
+    )

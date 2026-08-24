@@ -25,10 +25,13 @@ from the internet is not a policy boundary.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import sys
+import time
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +49,19 @@ GATEWAY_COMPONENT = "tool-gateway"
 REQUIRED_INGRESS = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 PUBLIC_PRINCIPALS = frozenset({"allUsers", "allAuthenticatedUsers"})
 INVOKER_ROLE = "roles/run.invoker"
+# Every sensitive value reaches the container as a Secret Manager reference.
+# None of them appears in this repository, in a deploy config, on a command line,
+# or in a report. An earlier revision of this file carried the NCBI contact
+# address as a literal, which is exactly what this arrangement removes.
+CAPABILITY_SECRET_ID = "recall-tool-capability-key"
+NCBI_TOOL_SECRET_ID = "recall-ncbi-tool"
+NCBI_EMAIL_SECRET_ID = "recall-ncbi-email"
+
+SECRET_ENV: Mapping[str, str] = {
+    "RECALL_TOOL_CAPABILITY_SECRET_B64": CAPABILITY_SECRET_ID,
+    "RECALL_NCBI_TOOL": NCBI_TOOL_SECRET_ID,
+    "RECALL_NCBI_EMAIL": NCBI_EMAIL_SECRET_ID,
+}
 
 # The three roles whose tools call the gateway. The Controller is deliberately
 # absent: it hosts the endpoint, it does not invoke itself through it.
@@ -85,22 +101,34 @@ def _base(config: PlatformConfig) -> str:
 
 
 def load_contract(path: Path) -> dict[str, Any]:
-    """Read the endpoint contract the agents lane publishes.
+    """Bind this deployment to the contract document it was built against.
 
-    Deployment requirements are taken from this file. An absent contract is a
-    stop, not a prompt to infer: guessing an audience or a tool route would
-    produce a gateway that authorises the wrong thing.
+    The contract is prose, not configuration: the agents lane publishes it as
+    Markdown and the deployment values are read by a human from it. An earlier
+    draft of this function parsed it as JSON, which was simply wrong about what
+    the file is.
+
+    What is mechanically useful is provenance. Record the document's digest so a
+    deployment report names the exact contract revision it satisfied, and stop if
+    the document is absent, because a deployment that cannot name its contract
+    cannot claim to meet it.
     """
 
     if not path.is_file():
         raise PlatformError("gateway_contract_missing", str(path))
-    try:
-        contract = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise PlatformError("gateway_contract_unreadable", str(exc)[:120]) from exc
-    if not isinstance(contract, dict):
-        raise PlatformError("gateway_contract_malformed", type(contract).__name__)
-    return contract
+    body = path.read_bytes()
+    digest = hashlib.sha256(body).hexdigest()
+    required = [
+        marker
+        for marker in (b"/v1/tools/", b"RECALL_TOOL_GATEWAY_AUDIENCE", b"run.invoker")
+        if marker not in body
+    ]
+    if required:
+        raise PlatformError(
+            "gateway_contract_unrecognised",
+            ",".join(marker.decode() for marker in required),
+        )
+    return {"path": str(path), "sha256": digest, "bytes": len(body)}
 
 
 def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
@@ -116,7 +144,7 @@ def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
             "labels": resource_labels(GATEWAY_COMPONENT),
             "invoker_accounts": list(GATEWAY_CALLER_ACCOUNT_IDS),
             "contract_file": str(args.contract),
-            "contract_keys": sorted(contract),
+            "contract_sha256": contract["sha256"],
             "lifecycle": "persistent",
         },
         config.project_id,
@@ -131,18 +159,7 @@ def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
     parent = (
         f"projects/{config.project_id}/locations/{config.agent_engine_location}"
     )
-    body = {
-        "labels": resource_labels(GATEWAY_COMPONENT),
-        "ingress": REQUIRED_INGRESS,
-        "template": {
-            "serviceAccount": next(
-                identity.email(config.project_id)
-                for identity in SERVICE_IDENTITIES
-                if identity.account_id == "recall-sa-controller"
-            ),
-            "containers": [{"image": args.image}],
-        },
-    }
+    body = _service_body(config, args.image, audience=args.audience)
     response = session.post(
         f"https://run.googleapis.com/v2/{parent}/services",
         params={"serviceId": SERVICE_ID},
@@ -157,6 +174,164 @@ def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
         args.redact,
     )
     return cmd_verify(args, config)
+
+
+def _account_email(config: PlatformConfig, account_id: str) -> str:
+    return next(
+        identity.email(config.project_id)
+        for identity in SERVICE_IDENTITIES
+        if identity.account_id == account_id
+    )
+
+
+def _capability_secret_version(session: Any, config: PlatformConfig) -> str:
+    """Resolve which capability-key version `latest` currently points at."""
+
+    url = (
+        "https://secretmanager.googleapis.com/v1/projects/"
+        f"{config.project_id}/secrets/{CAPABILITY_SECRET_ID}/versions/latest"
+    )
+    response = session.get(url, timeout=60)
+    if response.status_code != 200:
+        raise PlatformError("gateway_secret_version_unreadable", str(response.status_code))
+    return str(response.json().get("name", "")).rsplit("/", 1)[-1]
+
+
+def _service_body(
+    config: PlatformConfig,
+    image: str,
+    *,
+    audience: str | None,
+    capability_secret_version: str | None = None,
+) -> dict[str, Any]:
+    """The service definition, with the capability key as a reference only.
+
+    The signing key is mounted from Secret Manager by Cloud Run. It is never read
+    by this script, never passed on a command line, and never written to the
+    inventory or a report.
+    """
+
+    env: list[dict[str, Any]] = [
+        {
+            "name": "RECALL_WATCHER_PRINCIPAL",
+            "value": _account_email(config, "recall-sa-watcher"),
+        },
+        {
+            "name": "RECALL_ASSESSOR_PRINCIPAL",
+            "value": _account_email(config, "recall-sa-assessor"),
+        },
+        {
+            "name": "RECALL_AUDITOR_PRINCIPAL",
+            "value": _account_email(config, "recall-sa-auditor"),
+        },
+    ]
+    for variable, secret_id in sorted(SECRET_ENV.items()):
+        env.append(
+            {
+                "name": variable,
+                "valueSource": {
+                    "secretKeyRef": {"secret": secret_id, "version": "latest"}
+                },
+            }
+        )
+    if audience:
+        env.append({"name": "RECALL_TOOL_GATEWAY_AUDIENCE", "value": audience})
+    template: dict[str, Any] = {
+        "serviceAccount": _account_email(config, "recall-sa-controller"),
+        "containers": [{"image": image, "env": env}],
+    }
+    if capability_secret_version:
+        # Records which key version this revision was built against, and makes a
+        # rotation produce a new revision. Cloud Run creates no revision when the
+        # spec is byte-identical, so rotating the secret behind an unchanged spec
+        # would leave the old revision serving with the old key and look like a
+        # deploy that did nothing.
+        template["annotations"] = {
+            "recall.dev/capability-secret-version": capability_secret_version
+        }
+    return {
+        "labels": resource_labels(GATEWAY_COMPONENT),
+        "ingress": REQUIRED_INGRESS,
+        "template": template,
+    }
+
+
+def _await_ready(session: Any, config: PlatformConfig, attempts: int = 40) -> dict[str, Any]:
+    """Wait for a revision to become ready, reporting the failure if it does not."""
+
+    for attempt in range(attempts):
+        service = session.get(_base(config), timeout=60).json()
+        if service.get("latestReadyRevision"):
+            return service
+        failed = [
+            c
+            for c in service.get("conditions", [])
+            if c.get("state") == "CONDITION_FAILED"
+        ]
+        if failed and attempt > 2:
+            raise PlatformError(
+                "gateway_revision_failed",
+                str(failed[0].get("message", ""))[:160],
+            )
+        time.sleep(10)
+    raise PlatformError("gateway_revision_not_ready", f"{attempts * 10}s")
+
+
+def cmd_update_image(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Roll the service onto a new image and wait for the revision to serve."""
+
+    session = _session()
+    version = _capability_secret_version(session, config)
+    response = session.patch(
+        _base(config),
+        json=_service_body(
+            config,
+            args.image,
+            audience=args.audience,
+            capability_secret_version=version,
+        ),
+        timeout=300,
+    )
+    if response.status_code not in (200, 201):
+        raise PlatformError("gateway_patch_failed", str(response.status_code))
+    service = _await_ready(session, config)
+    _emit(
+        {
+            "image": args.image,
+            "uri": service.get("uri"),
+            "ready_revision": (service.get("latestReadyRevision") or "").rsplit("/", 1)[-1],
+        },
+        config.project_id,
+        args.redact,
+    )
+    return 0
+
+
+def cmd_set_audience(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Set the audience to the service's own URL, then confirm it took.
+
+    The contract pins the audience to the exact service URL, which Cloud Run only
+    assigns at create time. So the URL is read back and written in rather than
+    predicted; a predicted URL that turned out wrong would mint tokens no one
+    accepts.
+    """
+
+    session = _session()
+    read = session.get(_base(config), timeout=60)
+    if read.status_code != 200:
+        raise PlatformError("gateway_read_back_failed", str(read.status_code))
+    uri = read.json().get("uri")
+    if not uri:
+        raise PlatformError("gateway_uri_unassigned")
+    response = session.patch(
+        _base(config),
+        json=_service_body(config, args.image, audience=uri),
+        timeout=180,
+    )
+    if response.status_code not in (200, 201):
+        raise PlatformError("gateway_patch_failed", str(response.status_code))
+    _emit({"audience_set_to": uri}, config.project_id, args.redact)
+    return 0
 
 
 def _iam_policy(session: Any, config: PlatformConfig) -> dict[str, Any]:
@@ -273,7 +448,17 @@ def build_parser() -> argparse.ArgumentParser:
     deploy = sub.add_parser("deploy", parents=[common])
     deploy.add_argument("--contract", required=True)
     deploy.add_argument("--image", required=True)
+    deploy.add_argument("--audience", default=None)
     deploy.set_defaults(handler=cmd_deploy)
+
+    update = sub.add_parser("update-image", parents=[common])
+    update.add_argument("--image", required=True)
+    update.add_argument("--audience", default=None)
+    update.set_defaults(handler=cmd_update_image)
+
+    audience = sub.add_parser("set-audience", parents=[common])
+    audience.add_argument("--image", required=True)
+    audience.set_defaults(handler=cmd_set_audience)
 
     for name, handler in (
         ("bind", cmd_bind),
