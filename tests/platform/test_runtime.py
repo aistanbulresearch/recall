@@ -71,6 +71,7 @@ class FakeClient:
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
         extra_packages: Sequence[str] = (),
+        gcs_dir_name: str | None = None,
     ) -> Any:
         self.create_kwargs = {
             "agent_engine": agent_engine,
@@ -80,6 +81,7 @@ class FakeClient:
             "env_vars": dict(env_vars),
             "service_account": service_account,
             "extra_packages": tuple(extra_packages),
+            "gcs_dir_name": gcs_dir_name,
             "resource_limits": dict(resource_limits) if resource_limits else None,
         }
         name = f"projects/test-project/locations/{REGION}/reasoningEngines/{self._next_id}"
