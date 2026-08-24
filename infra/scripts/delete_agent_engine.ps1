@@ -13,10 +13,8 @@ if ($ResourceName -notmatch '^projects/[^/]+/locations/([^/]+)/reasoningEngines/
     throw "runtime_resource_name_invalid"
 }
 $location = $Matches[1]
-. "$PSScriptRoot\gcloud_token.ps1"
-# Bounded: a bare print-access-token can wait forever on a reauth prompt
-# that no one can answer in a non-interactive session.
-$token = Get-RecallAccessToken
+$token = (gcloud auth print-access-token)
+if ($LASTEXITCODE -ne 0) { throw "auth_token_failed" }
 
 $uri = "https://$location-aiplatform.googleapis.com/v1/$ResourceName"
 if ($Force) { $uri = "$uri`?force=true" }
