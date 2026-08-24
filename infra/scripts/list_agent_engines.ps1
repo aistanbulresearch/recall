@@ -8,14 +8,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "$PSScriptRoot\gcloud_token.ps1"
-# Read the project from the configuration file rather than asking gcloud:
-# `config get-value project` is the call that hung, and it is on the
-# milestone path. A call that never happens cannot hang.
-if (-not $Project) { $Project = Get-RecallProject }
-# Bounded: a bare print-access-token can wait forever on a reauth prompt
-# that no one can answer in a non-interactive session.
-$token = Get-RecallAccessToken
+if (-not $Project) { $Project = (gcloud config get-value project 2>$null) }
+if (-not $Project) { throw "platform_config_missing:RECALL_GCP_PROJECT" }
+
+$token = (gcloud auth print-access-token)
+if ($LASTEXITCODE -ne 0) { throw "auth_token_failed" }
 
 $uri = "https://$Location-aiplatform.googleapis.com/v1/projects/$Project/locations/$Location/reasoningEngines"
 $response = Invoke-RestMethod -Method Get -Uri $uri -Headers @{ Authorization = "Bearer $token" }
