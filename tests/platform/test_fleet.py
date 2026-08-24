@@ -17,6 +17,7 @@ from recall.platform.fleet import (
     FLEET_RESOURCE_LIMITS,
     AgentCall,
     FleetDeployment,
+    GatewayBinding,
     deploy_fleet,
     deploy_overlap_seconds,
     fleet_env_vars,
@@ -38,6 +39,14 @@ CONFIG = PlatformConfig(
     model="gemini-3.7-flash",
     model_location="global",
     staging_bucket="gs://recall-agent-engine-staging-test",
+)
+
+# The gateway an agent is allowed to know about. Threaded explicitly so the
+# tests assert the deployed environment carries it, rather than trusting that
+# something further down resolved it.
+GATEWAY = GatewayBinding(
+    url="https://recall-tool-gateway-test.a.run.app",
+    audience="https://recall-tool-gateway-test.a.run.app",
 )
 
 
@@ -66,7 +75,7 @@ def test_each_member_runs_under_its_own_service_account() -> None:
     accounts = {member.service_account_id for member in FLEET_MEMBERS}
     assert accounts == {"recall-sa-watcher", "recall-sa-assessor", "recall-sa-auditor"}
     for member in FLEET_MEMBERS:
-        spec = fleet_spec(CONFIG, member)
+        spec = fleet_spec(CONFIG, member, gateway=GATEWAY)
         assert spec.service_account is not None
         assert spec.service_account.startswith(member.service_account_id + "@")
 
@@ -74,25 +83,25 @@ def test_each_member_runs_under_its_own_service_account() -> None:
 def test_genai_instrumentation_is_always_deployed() -> None:
     assert "opentelemetry-instrumentation-google-genai" in FLEET_REQUIREMENTS
     for member in FLEET_MEMBERS:
-        assert fleet_spec(CONFIG, member).requirements == FLEET_REQUIREMENTS
+        assert fleet_spec(CONFIG, member, gateway=GATEWAY).requirements == FLEET_REQUIREMENTS
 
 
 def test_telemetry_is_enabled_by_environment() -> None:
-    env = fleet_env_vars(CONFIG, "recall-watcher")
+    env = fleet_env_vars(CONFIG, "recall-watcher", gateway=GATEWAY)
     assert env["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] == "true"
     assert env["OTEL_SEMCONV_STABILITY_OPT_IN"] == "gen_ai_latest_experimental"
     assert env["OTEL_SERVICE_NAME"] == "recall-watcher"
 
 
 def test_prompt_content_never_enters_spans() -> None:
-    env = fleet_env_vars(CONFIG, "recall-watcher")
+    env = fleet_env_vars(CONFIG, "recall-watcher", gateway=GATEWAY)
     assert env["ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"] == "false"
     assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" not in env
 
 
 def test_service_name_is_per_role() -> None:
     names = {
-        fleet_env_vars(CONFIG, member.display_name)["OTEL_SERVICE_NAME"]
+        fleet_env_vars(CONFIG, member.display_name, gateway=GATEWAY)["OTEL_SERVICE_NAME"]
         for member in FLEET_MEMBERS
     }
     assert len(names) == 3
@@ -100,7 +109,7 @@ def test_service_name_is_per_role() -> None:
 
 def test_blank_service_name_is_refused() -> None:
     with pytest.raises(PlatformError) as excinfo:
-        fleet_env_vars(CONFIG, "")
+        fleet_env_vars(CONFIG, "", gateway=GATEWAY)
     assert excinfo.value.code == "fleet_service_name_missing"
 
 
@@ -131,7 +140,7 @@ class RecordingRuntime(AgentRuntime):
 
 def test_members_deploy_concurrently_not_one_after_another() -> None:
     runtime = RecordingRuntime()
-    results = deploy_fleet(runtime, CONFIG, lambda member: object())
+    results = deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     assert len(results) == 3
     assert runtime.peak > 1, "sequential deploys would take three times as long"
     assert fleet_is_complete(results) is True
@@ -139,7 +148,7 @@ def test_members_deploy_concurrently_not_one_after_another() -> None:
 
 def test_one_failed_member_does_not_hide_the_others() -> None:
     runtime = RecordingRuntime(fail_display_name="recall-assessor")
-    results = deploy_fleet(runtime, CONFIG, lambda member: object())
+    results = deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     by_name = {r.member.display_name: r for r in results}
     assert by_name["recall-assessor"].deployed is False
     assert "RuntimeError" in (by_name["recall-assessor"].error or "")
@@ -149,7 +158,7 @@ def test_one_failed_member_does_not_hide_the_others() -> None:
 
 def test_empty_member_list_is_refused() -> None:
     with pytest.raises(PlatformError) as excinfo:
-        deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), members=[])
+        deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), members=[], gateway=GATEWAY)
     assert excinfo.value.code == "fleet_no_members"
 
 
@@ -380,7 +389,7 @@ def test_catalog_attempts_must_be_positive() -> None:
 
 def test_instance_shape_is_pinned_on_every_member() -> None:
     for member in FLEET_MEMBERS:
-        assert fleet_spec(CONFIG, member).resource_limits == dict(FLEET_RESOURCE_LIMITS)
+        assert fleet_spec(CONFIG, member, gateway=GATEWAY).resource_limits == dict(FLEET_RESOURCE_LIMITS)
 
 
 def test_unread_shape_is_reported_as_unread_not_as_requested() -> None:
@@ -424,7 +433,7 @@ class FlakyRuntime(RecordingRuntime):
 
 def test_a_transient_failure_is_retried_once_and_recovers() -> None:
     results = deploy_fleet(
-        FlakyRuntime("recall-assessor"), CONFIG, lambda member: object()
+        FlakyRuntime("recall-assessor"), CONFIG, lambda member: object(), gateway=GATEWAY
     )
     by_name = {r.member.display_name: r for r in results}
     assert by_name["recall-assessor"].deployed is True
@@ -437,6 +446,7 @@ def test_a_permanent_failure_stops_at_the_retry_bound() -> None:
         RecordingRuntime(fail_display_name="recall-assessor"),
         CONFIG,
         lambda member: object(),
+        gateway=GATEWAY,
     )
     failed = next(r for r in results if r.member.display_name == "recall-assessor")
     assert failed.deployed is False
@@ -449,6 +459,7 @@ def test_surviving_members_are_kept_when_one_fails() -> None:
         RecordingRuntime(fail_display_name="recall-assessor"),
         CONFIG,
         lambda member: object(),
+        gateway=GATEWAY,
     )
     kept = [r for r in results if r.deployed]
     assert len(kept) == 2, "a partial fleet keeps what deployed; redeploying is cheap"
@@ -456,14 +467,14 @@ def test_surviving_members_are_kept_when_one_fails() -> None:
 
 
 def test_deploy_timing_is_recorded_for_every_member() -> None:
-    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object())
+    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), gateway=GATEWAY)
     for result in results:
         assert result.started_at.endswith("Z")
         assert result.finished_at.endswith("Z")
 
 
 def test_overlap_is_measured_not_assumed() -> None:
-    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object())
+    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), gateway=GATEWAY)
     assert deploy_overlap_seconds(results) > 0, "concurrent deploys overlap in time"
 
 

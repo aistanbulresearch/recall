@@ -43,6 +43,7 @@ from recall.platform.fleet import (  # noqa: E402
     AgentCall,
     FleetMember,
     assert_agent_carries_no_tracing_flag,
+    GatewayBinding,
     assert_fleet_config,
     deploy_fleet,
     fleet_summary,
@@ -108,7 +109,7 @@ def _factory(bypass: bool) -> Any:
 def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Prove the configuration and the agents without touching the cloud."""
 
-    assert_fleet_config(config)
+    assert_fleet_config(config, gateway=GatewayBinding.from_env())
     built: list[dict[str, Any]] = []
     for member in FLEET_MEMBERS:
         try:
@@ -137,7 +138,12 @@ def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
 
 def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
     runtime = AgentRuntime(VertexAgentEngineClient(config), config)
-    results = deploy_fleet(runtime, config, _factory(args.bypass_factory_tracing_defect))
+    results = deploy_fleet(
+        runtime,
+        config,
+        _factory(args.bypass_factory_tracing_defect),
+        gateway=GatewayBinding.from_env(),
+    )
 
     catalog = verify_fleet_catalogued(
         RestRegistryClient(config), config.agent_engine_location, results

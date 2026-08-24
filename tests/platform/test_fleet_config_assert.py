@@ -20,6 +20,8 @@ from recall.platform.fleet import (
     FLEET_MEMBERS,
     assert_agent_carries_no_tracing_flag,
     assert_fleet_config,
+    fleet_env_vars,
+    GatewayBinding,
     deploy_fleet,
 )
 from recall.platform.runtime import AgentRuntime, DeployedEngine
@@ -59,6 +61,14 @@ CONFIG = PlatformConfig(
     staging_bucket="gs://recall-agent-engine-staging-test",
 )
 
+# The gateway an agent is allowed to know about. Threaded explicitly so the
+# tests assert the deployed environment carries it, rather than trusting that
+# something further down resolved it.
+GATEWAY = GatewayBinding(
+    url="https://recall-tool-gateway-test.a.run.app",
+    audience="https://recall-tool-gateway-test.a.run.app",
+)
+
 
 def _corrupted(**changes: Any) -> dict[str, Any]:
     expected = copy.deepcopy(dict(EXPECTED_FLEET_CONFIG))
@@ -67,13 +77,13 @@ def _corrupted(**changes: Any) -> dict[str, Any]:
 
 
 def test_the_locked_configuration_matches_what_the_fleet_builds() -> None:
-    assert_fleet_config(CONFIG)
+    assert_fleet_config(CONFIG, gateway=GATEWAY)
 
 
 def test_wrong_requirements_stop_the_run() -> None:
     expected = _corrupted(requirements=("google-cloud-aiplatform[adk,agent_engines]",))
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=expected)
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=expected)
     assert excinfo.value.code == "fleet_config_mismatch"
     assert excinfo.value.detail == "requirements"
 
@@ -81,14 +91,14 @@ def test_wrong_requirements_stop_the_run() -> None:
 def test_wrong_resource_limits_stop_the_run() -> None:
     expected = _corrupted(resource_limits={"cpu": "4", "memory": "16Gi"})
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=expected)
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=expected)
     assert excinfo.value.detail == "resource_limits"
 
 
 def test_a_missing_env_key_stops_the_run() -> None:
     keys = set(EXPECTED_FLEET_CONFIG["env_keys"]) | {"AN_EXTRA_KEY"}
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=_corrupted(env_keys=frozenset(keys)))
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=_corrupted(env_keys=frozenset(keys)))
     assert excinfo.value.detail == "env_keys"
 
 
@@ -96,7 +106,7 @@ def test_telemetry_switched_off_stops_the_run() -> None:
     values = dict(EXPECTED_FLEET_CONFIG["env_values"])
     values["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] = "false"
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=_corrupted(env_values=values))
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=_corrupted(env_values=values))
     assert excinfo.value.detail == (
         "env_values.GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"
     )
@@ -106,7 +116,7 @@ def test_content_capture_switched_on_stops_the_run() -> None:
     values = dict(EXPECTED_FLEET_CONFIG["env_values"])
     values["ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"] = "true"
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=_corrupted(env_values=values))
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=_corrupted(env_values=values))
     assert excinfo.value.detail == "env_values.ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"
 
 
@@ -114,7 +124,7 @@ def test_a_wrong_role_to_account_mapping_stops_the_run() -> None:
     mapping = dict(EXPECTED_FLEET_CONFIG["role_service_accounts"])
     mapping["EVIDENCE_WATCHER"] = "recall-sa-assessor"
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=_corrupted(role_service_accounts=mapping))
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=_corrupted(role_service_accounts=mapping))
     assert excinfo.value.detail == "role_service_accounts.EVIDENCE_WATCHER"
 
 
@@ -122,7 +132,7 @@ def test_a_missing_role_stops_the_run() -> None:
     mapping = dict(EXPECTED_FLEET_CONFIG["role_service_accounts"])
     mapping.pop("CITATION_AUDITOR")
     with pytest.raises(PlatformError) as excinfo:
-        assert_fleet_config(CONFIG, expected=_corrupted(role_service_accounts=mapping))
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=_corrupted(role_service_accounts=mapping))
     assert excinfo.value.detail == "role_service_accounts"
 
 
@@ -180,7 +190,7 @@ def test_a_corrupted_constant_creates_no_engine(monkeypatch: Any) -> None:
     )
     runtime = RecordingRuntime()
     with pytest.raises(PlatformError) as excinfo:
-        deploy_fleet(runtime, CONFIG, lambda member: object())
+        deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     assert excinfo.value.code == "fleet_config_mismatch"
     assert runtime.specs == [], "an engine was created despite the mismatch"
 
@@ -190,7 +200,7 @@ def test_a_tracing_flagged_agent_is_reported_per_member() -> None:
         _enable_tracing = True
 
     results = deploy_fleet(
-        RecordingRuntime(), CONFIG, lambda member: TracingAgent(), retries=0
+        RecordingRuntime(), CONFIG, lambda member: TracingAgent(), retries=0, gateway=GATEWAY
     )
     assert all(not r.deployed for r in results)
     assert all("fleet_config_mismatch" in (r.error or "") for r in results)
@@ -198,6 +208,68 @@ def test_a_tracing_flagged_agent_is_reported_per_member() -> None:
 
 def test_a_healthy_configuration_still_deploys() -> None:
     runtime = RecordingRuntime()
-    results = deploy_fleet(runtime, CONFIG, lambda member: object())
+    results = deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     assert all(r.deployed for r in results)
     assert len(runtime.specs) == len(FLEET_MEMBERS)
+
+
+# --- the gateway binding is part of the declared fleet shape ------------------
+#
+# Until 2026-08-25 fleet_env_vars set no gateway variables at all, so a deployed
+# agent would have raised tool_gateway_https_required before opening a socket.
+# In a reachability test that failure is indistinguishable from an unreachable
+# network unless someone reads the error string, and the conclusion would have
+# been "agent engines cannot reach internal ingress" -- possibly flipping a
+# security posture on a missing environment variable.
+#
+# assert_gateway_config already existed and was already tested. Nothing called
+# it on the deploy path, which is the difference between a check and a check
+# that runs.
+
+
+def test_the_deployed_environment_carries_the_gateway_binding() -> None:
+    for member in FLEET_MEMBERS:
+        env = fleet_env_vars(CONFIG, member.display_name, gateway=GATEWAY)
+        assert env["RECALL_TOOL_GATEWAY_URL"] == GATEWAY.url
+        assert env["RECALL_TOOL_GATEWAY_AUDIENCE"] == GATEWAY.audience
+
+
+def test_the_agent_environment_never_carries_the_signing_key() -> None:
+    """The whole reason the gateway exists is that agents do not hold it."""
+
+    for member in FLEET_MEMBERS:
+        env = fleet_env_vars(CONFIG, member.display_name, gateway=GATEWAY)
+        assert "RECALL_TOOL_CAPABILITY_SECRET_B64" not in env
+        assert "RECALL_NCBI_EMAIL" not in env
+        assert "RECALL_NCBI_TOOL" not in env
+
+
+def test_a_mismatched_audience_is_refused_on_the_deploy_path() -> None:
+    """Proves assert_gateway_config is reached from assert_fleet_config.
+
+    A token minted for the wrong audience is rejected by Cloud Run at the door,
+    so this would have been every agent call failing, discovered at the smoke
+    rather than at the gate.
+    """
+
+    wrong = GatewayBinding(
+        url="https://recall-tool-gateway-test.a.run.app",
+        audience="https://some-other-service.a.run.app",
+    )
+    with pytest.raises(PlatformError) as excinfo:
+        assert_fleet_config(CONFIG, gateway=wrong)
+    assert excinfo.value.code == "fleet_config_mismatch"
+    assert "audience" in str(excinfo.value.detail)
+
+
+def test_an_unset_gateway_url_is_refused_rather_than_defaulted() -> None:
+    with pytest.raises(PlatformError) as excinfo:
+        GatewayBinding.from_env({})
+    assert excinfo.value.code == "fleet_gateway_url_missing"
+
+
+def test_the_audience_defaults_to_the_url_rather_than_drifting() -> None:
+    binding = GatewayBinding.from_env(
+        {"RECALL_TOOL_GATEWAY_URL": "https://recall-tool-gateway-test.a.run.app"}
+    )
+    assert binding.audience == binding.url

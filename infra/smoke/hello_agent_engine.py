@@ -32,7 +32,11 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 from recall.contracts.enums import ArtifactStatus, DataMode  # noqa: E402
 from recall.platform.config import PlatformConfig  # noqa: E402
 from recall.platform.errors import PlatformError  # noqa: E402
-from recall.platform.fleet import FLEET_REQUIREMENTS, fleet_env_vars  # noqa: E402
+from recall.platform.fleet import (  # noqa: E402
+    FLEET_REQUIREMENTS,
+    GatewayBinding,
+    fleet_env_vars,
+)
 from recall.platform.identity import BY_ACCOUNT_ID  # noqa: E402
 from recall.platform.receipts import utc_timestamp  # noqa: E402
 from recall.platform.redaction import redact_identifiers  # noqa: E402
@@ -110,7 +114,9 @@ def _spec(config: PlatformConfig, service_account: str | None) -> AgentSpec:
         display_name=DISPLAY_NAME,
         description=DESCRIPTION,
         requirements=REQUIREMENTS,
-        env_vars=fleet_env_vars(config, DISPLAY_NAME),
+        env_vars=fleet_env_vars(
+            config, DISPLAY_NAME, gateway=GatewayBinding.from_env()
+        ),
         service_account=service_account,
     )
 
