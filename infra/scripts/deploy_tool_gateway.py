@@ -29,7 +29,9 @@ import hashlib
 import json
 import logging
 import sys
+import time
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -47,13 +49,19 @@ GATEWAY_COMPONENT = "tool-gateway"
 REQUIRED_INGRESS = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 PUBLIC_PRINCIPALS = frozenset({"allUsers", "allAuthenticatedUsers"})
 INVOKER_ROLE = "roles/run.invoker"
+# Every sensitive value reaches the container as a Secret Manager reference.
+# None of them appears in this repository, in a deploy config, on a command line,
+# or in a report. An earlier revision of this file carried the NCBI contact
+# address as a literal, which is exactly what this arrangement removes.
 CAPABILITY_SECRET_ID = "recall-tool-capability-key"
+NCBI_TOOL_SECRET_ID = "recall-ncbi-tool"
+NCBI_EMAIL_SECRET_ID = "recall-ncbi-email"
 
-# Supplied by the owner on 2026-08-24. RECALL_NCBI_EMAIL is a contact address
-# sent to NCBI with every request, so it is configuration given by the owner and
-# never a value this lane invents.
-NCBI_TOOL = "recall-evidence-watcher"
-NCBI_EMAIL = "contact@aistanbulresearch.com"
+SECRET_ENV: Mapping[str, str] = {
+    "RECALL_TOOL_CAPABILITY_SECRET_B64": CAPABILITY_SECRET_ID,
+    "RECALL_NCBI_TOOL": NCBI_TOOL_SECRET_ID,
+    "RECALL_NCBI_EMAIL": NCBI_EMAIL_SECRET_ID,
+}
 
 # The three roles whose tools call the gateway. The Controller is deliberately
 # absent: it hosts the endpoint, it does not invoke itself through it.
@@ -187,8 +195,6 @@ def _service_body(
     """
 
     env: list[dict[str, Any]] = [
-        {"name": "RECALL_NCBI_TOOL", "value": NCBI_TOOL},
-        {"name": "RECALL_NCBI_EMAIL", "value": NCBI_EMAIL},
         {
             "name": "RECALL_WATCHER_PRINCIPAL",
             "value": _account_email(config, "recall-sa-watcher"),
@@ -201,16 +207,16 @@ def _service_body(
             "name": "RECALL_AUDITOR_PRINCIPAL",
             "value": _account_email(config, "recall-sa-auditor"),
         },
-        {
-            "name": "RECALL_TOOL_CAPABILITY_SECRET_B64",
-            "valueSource": {
-                "secretKeyRef": {
-                    "secret": CAPABILITY_SECRET_ID,
-                    "version": "latest",
-                }
-            },
-        },
     ]
+    for variable, secret_id in sorted(SECRET_ENV.items()):
+        env.append(
+            {
+                "name": variable,
+                "valueSource": {
+                    "secretKeyRef": {"secret": secret_id, "version": "latest"}
+                },
+            }
+        )
     if audience:
         env.append({"name": "RECALL_TOOL_GATEWAY_AUDIENCE", "value": audience})
     return {
@@ -221,6 +227,51 @@ def _service_body(
             "containers": [{"image": image, "env": env}],
         },
     }
+
+
+def _await_ready(session: Any, config: PlatformConfig, attempts: int = 40) -> dict[str, Any]:
+    """Wait for a revision to become ready, reporting the failure if it does not."""
+
+    for attempt in range(attempts):
+        service = session.get(_base(config), timeout=60).json()
+        if service.get("latestReadyRevision"):
+            return service
+        failed = [
+            c
+            for c in service.get("conditions", [])
+            if c.get("state") == "CONDITION_FAILED"
+        ]
+        if failed and attempt > 2:
+            raise PlatformError(
+                "gateway_revision_failed",
+                str(failed[0].get("message", ""))[:160],
+            )
+        time.sleep(10)
+    raise PlatformError("gateway_revision_not_ready", f"{attempts * 10}s")
+
+
+def cmd_update_image(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Roll the service onto a new image and wait for the revision to serve."""
+
+    session = _session()
+    response = session.patch(
+        _base(config),
+        json=_service_body(config, args.image, audience=args.audience),
+        timeout=300,
+    )
+    if response.status_code not in (200, 201):
+        raise PlatformError("gateway_patch_failed", str(response.status_code))
+    service = _await_ready(session, config)
+    _emit(
+        {
+            "image": args.image,
+            "uri": service.get("uri"),
+            "ready_revision": (service.get("latestReadyRevision") or "").rsplit("/", 1)[-1],
+        },
+        config.project_id,
+        args.redact,
+    )
+    return 0
 
 
 def cmd_set_audience(args: argparse.Namespace, config: PlatformConfig) -> int:
@@ -366,6 +417,11 @@ def build_parser() -> argparse.ArgumentParser:
     deploy.add_argument("--image", required=True)
     deploy.add_argument("--audience", default=None)
     deploy.set_defaults(handler=cmd_deploy)
+
+    update = sub.add_parser("update-image", parents=[common])
+    update.add_argument("--image", required=True)
+    update.add_argument("--audience", default=None)
+    update.set_defaults(handler=cmd_update_image)
 
     audience = sub.add_parser("set-audience", parents=[common])
     audience.add_argument("--image", required=True)
