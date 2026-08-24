@@ -243,22 +243,136 @@ def test_a_config_without_a_project_throws(tmp_path: Path) -> None:
     assert "ERROR:recall_project_unresolved" in out.stdout
 
 
-def test_resolving_the_project_launches_no_process(tmp_path: Path) -> None:
-    """The whole point: this path starts no child process, so it cannot hang."""
+def test_resolving_the_project_launches_no_gcloud(tmp_path: Path) -> None:
+    """The whole point: this path starts no gcloud, so it cannot hang.
+
+    Tested by putting a marker-writing stub first on PATH. If the resolver ever
+    shells out to gcloud, the marker appears.
+
+    An earlier version compared @(Get-Process).Count before and after, which is
+    racy: any unrelated process starting on the machine during the window flips
+    it. That test passed on one checkout and failed on another for reasons that
+    had nothing to do with the code, which is precisely the failure mode this
+    file is being corrected for.
+    """
 
     config = tmp_path / "config_default"
     config.write_text(CONFIG_WITH_PROJECT, encoding="utf-8")
+    marker = tmp_path / "gcloud-was-called.txt"
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir()
+    (stub_dir / "gcloud.cmd").write_text(
+        "@echo off\r\n" + f'echo called > "{marker}"\r\n' + "exit /b 0\r\n",
+        encoding="utf-8",
+    )
     script = (
         f". '{HELPER}'; "
         "$env:RECALL_GCP_PROJECT = ''; "
-        "$before = @(Get-Process).Count; "
-        f"$p = Get-RecallProject -ConfigPath '{config}'; "
-        "$after = @(Get-Process).Count; "
-        'Write-Output "$p|$($after - $before)"'
+        f"$env:PATH = '{stub_dir}' + [IO.Path]::PathSeparator + $env:PATH; "
+        f"Write-Output \"OK:$(Get-RecallProject -ConfigPath '{config}')\""
     )
     out = subprocess.run(
         [*POWERSHELL, script], capture_output=True, text=True, timeout=120
     )
-    project, delta = out.stdout.strip().split("|")
-    assert project == "recall-example-0000"
-    assert int(delta) <= 0, "resolving the project started a process"
+    assert "OK:recall-example-0000" in out.stdout
+    assert not marker.exists(), "resolving the project invoked gcloud"
+
+
+# --- degenerate inputs: the shapes an expired or half-written config produces ---
+#
+# These failed cross-environment on 2026-08-24 with "Cannot index into a null
+# array". The failure did not reproduce on the authoring machine, which is the
+# point: a test whose result depends on machine state is not evidence. Every
+# input below is written by the test itself, so the outcome cannot vary with
+# whose gcloud configuration happens to be on disk.
+
+
+def test_an_empty_config_file_reports_unresolved(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text("", encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "ERROR:recall_project_unresolved" in out.stdout
+
+
+def test_a_whitespace_only_config_reports_unresolved(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text("\n\n   \n", encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "ERROR:recall_project_unresolved" in out.stdout
+
+
+def test_a_single_line_config_resolves(tmp_path: Path) -> None:
+    """One line makes Get-Content return a string, not an array.
+
+    The scalar and array shapes take different paths through PowerShell's
+    matching, so both are covered rather than whichever the author happened
+    to write first.
+    """
+
+    config = tmp_path / "config_default"
+    config.write_text("project = solo-value\n", encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "OK:solo-value" in out.stdout
+
+
+def test_a_multi_line_config_resolves(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text(
+        "[core]\naccount = someone\nproject = multi-value\n", encoding="utf-8"
+    )
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "OK:multi-value" in out.stdout
+
+
+def test_crlf_line_endings_resolve(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_bytes(b"[core]\r\nproject = crlf-value\r\n")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "OK:crlf-value" in out.stdout
+
+
+def test_a_commented_project_line_is_not_matched(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text("# project = commented-out\n", encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "ERROR:recall_project_unresolved" in out.stdout
+
+
+def test_the_first_project_line_wins(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text("project = first\nproject = second\n", encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "OK:first" in out.stdout
+
+
+# --- empty command output: what an expired credential actually produces -------
+
+
+def test_empty_stdout_is_refused_rather_than_returned(tmp_path: Path) -> None:
+    """A credential that has lapsed can exit zero and print nothing.
+
+    An empty token is not a token. Returning it would send an Authorization
+    header of "Bearer " and turn a credential failure into a puzzling 401 much
+    further away from the cause.
+    """
+
+    stub = tmp_path / "gcloud.cmd"
+    stub.write_text("@echo off\r\nexit /b 0\r\n", encoding="utf-8")
+    result = _run_helper(stub, timeout_seconds=15)
+    assert "ERROR:recall_token_empty" in result.stdout
+
+
+def test_whitespace_only_stdout_is_refused(tmp_path: Path) -> None:
+    stub = tmp_path / "gcloud.cmd"
+    stub.write_text("@echo off\r\necho.\r\nexit /b 0\r\n", encoding="utf-8")
+    result = _run_helper(stub, timeout_seconds=15)
+    assert "ERROR:recall_token_empty" in result.stdout
+
+
+def test_nonzero_exit_with_no_output_maps_to_auth_failed(tmp_path: Path) -> None:
+    """Exit code decides, not the emptiness of the output."""
+
+    stub = tmp_path / "gcloud.cmd"
+    stub.write_text("@echo off\r\nexit /b 1\r\n", encoding="utf-8")
+    result = _run_helper(stub, timeout_seconds=15)
+    assert "ERROR:recall_token_auth_failed:1" in result.stdout
