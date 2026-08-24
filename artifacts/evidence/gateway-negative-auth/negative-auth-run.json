@@ -1,0 +1,67 @@
+{
+  "probe": "gateway_negative_auth",
+  "endpoint": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app/v1/tools/evidence_connector:invoke",
+  "posture": "ingress=all, IAM-only enforcement",
+  "cases_exercised": 3,
+  "all_refused": false,
+  "never_200": true,
+  "never_404": true,
+  "distinct_reasons": [
+    "forbidden (no grant for this principal)",
+    "unauthenticated (credential could not be verified)",
+    "unexpected:400"
+  ],
+  "cases": [
+    {
+      "case": "no_token",
+      "what_is_presented": "no Authorization header at all",
+      "exercises": "authentication",
+      "http_code": "403",
+      "seconds": 0.519,
+      "body_excerpt": "<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>403 Forbidden</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Forbidden</h1>\n<h2>Your client does ",
+      "body_bytes": 327,
+      "never_200": true,
+      "never_404": true,
+      "refused_with_reason": true,
+      "observed_reason": "forbidden (no grant for this principal)"
+    },
+    {
+      "case": "wrong_audience",
+      "what_is_presented": "a genuinely Google-signed ID token (iss accounts.google.com) whose aud is the gcloud OAuth client id, not this service URL",
+      "exercises": "authentication (audience binding)",
+      "http_code": "400",
+      "seconds": 0.413,
+      "body_excerpt": "{\"authorization_receipt\":null,\"decision\":\"DENIED\",\"error\":\"gateway_request_fields_invalid\",\"protocol_version\":\"1.0\",\"request_id\":null,\"result\":null}",
+      "body_bytes": 148,
+      "never_200": true,
+      "never_404": true,
+      "refused_with_reason": false,
+      "observed_reason": "unexpected:400"
+    },
+    {
+      "case": "wrong_issuer",
+      "what_is_presented": "a structurally valid JWT claiming iss not-google.example.invalid, signature bytes are literal garbage",
+      "exercises": "authentication (issuer/signature)",
+      "http_code": "401",
+      "seconds": 0.373,
+      "body_excerpt": "<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>401 Unauthorized</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Unauthorized</h1>\n<h2>Your client",
+      "body_bytes": 326,
+      "never_200": true,
+      "never_404": true,
+      "refused_with_reason": true,
+      "observed_reason": "unauthenticated (credential could not be verified)"
+    }
+  ],
+  "not_exercised": [
+    {
+      "case": "wrong_principal_authorization",
+      "status": "NOT EXERCISED",
+      "reason": "requires a validly-signed token correctly audienced to this service from a principal WITHOUT run.invoker. User accounts cannot mint audience-scoped tokens, and roles/owner does not include iam.serviceAccounts.getOpenIdToken, so no such token can be produced with current permissions. This is the only row that would exercise AUTHORIZATION rather than authentication; the table is missing it, not merely shorter."
+    },
+    {
+      "case": "expired_token",
+      "status": "NOT EXERCISED",
+      "reason": "a hand-crafted expired JWT fails signature validation before expiry is evaluated, so it would report the wrong_issuer refusal and mask which layer refused. Isolating expiry needs a genuinely Google-signed token aged past exp, which requires the same impersonation permission that is unavailable."
+    }
+  ]
+}
