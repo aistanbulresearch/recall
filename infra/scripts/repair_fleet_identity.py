@@ -43,13 +43,20 @@ from recall.platform.redaction import redact_identifiers  # noqa: E402
 from recall.platform.runtime import TracedRuntimeInvoker  # noqa: E402
 
 
-def _engine_index(project: str, location: str) -> dict[str, str]:
-    """display_name -> resource_name, read back from the API."""
+def _engine_index(project: str, location: str, staging_bucket: str) -> dict[str, str]:
+    """display_name -> resource_name, read back from the API.
+
+    The staging bucket is passed even though listing does not need it. An init
+    that omits it REPLACES the global binding with an incomplete one, and the
+    later update then fails for want of a bucket -- which is exactly the defect
+    this lane reported in another lane 90 minutes ago. Criticising a pattern is
+    not immunity from it.
+    """
 
     import vertexai
     from vertexai import agent_engines
 
-    vertexai.init(project=project, location=location)
+    vertexai.init(project=project, location=location, staging_bucket=staging_bucket)
     index = {}
     for engine in agent_engines.list():
         name = getattr(engine, "display_name", None) or ""
@@ -67,7 +74,9 @@ def main() -> int:
 
     config = PlatformConfig.from_env()
     gateway = GatewayBinding.from_env()
-    index = _engine_index(config.project_id, config.agent_engine_location)
+    index = _engine_index(
+        config.project_id, config.agent_engine_location, config.staging_bucket
+    )
     invoker = TracedRuntimeInvoker(config)
 
     from vertexai import agent_engines
