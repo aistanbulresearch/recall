@@ -415,5 +415,31 @@
     "create_command": "python infra/scripts/image_repository.py create --redact",
     "delete_command": "python infra/scripts/image_repository.py destroy --redact",
     "purpose": "holds the internal Tool Gateway image"
+  },
+  "secrets": {
+    "store": "Secret Manager",
+    "accessible_by": "recall-sa-controller only, roles/secretmanager.secretAccessor, read back after granting",
+    "entries": [
+      {
+        "id": "recall-tool-capability-key",
+        "holds": "HMAC capability signing key",
+        "created_by": "owner/director",
+        "lane_reads_value": false
+      },
+      {
+        "id": "recall-ncbi-tool",
+        "holds": "NCBI tool identifier",
+        "created_by": "L1 from owner-supplied value",
+        "lane_reads_value": true
+      },
+      {
+        "id": "recall-ncbi-email",
+        "holds": "NCBI contact address",
+        "created_by": "L1 from owner-supplied value",
+        "lane_reads_value": true
+      }
+    ],
+    "delivery": "Cloud Run secretKeyRef; values never in repo, deploy config, command line, or report",
+    "known_defect": "recall-tool-capability-key version 1 payload begins with a UTF-8 BOM, so base64 decode with validate=True rejects it and the gateway cannot start"
   }
 }

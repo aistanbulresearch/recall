@@ -184,8 +184,25 @@ def _account_email(config: PlatformConfig, account_id: str) -> str:
     )
 
 
+def _capability_secret_version(session: Any, config: PlatformConfig) -> str:
+    """Resolve which capability-key version `latest` currently points at."""
+
+    url = (
+        "https://secretmanager.googleapis.com/v1/projects/"
+        f"{config.project_id}/secrets/{CAPABILITY_SECRET_ID}/versions/latest"
+    )
+    response = session.get(url, timeout=60)
+    if response.status_code != 200:
+        raise PlatformError("gateway_secret_version_unreadable", str(response.status_code))
+    return str(response.json().get("name", "")).rsplit("/", 1)[-1]
+
+
 def _service_body(
-    config: PlatformConfig, image: str, *, audience: str | None
+    config: PlatformConfig,
+    image: str,
+    *,
+    audience: str | None,
+    capability_secret_version: str | None = None,
 ) -> dict[str, Any]:
     """The service definition, with the capability key as a reference only.
 
@@ -219,13 +236,23 @@ def _service_body(
         )
     if audience:
         env.append({"name": "RECALL_TOOL_GATEWAY_AUDIENCE", "value": audience})
+    template: dict[str, Any] = {
+        "serviceAccount": _account_email(config, "recall-sa-controller"),
+        "containers": [{"image": image, "env": env}],
+    }
+    if capability_secret_version:
+        # Records which key version this revision was built against, and makes a
+        # rotation produce a new revision. Cloud Run creates no revision when the
+        # spec is byte-identical, so rotating the secret behind an unchanged spec
+        # would leave the old revision serving with the old key and look like a
+        # deploy that did nothing.
+        template["annotations"] = {
+            "recall.dev/capability-secret-version": capability_secret_version
+        }
     return {
         "labels": resource_labels(GATEWAY_COMPONENT),
         "ingress": REQUIRED_INGRESS,
-        "template": {
-            "serviceAccount": _account_email(config, "recall-sa-controller"),
-            "containers": [{"image": image, "env": env}],
-        },
+        "template": template,
     }
 
 
@@ -254,9 +281,15 @@ def cmd_update_image(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Roll the service onto a new image and wait for the revision to serve."""
 
     session = _session()
+    version = _capability_secret_version(session, config)
     response = session.patch(
         _base(config),
-        json=_service_body(config, args.image, audience=args.audience),
+        json=_service_body(
+            config,
+            args.image,
+            audience=args.audience,
+            capability_secret_version=version,
+        ),
         timeout=300,
     )
     if response.status_code not in (200, 201):
