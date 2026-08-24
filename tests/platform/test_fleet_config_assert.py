@@ -18,9 +18,11 @@ from recall.platform.errors import PlatformError
 from recall.platform.fleet import (
     EXPECTED_FLEET_CONFIG,
     FLEET_MEMBERS,
+    RECALL_WHEEL,
     assert_agent_carries_no_tracing_flag,
     assert_fleet_config,
     fleet_env_vars,
+    fleet_spec,
     GatewayBinding,
     deploy_fleet,
 )
@@ -273,3 +275,37 @@ def test_the_audience_defaults_to_the_url_rather_than_drifting() -> None:
         {"RECALL_TOOL_GATEWAY_URL": "https://recall-tool-gateway-test.a.run.app"}
     )
     assert binding.audience == binding.url
+
+
+# --- the agent is pickled by reference, so the payload has to travel ----------
+#
+# The three engines were CREATED in the right project and region on 2026-08-25
+# and then failed to start:
+#     ModuleNotFoundError: No module named 'recall'
+# Agent Engine pickles the agent by reference, so the container must import
+# recall.agents.* and recall.contracts.* just to unpickle it. requirements
+# listed only PyPI packages; our own code was never shipped. That reads like a
+# platform fault and is in fact a missing payload.
+#
+# The 08-22 hello engine deployed fine because it imported nothing of ours,
+# which is why this could only surface with the real fleet.
+
+
+def test_the_recall_wheel_travels_with_every_member() -> None:
+    for member in FLEET_MEMBERS:
+        spec = fleet_spec(CONFIG, member, gateway=GATEWAY)
+        assert RECALL_WHEEL in spec.extra_packages, (
+            "the container cannot unpickle the agent without recall on its path"
+        )
+        assert RECALL_WHEEL in spec.requirements, (
+            "extra_packages uploads the wheel; requirements is what installs it"
+        )
+
+
+def test_a_fleet_missing_its_own_package_is_refused() -> None:
+    expected = dict(EXPECTED_FLEET_CONFIG)
+    expected["extra_packages"] = ()
+    with pytest.raises(PlatformError) as excinfo:
+        assert_fleet_config(CONFIG, gateway=GATEWAY, expected=expected)
+    assert excinfo.value.code == "fleet_config_mismatch"
+    assert excinfo.value.detail == "extra_packages"

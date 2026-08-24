@@ -24,7 +24,9 @@ that path cannot be used.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import pathlib
 import logging
 import sys
 import uuid
@@ -43,6 +45,7 @@ from recall.platform.fleet import (  # noqa: E402
     AgentCall,
     FleetMember,
     assert_agent_carries_no_tracing_flag,
+    RECALL_WHEEL,
     GatewayBinding,
     assert_fleet_config,
     deploy_fleet,
@@ -124,9 +127,45 @@ def _factory(bypass: bool) -> Any:
     return build
 
 
+
+def assert_wheel_is_current() -> dict[str, Any]:
+    """Refuse to deploy a wheel older than the source it claims to carry.
+
+    Agent Engine installs the wheel, not the working tree, so a stale wheel
+    deploys OLD CODE while every gate passes and the report reads clean. That
+    is the silent version of the failure we already met loudly as
+    ModuleNotFoundError: No module named 'recall'; loud is better, so this
+    makes staleness loud too.
+
+    Rebuild with: uv build --wheel -o dist
+    """
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    wheel = root / RECALL_WHEEL
+    if not wheel.exists():
+        raise PlatformError("fleet_wheel_missing", RECALL_WHEEL)
+    wheel_mtime = wheel.stat().st_mtime
+    newest_source = 0.0
+    newest_name = ""
+    for path in (root / "src" / "recall").rglob("*"):
+        if path.is_file() and path.suffix in (".py", ".txt", ".json"):
+            mtime = path.stat().st_mtime
+            if mtime > newest_source:
+                newest_source, newest_name = mtime, str(path.relative_to(root))
+    if newest_source > wheel_mtime:
+        raise PlatformError("fleet_wheel_stale", newest_name)
+    return {
+        "wheel": RECALL_WHEEL,
+        "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+        "bytes": wheel.stat().st_size,
+        "newest_source_file": newest_name,
+    }
+
+
 def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Prove the configuration and the agents without touching the cloud."""
 
+    wheel = assert_wheel_is_current()
     assert_fleet_config(config, gateway=GatewayBinding.from_env())
     built: list[dict[str, Any]] = []
     for member in FLEET_MEMBERS:
@@ -155,6 +194,11 @@ def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
 
 
 def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
+    # Before anything is created. A stale or absent wheel means the engines
+    # start with code that is not the code in this working tree, and every
+    # other gate would still pass.
+    payload = assert_wheel_is_current()
+    logger.info("payload %s sha256 %s", payload["wheel"], payload["wheel_sha256"][:12])
     runtime = AgentRuntime(VertexAgentEngineClient(config), config)
     results = deploy_fleet(
         runtime,

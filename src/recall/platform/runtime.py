@@ -49,6 +49,10 @@ class AgentSpec:
     # Pinned explicitly so the deployed shape is a known quantity rather than a
     # default that has to be guessed when costing the run.
     resource_limits: Mapping[str, str] | None = None
+    # Local files uploaded with the agent. The fleet ships the recall wheel
+    # here: the agent is pickled by reference, so the container must be able
+    # to import recall.* to unpickle it at all.
+    extra_packages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +181,7 @@ class AgentRuntime:
             env_vars=dict(spec.env_vars),
             service_account=spec.service_account,
             resource_limits=dict(spec.resource_limits) if spec.resource_limits else None,
+            extra_packages=tuple(spec.extra_packages),
         )
         resource_name = _resource_name_of(created)
         if not isinstance(resource_name, str) or not resource_name:
@@ -425,6 +430,7 @@ class VertexAgentEngineClient:
         env_vars: Mapping[str, str],
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
+        extra_packages: Sequence[str] = (),
     ) -> Any:
         self._rebind()
         kwargs: dict[str, Any] = {
@@ -438,6 +444,8 @@ class VertexAgentEngineClient:
             kwargs["service_account"] = service_account
         if resource_limits:
             kwargs["resource_limits"] = dict(resource_limits)
+        if extra_packages:
+            kwargs["extra_packages"] = list(extra_packages)
         return self._engines.create(**kwargs)
 
     def get(self, resource_name: str) -> Any:

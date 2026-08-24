@@ -39,12 +39,22 @@ from .runtime import AgentRuntime, AgentSpec, DeployedEngine
 
 logger = logging.getLogger(__name__)
 
+# The deployed agent is pickled BY REFERENCE: the container must import
+# recall.agents.* and recall.contracts.* to unpickle it. Without this the
+# engines are created and then fail to start with
+# ModuleNotFoundError: No module named 'recall', which reads as a platform
+# fault and is in fact a missing payload. Built with `uv build --wheel`.
+RECALL_WHEEL = "dist/recall_agent-0.1.0-py3-none-any.whl"
+FLEET_EXTRA_PACKAGES: tuple[str, ...] = (RECALL_WHEEL,)
+
 FLEET_REQUIREMENTS: tuple[str, ...] = (
     "google-cloud-aiplatform[adk,agent_engines]",
     # Load bearing: without this the model call emits no GenAI span.
     "opentelemetry-instrumentation-google-genai",
     "opentelemetry-instrumentation-grpc",
     "opentelemetry-instrumentation-httpx",
+    # Uploaded by extra_packages and installed from the working directory.
+    RECALL_WHEEL,
 )
 
 
@@ -154,6 +164,7 @@ def fleet_spec(
         env_vars=fleet_env_vars(config, member.display_name, gateway=gateway),
         service_account=identity.email(config.project_id),
         resource_limits=dict(FLEET_RESOURCE_LIMITS),
+        extra_packages=FLEET_EXTRA_PACKAGES,
     )
 
 
@@ -199,6 +210,7 @@ class FleetDeployment:
 EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
     "requirements": FLEET_REQUIREMENTS,
     "resource_limits": dict(FLEET_RESOURCE_LIMITS),
+    "extra_packages": FLEET_EXTRA_PACKAGES,
     "env_keys": frozenset(
         {
             "GOOGLE_CLOUD_LOCATION",
@@ -348,6 +360,8 @@ def assert_fleet_config(
             raise _mismatch("requirements")
         if dict(spec.resource_limits or {}) != dict(expected["resource_limits"]):
             raise _mismatch("resource_limits")
+        if tuple(spec.extra_packages) != tuple(expected["extra_packages"]):
+            raise _mismatch("extra_packages")
 
         env = dict(spec.env_vars)
         if set(env) != set(expected["env_keys"]):
