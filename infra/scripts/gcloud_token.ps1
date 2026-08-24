@@ -197,11 +197,17 @@ function Get-RecallProject {
 
     if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
         $root = if ($env:CLOUDSDK_CONFIG) { $env:CLOUDSDK_CONFIG } else { Join-Path $env:APPDATA 'gcloud' }
+        if ([string]::IsNullOrWhiteSpace($root)) { throw "recall_project_config_root_unknown" }
         $active = 'default'
         $activeFile = Join-Path $root 'active_config'
         if (Test-Path -LiteralPath $activeFile) {
-            $named = (Get-Content -LiteralPath $activeFile -First 1).Trim()
-            if (-not [string]::IsNullOrWhiteSpace($named)) { $active = $named }
+            # An empty active_config yields $null here, and calling .Trim() on it
+            # throws. Read into a variable and guard rather than chaining.
+            $named = Get-Content -LiteralPath $activeFile -TotalCount 1 -ErrorAction SilentlyContinue
+            if ($named -is [array]) { $named = $named[0] }
+            if ($null -ne $named -and -not [string]::IsNullOrWhiteSpace([string]$named)) {
+                $active = ([string]$named).Trim()
+            }
         }
         $ConfigPath = Join-Path $root ("configurations\config_" + $active)
     }
@@ -209,8 +215,16 @@ function Get-RecallProject {
     if (-not (Test-Path -LiteralPath $ConfigPath)) {
         throw "recall_project_config_missing"
     }
-    foreach ($line in Get-Content -LiteralPath $ConfigPath) {
-        if ($line -match '^\s*project\s*=\s*(\S+)\s*$') { return $Matches[1] }
+    # Match with an explicit Regex object rather than -match plus \$Matches.
+    # \$Matches is populated as a side effect and is not set when the left operand
+    # is an array, in which case -match silently becomes a filter and indexing
+    # into \$Matches fails. An explicit match carries its own groups.
+    $pattern = [regex]'^\s*project\s*=\s*(\S+)\s*$'
+    $lines = @(Get-Content -LiteralPath $ConfigPath -ErrorAction SilentlyContinue)
+    foreach ($line in $lines) {
+        if ($null -eq $line) { continue }
+        $found = $pattern.Match([string]$line)
+        if ($found.Success) { return $found.Groups[1].Value }
     }
     throw "recall_project_unresolved"
 }
