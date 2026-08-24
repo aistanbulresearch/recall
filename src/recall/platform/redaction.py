@@ -14,6 +14,8 @@ quietly reintroduce the gap.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from typing import Any
 
 PROJECT_PLACEHOLDER = "<project>"
 PROJECT_PATH = re.compile(r"projects/[^/\"'\s,}\]]+")
@@ -42,3 +44,33 @@ def contains_project_identifier(text: str, project_id: str | None = None) -> boo
         or PROJECT_NUMBER_URN.search(text)
         or BARE_PROJECT_NUMBER.search(text)
     )
+
+
+def redact_json(value: Any, project_id: str | None = None) -> Any:
+    """Redact a JSON-able structure by masking STRING VALUES only.
+
+    redact_identifiers works on serialised text, which is correct for logs and
+    wrong for JSON documents: on 2026-08-25 it rewrote a Unix timestamp inside a
+    float literal --
+
+        "timestamp": 1787610123.44   ->   "timestamp": <project-number>.44
+
+    -- producing an evidence file that would not parse. A redacted artifact that
+    cannot be read is not a redacted artifact.
+
+    Numbers, booleans and nulls are never touched here, because a project
+    identifier is a string and a ten-digit number is far more often a timestamp.
+    Keys are masked as well as values: an identifier is no safer for appearing
+    on the left of a colon.
+    """
+
+    if isinstance(value, str):
+        return redact_identifiers(value, project_id)
+    if isinstance(value, Mapping):
+        return {
+            redact_identifiers(str(key), project_id): redact_json(item, project_id)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [redact_json(item, project_id) for item in value]
+    return value

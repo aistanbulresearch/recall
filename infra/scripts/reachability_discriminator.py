@@ -43,7 +43,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from recall.platform.config import PlatformConfig  # noqa: E402
-from recall.platform.redaction import redact_identifiers  # noqa: E402
+from recall.platform.redaction import redact_json  # noqa: E402
 from recall.platform.runtime import TracedRuntimeInvoker  # noqa: E402
 
 # Phrased to make the tool the only way to answer. The model still decides, and
@@ -161,8 +161,11 @@ def main() -> int:
         "invocation_error": error,
         "raw_response": raw_events,
     }
-    rendered = json.dumps(result, indent=2, default=str)
-    print(redact_identifiers(rendered, config.project_id) if args.redact else rendered)
+    # Redact the OBJECT, not the serialised text: text redaction rewrites
+    # numbers inside float literals and produces an artifact that will not
+    # parse. See test_text_redaction_breaks_json_and_object_redaction_does_not.
+    payload = redact_json(result, config.project_id) if args.redact else result
+    print(json.dumps(payload, indent=2, default=str))
     return 0
 
 
