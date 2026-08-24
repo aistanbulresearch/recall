@@ -1,6 +1,6 @@
 # Erratum 001, frozen run p1-frozen-001
 
-- Status: **revision 2, committed. Owner approved 2026-08-24. External auditor confirmation still pending.**
+- Status: **revision 3, committed. Owner approved 2026-08-24. External auditor confirmation still pending.**
 - Revision convention: see section 10
 - Date raised: 2026-08-24
 - Lane: L3
@@ -314,3 +314,53 @@ and logs remain exactly as recorded in section 1, and the frozen test split rema
 read once. The correction applies to runs made after
 `f066fb9b94a74962eb662b890f4a790c6d828b26`, not retroactively to a document already
 written.
+
+### Revision 3, 2026-08-24
+
+Section 1 declares that the run artifacts are unmodified and publishes their
+sha256 values. That statement is correct about the files. It was not correct as a
+**reproducibility** property, and this revision records why.
+
+**The finding.** The repository applied `* text=auto eol=lf`. Git therefore stored
+LF normalized blobs, while every hash declared in section 1, in the approval, and
+in section 6 was computed over the CRLF bytes on disk. Someone checking a declared
+hash against a fresh checkout would have found a mismatch and had no way to tell
+whether the content had changed.
+
+**What was not wrong.** No content changed and no hash was miscomputed. Converting
+a stored blob back to CRLF reproduces every declared value exactly, which is how
+the finding was confirmed rather than assumed. The auditor approval binds the disk
+bytes of `corpus/FROZEN_CONFIG.json`, and those bytes never changed, so the
+approval is unaffected. No bound value, no measured result, and no frozen split
+read is touched by this revision.
+
+**The fix.** Commit `a92e205c3fb217a29a4c0ecc609042904b5e97c8` marks every
+hash-bound path as `-text` so git preserves the exact bytes, and renormalizes the
+index so the committed blobs carry them. The acceptance test is equality, not
+assertion: for each artifact, sha256 over `git cat-file blob` of the staged object
+equals the declared hash. All eleven pass.
+
+**Credit and scope.** The finding came from the lane L2 integration gate, which
+verified it from git blobs. The gate failed correctly, and it caught something the
+lane that wrote the hashes did not.
+
+A sweep of every path whose sha256 is declared anywhere found **six** broken paths
+rather than the five reported. The sixth was
+`artifacts/evidence/p1-frozen-001/out_of_band_probe.json`. The sweep also found
+four further hash-bound paths that were byte-correct at the time but unprotected,
+and therefore one checkout away from the same defect:
+`corpus/ARM_DECLARATION.json`, `scripts/derive_corrected_view.py`,
+`corpus/generator.py`, and `corpus/data/gazetteers.json`. The last two are bound by
+`generator_sha256` and `gazetteer_sha256` inside
+`corpus/PRIVACY_CORPUS_MANIFEST.json`, so a regenerated corpus on a fresh checkout
+would have failed its own manifest check. All are now exempt.
+
+`corpus/generated/**` is covered by the same exemption as a precaution. It is
+git-ignored and has no committed blobs, so nothing there was broken and nothing
+there is fixed; the attribute exists so that a future decision to commit the
+corpus cannot reintroduce this defect silently.
+
+**Standing consequence.** An evidence hash is a claim about bytes, and until this
+revision the claim was verified against the working tree only. The verification
+now runs against the committed blob, which is the artifact a reader actually
+receives.
