@@ -185,3 +185,80 @@ def test_the_tree_stopper_refuses_system_process_ids() -> None:
     assert "null:0" in result.stdout, result.stdout + result.stderr
     assert "zero:0" in result.stdout, result.stdout
     assert "four:0" in result.stdout, result.stdout
+
+
+# --- Get-RecallProject: the milestone-path call that must never launch gcloud ---
+
+CONFIG_WITH_PROJECT = "[core]\nproject = recall-example-0000\n"
+CONFIG_WITHOUT_PROJECT = "[core]\naccount = someone\n"
+
+
+def _run_project(
+    expression: str, project_env: str = ""
+) -> subprocess.CompletedProcess[str]:
+    """Evaluate a Get-RecallProject expression and report what it did."""
+
+    script = (
+        f". '{HELPER}'; "
+        f"$env:RECALL_GCP_PROJECT = '{project_env}'; "
+        "try { "
+        f'  Write-Output "OK:$({expression})" '
+        "} catch { "
+        '  Write-Output "ERROR:$($_.Exception.Message)" '
+        "}"
+    )
+    return subprocess.run(
+        [*POWERSHELL, script], capture_output=True, text=True, timeout=120
+    )
+
+
+def test_project_is_read_from_the_config_file(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text(CONFIG_WITH_PROJECT, encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "OK:recall-example-0000" in out.stdout
+
+
+def test_the_environment_variable_wins(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text("[core]\nproject = from-file\n", encoding="utf-8")
+    out = _run_project(
+        f"Get-RecallProject -ConfigPath '{config}'", project_env="from-env"
+    )
+    assert "OK:from-env" in out.stdout
+
+
+def test_a_missing_config_file_throws_rather_than_returning_empty(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "not_here"
+    out = _run_project(f"Get-RecallProject -ConfigPath '{missing}'")
+    assert "ERROR:recall_project_config_missing" in out.stdout
+
+
+def test_a_config_without_a_project_throws(tmp_path: Path) -> None:
+    config = tmp_path / "config_default"
+    config.write_text(CONFIG_WITHOUT_PROJECT, encoding="utf-8")
+    out = _run_project(f"Get-RecallProject -ConfigPath '{config}'")
+    assert "ERROR:recall_project_unresolved" in out.stdout
+
+
+def test_resolving_the_project_launches_no_process(tmp_path: Path) -> None:
+    """The whole point: this path starts no child process, so it cannot hang."""
+
+    config = tmp_path / "config_default"
+    config.write_text(CONFIG_WITH_PROJECT, encoding="utf-8")
+    script = (
+        f". '{HELPER}'; "
+        "$env:RECALL_GCP_PROJECT = ''; "
+        "$before = @(Get-Process).Count; "
+        f"$p = Get-RecallProject -ConfigPath '{config}'; "
+        "$after = @(Get-Process).Count; "
+        'Write-Output "$p|$($after - $before)"'
+    )
+    out = subprocess.run(
+        [*POWERSHELL, script], capture_output=True, text=True, timeout=120
+    )
+    project, delta = out.stdout.strip().split("|")
+    assert project == "recall-example-0000"
+    assert int(delta) <= 0, "resolving the project started a process"

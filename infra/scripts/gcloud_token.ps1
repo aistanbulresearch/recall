@@ -167,3 +167,50 @@ function Get-RecallAccessToken {
         $process.Dispose()
     }
 }
+
+function Get-RecallProject {
+    <#
+        .SYNOPSIS
+        Resolve the active project without launching gcloud.
+
+        .DESCRIPTION
+        `gcloud config get-value project` is the same call that hung for hours
+        when credentials lapsed, and it does not run unbounded during a
+        milestone. The value it prints is already on disk in the active gcloud
+        configuration, so this reads the file and starts no process at all. A
+        call that never happens cannot hang.
+
+        Order: RECALL_GCP_PROJECT, then the active configuration file. An
+        unresolved project throws rather than returning empty, because an empty
+        project silently builds a request against no project.
+
+        .PARAMETER ConfigPath
+        Override the configuration file. Used by the tests.
+    #>
+    param(
+        [string]$ConfigPath
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($env:RECALL_GCP_PROJECT)) {
+        return $env:RECALL_GCP_PROJECT
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+        $root = if ($env:CLOUDSDK_CONFIG) { $env:CLOUDSDK_CONFIG } else { Join-Path $env:APPDATA 'gcloud' }
+        $active = 'default'
+        $activeFile = Join-Path $root 'active_config'
+        if (Test-Path -LiteralPath $activeFile) {
+            $named = (Get-Content -LiteralPath $activeFile -First 1).Trim()
+            if (-not [string]::IsNullOrWhiteSpace($named)) { $active = $named }
+        }
+        $ConfigPath = Join-Path $root ("configurations\config_" + $active)
+    }
+
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "recall_project_config_missing"
+    }
+    foreach ($line in Get-Content -LiteralPath $ConfigPath) {
+        if ($line -match '^\s*project\s*=\s*(\S+)\s*$') { return $Matches[1] }
+    }
+    throw "recall_project_unresolved"
+}
