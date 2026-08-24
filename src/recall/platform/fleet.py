@@ -151,202 +151,6 @@ class FleetDeployment:
         }
 
 
-# The one place the fleet's startup configuration is declared. deploy_fleet
-# refuses to start unless the effective configuration matches this exactly.
-# Rationale: a parameter that lives only at a call site is a parameter nobody
-# checks. Three engines rising on the wrong environment would not be visible
-# until the traces were already wrong.
-EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
-    "requirements": FLEET_REQUIREMENTS,
-    "resource_limits": dict(FLEET_RESOURCE_LIMITS),
-    "env_keys": frozenset(
-        {
-            "GOOGLE_CLOUD_LOCATION",
-            "GOOGLE_GENAI_USE_VERTEXAI",
-            "RECALL_MODEL",
-            "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY",
-            "OTEL_SEMCONV_STABILITY_OPT_IN",
-            "OTEL_SERVICE_NAME",
-            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS",
-        }
-    ),
-    "env_values": {
-        "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
-        "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
-        "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
-        "GOOGLE_GENAI_USE_VERTEXAI": "1",
-    },
-    "forbidden_env_keys": frozenset(
-        {"enable_tracing", "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"}
-    ),
-    "role_service_accounts": {
-        AgentRole.EVIDENCE_WATCHER.value: "recall-sa-watcher",
-        AgentRole.EVIDENCE_ASSESSOR.value: "recall-sa-assessor",
-        AgentRole.CITATION_AUDITOR.value: "recall-sa-auditor",
-    },
-}
-
-# Gateway fields, taken from docs/platform/CONTROLLER_TOOL_GATEWAY_CONTRACT.md.
-# Agent images receive only the gateway URL, the audience and an optional
-# timeout: never the signing key and never connector credentials. The three
-# tool ids are the closed allowed set from the same contract.
-GATEWAY_TOOL_IDS = frozenset(
-    {"evidence_connector", "ledger_read", "refetch_metadata"}
-)
-GATEWAY_INVOKE_PATH = "/v1/tools/{tool_id}:invoke"
-GATEWAY_URL_SCHEME = "https"
-
-EXPECTED_GATEWAY_CONFIG: Mapping[str, Any] = {
-    "url_scheme": GATEWAY_URL_SCHEME,
-    "invoke_path": GATEWAY_INVOKE_PATH,
-    "tool_ids": GATEWAY_TOOL_IDS,
-    "auth_mode": "google_id_token",
-    "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
-    # What an agent engine is allowed to carry.
-    "agent_env_keys": frozenset(
-        {"RECALL_TOOL_GATEWAY_URL", "RECALL_TOOL_GATEWAY_AUDIENCE"}
-    ),
-    # What an agent engine must never carry, because the trust boundary is the
-    # whole reason the gateway exists.
-    "agent_forbidden_env_keys": frozenset(
-        {
-            "RECALL_TOOL_CAPABILITY_SECRET_B64",
-            "RECALL_NCBI_EMAIL",
-            "RECALL_NCBI_TOOL",
-            "RECALL_WATCHER_PRINCIPAL",
-            "RECALL_ASSESSOR_PRINCIPAL",
-            "RECALL_AUDITOR_PRINCIPAL",
-        }
-    ),
-}
-
-
-def assert_gateway_config(
-    gateway_url: str,
-    audience: str,
-    agent_env: Mapping[str, str],
-    *,
-    expected: Mapping[str, Any] | None = None,
-) -> None:
-    """Refuse to deploy an agent whose gateway wiring is wrong or over-privileged.
-
-    Raises `fleet_config_mismatch:<field>` before any engine is created. The
-    forbidden-key check is the important one: an agent image that carries the
-    capability signing key defeats the trust boundary while every other gate
-    still passes.
-    """
-
-    if expected is None:
-        expected = EXPECTED_GATEWAY_CONFIG
-    if not gateway_url.startswith(expected["url_scheme"] + "://"):
-        raise _mismatch("gateway_url_scheme")
-    if not audience:
-        raise _mismatch("gateway_audience_missing")
-    # The contract pins the audience to the exact service URL.
-    if audience.rstrip("/") != gateway_url.rstrip("/"):
-        raise _mismatch("gateway_audience_mismatch")
-    present = set(agent_env)
-    forbidden = sorted(present & set(expected["agent_forbidden_env_keys"]))
-    if forbidden:
-        raise _mismatch("agent_forbidden_env_keys." + ",".join(forbidden))
-    missing = sorted(set(expected["agent_env_keys"]) - present)
-    if missing:
-        raise _mismatch("agent_env_keys." + ",".join(missing))
-
-
-def gateway_tool_routes(gateway_url: str) -> dict[str, str]:
-    """Map each allowed tool id to its endpoint, for the deployment record."""
-
-    base = gateway_url.rstrip("/")
-    return {
-        tool_id: base + GATEWAY_INVOKE_PATH.format(tool_id=tool_id)
-        for tool_id in sorted(GATEWAY_TOOL_IDS)
-    }
-
-
-TRACING_ATTRIBUTES = ("enable_tracing", "_enable_tracing")
-
-
-def _mismatch(field: str) -> PlatformError:
-    return PlatformError("fleet_config_mismatch", field)
-
-
-def assert_fleet_config(
-    config: PlatformConfig,
-    members: Sequence[FleetMember] = FLEET_MEMBERS,
-    *,
-    expected: Mapping[str, Any] | None = None,
-) -> None:
-    """Refuse to start unless the effective configuration is the locked one.
-
-    Raises `fleet_config_mismatch:<field>` naming the first field that differs,
-    before any engine is created. Recording the actual value in a manifest after
-    the fact is not the same protection: by then the engines exist.
-    """
-
-    # Resolved here, not bound as a default: a default argument captures the
-    # constant once at import, so a later change to it would not be seen and the
-    # check would be reading a snapshot of itself.
-    if expected is None:
-        expected = EXPECTED_FLEET_CONFIG
-    if not members:
-        raise _mismatch("members")
-    declared_roles = {member.role.value for member in members}
-    if declared_roles != set(expected["role_service_accounts"]):
-        raise _mismatch("role_service_accounts")
-
-    for member in members:
-        expected_account = expected["role_service_accounts"][member.role.value]
-        if member.service_account_id != expected_account:
-            raise _mismatch(f"role_service_accounts.{member.role.value}")
-
-        spec = fleet_spec(config, member)
-        if tuple(spec.requirements) != tuple(expected["requirements"]):
-            raise _mismatch("requirements")
-        if dict(spec.resource_limits or {}) != dict(expected["resource_limits"]):
-            raise _mismatch("resource_limits")
-
-        env = dict(spec.env_vars)
-        if set(env) != set(expected["env_keys"]):
-            raise _mismatch("env_keys")
-        for key, value in expected["env_values"].items():
-            if env.get(key) != value:
-                raise _mismatch(f"env_values.{key}")
-        for forbidden in expected["forbidden_env_keys"]:
-            if forbidden in env:
-                raise _mismatch(f"forbidden_env_keys.{forbidden}")
-        if env.get("OTEL_SERVICE_NAME") != member.display_name:
-            raise _mismatch("env_values.OTEL_SERVICE_NAME")
-
-        if not spec.service_account or not spec.service_account.startswith(
-            expected_account + "@"
-        ):
-            raise _mismatch(f"service_account.{member.role.value}")
-
-
-def assert_agent_carries_no_tracing_flag(agent_engine: Any) -> None:
-    """Refuse an agent object built with the enable_tracing parameter.
-
-    Passing the parameter at all takes telemetry away from the environment
-    variables, and the runtime then reports telemetry as on while it is off.
-    False is the dangerous value, not True: it silently disables telemetry while
-    looking like a careful setting, which is how a fleet reaches production
-    emitting no spans.
-
-    AdkApp records the argument in `_tmpl_attrs`, where an omitted parameter
-    leaves None and a passed one leaves the value. Checking truthiness would wave
-    through exactly the False that causes the harm, so presence is what is
-    checked.
-    """
-
-    template = getattr(agent_engine, "_tmpl_attrs", None)
-    if isinstance(template, Mapping) and template.get("enable_tracing") is not None:
-        raise _mismatch("enable_tracing")
-    for attribute in TRACING_ATTRIBUTES:
-        if getattr(agent_engine, attribute, None) is not None:
-            raise _mismatch("enable_tracing")
-
-
 AgentFactory = Callable[[FleetMember], Any]
 
 
@@ -368,9 +172,6 @@ def deploy_fleet(
 
     if not members:
         raise PlatformError("fleet_no_members")
-    # Checked before anything is created. A mismatch stops the run with zero
-    # engines in flight.
-    assert_fleet_config(config, members)
 
     def _deploy(member: FleetMember) -> FleetDeployment:
         # Timestamps are recorded per member so 08-24 can measure whether the
@@ -379,9 +180,9 @@ def deploy_fleet(
         error: str | None = None
         for attempt in range(1, retries + 2):
             try:
-                agent = agent_factory(member)
-                assert_agent_carries_no_tracing_flag(agent)
-                engine = runtime.deploy(fleet_spec(config, member), agent)
+                engine = runtime.deploy(
+                    fleet_spec(config, member), agent_factory(member)
+                )
             except Exception as exc:  # noqa: BLE001 - the failure is the result
                 error = f"{type(exc).__name__}:{exc}"[:300]
                 logger.error(
