@@ -380,6 +380,27 @@ class VertexAgentEngineClient:
         self._config = config
         self._engines = self._initialise(config)
 
+    def _rebind(self) -> None:
+        """Re-assert the SDK binding immediately before it is used.
+
+        vertexai.init() writes GLOBAL state, and this process does not own it
+        alone. On 2026-08-25 every engine create failed 403 CONSUMER_INVALID
+        against project recall-local-smoke at locations/global, because
+        AgentBundle.to_adk_app() calls vertexai.init() itself, resolving
+        project from GOOGLE_CLOUD_PROJECT with a hardcoded smoke-project
+        fallback and location from GOOGLE_CLOUD_LOCATION -- which
+        build_agent_bundle had just set to global for the model. Between our
+        init and our create, another lane's factory silently repointed the SDK
+        at a different project and region and dropped the staging bucket.
+
+        Binding once at construction is an assumption about everyone else's
+        behaviour. Binding at the point of use is an invariant we hold
+        ourselves, so no third party's environment mutation can redirect a
+        deploy.
+        """
+
+        self._engines = self._initialise(self._config)
+
     @staticmethod
     def _initialise(config: PlatformConfig) -> Any:
         try:
@@ -405,6 +426,7 @@ class VertexAgentEngineClient:
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
     ) -> Any:
+        self._rebind()
         kwargs: dict[str, Any] = {
             "agent_engine": agent_engine,
             "display_name": display_name,

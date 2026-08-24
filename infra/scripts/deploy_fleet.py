@@ -79,22 +79,34 @@ def _emit(value: Any, project_id: str, redact: bool) -> None:
 def _build_app(member: FleetMember, *, bypass: bool) -> Any:
     """Build the deployable app for one member from the shared agent factory.
 
-    `to_adk_app()` passes enable_tracing=False, and passing that parameter at all
-    takes telemetry away from the environment variables: the runtime then reports
-    telemetry as on while it is off and emits no spans. While that defect is
-    unfixed, --bypass-factory-tracing-defect constructs the same AdkApp without
-    the parameter. The bypass is temporary and must be removed once the factory
-    stops passing it; the startup guard refuses the flag either way.
+    AdkApp is constructed directly and unconditionally. AgentBundle.to_adk_app()
+    is NOT used, because it calls vertexai.init() itself:
+
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT", "recall-local-smoke")
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+
+    That rewrites GLOBAL SDK state. On 2026-08-25 it repointed our deploy at a
+    hardcoded smoke project in the wrong region and dropped the staging bucket,
+    and all three creates failed 403 CONSUMER_INVALID with zero engines made.
+
+    Re-asserting the binding inside the client is defence in depth, but it
+    cannot be the whole answer here: the three members deploy CONCURRENTLY and
+    the binding is process-global, so one thread's to_adk_app() can clobber
+    another thread's binding between its rebind and its create. Not calling the
+    function that mutates the global removes the race instead of narrowing it.
+
+    The app_name is identical either way. Verified rather than assumed:
+    ROLE_NAMES[role] == role.value.lower() for all three roles.
+
+    `bypass` is retained so the CLI flag keeps working and is now inert; the
+    tracing defect it named appears fixed, and removal is queued.
     """
+
+    from vertexai import agent_engines
 
     from recall.agents import build_agent_bundle
 
     bundle = build_agent_bundle(member.role, tools=ROLE_TOOLS.get(member.role))
-    if not bypass:
-        return bundle.to_adk_app()
-
-    from vertexai import agent_engines
-
     return agent_engines.AdkApp(
         agent=bundle.agent,
         app_name=f"recall_{member.role.value.lower()}",
