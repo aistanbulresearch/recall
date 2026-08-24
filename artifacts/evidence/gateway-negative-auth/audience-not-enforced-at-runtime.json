@@ -28,5 +28,32 @@
   ],
   "conclusion": "A Google-signed ID token whose aud is NOT this service URL passed Cloud Run's check and reached the application. The audience pin gives deploy-time consistency, not the runtime rejection the model assumed. The caller principal holds roles/owner, which carries run.routes.invoke, so IAM admitted it on identity; audience was not the deciding factor.",
   "what_still_held": "Defence in depth held: the container refused both requests with DENIED before any tool ran. The capability layer was never reached because the requests were malformed, so this run does NOT establish what a well-formed request from a wrong-audience token would do. That is the next thing to measure, not to assume.",
-  "negative_auth_case_status": "wrong_audience is recorded as NOT REFUSED AT THE AUTH LAYER. It was refused by the application for unrelated reasons (content type, request fields), which is not the same thing and must not be reported as a pass."
+  "negative_auth_case_status": "wrong_audience is recorded as NOT REFUSED AT THE AUTH LAYER. It was refused by the application for unrelated reasons (content type, request fields), which is not the same thing and must not be reported as a pass.",
+  "follow_up_measurement": {
+    "captured_at_utc": "2026-08-24T23:07:55.978187+00:00",
+    "question": "The first run left this unmeasured and therefore unclaimed: what does a WELL-FORMED request bearing the wrong-audience token reach? Both earlier probes were malformed, so the capability layer was never touched.",
+    "cases": [
+      {
+        "request": "well-formed body {protocol_version, request_id, capability, arguments}, INVALID capability, wrong-audience Google-signed token",
+        "answered_by": "our container",
+        "http_code": 401,
+        "error": "endpoint_auth_missing",
+        "note": "request_id was echoed back, proving the container parsed the body rather than rejecting it at the edge"
+      },
+      {
+        "request": "well-formed body, capability field omitted, wrong-audience token",
+        "answered_by": "our container",
+        "http_code": 400,
+        "error": "gateway_request_fields_invalid"
+      },
+      {
+        "request": "same well-formed body, NO Authorization header (control)",
+        "answered_by": "Cloud Run IAM (HTML error page)",
+        "http_code": 403
+      }
+    ],
+    "conclusion": "Defence in depth HELD, and on authentication grounds rather than incidentally. The container does not trust that the perimeter authenticated the caller: it checks endpoint authentication itself and refused the wrong-audience token with endpoint_auth_missing and 401. Cloud Run admitted the request on identity; the application refused it on authentication.",
+    "corrected_claim": "The original finding stands as to Cloud Run: audience is NOT the deciding factor at the perimeter. What changes is the consequence. The security outcome is correct, but the LAYER doing the work is not the one the model named. Documentation must say: the audience pin gives deploy-time consistency; the perimeter admits on identity; the APPLICATION enforces endpoint authentication and refuses a token not audienced to it. Three statements, not one.",
+    "why_this_matters_anyway": "A reader of the old sentence would have concluded that removing the container's own check was safe because the perimeter already enforced audience. It does not. The check that is actually load bearing was documented as redundant."
+  }
 }
