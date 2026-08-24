@@ -66,6 +66,25 @@ CONFIG_SIGNATURES = (
     "tool_gateway_https_required",
     "tool_gateway_audience_required",
     "tool_gateway_timeout_invalid",
+    # Pre-flight refusals inside the tool, raised BEFORE the transport post.
+    # Missing these produced a false REACHABLE on 2026-08-25: the Watcher
+    # invoked evidence_connector, the tool raised tool_capability_missing at the
+    # top of invoke(), no socket was ever opened, and the classifier reported a
+    # network path because nothing it recognised had failed.
+    "tool_capability_missing",
+    "tool_context_invocation_id_missing",
+    "tool_context_function_call_id_missing",
+)
+
+# Positive evidence that a request actually left the process. REACHABLE is only
+# ever concluded from one of these, never from the absence of known failures.
+TRANSPORT_REACHED_SIGNATURES = (
+    "tool_gateway_response_invalid",
+    "tool_gateway_denied",
+    "tool_gateway_request_mismatch",
+    "tool_gateway_result_invalid",
+    "endpoint_auth_missing",
+    "authorization_receipt",
 )
 
 
@@ -81,10 +100,18 @@ def classify(blob: str, tool_seen: bool) -> tuple[str, str]:
     for signature in REACHABLE_SIGNATURES:
         if signature in blob:
             return "REACHABLE", signature
+    for signature in TRANSPORT_REACHED_SIGNATURES:
+        if signature in blob:
+            return "REACHABLE", signature
     if tool_seen:
-        # The tool ran and raised none of the known failures, so a response was
-        # parsed: the path exists.
-        return "REACHABLE", "tool completed without a transport failure"
+        # The tool was invoked but nothing shows a request leaving the process.
+        # Absence of a known failure is NOT evidence of a network path, and
+        # treating it as one is how this classifier reported REACHABLE for a run
+        # that never opened a socket.
+        return (
+            "INCONCLUSIVE",
+            "tool invoked but no positive evidence a request reached the gateway",
+        )
     return "INCONCLUSIVE", "no evidence_connector invocation in the response"
 
 
@@ -109,7 +136,13 @@ def main() -> int:
         error = f"{type(exc).__name__}:{exc}"
     latency = round(time.monotonic() - started, 2)
 
-    blob = json.dumps(events, default=str) if events is not None else (error or "")
+    # Read the event mappings, not a serialised dump of the dataclass:
+    # json.dumps(invocation, default=str) yields a repr, and searching a repr for
+    # JSON-quoted keys finds a clean absence rather than failing. That defect
+    # made an earlier probe report "authors: none" against an engine that had
+    # just named itself over curl.
+    raw_events = list(getattr(events, "events", ()) or []) if events is not None else []
+    blob = json.dumps(raw_events, default=str) if raw_events else (error or "")
     tool_seen = "evidence_connector" in blob
     verdict, evidence = classify(blob, tool_seen)
     if error and verdict == "INCONCLUSIVE":
@@ -120,12 +153,13 @@ def main() -> int:
         "mode": "model_mediated",
         "resource_name": args.resource_name,
         "gateway_url": os.environ.get("RECALL_TOOL_GATEWAY_URL", "<unset>"),
+        "trace_id": getattr(events, "trace_id", None),
         "latency_seconds": latency,
         "tool_invocation_seen": tool_seen,
         "verdict": verdict,
         "evidence": evidence,
         "invocation_error": error,
-        "raw_response": events,
+        "raw_response": raw_events,
     }
     rendered = json.dumps(result, indent=2, default=str)
     print(redact_identifiers(rendered, config.project_id) if args.redact else rendered)
