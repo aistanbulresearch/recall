@@ -29,12 +29,17 @@ WORKDIR /app
 # died on import with ModuleNotFoundError: No module named 'google.adk',
 # because recall.controller.tool_gateway imports ADK types. The gateway needs
 # the same runtime the Controller needs.
+#
+# uvicorn is pinned to the version this dependency set actually resolves to.
+# An earlier pin of 0.32.1 was a number I chose rather than resolved, and it
+# is outside google-adk's uvicorn>=0.34,<1 range, so the build failed to
+# solve. Resolve before pinning.
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir \
       "google-adk==2.7.1" \
       "google-cloud-aiplatform[agent_engines]==1.165.1" \
       "google-cloud-firestore==2.28.1" \
-      "uvicorn==0.32.1"
+      "uvicorn==0.52.4"
 
 # The Controller and its contracts.
 COPY src/ /app/src/
