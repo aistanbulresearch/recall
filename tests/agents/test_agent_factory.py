@@ -91,6 +91,8 @@ def test_watcher_is_adk_app_compatible_without_cloud_call() -> None:
     app = bundle.to_adk_app()
     assert app.agent_framework == "google-adk"
     assert app._tmpl_attrs["agent"] is bundle.agent
+    assert app._tmpl_attrs.get("enable_tracing") is None
+    assert app._tmpl_attrs.get("enable_tracing") is not False
     assert MODEL_ID == "gemini-3.7-flash"
     assert VERTEX_LOCATION == "global"
     assert MODEL_MAX_OUTPUT_TOKENS == 2048

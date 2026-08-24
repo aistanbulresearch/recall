@@ -54,7 +54,6 @@ class AgentBundle:
         return AdkApp(
             agent=self.agent,
             app_name=f"recall_{ROLE_NAMES[self.role]}",
-            enable_tracing=False,
         )
 
 
