@@ -46,7 +46,27 @@ logger = logging.getLogger("recall.platform.gateway")
 
 SERVICE_ID = "recall-tool-gateway"
 GATEWAY_COMPONENT = "tool-gateway"
-REQUIRED_INGRESS = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+# Posture changed 2026-08-25 on owner authorization, after the external
+# auditor ruled option (a) unconditional.
+#
+# Old: INGRESS_TRAFFIC_INTERNAL_ONLY. That was invisibility, not authentication.
+# It evaluated no credentials: from outside the perimeter every request got an
+# identical 404 in under half a second whether it carried no token, a garbage
+# bearer, or nothing at all. Worse, it left NO vantage point from which the
+# refusal path could be observed -- the agents are the only in-perimeter
+# callers and they always present their own correct identity, so the
+# authorization path was untestable in principle rather than merely untested.
+#
+# New: INGRESS_TRAFFIC_ALL with IAM as the sole enforcement. Cloud Run checks
+# the caller's identity before a request reaches the container, so refusals are
+# now reasoned and observable. The security claim was always identity-based;
+# this makes it testable instead of merely asserted.
+#
+# The cost is real and is why the checks below got stricter: network isolation
+# is gone, so IAM is load bearing alone. Two consequences that were previously
+# masked now matter operationally, and verify reports both.
+REQUIRED_INGRESS = "INGRESS_TRAFFIC_ALL"
+PREVIOUS_INGRESS = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 PUBLIC_PRINCIPALS = frozenset({"allUsers", "allAuthenticatedUsers"})
 INVOKER_ROLE = "roles/run.invoker"
 # Every sensitive value reaches the container as a Secret Manager reference.
@@ -240,15 +260,21 @@ def _service_body(
         "serviceAccount": _account_email(config, "recall-sa-controller"),
         "containers": [{"image": image, "env": env}],
     }
+    # Ingress is SERVICE metadata, so changing it does not by itself cut a new
+    # revision. Stamping the posture onto the revision template does two things:
+    # it satisfies the owner's "new revision" condition honestly rather than by
+    # forcing a cosmetic change, and it makes every revision carry the posture
+    # it was deployed under, so revision history answers "when did this become
+    # publicly reachable" without anyone reconstructing it from audit logs.
+    annotations = {"recall.dev/ingress-posture": REQUIRED_INGRESS}
     if capability_secret_version:
         # Records which key version this revision was built against, and makes a
         # rotation produce a new revision. Cloud Run creates no revision when the
         # spec is byte-identical, so rotating the secret behind an unchanged spec
         # would leave the old revision serving with the old key and look like a
         # deploy that did nothing.
-        template["annotations"] = {
-            "recall.dev/capability-secret-version": capability_secret_version
-        }
+        annotations["recall.dev/capability-secret-version"] = capability_secret_version
+    template["annotations"] = annotations
     return {
         "labels": resource_labels(GATEWAY_COMPONENT),
         "ingress": REQUIRED_INGRESS,
@@ -277,17 +303,51 @@ def _await_ready(session: Any, config: PlatformConfig, attempts: int = 40) -> di
     raise PlatformError("gateway_revision_not_ready", f"{attempts * 10}s")
 
 
+
+def _current_audience(session: Any, config: PlatformConfig) -> str | None:
+    """Read the audience currently configured on the running service."""
+
+    read = session.get(_base(config), timeout=60)
+    if read.status_code != 200:
+        return None
+    containers = (
+        read.json().get("template", {}).get("containers")
+        or read.json().get("spec", {}).get("template", {}).get("containers")
+        or []
+    )
+    for container in containers:
+        for entry in container.get("env", []):
+            if entry.get("name") == "RECALL_TOOL_GATEWAY_AUDIENCE":
+                return entry.get("value")
+    return None
+
+
 def cmd_update_image(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Roll the service onto a new image and wait for the revision to serve."""
 
     session = _session()
     version = _capability_secret_version(session, config)
+    # Preserve the audience already on the service unless one is passed.
+    #
+    # _service_body omits the audience env var when it is falsy, so a PATCH that
+    # did not intend to touch the audience DELETED it. That happened on
+    # 2026-08-25: revision 00006 came up without RECALL_TOOL_GATEWAY_AUDIENCE
+    # and died with HealthCheckContainerError, because the server validates its
+    # environment at import. A partial update must never silently drop
+    # configuration it was not asked to change.
+    #
+    # The container failing to start is the good half of that story: an audience
+    # -less gateway would either reject every agent call or skip audience
+    # validation entirely, and it refused to serve instead.
+    audience = args.audience or _current_audience(session, config)
+    if not audience:
+        raise PlatformError("gateway_audience_unresolved", SERVICE_ID)
     response = session.patch(
         _base(config),
         json=_service_body(
             config,
             args.image,
-            audience=args.audience,
+            audience=audience,
             capability_secret_version=version,
         ),
         timeout=300,
@@ -373,6 +433,39 @@ def cmd_bind(args: argparse.Namespace, config: PlatformConfig) -> int:
     return cmd_verify(args, config)
 
 
+
+def _inherited_invokers(session: Any, config: PlatformConfig) -> list[dict[str, Any]]:
+    """Project-level principals that can invoke regardless of the service binding.
+
+    The service IAM policy lists three service accounts, and reporting that as
+    "exactly three principals can call this" is false: any project-level role
+    containing run.routes.invoke confers it on every service. Under internal
+    ingress the network hid this. It does not any more.
+    """
+
+    url = (
+        "https://cloudresourcemanager.googleapis.com/v1/projects/"
+        f"{config.project_id}:getIamPolicy"
+    )
+    response = session.post(url, json={}, timeout=60)
+    if response.status_code != 200:
+        return [{"role": "<unreadable>", "detail": str(response.status_code)}]
+    carriers = []
+    for binding in response.json().get("bindings", []):
+        role = binding.get("role", "")
+        detail = session.get(
+            f"https://iam.googleapis.com/v1/{role}"
+            if role.startswith("roles/")
+            else f"https://iam.googleapis.com/v1/projects/{config.project_id}/roles/{role}",
+            timeout=60,
+        )
+        if detail.status_code != 200:
+            continue
+        if "run.routes.invoke" in detail.json().get("includedPermissions", []):
+            carriers.append({"role": role, "members": sorted(binding.get("members", []))})
+    return carriers
+
+
 def cmd_verify(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Fail unless the gateway is internal, authenticated, and correctly bound."""
 
@@ -397,6 +490,12 @@ def cmd_verify(args: argparse.Namespace, config: PlatformConfig) -> int:
         for account in GATEWAY_CALLER_ACCOUNT_IDS
     }
     missing = sorted(expected - invoker_members)
+    # Checked in BOTH directions. The gate previously computed only what was
+    # absent, so a fourth invoker added by anyone would have passed it. Under
+    # internal ingress that asymmetry was cushioned by the network; with IAM as
+    # the only enforcement it is the whole attack surface.
+    unexpected = sorted(invoker_members - expected)
+    inherited = _inherited_invokers(session, config)
     ingress = service.get("ingress")
     findings: list[str] = []
     if ingress != REQUIRED_INGRESS:
@@ -405,6 +504,8 @@ def cmd_verify(args: argparse.Namespace, config: PlatformConfig) -> int:
         findings.append("public_binding:" + ",".join(sorted(public_holders)))
     if missing:
         findings.append("missing_invoker:" + ",".join(m.split(":")[1] for m in missing))
+    if unexpected:
+        findings.append("unexpected_invoker:" + ",".join(unexpected))
 
     report = {
         "service_id": SERVICE_ID,
@@ -413,6 +514,13 @@ def cmd_verify(args: argparse.Namespace, config: PlatformConfig) -> int:
         "public_principals": sorted(public_holders),
         "invoker_members": sorted(invoker_members),
         "missing_invokers": missing,
+        "unexpected_invokers": unexpected,
+        # Not a finding by itself: a project owner can invoke anything, and
+        # saying so is honest rather than alarming. It is REPORTED because
+        # "exactly three principals can call the gateway" was never true and
+        # the service-level binding alone cannot show it.
+        "inherited_project_invokers": inherited,
+        "previous_ingress": PREVIOUS_INGRESS,
         "uri": service.get("uri"),
         "status": "PASS" if not findings else "FAIL",
         "findings": findings,
