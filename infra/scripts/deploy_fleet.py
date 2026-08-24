@@ -62,6 +62,12 @@ from recall.platform.runtime import AgentRuntime, VertexAgentEngineClient  # noq
 
 logger = logging.getLogger("recall.platform.fleet")
 
+# Per-role tool overrides, for tests only. EMPTY MEANS "no override", never
+# "no tools": build_agent_bundle falls back to the production tool set when it
+# receives None. This dict previously defaulted to {} at the call site, which is
+# not None, so every agent was built toolless and the factory refused all three
+# with agent_tool_set_invalid. A placeholder default that silently disables the
+# real thing is worse than no default.
 ROLE_TOOLS: dict[AgentRole, dict[str, Any]] = {}
 
 
@@ -83,7 +89,7 @@ def _build_app(member: FleetMember, *, bypass: bool) -> Any:
 
     from recall.agents import build_agent_bundle
 
-    bundle = build_agent_bundle(member.role, tools=ROLE_TOOLS.get(member.role, {}))
+    bundle = build_agent_bundle(member.role, tools=ROLE_TOOLS.get(member.role))
     if not bypass:
         return bundle.to_adk_app()
 
