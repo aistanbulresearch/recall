@@ -1,0 +1,35 @@
+# Build and push the internal Tool Gateway image.
+#
+# Run from the repository root so the frozen replay assets resolve at the exact
+# repository-relative paths the agents lane contract pins:
+#
+#   gcloud builds submit --config infra/gateway/cloudbuild.yaml \
+#     --substitutions=_REPO=<repo>,_TAG=<git-sha>
+#
+# The image is tagged by commit rather than latest, so a deployed revision names
+# the source it was built from and a rollback is a tag change rather than a
+# rebuild.
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=infra/gateway/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-tool-gateway:${_TAG}
+      - .
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-tool-gateway:${_TAG}
+
+substitutions:
+  _REGION: us-central1
+  _REPO: recall-images
+  _TAG: dev
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-tool-gateway:${_TAG}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
