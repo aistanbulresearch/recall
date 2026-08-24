@@ -57,7 +57,12 @@ def _script(stub: Path, outcome: Path) -> str:
         "} catch { "
         '  $verdict = "ERROR:$($_.Exception.Message)" '
         "} "
-        f"Set-Content -LiteralPath '{outcome}' -Value $verdict -Encoding UTF8; "
+        # BOM-free by construction (rule 12): Set-Content -Encoding UTF8 on
+        # PowerShell 5.1 prepends a BOM. Written through the .NET API with an
+        # explicit no-BOM encoder so the file is clean at the source rather
+        # than tolerated at the reader.
+        f"[System.IO.File]::WriteAllText('{outcome}', $verdict, "
+        "(New-Object System.Text.UTF8Encoding($false))); "
         "Write-Output $verdict"
     )
 
@@ -104,10 +109,10 @@ def _probe(label: str, workdir: Path, use_pipe: bool) -> dict:
     # Give a completing helper a moment to flush before reading its report.
     if not outcome.exists():
         time.sleep(1.0)
-    # utf-8-sig, not utf-8: Set-Content -Encoding UTF8 on PowerShell 5.1 writes a
-    # BOM, and a stray ﻿ both corrupts the comparison and crashes printing
-    # on a non-UTF-8 console. This is the same BOM that spoiled a secret version
-    # earlier in the project; the encoding a writer picks is part of its output.
+    # utf-8-sig even though the write above is BOM-free: belt and braces, so a
+    # stray ﻿ from any other writer cannot corrupt the comparison or crash
+    # printing on a non-UTF-8 console. Same BOM class that spoiled a capability
+    # secret version earlier; the encoding a writer picks is part of its output.
     recorded = (
         outcome.read_text(encoding="utf-8-sig").strip() if outcome.exists() else ""
     )
