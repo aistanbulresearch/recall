@@ -186,6 +186,84 @@ EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
     },
 }
 
+# Gateway fields, taken from docs/platform/CONTROLLER_TOOL_GATEWAY_CONTRACT.md.
+# Agent images receive only the gateway URL, the audience and an optional
+# timeout: never the signing key and never connector credentials. The three
+# tool ids are the closed allowed set from the same contract.
+GATEWAY_TOOL_IDS = frozenset(
+    {"evidence_connector", "ledger_read", "refetch_metadata"}
+)
+GATEWAY_INVOKE_PATH = "/v1/tools/{tool_id}:invoke"
+GATEWAY_URL_SCHEME = "https"
+
+EXPECTED_GATEWAY_CONFIG: Mapping[str, Any] = {
+    "url_scheme": GATEWAY_URL_SCHEME,
+    "invoke_path": GATEWAY_INVOKE_PATH,
+    "tool_ids": GATEWAY_TOOL_IDS,
+    "auth_mode": "google_id_token",
+    "ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+    # What an agent engine is allowed to carry.
+    "agent_env_keys": frozenset(
+        {"RECALL_TOOL_GATEWAY_URL", "RECALL_TOOL_GATEWAY_AUDIENCE"}
+    ),
+    # What an agent engine must never carry, because the trust boundary is the
+    # whole reason the gateway exists.
+    "agent_forbidden_env_keys": frozenset(
+        {
+            "RECALL_TOOL_CAPABILITY_SECRET_B64",
+            "RECALL_NCBI_EMAIL",
+            "RECALL_NCBI_TOOL",
+            "RECALL_WATCHER_PRINCIPAL",
+            "RECALL_ASSESSOR_PRINCIPAL",
+            "RECALL_AUDITOR_PRINCIPAL",
+        }
+    ),
+}
+
+
+def assert_gateway_config(
+    gateway_url: str,
+    audience: str,
+    agent_env: Mapping[str, str],
+    *,
+    expected: Mapping[str, Any] | None = None,
+) -> None:
+    """Refuse to deploy an agent whose gateway wiring is wrong or over-privileged.
+
+    Raises `fleet_config_mismatch:<field>` before any engine is created. The
+    forbidden-key check is the important one: an agent image that carries the
+    capability signing key defeats the trust boundary while every other gate
+    still passes.
+    """
+
+    if expected is None:
+        expected = EXPECTED_GATEWAY_CONFIG
+    if not gateway_url.startswith(expected["url_scheme"] + "://"):
+        raise _mismatch("gateway_url_scheme")
+    if not audience:
+        raise _mismatch("gateway_audience_missing")
+    # The contract pins the audience to the exact service URL.
+    if audience.rstrip("/") != gateway_url.rstrip("/"):
+        raise _mismatch("gateway_audience_mismatch")
+    present = set(agent_env)
+    forbidden = sorted(present & set(expected["agent_forbidden_env_keys"]))
+    if forbidden:
+        raise _mismatch("agent_forbidden_env_keys." + ",".join(forbidden))
+    missing = sorted(set(expected["agent_env_keys"]) - present)
+    if missing:
+        raise _mismatch("agent_env_keys." + ",".join(missing))
+
+
+def gateway_tool_routes(gateway_url: str) -> dict[str, str]:
+    """Map each allowed tool id to its endpoint, for the deployment record."""
+
+    base = gateway_url.rstrip("/")
+    return {
+        tool_id: base + GATEWAY_INVOKE_PATH.format(tool_id=tool_id)
+        for tool_id in sorted(GATEWAY_TOOL_IDS)
+    }
+
+
 TRACING_ATTRIBUTES = ("enable_tracing", "_enable_tracing")
 
 
