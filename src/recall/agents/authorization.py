@@ -36,6 +36,19 @@ class AuthorizedResult(Generic[T]):
     value: T | None
 
 
+class AuthorizationReceiptPersistenceError(RuntimeError):
+    """The authorization decision could not be durably recorded."""
+
+
+class AuthorizedBackendError(RuntimeError):
+    """An allowed backend failed after its receipt was durably recorded."""
+
+    def __init__(self, receipt: Artifact, cause: Exception) -> None:
+        super().__init__("authorized_backend_failed")
+        self.receipt = receipt
+        self.cause = cause
+
+
 class ToolAuthorizer:
     def __init__(
         self,
@@ -69,11 +82,57 @@ class ToolAuthorizer:
         **kwargs: Any,
     ) -> AuthorizedResult[T]:
         self._request_count += 1
-        allowed = tool_id in self._allowed_tool_ids
-        decision = ToolDecision.ALLOWED if allowed else ToolDecision.DENIED
-        reason_codes = [] if allowed else ["tool_not_allowlisted"]
         invocation_id = str(
             uuid5(UUID(self._run_id), f"tool-invocation:{self._request_count}")
+        )
+        return self._invoke(
+            invocation_id,
+            tool_id,
+            requested_action,
+            (),
+            backend,
+            *args,
+            **kwargs,
+        )
+
+    def invoke_idempotent(
+        self,
+        invocation_id: str,
+        tool_id: str,
+        requested_action: str,
+        denial_reason_codes: tuple[str, ...],
+        backend: Callable[..., T],
+        *args: Any,
+        **kwargs: Any,
+    ) -> AuthorizedResult[T]:
+        UUID(invocation_id)
+        self._request_count += 1
+        return self._invoke(
+            invocation_id,
+            tool_id,
+            requested_action,
+            denial_reason_codes,
+            backend,
+            *args,
+            **kwargs,
+        )
+
+    def _invoke(
+        self,
+        invocation_id: str,
+        tool_id: str,
+        requested_action: str,
+        denial_reason_codes: tuple[str, ...],
+        backend: Callable[..., T],
+        *args: Any,
+        **kwargs: Any,
+    ) -> AuthorizedResult[T]:
+        allowed = tool_id in self._allowed_tool_ids and not denial_reason_codes
+        decision = ToolDecision.ALLOWED if allowed else ToolDecision.DENIED
+        reason_codes = (
+            []
+            if allowed
+            else list(denial_reason_codes or ("tool_not_allowlisted",))
         )
         now = self._clock()
         receipt_wire = build_artifact(
@@ -102,7 +161,12 @@ class ToolAuthorizer:
             },
             authorized_producers=PRODUCER_REGISTRY,
         )
-        receipt = self._ledger.append_artifact(receipt_wire)
+        try:
+            receipt = self._ledger.append_artifact(receipt_wire)
+        except Exception as exc:  # noqa: BLE001 - persistence must fail closed
+            raise AuthorizationReceiptPersistenceError(
+                "authorization_receipt_persistence_failed"
+            ) from exc
         if not allowed:
             self.counters = AuthorizationCounters(
                 allowed=self.counters.allowed,
@@ -110,10 +174,13 @@ class ToolAuthorizer:
                 backend_invocations=self.counters.backend_invocations,
             )
             return AuthorizedResult(receipt, None)
-        value = backend(*args, **kwargs)
         self.counters = AuthorizationCounters(
             allowed=self.counters.allowed + 1,
             denied=self.counters.denied,
             backend_invocations=self.counters.backend_invocations + 1,
         )
+        try:
+            value = backend(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - preserve the persisted receipt
+            raise AuthorizedBackendError(receipt, exc) from exc
         return AuthorizedResult(receipt, value)

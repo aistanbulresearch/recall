@@ -60,11 +60,15 @@ class AgentBundle:
 def build_agent_bundle(
     role: AgentRole,
     *,
-    tools: Mapping[str, Callable[..., Any]],
+    tools: Mapping[str, Callable[..., Any]] | None = None,
     model: str | Any = MODEL_ID,
 ) -> AgentBundle:
     os.environ["GOOGLE_GENAI_USE_ENTERPRISE"] = "1"
     os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+    if tools is None:
+        from .tools import production_tools_for
+
+        tools = production_tools_for(role)
     expected = ROLE_TOOL_IDS[role]
     if frozenset(tools) != expected:
         raise ValueError(f"agent_tool_set_invalid:{role.value}")

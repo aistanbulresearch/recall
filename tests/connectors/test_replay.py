@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from google.adk.tools.function_tool import FunctionTool
 
+from recall.connectors.live import canonical_pubmed_metadata_hash
 from recall.connectors.replay import ReplayConnector
 from recall.contracts import ContractError, ReplayStage
 
@@ -93,6 +94,37 @@ def test_geo_observation_exposes_only_manifest_bound_exact_row() -> None:
         "exon_max": 26,
     }
     assert geo["structured_fields"]["temporal_status"].startswith("AS_CAPTURED_")
+
+
+def test_pubmed_observation_derives_refetch_metadata_from_frozen_capture() -> None:
+    connector = ReplayConnector(REPO_ROOT, MANIFEST)
+
+    observations = connector.build_observations(
+        stage=ReplayStage.STAGE_1,
+        case_id=CASE_ID,
+        run_id=RUN_ID,
+        created_at="2026-08-22T06:30:00Z",
+    )
+    pubmed = next(
+        item
+        for item in observations
+        if item["source_record_id"] == "sahu_pubmed_esummary"
+    )
+
+    assert pubmed["structured_fields"]["citation_metadata"] == {
+        "identifier": "39779848",
+        "title": (
+            "Saturation genome editing-based clinical classification of "
+            "BRCA2 variants."
+        ),
+        "locator": "https://pubmed.ncbi.nlm.nih.gov/39779848/",
+        "content_hash": canonical_pubmed_metadata_hash(
+            "39779848",
+            "Saturation genome editing-based clinical classification of "
+            "BRCA2 variants.",
+            "https://pubmed.ncbi.nlm.nih.gov/39779848/",
+        ),
+    }
 
 
 def test_function_tool_result_is_json_serializable_and_hash_derived() -> None:

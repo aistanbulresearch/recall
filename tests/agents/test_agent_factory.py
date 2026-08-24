@@ -12,6 +12,7 @@ from recall.agents.config import (
     VERTEX_LOCATION,
 )
 from recall.agents.factory import build_agent_bundle
+from recall.agents.tools import production_tools_for
 from recall.agents.schemas import (
     AssessmentAgentOutput,
     CitationAuditOutput,
@@ -115,3 +116,14 @@ def test_tool_set_must_be_exact_not_merely_subset() -> None:
         assert str(exc) == "agent_tool_set_invalid:EVIDENCE_WATCHER"
     else:
         raise AssertionError("unexpected tool expansion was accepted")
+
+
+def test_three_runtime_roles_default_to_production_gateway_callables() -> None:
+    for role in (
+        AgentRole.EVIDENCE_WATCHER,
+        AgentRole.EVIDENCE_ASSESSOR,
+        AgentRole.CITATION_AUDITOR,
+    ):
+        bundle = build_agent_bundle(role)
+        expected = production_tools_for(role)
+        assert {tool.__name__ for tool in bundle.agent.tools} == set(expected)
