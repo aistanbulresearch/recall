@@ -1753,3 +1753,31 @@ Post-correction independent staged-tree review returned `PASS`: all seven-, eigh
 | Resolution | Create a binding item-by-item auditor action register; restore every report extension to the plan and evidence ledgers behind its stated gate; preserve base-path versus conditional-extension distinctions; mark `RunEvidenceManifest` as an owner-pending proposal; record DEC-038 reserving all scope removal decisions to the owner. |
 | Verification | Fifty required report markers passed the bounded coverage check. Transcript 25/25, Graphify governance 41/41 plus portability, collaboration 88/88 plus five positive controls, official skill validation, six-file `py_compile`, `git diff --check`, and bounded secret/trailer scans passed. |
 | Status | Resolved locally; owner scope authority is recorded in DEC-038 |
+
+## ERR-2026-08-23-144: Orphaned smoke engine breached same-day deletion rule
+
+| Field | Value |
+|---|---|
+| Task | L1 managed-runtime smoke cleanup |
+| Severity | Medium |
+| Observed | `recall-hello-smoke` was ready at `2026-08-22T19:25:20Z` and deleted at `2026-08-23T08:21:00Z`, an exact elapsed interval of 12 hours, 55 minutes, and 40 seconds (reported operationally as 12 hours 55 minutes). |
+| Breach | The rule "smoke resources are deleted the same day" was breached. |
+| Cause | Two deletion attempts were recorded as hanging at `19:40 TSS`, while `gcloud` and ADC became unresponsive together. That local-time label is retained as incident context but is not used for elapsed-time calculation. |
+| Resolution | The director deleted the engine, authoritative read-back returned zero matching engines, and L1 independently verified the absence. |
+| Cost | The incident remained inside free-tier coverage; estimated incremental cost was less than USD 1. |
+| Timestamp discipline | The initial report said approximately 16 hours because UTC and TSS were mixed. Inventory and ERR records must now use only UTC ISO-8601 timestamps, and durations must be calculated from two UTC timestamps. Daily inventory reconciliation is mandatory without exception; this incident is the justification. |
+| Status | Closed (same day as detection) |
+
+## ERR-2026-08-23-B: Hung non-interactive gcloud authentication processes
+
+| Field | Value |
+|---|---|
+| Task | Cross-lane process-hygiene incident review |
+| Severity | High |
+| Evidence class | `OWNER_REPORTED / REPORT_DERIVED`; no raw process snapshot is retained in this repository. |
+| Observed | `OWNER_REPORTED`: L3 reported four hung non-interactive `gcloud auth application-default print-access-token`-class processes. PID 50000 reportedly started at `2026-08-21 19:13 TSS` (`2026-08-21T16:13:00Z`), accumulated approximately 32 CPU hours, and held approximately 2.6 GB RAM. PID 16128 reportedly started at `2026-08-22 15:59 TSS` (`2026-08-22T12:59:00Z`), accumulated approximately 17.5 CPU hours, and held approximately 1.9 GB RAM; two similar processes were also reported. UTC values are the canonical timestamps; the TSS labels are retained only as source context. |
+| Root cause | `REPORT_DERIVED`: the supplied incident report attributes the hang to expired authentication opening a reauthentication prompt inside a non-interactive session, so the process never terminated and the shell fallback `|| echo FAILED` never executed. The reported callers were one-off checks from director task `4751f38a` and L1 task `1784eba8`. |
+| Resolution | `OWNER_REPORTED`: L3 identified the processes. With owner approval they were reportedly terminated at `2026-08-23T17:29:00Z` (`20:29 TSS`); reported free RAM increased from 9.0 GB to 11.6 GB. Thanks to L3 for detecting the cross-lane resource leak. |
+| Prevention | Every non-interactive `gcloud` call must use a bounded timeout and disabled prompts; L1-C will measure and report the exact mechanism. The pre-flight routine must also inspect for hung processes before starting cloud work. A shell fallback is not a timeout. |
+| Verification | Owner/director-reported incident evidence records the process termination and memory recovery; this gate did not independently inspect raw process telemetry. No claim is made here that the pending L1-C timeout mechanism has executed. |
+| Status | Closed (same day) |

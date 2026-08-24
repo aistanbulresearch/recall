@@ -30,6 +30,14 @@ Deploy separately versioned agent revisions to Agent Runtime. Publish capability
 
 Use Agent Identity and Gateway for least-privilege tool access when available. Managed component failure must yield a typed fallback or `ABSTAIN`; it must never widen permissions.
 
+## Two-layer trace decision
+
+Controller-authored spans are the authoritative workflow audit surface. One Controller-minted trace ID contains one root span and one child span for each role actually invoked. Allowed attributes are `recall.role`, `recall.region`, `recall.outcome`, and `recall.event_count`; prompt and response text are prohibited.
+
+Agent-internal GenAI spans form a separate trace layer. The managed runtime did not propagate the caller's `traceparent` into the agent container: the caller-minted trace ID returned `404` from deterministic `traces.get` read-back for three minutes. Recall therefore does not claim cross-layer parentage or use search/list as proof.
+
+GenAI instrumentation installability will be evaluated after Milestone 1. It is not on the contest critical path and cannot block the Controller-authored audit surface.
+
 ## Consequences
 
 - Fleet discovery and governance become visible and auditable.

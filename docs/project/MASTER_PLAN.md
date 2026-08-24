@@ -195,7 +195,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 
 Golden-path contract scope includes F-11/F-14: one `failure_code -> fact -> reason_code` registry, explicit `HALTED` fields, and approximately twelve derived UI fields. Atomic data-mode badges and run-level `mode_set` remain mandatory and are cut last.
 
-Prize targeting is ordered by evidence fit: Best Architectural Design first, Individual/Hobbyist second, Fleet third, and Honorable Mention fourth. External-auditor probability estimates are directional opinions only; they are not project measurements and must not appear as expected scores or submission claims.
+Prize targeting by evidence fit remains Best Architectural Design first, Individual/Hobbyist second, Fleet third, and Honorable Mention fourth. This prize-fit preference is distinct from the owner-approved active M1 execution path, which is Fleet-first as of 2026-08-23. External-auditor probability estimates are directional opinions only; they are not project measurements and must not appear as expected scores or submission claims.
 
 `docs/project/AUDITOR_ACTION_REGISTER_2026-08-21.md` is the binding item-by-item coverage map for the owner-supplied external auditor report. Its immediate conditions, seven degree-oriented extensions, daily schedule, non-cuttable invariants, five video proofs, milestone evidence, and five risks are all part of this plan. No report item may be removed or silently replaced without an owner decision.
 

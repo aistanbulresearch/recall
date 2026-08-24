@@ -62,7 +62,7 @@ All unchanged payload contracts remain at `1.0.0` until an executable schema rec
 | `ScanRun` | `watch_case_id`, `state`, `scheduled_for`, `attempt`, `lease_epoch`, `deadline_at`, `budget_snapshot`, `idempotency_key`, `trace_id`, `terminal_policy_decision_id`, `failure_receipt_ids` | Controller through Ledger | Controller, Policy, UI | Agent-written transition, hidden retries |
 | `ScanRunEvent` | `event_id`, `sequence`, `from_state`, `to_state`, `event_code`, `agent_id`, `lease_epoch` | Controller through Ledger | Controller, UI, evaluation | Model-authored state transition |
 | `RoutingPlan` | `requested_capabilities`, `proposed_bindings`, `route_order`, `validation_status`, `rationale_codes` | Fleet Coordinator | Controller | Endpoint credentials, arbitrary URL, direct invocation command, outcome |
-| `RegistryResolutionReceipt` | `requested_capabilities`, `bindings`, `validation_status`, `reason_codes` | Controller | Controller, UI, Policy completeness | Unvalidated endpoint as approved |
+| `RegistryResolutionReceipt` | Version `1.1.0`; `requested_capabilities`, `bindings`, `resolution_mode`, `validation_status`, `reason_codes` | Controller | Controller, UI, Policy completeness | Unvalidated endpoint as approved |
 | `ToolAuthorizationReceipt` | `agent_role`, `tool_id`, `requested_action`, `decision`, `policy_version`, `reason_codes`, `invocation_id` | Gateway or Controller authorizer | Controller, Auditor, UI | Secret token, alternate credential instructions |
 | `EvidenceObservation` | `source`, `source_record_id`, `retrieved_at`, `source_version`, `source_locator`, `source_content_hash`, `structured_fields`, `retrieval_status` | Evidence connector | Watcher, Ledger | Raw hostile instructions as executable text, unsupported interpretation |
 | `EvidenceSnapshot` | `effective_at`, `observation_ids`, `coverage_status`, `source_cursors`, `normalized_facts`, `conflicts`, `snapshot_hash` | Evidence Watcher | Assessor, Policy completeness, UI | Classification or review recommendation |
@@ -89,17 +89,23 @@ The catalog field names above are not open objects. These nested structures are 
 
 | Path | Required shape |
 |---|---|
-| `PrivacyReceipt.detectors.deterministic` | `version`, `approved_spans` where each span contains only `span_hash`, `identifier_class`, `start`, and `end` |
-| `PrivacyReceipt.detectors.gemma` | `version`, `invoked`, `schema_valid`, `approved_residual_spans` with the same span shape; no raw span text |
+| `PrivacyReceipt.detectors.deterministic` | `version`, `approved_spans` as an array of keyed span-hash string references; no raw span text, class, or offsets |
+| `PrivacyReceipt.detectors.gemma` | `version`, `invoked`, `schema_valid`, `approved_residual_spans` with the same string-reference shape |
 | `PrivacyReceipt.outbound` | `scan_status`, `allowed_field_paths`, `raw_text_field_count` |
+| `PrivacyReceipt.signature_ref` | Exactly `key_id`, `algorithm`, `signature`; all are non-empty strings and no secret key material is permitted; the detached signature covers the unsigned receipt body and the final artifact hash covers the signature reference |
+| `CloudBoundPayload` | Non-artifact intake object at version `1.0.0`: exact required fields `payload_kind`, `payload_version`, `case_token`, `tenant_id`, `region`, `data_mode`, `variant`; optional `deidentified_summary`; `variant` is exactly `gene`, `hgvs_c`, `hgvs_p`, `assembly`; unknown fields fail closed |
 | `WatchCase.last_verified_scan` | `run_id`, `completed_at`; both null together when no verified scan exists |
 | `WatchCase.pending_observation_hashes` | Sorted unique array of unverified observation hashes; empty is valid only after an explicit verified transition cleared the backlog |
 | `WatchCase.attention_marker` | Null or exactly `reason_codes`, `first_seen_at`, `last_seen_at`, `related_run_ids`, `operator_action_required`; null only when no unresolved attention exists |
 | `ScanRun.budget_snapshot` | `delegation_depth`, `specialist_invocations`, `model_calls_per_role`, `schema_repairs`, `agent_retries`, `connector_retries`, `repeated_state_limit`, `wall_time_seconds`, `step_deadlines`, `token_ceilings` |
 | `RegistryResolutionReceipt.bindings[]` | `capability`, `agent_id`, `role`, `revision`, `manifest_digest`, `binding_id`, `region`, `validation_status` |
+| `RegistryResolutionReceipt.resolution_mode` | Closed enum: `REGISTRY`, `MANUAL_SERVICE`, `PINNED_FALLBACK` |
 | `CandidateDeltaReceipt.new_observation_hashes` | Sorted unique array; non-empty when `candidate_delta_state = PRESENT`, empty only when complete comparison proves `ABSENT`, and retained with failure reasons when determination is `UNKNOWN` |
+| `CandidateDeltaReceipt.authority` | Produced only by the deterministic Evidence Normalizer; agent materiality proposals cannot create or modify it |
 | `EvidenceDelta.comparison` | `classification_changed`, `classification_source_refs`; missing comparison evidence is not false |
-| `CitationAuditReceipt.claim_verdicts[]` | `claim_id`, `verdict`, `reason_codes`, `refetched_source` where source contains `identifier`, `title`, `locator`, `content_hash` |
+| `CitationAuditReceipt.claim_verdicts[]` | `claim_id`, `verdict`, `reason_codes`, `refetched_source`; source contains `identifier`, `title`, `locator`, `content_hash`, and is null if and only if verdict is `UNAVAILABLE` |
+| `CitationAuditReceipt.audit_status` | Closed enum: `COMPLETE`, `INCOMPLETE`; claim verdicts use `VERIFIED`, `MISMATCH`, `UNAVAILABLE` |
+| `ReplayStage` | Closed replay cursor enum: `stage-0`, `stage-1`, `stage-2`; it controls deterministic source visibility and carries no outcome authority |
 | `DataModeReceipt.mode_set` | Sorted unique non-empty array containing only `SYNTHETIC`, `CAPTURED_REPLAY`, `LIVE_PUBLIC`, or `MOCK` from the transitive input closure |
 | `DataModeReceipt.declared_composition` | `SYNTHETIC_ONLY`, `CAPTURED_REPLAY_ONLY`, `LIVE_PUBLIC_ONLY`, `MOCK_ONLY`, or `SYNTHETIC_WITH_CAPTURED_REPLAY`; exact deterministic projection from `mode_set` |
 | `FailureReceipt.details` | Registered failure-code-specific object; `loop_detected` permits only `hop_count` and `repeated_state_hash` |

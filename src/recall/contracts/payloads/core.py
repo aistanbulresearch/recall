@@ -38,6 +38,13 @@ from .receipts import (
     PrivacyReceiptPayload,
     RegistryResolutionPayload,
 )
+from .agentic import (
+    DeploymentReceiptPayload,
+    EvidenceDeltaPayload,
+    EvidenceObservationPayload,
+    ManagedPathReceiptPayload,
+    RoutingPlanPayload,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +128,11 @@ Payload = (
     | RegistryResolutionPayload
     | AssessmentReceiptPayload
     | CitationAuditPayload
+    | RoutingPlanPayload
+    | EvidenceObservationPayload
+    | EvidenceDeltaPayload
+    | DeploymentReceiptPayload
+    | ManagedPathReceiptPayload
 )
 
 

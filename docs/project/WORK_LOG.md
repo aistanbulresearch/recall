@@ -1283,3 +1283,17 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - No agent, product implementation, staging, commit, push, merge, branch creation, GitHub write, cloud/billing mutation, model call, spending, publication, Graphify refresh, escalation, or destructive action occurred.
 - Verification passed a fifty-marker report coverage check, all six repository validator entrypoints, exact transcript 25/25, Graphify 41/41 plus portability, collaboration 88/88 plus five positive controls, official skill validation, six-file `py_compile`, `git diff --check`, and bounded secret/trailer scans.
 DUR-3 (3A–3E) joint PASS 2026-08-22: 127 tests incl. live Firestore; four fixture runs with watch_cases read-back; reviewers: external auditor + reviewer.
+
+## WORK-2026-08-23-031: 21:00 lane integration gate
+
+- Merged exact owner-authorized SHAs `93de1d43c931dd3b971bb0c2e038130df299ddc0` (L1) and fallback `e9533f7682abc02c7363a479f248e8c9e6a8670e` (L3) into `feature/rcl-3xx-core` with `--no-ff`; moving lane tips were not merged.
+- Repo `.venv` identity was Python `C:\Users\oacav\OneDrive\Desktop\recall project\.venv\Scripts\python.exe`, Google ADK `2.7.1`, and Google Cloud Aiplatform `1.165.1`.
+- Post-merge verification passed Core 196/196, Platform 189/189, Privacy 118/118, and Web 48/48: 551/551 total. `recall.testing` imported from `src/recall/testing`, and isolated `tests/platform/test_cross_contract.py` passed 15/15.
+- The live Firestore integration file remained excluded because this integration window did not include renewed cloud-write authorization. No push, PR, main merge, deployment, or cloud mutation occurred.
+
+## WORK-2026-08-23-032: Firestore-optional ledger import boundary
+
+- Changed `src/recall/ledger/__init__.py` to load `FirestoreLedger` only when that export is requested, and added the regression in `tests/ledger/test_producer_registry.py`.
+- TDD red reproduced `ModuleNotFoundError: No module named 'google'` when `recall.ledger.producers` was imported under `python -S`. After the fix, the same cloud-extra-free import passed with all 25 producers, while normal `from recall.ledger import FirestoreLedger` still resolved.
+- Verification passed focused 17/17, Core 197/197, Platform 189/189, and Privacy 118/118. The previously completed post-merge Web suite remained 48/48 and was unaffected by the Python-only change. `py_compile`, `git diff --check`, and the bounded added-line secret/attribution scan passed.
+- Legacy validator gates remain explicitly red. `verify_graphify_governance.py` fails first at `normative_document_hash_mismatch:docs/project/STATUS.md:ECC1693FB483EB611C840E8DD13478512DFFF7636CCE0C812FB1AE670C64E0BC`; `verify_recall_collaboration.py` fails first at `claim_document_hash_mismatch:docs/project/MASTER_PLAN.md`. STATUS, HANDOFF, and MASTER_PLAN now have stale legacy hash bindings; checks downstream of each fail-fast error are `NOT EXECUTED`. No validator failure is promoted to PASS, and the zero/two/seven collaboration evidence boundary is unchanged.

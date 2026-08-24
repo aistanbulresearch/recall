@@ -159,7 +159,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 - GitHub: `https://github.com/aistanbulresearch/recall`, private; PR #2 is open and unmerged. The audits at `877c78d` and c8 failed on distinct evidence-integrity defects; exact successor c861 passed with no actionable P0-P3 finding.
 - Local repository: `C:\Users\oacav\OneDrive\Desktop\recall project`.
 - Product implementation: not started.
-- Prize execution priority: Best Architectural Design, then Individual/Hobbyist, Fleet, and Honorable Mention. This is a prioritization decision, not a measured probability or score.
+- Prize-fit preference remains Best Architectural Design, then Individual/Hobbyist, Fleet, and Honorable Mention; it is not a measured probability or score. The owner-approved active M1 execution path is Fleet-first as of 2026-08-23.
 - No privacy, scientific, reliability, or production claim has been validated.
 - Documentation baseline passed local structure, link, identity, ignore-rule, commit, push, and remote read-back checks.
 - Google Cloud CLI, user auth, ADC, and five required SDK imports passed; no cloud resource was created.

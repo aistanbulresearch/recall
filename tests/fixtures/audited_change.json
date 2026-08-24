@@ -3,7 +3,7 @@
   "mode_set": ["CAPTURED_REPLAY", "SYNTHETIC"],
   "candidate_delta_state": "PRESENT",
   "tool_decision": "ALLOWED",
-  "citation_verdict": "PASS",
+  "citation_verdict": "VERIFIED",
   "policy_available": true,
   "source_cursors": {"synthetic-source": "cursor-002"},
   "schedule_epoch": "2026-08-22T06:01:00Z"

@@ -26,6 +26,10 @@ This matrix prevents green-but-dead verification. A guardrail is not proven mere
 
 ## Verification rule
 
+All observability claims are verified by deterministic read (`traces.get` by exact trace ID), never by search/list. Rationale: Cloud Trace v1 `traces.list` returned zero for a span that `traces.get` returned immediately on 2026-08-22 in both the L1 and director probes.
+
+Every parameter that affects a measurement or deployment must be asserted against its locked expected set at startup; any mismatch must abort before work begins. Recording the effective value in the manifest is necessary but not sufficient. Mechanism status is `NOT VERIFIED` until startup-enforcement tests execute. On 2026-08-23, `num_predict` lived only in a CLI flag; the defect fix had no code commit.
+
 Each verified row must link to the test, run manifest, trace or activation record, authoritative state read-back, and UI capture where relevant.
 
 Replay capture integrity evidence: `scripts/evidence/verify-rcl-205-captures.ps1`, `scripts/evidence/test-rcl-205-captures.ps1`, `docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json`, and `docs/evaluation/reports/2026-08-17--rcl-205-protocol-1.0.1-verification.md`.

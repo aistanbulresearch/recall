@@ -335,3 +335,17 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Lifecycle alignment: `HALTED` is the technical `ScanRun` terminal. `ATTENTION_REQUIRED` is used only as the resulting durable `WatchCase` state after the `scan_halted` transition, with verified cursors preserved, pending evidence retained, and automatic scheduling cleared until explicit recovery.
 - Delivery lanes: L1 Platform, L2 Core, and L3 Privacy and Demo are AI developer lanes coordinated by Codex. They do not add human entrants, collaborators, authors, or submitters; the competition entry capacity remains `individual/solo` under owner `aistanbulresearch`.
 - Boundary: This decision schedules work and narrows authority. It does not authorize a cloud mutation, GitHub write, push, merge, publication, expanded Memory Bank content, or any change to the non-clinical synthetic/public-evidence boundary.
+
+## DEC-2026-08-23-042: Open the Fleet-first path under a bounded fallback
+
+- Status: owner-approved `GO` on 2026-08-23.
+- Decision: Allocate the M1 critical path and resources to the Fleet-first route because the owner accepted Brief 002 as passed on owner/external-reviewer-reported live evidence. The raw Brief 002 runtime artifacts were not re-opened in this decision-recording gate. One extension of at most 24 hours is permitted only for a transient infrastructure failure.
+- Fallback: A second agentic failure without an identified root cause returns the delivery target to the Best Architectural Design baseline; the fallback remains a guarantee, not a silent downgrade.
+- Resource boundary: This decision sets sequencing and the M1 target. Every persistent new cloud resource type still requires separate owner approval.
+
+## DEC-2026-08-23-043: Permit exact local integration records with legacy hash gates retained as failed
+
+- Status: accepted bounded exception under the owner's 2026-08-23 instruction to close the green 21:00 integration with one governance commit and one small lazy-import commit.
+- Decision: Permit only the exact current local documentation and lazy Firestore-import commits after the product gates passed. Do not regenerate or expand the legacy collaboration/Graphify hash framework in this product integration.
+- Evidence boundary: `verify_graphify_governance.py` remains `FAIL` at the STATUS normative hash, and `verify_recall_collaboration.py` remains `FAIL` at the MASTER_PLAN claim hash. STATUS, HANDOFF, and MASTER_PLAN hash bindings are stale; fail-fast checks after the first error are `NOT EXECUTED`. The zero/two/seven collaboration evidence classification remains unchanged.
+- Protection boundary: This exception does not turn either validator green and does not authorize push, PR, main merge, cloud action, publication, or any later commit.
