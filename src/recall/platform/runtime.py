@@ -53,6 +53,11 @@ class AgentSpec:
     # here: the agent is pickled by reference, so the container must be able
     # to import recall.* to unpickle it at all.
     extra_packages: tuple[str, ...] = ()
+    # Per-member staging directory. The SDK pickles the agent to a FIXED
+    # path by default, so concurrent creates overwrite each other and every
+    # engine loads whichever pickle won the race. Measured on 2026-08-25:
+    # three engines, three service accounts, one agent, all gates green.
+    gcs_dir_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +187,7 @@ class AgentRuntime:
             service_account=spec.service_account,
             resource_limits=dict(spec.resource_limits) if spec.resource_limits else None,
             extra_packages=tuple(spec.extra_packages),
+            gcs_dir_name=spec.gcs_dir_name,
         )
         resource_name = _resource_name_of(created)
         if not isinstance(resource_name, str) or not resource_name:
@@ -431,6 +437,7 @@ class VertexAgentEngineClient:
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
         extra_packages: Sequence[str] = (),
+        gcs_dir_name: str | None = None,
     ) -> Any:
         self._rebind()
         kwargs: dict[str, Any] = {
@@ -446,6 +453,8 @@ class VertexAgentEngineClient:
             kwargs["resource_limits"] = dict(resource_limits)
         if extra_packages:
             kwargs["extra_packages"] = list(extra_packages)
+        if gcs_dir_name:
+            kwargs["gcs_dir_name"] = gcs_dir_name
         return self._engines.create(**kwargs)
 
     def get(self, resource_name: str) -> Any:

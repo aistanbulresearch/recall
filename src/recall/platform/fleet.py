@@ -44,6 +44,15 @@ logger = logging.getLogger(__name__)
 # engines are created and then fail to start with
 # ModuleNotFoundError: No module named 'recall', which reads as a platform
 # fault and is in fact a missing payload. Built with `uv build --wheel`.
+# Each member stages under its OWN directory. The SDK's default is one fixed
+# path for every deploy, which turns concurrency into a pickle race: on
+# 2026-08-25 all three engines loaded the same agent while display names,
+# service accounts, resource ids and catalog rows were all correct.
+# Concurrency is kept; the shared mutable path is removed.
+def member_staging_dir(member: "FleetMember") -> str:
+    return f"agent_engine/{member.display_name}"
+
+
 RECALL_WHEEL = "dist/recall_agent-0.1.0-py3-none-any.whl"
 FLEET_EXTRA_PACKAGES: tuple[str, ...] = (RECALL_WHEEL,)
 
@@ -165,6 +174,7 @@ def fleet_spec(
         service_account=identity.email(config.project_id),
         resource_limits=dict(FLEET_RESOURCE_LIMITS),
         extra_packages=FLEET_EXTRA_PACKAGES,
+        gcs_dir_name=member_staging_dir(member),
     )
 
 
@@ -362,6 +372,8 @@ def assert_fleet_config(
             raise _mismatch("resource_limits")
         if tuple(spec.extra_packages) != tuple(expected["extra_packages"]):
             raise _mismatch("extra_packages")
+        if spec.gcs_dir_name != member_staging_dir(member):
+            raise _mismatch("gcs_dir_name")
 
         env = dict(spec.env_vars)
         if set(env) != set(expected["env_keys"]):
@@ -654,3 +666,103 @@ def fleet_summary(
             "COMPLETE" if fleet_trace_is_complete(span_names) else "INCOMPLETE"
         ),
     }
+
+
+# --- rule 14: an artifact's identity is proven by interrogation ---------------
+#
+# On 2026-08-25 the fleet deployed COMPLETE with three engines, three display
+# names, three service accounts, three resource ids and three catalog rows --
+# and one agent. The SDK stages the pickle to a fixed path, so three concurrent
+# creates raced and every engine loaded the winner.
+#
+# Every signal we checked was metadata ABOUT the engine. None was testimony
+# FROM it. A fleet gate that never asks an engine who it is will pass a fleet of
+# clones every time, and the chain smoke downstream would have passed too: the
+# assessor answers plausibly for everyone.
+
+
+def expected_agent_author(member: FleetMember) -> str:
+    """The name the running agent must report for this member."""
+
+    return member.role.value.lower()
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityCheck:
+    """What one engine said when asked who it is."""
+
+    display_name: str
+    resource_name: str
+    expected_author: str
+    observed_authors: tuple[str, ...]
+    matches: bool
+    error: str | None = None
+
+
+def observed_authors(invocation: Any) -> tuple[str, ...]:
+    """Pull the agent names out of a TracedInvocation's events.
+
+    Read from the event dicts rather than from a serialised blob: dumping the
+    dataclass with default=str produces a repr, whose single quotes silently
+    defeat a "author" search and report nothing rather than failing.
+    """
+
+    events = getattr(invocation, "events", ()) or ()
+    names = []
+    for event in events:
+        if isinstance(event, Mapping):
+            author = event.get("author")
+            if isinstance(author, str) and author:
+                names.append(author)
+    return tuple(dict.fromkeys(names))
+
+
+def verify_fleet_identity(
+    invoker: Any,
+    deployments: Sequence[FleetDeployment],
+    *,
+    message: str = "identify yourself",
+    user_id: str = "recall-identity-check",
+) -> list[IdentityCheck]:
+    """Ask every deployed engine who it is, and compare with what it claims."""
+
+    checks: list[IdentityCheck] = []
+    for deployment in deployments:
+        if not deployment.deployed or deployment.engine is None:
+            continue
+        expected = expected_agent_author(deployment.member)
+        try:
+            invocation = invoker.invoke(
+                deployment.engine.resource_name, message=message, user_id=user_id
+            )
+            authors = observed_authors(invocation)
+            error = None
+        except Exception as exc:  # noqa: BLE001 - the failure is the finding
+            authors, error = (), f"{type(exc).__name__}:{exc}"[:200]
+        checks.append(
+            IdentityCheck(
+                display_name=deployment.member.display_name,
+                resource_name=deployment.engine.resource_name,
+                expected_author=expected,
+                observed_authors=authors,
+                matches=bool(authors) and set(authors) == {expected},
+                error=error,
+            )
+        )
+    return checks
+
+
+def fleet_identity_is_distinct(checks: Sequence[IdentityCheck]) -> bool:
+    """True only if every engine is itself AND no two engines are the same one.
+
+    Both halves are required. Per-engine correctness alone would pass a fleet
+    where each engine happened to match; distinctness alone would pass a fleet
+    of three different WRONG agents.
+    """
+
+    if not checks:
+        return False
+    if not all(check.matches for check in checks):
+        return False
+    seen = [check.observed_authors[0] for check in checks if check.observed_authors]
+    return len(seen) == len(checks) == len(set(seen))
