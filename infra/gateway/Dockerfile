@@ -23,8 +23,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Dependencies first so application edits do not invalidate the layer.
+#
+# Versions are the repository's own pins from pyproject.toml, not a hand-picked
+# set. The first build installed only firestore and uvicorn and the container
+# died on import with ModuleNotFoundError: No module named 'google.adk',
+# because recall.controller.tool_gateway imports ADK types. The gateway needs
+# the same runtime the Controller needs.
 COPY pyproject.toml uv.lock ./
 RUN pip install --no-cache-dir \
+      "google-adk==2.7.1" \
+      "google-cloud-aiplatform[agent_engines]==1.165.1" \
       "google-cloud-firestore==2.28.1" \
       "uvicorn==0.32.1"
 
