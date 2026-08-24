@@ -10,3 +10,17 @@
 *.pdf binary
 *.mp4 binary
 artifacts/evidence/rcl-205/** binary -eol
+
+# Storage fidelity for hash-bound evidence. Every path below has its sha256
+# declared in a manifest, an approval record, or the erratum, and those hashes
+# are computed over the bytes on disk. Git must store exactly those bytes, or a
+# fresh checkout cannot reproduce a declared hash. See evidence discipline
+# rule 11 and corpus/ERRATUM_001_p1-frozen-001.md revision 3.
+artifacts/evidence/** -text
+corpus/generated/** -text
+corpus/FROZEN_CONFIG.json -text
+corpus/PRIVACY_CORPUS_MANIFEST.json -text
+corpus/ARM_DECLARATION.json -text
+corpus/generator.py -text
+corpus/data/gazetteers.json -text
+scripts/derive_corrected_view.py -text
