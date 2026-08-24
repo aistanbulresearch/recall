@@ -247,14 +247,25 @@ def assert_fleet_config(
 
 
 def assert_agent_carries_no_tracing_flag(agent_engine: Any) -> None:
-    """Refuse an agent object built with the overridden enable_tracing flag.
+    """Refuse an agent object built with the enable_tracing parameter.
 
-    The runtime reports telemetry as on while it is off when that parameter is
-    passed at all, so a truthy tracing attribute is a configuration mismatch.
+    Passing the parameter at all takes telemetry away from the environment
+    variables, and the runtime then reports telemetry as on while it is off.
+    False is the dangerous value, not True: it silently disables telemetry while
+    looking like a careful setting, which is how a fleet reaches production
+    emitting no spans.
+
+    AdkApp records the argument in `_tmpl_attrs`, where an omitted parameter
+    leaves None and a passed one leaves the value. Checking truthiness would wave
+    through exactly the False that causes the harm, so presence is what is
+    checked.
     """
 
+    template = getattr(agent_engine, "_tmpl_attrs", None)
+    if isinstance(template, Mapping) and template.get("enable_tracing") is not None:
+        raise _mismatch("enable_tracing")
     for attribute in TRACING_ATTRIBUTES:
-        if getattr(agent_engine, attribute, None):
+        if getattr(agent_engine, attribute, None) is not None:
             raise _mismatch("enable_tracing")
 
 

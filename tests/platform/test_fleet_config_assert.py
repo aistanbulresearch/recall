@@ -139,6 +139,38 @@ def test_an_agent_without_the_tracing_flag_is_accepted() -> None:
     assert assert_agent_carries_no_tracing_flag(object()) is None
 
 
+def test_an_omitted_parameter_looks_like_none_and_is_accepted() -> None:
+    class OmittedApp:
+        _tmpl_attrs = {"enable_tracing": None}
+
+    assert assert_agent_carries_no_tracing_flag(OmittedApp()) is None
+
+
+def test_enable_tracing_false_is_refused_because_false_is_the_harmful_value() -> None:
+    """AdkApp(enable_tracing=False) silently disables telemetry.
+
+    Observed on 2026-08-24: passing the parameter leaves False in _tmpl_attrs,
+    omitting it leaves None. A truthiness check would accept the False and the
+    fleet would emit no spans.
+    """
+
+    class FalseFlagApp:
+        _tmpl_attrs = {"enable_tracing": False}
+
+    with pytest.raises(PlatformError) as excinfo:
+        assert_agent_carries_no_tracing_flag(FalseFlagApp())
+    assert excinfo.value.detail == "enable_tracing"
+
+
+def test_enable_tracing_true_is_also_refused() -> None:
+    class TrueFlagApp:
+        _tmpl_attrs = {"enable_tracing": True}
+
+    with pytest.raises(PlatformError) as excinfo:
+        assert_agent_carries_no_tracing_flag(TrueFlagApp())
+    assert excinfo.value.detail == "enable_tracing"
+
+
 def test_a_corrupted_constant_creates_no_engine(monkeypatch: Any) -> None:
     """The claim that matters: mismatch stops before anything is deployed."""
 
