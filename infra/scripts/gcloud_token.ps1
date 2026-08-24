@@ -116,8 +116,23 @@ function Get-RecallAccessToken {
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
-    # Free if it helps, relied on if it does not.
-    $psi.EnvironmentVariables['CLOUDSDK_CORE_DISABLE_PROMPTS'] = '1'
+    # Deliberately no environment mutation here.
+    #
+    # This used to set CLOUDSDK_CORE_DISABLE_PROMPTS through
+    # $psi.EnvironmentVariables, annotated "free if it helps". It was not free.
+    # That property is materialised lazily from a snapshot of the entire parent
+    # environment, and when its getter throws, PowerShell 5.1 swallows the
+    # exception and yields $null -- so the index raised "Cannot index into a
+    # null array" and the function died before Start(). That is why nine token
+    # tests failed in another process tree on this same machine, with the same
+    # shell build and the same script bytes, while all fourteen
+    # Get-RecallProject tests passed: only this function builds a
+    # ProcessStartInfo.
+    #
+    # The variable was redundant regardless: --quiet already disables prompts,
+    # and the timeout plus tree kill already bound a hang. A redundant
+    # defensive line that takes a dependency on the whole parent environment
+    # is a net loss.
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $psi
