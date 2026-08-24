@@ -1,6 +1,7 @@
 # Erratum 001, frozen run p1-frozen-001
 
-- Status: **DRAFT, uncommitted, awaiting owner approval and external auditor confirmation**
+- Status: **revision 2, committed. Owner approved 2026-08-24. External auditor confirmation still pending.**
+- Revision convention: see section 10
 - Date raised: 2026-08-24
 - Lane: L3
 - Concerns: `artifacts/evidence/p1-frozen-001/p1-privacy-report.json`
@@ -155,6 +156,10 @@ pre-amendment arm table at section 4 but immediately follows it with an explicit
 "Superseded by amendment 001 on 2026-08-22" paragraph naming the promotion, so
 that document is self-correcting and needs no change here.
 
+*Added by revision 2, 2026-08-24: the constant has since been removed. See
+section 10. The text above is retained unaltered as the record of what was true
+when revision 1 was committed.*
+
 ## 5. No second run
 
 The frozen test split was read exactly once, by run `p1-frozen-001`, and will not
@@ -265,3 +270,47 @@ safety gate reports PASS.
 - It does not re-read the frozen split or invoke the model.
 - It does not change any threshold, any bound value, or the approval record.
 - It does not claim the gate pointer was stale, because it was not.
+
+
+## 10. Revision record
+
+This erratum had no revision convention when revision 1 was committed. One is
+established here rather than assumed, so that later readers are not left to infer
+it:
+
+- committed body text is never altered; a correction or update is appended as a
+  new numbered revision;
+- a revision may insert a clearly marked forward pointer into an earlier section,
+  identifying itself, but may not change the sentences around it;
+- the Status line at the head of the document is maintained current, because a
+  stale status line on an erratum is the same defect this document exists to
+  record.
+
+### Revision 1, 2026-08-24
+
+Original text, committed as `a6064b4c33cf4179668320fac53ba44a4ca34712`.
+
+### Revision 2, 2026-08-24
+
+Section 4.1 recorded that `ARM_DECLARATION` in `scripts/privacy_eval.py` was still
+stale as revision 1 was written, and that any future run would emit the same stale
+declaration. That is no longer the case.
+
+Commit `f066fb9b94a74962eb662b890f4a790c6d828b26` removes the literal. The arm
+declaration is now loaded from `corpus/ARM_DECLARATION.json`, sha256
+`8e0815433b94035a8eb5efb821c02f5b848836021b2c28a4bf1551fb8777cae4`, and validated against the arm
+table in `corpus/PREREGISTRATION_AMENDMENT_001.md` before any manifest is written.
+A declaration that contradicts its governing document raises
+`arm_declaration_mismatch` and stops the run rather than being published. Every
+manifest now carries an `arms_source` block naming the governing document, the
+declaration file, and that file's hash.
+
+Nine tests cover the behaviour, including a declaration deliberately contradicting
+the amendment, an unknown arm name, a missing declaration file, and an amendment
+with no readable arm table. The full privacy suite stands at 140 passing.
+
+This revision changes nothing about run `p1-frozen-001`. Its manifest, checkpoint,
+and logs remain exactly as recorded in section 1, and the frozen test split remains
+read once. The correction applies to runs made after
+`f066fb9b94a74962eb662b890f4a790c6d828b26`, not retroactively to a document already
+written.
