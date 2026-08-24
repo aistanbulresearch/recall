@@ -99,29 +99,71 @@ FROZEN_CONFIG_MISMATCH = "frozen_config_mismatch"
 ARM_A = "model_offsets"
 ARM_B = "surface_exact_search"
 
-ARM_DECLARATION = {
-    "primary": {
-        "arm": ARM_A,
-        "status": "preregistered primary",
-        "description": (
-            "The offsets the model returned are scored directly against the ground truth, "
-            "exact boundary."
-        ),
-    },
-    "secondary": {
-        "arm": ARM_B,
-        "status": "declared secondary, exploratory",
-        "description": (
-            "Each returned surface string is placed by deterministic exact search over the note, "
-            "then scored exact boundary. Same model call, same tokens, no additional run."
-        ),
-        "ambiguity_rule": (
-            "Fixed before the run: one occurrence gives that position; several occurrences each "
-            "become their own candidate proposal; no occurrence refuses that proposal with "
-            "model_response_surface_not_found."
-        ),
-    },
-}
+ARM_DECLARATION_PATH = REPO_ROOT / "corpus" / "ARM_DECLARATION.json"
+ARM_DECLARATION_MISMATCH = "arm_declaration_mismatch"
+AMENDMENT_PATH = REPO_ROOT / "corpus" / "PREREGISTRATION_AMENDMENT_001.md"
+
+
+def amendment_primacy() -> dict[str, str]:
+    """Read which arm is primary straight from the governing document.
+
+    The amendment states the promotion in a table whose final column is the
+    state after the amendment. This reads that column rather than trusting any
+    restatement of it.
+    """
+
+    text = AMENDMENT_PATH.read_text(encoding="utf-8")
+    primacy: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line.startswith("|") or "`" not in line:
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        for arm in (ARM_A, ARM_B):
+            if f"`{arm}`" in cells[0]:
+                after = cells[-1].lower()
+                if "primary" in after and "secondary" not in after:
+                    primacy[arm] = "primary"
+                elif "secondary" in after:
+                    primacy[arm] = "secondary"
+    return primacy
+
+
+def load_arm_declaration() -> dict[str, Any]:
+    """Load the arm declaration and refuse it if it contradicts the amendment.
+
+    The declaration used to live here as a literal. It was written before
+    amendment 001 and nothing forced it to follow the amendment, so the frozen
+    run manifest went out carrying a stale primacy claim. The literal is gone.
+    This reads the declaration from `corpus/ARM_DECLARATION.json` and checks it
+    against `corpus/PREREGISTRATION_AMENDMENT_001.md` before any manifest is
+    written, so a declaration that disagrees with its governing document stops
+    the run instead of being published.
+    """
+
+    if not ARM_DECLARATION_PATH.exists():
+        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:arm_declaration_missing")
+    declaration = json.loads(ARM_DECLARATION_PATH.read_text(encoding="utf-8"))
+
+    for rank in ("primary", "secondary"):
+        if rank not in declaration or "arm" not in declaration[rank]:
+            raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:{rank}_missing")
+    declared = {declaration["primary"]["arm"], declaration["secondary"]["arm"]}
+    if declared != {ARM_A, ARM_B}:
+        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:unknown_arm_names:{sorted(declared)}")
+
+    primacy = amendment_primacy()
+    if set(primacy) != {ARM_A, ARM_B}:
+        raise SystemExit(f"{ARM_DECLARATION_MISMATCH}:amendment_unreadable:{sorted(primacy)}")
+    for rank in ("primary", "secondary"):
+        arm = declaration[rank]["arm"]
+        if primacy.get(arm) != rank:
+            raise SystemExit(
+                f"{ARM_DECLARATION_MISMATCH}:{rank} declares {arm} but "
+                f"{AMENDMENT_PATH.name} makes it {primacy.get(arm)}"
+            )
+    return declaration
 
 MAX_PROPOSALS_RATIONALE = (
     "Denial-of-service bound only, never a recall bound. The development split carries 10 to 15 "
@@ -854,6 +896,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     except SigningKeyUnavailable:
         signer = LocalSigner(key_id="ephemeral-eval-key", key=b"evaluation-only-key-material")
 
+    # Refuses the run if the declaration disagrees with the amendment, before
+    # any record is processed and before any manifest can be written.
+    arm_declaration = load_arm_declaration()
+
     detector = DeterministicDetector()
 
     baseline = {
@@ -920,7 +966,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "preregistration_approval": args.preregistration_approved,
         "frozen_test_run_id": args.frozen_test_run_id,
         "supersedes_frozen_test_run_id": args.supersedes,
-        "arms": ARM_DECLARATION,
+        "arms": arm_declaration,
+        "arms_source": {
+            "governing_document": "corpus/PREREGISTRATION_AMENDMENT_001.md",
+            "declaration_file": "corpus/ARM_DECLARATION.json",
+            "declaration_sha256": hashlib.sha256(ARM_DECLARATION_PATH.read_bytes()).hexdigest(),
+            "validated_against_governing_document": True,
+        },
         "local_model": {
             "mode": mode if transport_for is not None else "not_run",
             "model_id": args.model_id if args.gemma_url else None,
