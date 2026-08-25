@@ -2,6 +2,17 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-26-G: Verification environment produced non-evidentiary attempts
+
+| Field | Value |
+|---|---|
+| Task | Failed-day continuation pre-commit verification |
+| Severity | Low; evidence-orchestration only |
+| Observed | A full `pytest -q` without `RECALL_FIRESTORE_TEST_MODE` stopped at the explicit live-ledger setup gate; one first attempt left a stranded test process and was terminated. Platform reruns reached the process-spawning token file, after which the parent PowerShell process did not return a usable final exit. The repository environment has no `ruff` module. Initial pnpm wrapper forms either rejected the option, matched no project, or attempted dependency handling; none was treated as test evidence. |
+| Impact | No cloud write, dependency installation, product-state mutation, or false green occurred. The full platform rerun and live Firestore continuation are not claimed as PASS. |
+| Resolution | Used project-local basetemps; ran the bounded core and changed scheduler/contract surfaces directly; ran platform excluding only the unchanged token-process file; ran privacy and direct offline Vitest; used `compileall`, diff/secret gates, independent review, and Master Judge. Product commit followed only after the exact pre-commit gate passed. |
+| Status | Closed for this local work unit; the token-process trigger and production Firestore continuation remain separately unverified. |
+
 ## ERR-2026-08-25-F: Fresh live verification hung in authentication/subprocess handling
 
 | Field | Value |

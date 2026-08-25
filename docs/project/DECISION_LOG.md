@@ -358,3 +358,11 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Evidence boundary: This is owner risk acceptance after containment, not proof that the credential or every dependent workflow received technical remediation. The credential value was not inspected, copied, or stored for this decision.
 - Authority boundary: The decision does not authorize a GitHub write, push, merge, publication, disclosure, or credential use outside an otherwise approved workflow. A new exposure or unauthorized use requires a new incident and owner decision.
 - Canonical detail: `docs/governance/RCL-106_TERMINATION_DECISION.md`.
+
+## DEC-2026-08-26-045: Version failed-day continuity and block deployment on UI compatibility
+
+- Status: accepted implementation decision under the owner-approved failed-day brief; deployment condition remains open.
+- Decision: Preserve exact `CohortDayManifest 2.0.0` wires as strict legacy-read inputs and emit only 2.1.0. Version 2.1.0 adds required `execution_status` and `failure_receipt_id` history fields; `CohortDayFailureReceipt 1.0.0` records a reconciled missing prior day without fabricating an execution timestamp.
+- Integrity rule: The scheduler must validate the complete registered predecessor chain and resolve inherited receipts at their origin ledger before current-day writes. Missing means zero authoritative runs and events; partial or unreachable state fails closed.
+- Coordination gate: L3 must acknowledge parser and fixture compatibility against exact product commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` before L1 builds, repoints, or executes a 2.1.0 image. Current acknowledgement is `NOT_RECEIVED`.
+- Evidence boundary: Local contracts, tests, independent review, and Master Judge pass. No production Firestore continuation execution or L3 compatibility is claimed.

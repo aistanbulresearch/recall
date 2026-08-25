@@ -2,6 +2,22 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-26-037: Typed incomplete-day continuation and evidence discipline
+
+- Implemented `CohortDayManifest 2.1.0` with strict exact-version dispatch: existing 2.0.0 wires remain legacy-read-only while the scheduler emits only 2.1.0. Added `CohortDayFailureReceipt 1.0.0`, immutable first-detection timestamps, byte-stable retry, incomplete history rows, and transitive receipt/predecessor inputs.
+- Missing prior days are classified only after authoritative prior namespaces report zero ScanRuns and zero ScanRunEvents. Partial state and backend errors fail closed. The bounded predecessor walk validates each deterministic manifest ID/date and resolves inherited failure receipts in the ledger where they originated; wrong predecessor and dangling-receipt tests prove zero current-day run/event/artifact writes.
+- Added and exercised the requested 16:10 UTC rejection test for `cohort_execution_outside_daily_window`. Updated the strict producer example and retained a separate exact 2.0.0 legacy fixture.
+- Schema coordination notice: `CohortDayManifest 2.0.0 -> 2.1.0`; new required history fields are `execution_status` and `failure_receipt_id`; new artifact is `CohortDayFailureReceipt 1.0.0`. L3 acknowledgement is `NOT_RECEIVED`, so build/repoint/execution of a 2.1.0 image remains prohibited.
+- Verification commands and direct results:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/scheduler tests/contracts/test_cohort_manifest_contract.py tests/ledger/test_producer_registry.py --basetemp .\temp\pytest-precommit-2` passed 72/72 and exited 0. Its separate collect-only output mapped `test_cohort.py=5`, `test_day1.py=13`, `test_dayn.py=25`, `test_history.py=6`, `test_cohort_manifest_contract.py=21`, and `test_producer_registry.py=2`.
+  - `.\.venv\Scripts\python.exe -m pytest -o addopts='' -q tests/agents tests/connectors tests/contracts tests/controller tests/ledger tests/policy tests/scheduler --ignore=tests/ledger/test_firestore_ledger.py --basetemp .\temp\pytest-core-final2` passed 318/318 and exited 0.
+  - `.\.venv\Scripts\python.exe -m pytest -o addopts='' -q tests/platform --ignore=tests/platform/test_gcloud_token.py --basetemp .\temp\pytest-platform-no-token-final` passed 234/234 and exited 0. The excluded process-tree file is unchanged by the product commit; full-platform attempts that lost the parent-shell exit are not counted.
+  - `.\.venv\Scripts\python.exe -m pytest -o addopts='' -q tests/privacy --basetemp .\temp\pytest-privacy-final2` passed 140/140 and exited 0.
+  - `.\web\node_modules\.bin\vitest.cmd run --root web` passed 48/48 and exited 0.
+  - `$env:PYTHONPYCACHEPREFIX=(Join-Path (Resolve-Path '.').Path 'temp\pycache-precommit'); .\.venv\Scripts\python.exe -m compileall -q src/recall/contracts src/recall/scheduler`, staged `git diff --check`, and the bounded changed-path secret scan exited 0. Independent code review and final Master Judge passed.
+- Governance changes add evidence-state markers to all nine gateway acceptance items and copy the director master into `docs/governance/EVIDENCE_DISCIPLINE.md`; the self-check derived 17 rules in each file and found their rule sections byte-equal.
+- Product commit: `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`, tree `9742b3a97ec4792115c75e7290df529fb30854ec`, 22 paths, 1,784 insertions, 110 deletions. The counts came from `git show --shortstat` and `git diff-tree`. Author and committer are `aistanbulresearch`; body and trailers are empty. No push or merge occurred.
+
 ## WORK-2026-08-25-036: Day-1 history binding and F5-lite runtime identity
 
 - Replaced the incorrect free Day-1 history literal with a strict `CohortHistoryReceipt 1.0.0` derived from committed `first.json` bytes (raw SHA-256 `fa588a3eee9d8ac66c6629f8668a1e878cdda7586b256c99299eb0ce56283825`, Git blob `7d82b5158865284c00d89a20445c24db4bca518a`) and the first execution time `2026-08-25T15:00:03.280432Z`.

@@ -67,10 +67,9 @@ the exact 2.0.0 legacy-read fixture remains separate and immutable.
 
 Deployment is fail-closed while either value below is unresolved:
 
-- schema-change commit: `PENDING_LOCAL_PRODUCT_COMMIT`;
+- schema-change commit: `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`;
 - L3/UI compatibility acknowledgement: `NOT_RECEIVED`.
 
-L1 must not build, repoint, or execute an image that can emit 2.1.0 until L2
-replaces the pending value with the exact product commit and L3 confirms that
-its panel parser and fixtures accept that exact contract. A green scheduler
-suite does not substitute for the L3 acknowledgement.
+L1 must not build, repoint, or execute an image that can emit 2.1.0 until L3
+confirms that its panel parser and fixtures accept that exact product commit.
+A green scheduler suite does not substitute for the L3 acknowledgement.

@@ -136,17 +136,42 @@ than risking duplicate public-source or ledger reads.
 
 ## L1 deployment acceptance
 
-1. `ingress=all`, IAM authentication, and no public/unauthenticated principal
+1. **[MEASURED—`artifacts/evidence/gateway-posture/verify-iam-only-final.json`]**
+   `ingress=all`, IAM authentication, and no public/unauthenticated principal
    read back from Cloud Run.
-2. The service policy has the three exact role principals and no unexpected
+2. **[MEASURED—`artifacts/evidence/gateway-posture/verify-iam-only-final.json`]**
+   The service policy has the three exact role principals and no unexpected
    service-level invoker; inherited project-level invokers are enumerated and
    prevent an exclusivity claim.
-3. Application endpoint authentication enforces issuer, audience,
-   principal/role, and Controller-issued capability before backend dispatch.
-4. Controller identity alone has Firestore access and the capability secret.
-5. Startup hash gate passes inside the deployed image.
-6. Wrong issuer, wrong principal and missing auth are refused by Cloud Run IAM before the container; wrong audience is refused by application endpoint authentication before backend dispatch; expired-token isolation is NOT EXERCISED (reason recorded in artifacts/evidence/L1_EVIDENCE_INDEX.md).
-7. Managed session state reaches each FunctionTool, three real tools return
+3. **[MEASURED—issuer, audience, and principal paths in
+   `artifacts/evidence/gateway-negative-auth/`; STRUCTURAL—capability validation
+   in `src/recall/controller/tool_gateway.py`]** Application endpoint
+   authentication enforces issuer, audience, principal/role, and
+   Controller-issued capability before backend dispatch.
+4. **[STRUCTURAL—`infra/scripts/deploy_tool_gateway.py` and
+   `src/recall/controller/tool_gateway_runtime.py`]** Controller identity alone
+   has Firestore access and the capability secret.
+5. **[STRUCTURAL—`ReplayConnector.verify_manifest` is invoked by
+   `build_tool_gateway_from_environment`]** Startup hash gate passes inside the
+   deployed image; a deployed-image trigger remains required before promotion
+   to `MEASURED`.
+6. **[MEASURED—`artifacts/evidence/gateway-negative-auth/`]** Wrong issuer,
+   wrong principal, and missing auth are refused by Cloud Run IAM before the
+   container; wrong audience is refused by application endpoint authentication
+   before backend dispatch. **[NOT EXERCISED—an artificial expired JWT fails
+   signature validation before expiry can be isolated; see
+   `artifacts/evidence/L1_EVIDENCE_INDEX.md`]** Expired-token isolation remains
+   unclaimed.
+7. **[NOT EXERCISED—`artifacts/evidence/fleet-reachability/watcher-to-gateway.json`
+   records `CONFIG`; managed reachability is `UNANSWERED`]** Managed session
+   state reaches each FunctionTool, three real tools return
    non-echo results, and each call has one persisted receipt.
-8. Exact request retry yields one receipt and no second backend invocation.
-9. Cloud Trace and Firestore read-back use deterministic IDs, not list/search.
+8. **[STRUCTURAL—`FirestoreGatewayInvocationStore` transactional reservation and
+   focused store tests; production transaction chain `NOT_VERIFIED`]** Exact
+   request retry yields one receipt and no second backend invocation.
+9. **[STRUCTURAL—gateway receipts and trace spans carry request IDs;
+   NOT EXERCISED—no direct production gateway Firestore exact-ID read-back
+   artifact exists]** Cloud Trace and Firestore proof must use deterministic
+   IDs, not list/search. The historical Cloud Trace observation recorded in
+   `docs/evidence/GUARDRAIL_PROOF_MATRIX.md` is a rule rationale, not direct
+   gateway Firestore mechanism evidence.

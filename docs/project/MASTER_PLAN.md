@@ -1,5 +1,15 @@
 # Recall Master Plan
 
+## 2026-08-26 typed incomplete-day continuation
+
+Status: local product commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` is implementation/test/Judge GREEN. Production Firestore behavior and L3 compatibility remain gated.
+
+1. Read exact `CohortDayManifest 2.0.0` predecessors without rewriting them; emit only 2.1.0 with typed COMPLETE/INCOMPLETE history rows.
+2. Record each reconciled missing prior day as deterministic `CohortDayFailureReceipt 1.0.0`; retry reuses the first persisted bytes.
+3. Validate the complete bounded predecessor chain and origin-ledger receipts before any current-day scheduler write. Partial prior state, backend failure, wrong predecessor, or dangling receipt fails closed.
+4. Do not deploy 2.1.0 until L3 acknowledges its parser and fixtures against exact product commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`. L3 acknowledgement is currently `NOT_RECEIVED`.
+5. After compatibility acknowledgement and L1 rebuild/repoint, run the production continuation fault path with exact Firestore read-back. Until then, runtime behavior remains `NOT VERIFIED`.
+
 ## 2026-08-25 M2 managed Day-N path
 
 Status: L2 base implementation is at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; the adversarial history/F5-lite successor is committed locally at `435fd46035c7a9e9dca7f06b2264799b52cffa30`. L1 rebuild/repoint and the first actual managed Day-2 tick remain gated.
@@ -9,9 +19,9 @@ Status: L2 base implementation is at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`;
 3. L2 owns `src/recall/scheduler/**`, scheduler scripts/tests, contracts, and evidence examples. L1 exclusively owns `infra/**`, Cloud Run Job/Scheduler definitions, IAM, image packaging, and deployment tooling.
 4. L1 deploys `python -m recall.scheduler.entrypoint` with workload ADC, bundle `source_commit` in `RECALL_SOURCE_COMMIT`, the actual immutable image digest in `RECALL_IMAGE_DIGEST`, and exact project/preparation hashes. Preview must remain a zero-write, no-client selection check. A source/bundle mismatch or malformed image digest stops before ledger construction.
 5. Before each actual date, perform the separately governed lab-local exact preparation step. This is not managed privacy admission and creates no cross-day WatchCase continuity claim.
-6. Day-2 acceptance requires the rebuilt image containing the exact Day-1 `first.json` blob, `CohortDayManifest 2.0.0`, the actual managed tick, Firestore read-back, exact source/image binding, inventory reconciliation, and a measured billing/cost line. No estimate may be promoted to a measurement.
+6. Day-2 acceptance requires the rebuilt image containing the exact Day-1 `first.json` blob and the then-authorized manifest contract. The current 2.1.0 emitter is blocked pending L3 compatibility acknowledgement. Actual managed tick, Firestore read-back, exact source/image binding, inventory reconciliation, and a measured billing/cost line remain required. No estimate may be promoted to a measurement.
 7. Continue on the real dates only. Each cumulative manifest history entry must bind `day_index`, actual `executed_at`, matching `selected_for_date`, authoritative `runs_created`, and committed `runs_predicted`.
-8. Before Day-3, add a typed failed/incomplete-day continuation artifact and tests. Until then, a missing prior manifest fails closed; do not fabricate an execution timestamp or treat retry configuration as the permanent semantic fix.
+8. Typed failed/incomplete-day continuation is implemented and locally verified at `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`. Deployment and production Firestore proof remain blocked by the L3 compatibility and L1 rebuild/repoint gates; do not fabricate an execution timestamp or treat retry configuration as the semantic mechanism.
 
 ## 2026-08-25 governance docs batch
 

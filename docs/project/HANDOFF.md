@@ -1,5 +1,14 @@
 # Recall Handoff
 
+## Current 2026-08-26 coordinator checkpoint
+
+- Active branch is `feature/rcl-3xx-core`; current local product commit is `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` (tree `9742b3a97ec4792115c75e7290df529fb30854ec`). It adds typed failed-day continuation without changing frozen Day-1 evidence or `infra/**`.
+- `CohortDayManifest 2.1.0` is emit-only; exact 2.0.0 wires have a strict legacy-read parser. History rows add required `execution_status` and `failure_receipt_id`; missing days use deterministic `CohortDayFailureReceipt 1.0.0` artifacts.
+- The scheduler reconciles zero prior runs/events, walks the registered predecessor chain backward, checks deterministic predecessor IDs/dates, and resolves inherited receipts at their origin ledger before current-day writes. Wrong predecessor, dangling receipt, partial state, and backend-error negatives are locally verified fail-closed.
+- Final evidence: focused 72/72, bounded core 318/318, platform excluding the unchanged token-process file 234/234, privacy 140/140, web 48/48; each evidence-bearing command exited 0. Independent code review and Master Judge PASS. The full platform parent-shell exit and production Firestore continuation are not claimed.
+- Deployment is prohibited until L3 acknowledges 2.1.0 compatibility against exact commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`; current acknowledgement is `NOT_RECEIVED`. L1 must then rebuild/repoint before any production run. No push, merge, or cloud mutation occurred.
+- The successor docs commit carries evidence-state-correct gateway acceptance criteria and the 17-rule Evidence Discipline mirror. Preserve the seven unrelated dirty paths.
+
 ## Current 2026-08-25 coordinator checkpoint
 
 - Active branch is `feature/rcl-3xx-core`. Staged cohort expansion is commit `c65ee3d55524caf1d2d9d697c9bff712e35bca82`; the L2 managed Day-N implementation is commit `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`. Older branch/head text below is historical and must not override this block.

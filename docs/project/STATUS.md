@@ -1,5 +1,13 @@
 # Recall Status
 
+## 2026-08-26 failed-day continuation checkpoint
+
+- Local product commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` emits `CohortDayManifest 2.1.0`, retains strict read-only compatibility for exact 2.0.0 wires, and adds typed `CohortDayFailureReceipt 1.0.0` records for reconciled missing cohort days.
+- A successor validates the complete bounded predecessor chain across date-isolated ledgers. Deterministic predecessor IDs/dates and inherited receipt artifacts are resolved at their origin; dangling receipts, wrong predecessor IDs, partial prior state, and backend failure stop before current-day scheduler writes.
+- The exact 16:10 UTC window guard is exercised. Focused scheduler/contract tests pass 72/72; bounded core passes 318/318; platform excluding the unchanged process-tree token file passes 234/234; privacy passes 140/140; offline web passes 48/48. Each evidence-bearing command returned direct exit 0. The full platform rerun lost its parent-shell exit in the token-file boundary and is not claimed as PASS.
+- Independent code review and final Master Judge returned PASS with no P0/P1 blocker. No live Firestore continuation run was performed, so production continuation remains `NOT VERIFIED`.
+- Deployment is blocked until L3 acknowledges the 2.1.0 schema and producer fixture against exact commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`. No `infra/**`, push, merge, or cloud mutation occurred.
+
 ## 2026-08-25 managed Day-N implementation checkpoint
 
 - Adversarial fix A is committed locally at `435fd46035c7a9e9dca7f06b2264799b52cffa30`: Day-1 history is parsed from the exact committed `first.json` blob into a typed `CohortHistoryReceipt 1.0.0`, persisted/read back before downstream preparation writes, and named as an immutable Day-2 manifest dependency. The former free `DAY1_HISTORY` literal and its second-trigger timestamp are removed.
