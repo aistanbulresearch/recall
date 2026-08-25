@@ -1,8 +1,17 @@
 # Recall Master Plan
 
+## 2026-08-25 governance docs batch
+
+1. Terminate RCL-106 under owner residual-risk acceptance after the exposure was contained; preserve the distinction from technical remediation.
+2. Reconcile measured L1 `ingress=all`, IAM, inherited-invoker, and application-refusal evidence separately from implemented and deterministically tested endpoint authentication; retain managed reachability as `UNANSWERED`.
+3. Append Erratum 001 Revision 4 to correct the unsupported word "signed" to unkeyed SHA-256 `content_hash` plus Git commit provenance without changing prior bytes.
+4. Integrate the byte-identical L1 evidence index from `3b45770`; retain every stated limitation.
+
 ## 2026-08-25 M2 Day-1 operational slice
 
 Status: completed and live-verified from source commit `14587ac5ab9fa854b4d9b0a2138dad81761bb756`; evidence commit and 2026-08-26 integration review remain.
+
+Day-2 acceptance adds a measured cloud-cost line from the billing source available at execution time. An estimate or inferred daily cost must not be reported as a measurement.
 
 1. Freeze and commit one prediction plus the exact `DAY1_MANUAL` implementation before execution.
 2. Admit exactly three SYNTHETIC WatchCases through an accepted signed PrivacyReceipt bound to the exact CloudBoundPayload; select only the one ACTIVE due case at `2026-08-25T15:00:00Z`.
@@ -169,7 +178,7 @@ Status values follow `DOCUMENTATION_SYSTEM.md`.
 | RCL-103 | Freeze the independent-implementation boundary and review only mandatory submission wording | verified, continuous gate | Rules snapshot limits disclosure to incorporated work; DEC-2026-08-15-014 prohibits direct import; reopen if any component is imported or a mandatory field differs |
 | RCL-104 | Verify Vertex model, ADK, Cloud Run execution, one-day Registry smoke, separate agent identity, region, quota, and billing | blocked | Owner reports selection `OWNER_REPORTED_SELECTED` for display name `My Billing Account`; no ID is stored, and linkage, credit terms/expiry, permissions, APIs, budgets/alerts, model calls, and spending remain `NOT VERIFIED` and unauthorized. Memory Bank is scheduled for the bounded 2026-08-25 mini-brief; Gateway discovery is deferred, and Model Armor discovery is retained under access-gated RCL-316. |
 | RCL-105 | Verify Firestore, Pub/Sub, Cloud Run, Scheduler, Secret Manager, and telemetry access | blocked | Named resource plan exists; project-scoped discovery and read-back await separate owner approval plus verified billing linkage and permissions; no resource creation is authorized |
-| RCL-106 | Contain known credential exposure and run repository/history secret scans | verified | Exposure detected and contained on 2026-08-22; repository and history secret scans clean. |
+| RCL-106 | Contain known credential exposure and run repository/history secret scans | terminated by owner decision | Exposure detected and contained on 2026-08-22; repository and history secret scans clean; DEC-2026-08-25-044 ends the recurring tracking item under residual-risk acceptance. |
 | RCL-107 | Benchmark local Gemma E2B Q4_0 startup, JSON validity, p50/p95 latency, and memory | `CUT / DEFERRED` | Not part of the contest golden path; reconsider only after final submission evidence is complete |
 | RCL-108 | Resolve hostname spelling and document Hetzner/DNS ownership | `CUT / DEFERRED` | Hosted proof will use Cloud Run; custom Hetzner/DNS work is outside the contest golden path |
 | RCL-109 | Check product-name collision and discoverability risk | not-started | Naming decision records search, branding, and URL consequences |
@@ -238,7 +247,7 @@ No extension starts unless the golden path has executable evidence locally and o
 | RCL-313 | Accelerated Week 0/3/6 continuity | planned 2026-08-26 after entrance gate | Execute three genuine separately receipted ScanRuns for one WatchCase, emit `NO_ACTION` on unchanged runs, prove F-12 as-of cursor behavior, label acceleration explicitly, and prohibit seeded outcomes |
 | RCL-314 | Blog, social, and bounded Gemma bonuses | planned 2026-08-28 after entrance gate | Publish blog and social evidence before the last day; add Gemma only as a small visible critical-path-independent use with measured incremental value |
 | RCL-315 | Agent Registry runtime resolution plus second-department consumer | planned 2026-08-26; access-gated after entrance gate | Publish versioned manifests, resolve them at runtime, emit `RegistryResolutionReceipt`, and let a second small institutional flow discover and reuse Citation Auditor. If preview access fails on the same-day smoke, execute the pinned fallback and disclose F-13 honestly |
-| RCL-316 | Per-role service accounts, IAM denial, and Model Armor adversarial run | planned 2026-08-26; access-gated after entrance gate | Prove IAM-level forbidden tool denial and zero forbidden downstream effect; after credential rotation, use Model Armor to block a poisoned source document when access is available |
+| RCL-316 | Per-role service accounts, IAM denial, and Model Armor adversarial run | planned 2026-08-26; access-gated after entrance gate | Prove IAM-level forbidden tool denial and zero forbidden downstream effect; under the separately approved credential posture, use Model Armor to block a poisoned source document when access is available |
 | RCL-317 | Agent Runtime deployment in addition to Cloud Run | planned 2026-08-24; rule/access-gated after entrance gate | Ask the organizer because Rules do not bind this FAQ bonus; if confirmed and accessible, deploy and capture exact runtime/revision proof |
 | RCL-318 | `LIVE_PUBLIC` ClinVar evidence over a synthetic case | planned 2026-08-26 after entrance gate | Fetch current public evidence live, label it `LIVE_PUBLIC`, bind it to a synthetic case, and preserve the non-clinical simulated-action boundary |
 

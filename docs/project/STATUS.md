@@ -1,5 +1,12 @@
 # Recall Status
 
+## 2026-08-25 governance reconciliation
+
+- RCL-106 is `TERMINATED` by owner decision DEC-2026-08-25-044. The exposure was detected and contained on 2026-08-22; this is residual-risk acceptance, not a claim of technical remediation.
+- Measured L1 gateway evidence records `ingress=all` with IAM authentication, inherited project-level invokers, and application authentication refusal. Endpoint issuer, audience, principal/role, and capability enforcement is implemented and deterministically tested; capability-bearing managed Agent Engine reachability remains `UNANSWERED`.
+- Erratum 001 Revision 4 is append-only and corrects the historical word "signed": no cryptographic signature exists; integrity is an unkeyed SHA-256 `content_hash` plus Git commit provenance.
+- `artifacts/evidence/L1_EVIDENCE_INDEX.md` is integrated byte-identically from L1 commit `3b45770` and keeps every evidence limitation explicit.
+
 ## 2026-08-25 Day-1 scheduler pre-run checkpoint
 
 - Integrated product reference `c46d33499027b8a9a3edfc11c8b6aa654dc76852` remains the last four-suite GREEN base (core 241, platform 259, privacy 140, web 48).
@@ -119,7 +126,7 @@ scheduler_runtime=NOT_VERIFIED
 - Project-scoped API discovery after separate owner approval and verified billing linkage; the display-name selection alone does not authorize or prove either step.
 - RCL-209 and RCL-210 implementation-level IAM, retention, platform-access, and outage proofs remain pending.
 - RCL-011: `PARTIAL_FAIL_CLOSED / DEFERRED`. Its zero/two/seven evidence matrix and all seven `NOT VERIFIED` rows remain unchanged; they no longer block local Recall product implementation.
-- RCL-106: exposure detected and contained on 2026-08-22.
+- RCL-106: terminated by DEC-2026-08-25-044 after the owner accepted the residual risk; exposure detected and contained on 2026-08-22.
 - Prize-fit preference remains Best Architectural Design, then Individual/Hobbyist, Fleet, and Honorable Mention; it is not a score or probability claim. The owner-approved active M1 execution path is Fleet-first as of 2026-08-23.
 - The complete external-auditor action register is active planning input. All seven degree-oriented extensions remain planned behind their 2026-08-24 entrance/access/rule gates: scale funnel, Cloud Trace/fleet dashboard, accelerated Week 0/3/6, blog/social/bounded Gemma, Registry plus second consumer, IAM plus Model Armor, and Agent Runtime; `LIVE_PUBLIC` evidence is also retained. None may be removed without owner decision.
 - `RunEvidenceManifest` is a coordinator proposal only and awaits owner approval; the auditor's run/revision/trace/mode/hash/count/latency evidence requirements remain mandatory independently.
@@ -131,7 +138,7 @@ scheduler_runtime=NOT_VERIFIED
 - Google Cloud billing: selection is `OWNER_REPORTED_SELECTED` for display name `My Billing Account`, with no account ID stored. Billing linkage and every operational billing/cloud state remain `NOT VERIFIED`; no linkage, API enablement, resource, model call, budget, alert, or spending action is authorized.
 - Live cloud preflight in this coordinator shell is `NOT VERIFIED`: the `gcloud` launcher was not discoverable in `PATH` or the checked standard user locations. This is a launcher-availability failure, not evidence that billing or APIs are disabled.
 - Local Gemma benchmark is `CUT / DEFERRED`; it is not a blocking golden-path task.
-- PR #2 merge: c861 is the last passing audited head and current published 46af returned bounded P1 findings. Merge requires owner-published remediation, fresh exact-head re-review, and owner merge approval. Local Phase 3 implementation is already owner-approved; RCL-011 is deferred and does not block it. RCL-106 remains an accepted open security risk, not verified remediation.
+- PR #2 merge: c861 is the last passing audited head and current published 46af returned bounded P1 findings. Merge requires owner-published remediation, fresh exact-head re-review, and owner merge approval. Local Phase 3 implementation is already owner-approved; RCL-011 is deferred and does not block it. RCL-106 is terminated under the owner decision recorded in DEC-2026-08-25-044.
 - GitHub commit/push: DEC-2026-08-18-032 records owner authorization only for the gated P1/P2 remediation successor and its read-only exact-head re-review. Prohibited authorship, bot recurrence, identity mismatch, or any failed gate stops publication.
 
 ## Not started

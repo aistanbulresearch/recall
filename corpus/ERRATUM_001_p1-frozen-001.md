@@ -364,3 +364,19 @@ corpus cannot reintroduce this defect silently.
 revision the claim was verified against the working tree only. The verification
 now runs against the committed blob, which is the artifact a reader actually
 receives.
+
+### Revision 4, 2026-08-25
+
+This is an append-only terminology correction under the owner-authorized byte
+preservation rule. The revision-3 Status line at the head of this file is
+retained as historical text; for this correction, this revision supersedes
+section 10's earlier convention that the head Status line is maintained current.
+No earlier byte in this erratum is changed.
+
+Section 1 says that the frozen report "has not been edited since it was signed."
+The word "signed" is incorrect: the report has no cryptographic signature and
+no signature reference. Its integrity evidence is an unkeyed SHA-256
+`content_hash` together with Git commit provenance. This note corrects only that
+terminology. It does not alter the frozen report, manifest, checkpoint, logs,
+split, measured values, approval record, or any earlier statement in this
+erratum.

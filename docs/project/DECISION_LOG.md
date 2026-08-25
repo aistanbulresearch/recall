@@ -349,3 +349,12 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Decision: Permit only the exact current local documentation and lazy Firestore-import commits after the product gates passed. Do not regenerate or expand the legacy collaboration/Graphify hash framework in this product integration.
 - Evidence boundary: `verify_graphify_governance.py` remains `FAIL` at the STATUS normative hash, and `verify_recall_collaboration.py` remains `FAIL` at the MASTER_PLAN claim hash. STATUS, HANDOFF, and MASTER_PLAN hash bindings are stale; fail-fast checks after the first error are `NOT EXECUTED`. The zero/two/seven collaboration evidence classification remains unchanged.
 - Protection boundary: This exception does not turn either validator green and does not authorize push, PR, main merge, cloud action, publication, or any later commit.
+
+## DEC-2026-08-25-044: Terminate RCL-106 after owner-accepted containment
+
+- Status: accepted by the owner on 2026-08-25.
+- Decision: RCL-106 is terminated. The exposure was detected and contained on 2026-08-22. This decision supersedes the remaining delivery-gate language in DEC-2026-08-21-038 and the earlier operational-risk entries that kept RCL-106 open.
+- Rationale: The credential supports multiple owner workflows, and replacing it would disrupt them. The owner accepts the residual operational risk and ends the recurring tracking item.
+- Evidence boundary: This is owner risk acceptance after containment, not proof that the credential or every dependent workflow received technical remediation. The credential value was not inspected, copied, or stored for this decision.
+- Authority boundary: The decision does not authorize a GitHub write, push, merge, publication, disclosure, or credential use outside an otherwise approved workflow. A new exposure or unauthorized use requires a new incident and owner decision.
+- Canonical detail: `docs/governance/RCL-106_TERMINATION_DECISION.md`.

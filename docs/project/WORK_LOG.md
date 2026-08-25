@@ -2,6 +2,17 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-25-034: Governance termination, gateway truth, and L1 evidence index
+
+- Recorded owner acceptance and termination of RCL-106 in DEC-2026-08-25-044 and `docs/governance/RCL-106_TERMINATION_DECISION.md`; the exposure wording remains `contained` and no credential value was inspected or stored.
+- Reconciled the Controller Tool Gateway contract with measured L1 perimeter evidence: `ingress=all`, IAM authentication, inherited project-level invokers, and application authentication refusal. Endpoint issuer/audience/principal/capability enforcement is implemented and deterministically tested; capability-bearing managed Agent Engine-to-gateway reachability remains `UNANSWERED`.
+- Appended Erratum 001 Revision 4 without changing any prior byte. The note states that no cryptographic signature exists and that integrity rests on unkeyed SHA-256 `content_hash` plus Git commit provenance.
+- Applied L1 commit `3b45770` without committing it separately; staged `artifacts/evidence/L1_EVIDENCE_INDEX.md` matched source blob `aa7348738deb7d3684ef4e0f94f294db2afb8602` before the batch commit.
+- Exact batch path set: `docs/governance/RCL-106_TERMINATION_DECISION.md`, `docs/platform/CONTROLLER_TOOL_GATEWAY_CONTRACT.md`, `corpus/ERRATUM_001_p1-frozen-001.md`, `artifacts/evidence/L1_EVIDENCE_INDEX.md`, and `docs/project/{DECISION_LOG,HANDOFF,STATUS,WORK_LOG,MASTER_PLAN}.md`.
+- Product verification used the repository `.venv`: core command `python -m pytest -o addopts='' tests/agents tests/connectors tests/contracts tests/controller tests/ledger tests/policy tests/scheduler --ignore=tests/ledger/test_firestore_ledger.py` passed 261/261 with direct exit 0; `python -m pytest -o addopts='' tests/platform` passed 259/259 with direct exit 0 outside the restricted subprocess sandbox; `python -m pytest -o addopts='' tests/privacy` passed 140/140 with direct exit 0; direct offline `vitest run --root web` passed 48/48 with direct exit 0 outside the restricted esbuild sandbox.
+- The first web command placed `--offline` where pnpm rejected it and exited 1 before test collection. A corrected package filter then matched no package and returned a non-evidentiary 0; neither is counted as a product test. The sandboxed direct Vitest attempt exited 1 on an access-denied esbuild child process before collection; the outside-sandbox direct run is the evidence-bearing result.
+- Day-2 cohort acceptance will include a measured billing/cost line; no estimate or inferred daily value will be presented as a measurement.
+
 ## WORK-2026-08-25-033: Day-1 live cohort firing
 
 - Fired `DAY1_MANUAL` from committed source `14587ac5ab9fa854b4d9b0a2138dad81761bb756` at the locked UTC trigger on LIVE Firestore with SYNTHETIC data.

@@ -1,9 +1,12 @@
 # Controller Tool Gateway Contract
 
 Status: L2 implementation and deterministic local tests completed on 2026-08-24.
-Production Firestore transactions, L1 deployment, and managed Agent Engine
-session propagation remain `NOT_VERIFIED` until L1's tests and Cloud Run
-read-back pass.
+L1 evidence records the deployed Cloud Run gateway at revision
+`recall-tool-gateway-00007-6tg` with `ingress=all`, IAM authentication, zero
+public principals, three exact service-level role invokers, enumerated inherited
+project-level invokers, and application-level authentication refusal. Managed
+Agent Engine-to-gateway reachability remains `UNANSWERED`; the production
+Firestore transaction chain remains `NOT_VERIFIED`.
 
 ## Trust boundary
 
@@ -32,12 +35,17 @@ data mode.
 
 - Method/path: `POST /v1/tools/{tool_id}:invoke`
 - Allowed `tool_id`: `evidence_connector`, `ledger_read`, `refetch_metadata`
-- Transport: HTTPS only; internal Cloud Run ingress.
+- Transport: HTTPS only. The measured final Cloud Run posture is `ingress=all`
+  with unauthenticated invocation disabled and IAM authentication required.
 - Authentication: `Authorization: Bearer <Google ID token>`.
 - ID-token audience: exact internal Controller service URL configured as
   `RECALL_TOOL_GATEWAY_AUDIENCE`.
-- IAM: only the three Agent Engine service accounts receive `roles/run.invoker`;
-  public/unauthenticated invocation is forbidden.
+- Perimeter truth: Cloud Run admits identities that hold invoke permission
+  through service-level IAM or inherited project-level roles. Inherited
+  project-level invokers exist, so the three service-level role principals are
+  not an exclusive caller set. Application endpoint authentication enforces
+  issuer, audience, principal/role, and Controller-issued capability before
+  backend dispatch; public/unauthenticated invocation remains forbidden.
 - Principal map: `RECALL_WATCHER_PRINCIPAL`, `RECALL_ASSESSOR_PRINCIPAL`, and
   `RECALL_AUDITOR_PRINCIPAL`. Verified token email must match capability role.
 
@@ -128,14 +136,18 @@ than risking duplicate public-source or ledger reads.
 
 ## L1 deployment acceptance
 
-1. Internal ingress and no unauthenticated invocation read back from Cloud Run.
-2. Only the three exact role principals have `run.invoker`; no existing binding
-   is removed by an additive IAM write.
-3. Controller identity alone has Firestore access and the capability secret.
-4. Startup hash gate passes inside the deployed image.
-5. Wrong audience, issuer, principal, expired token, and missing auth fail before
+1. `ingress=all`, IAM authentication, and no public/unauthenticated principal
+   read back from Cloud Run.
+2. The service policy has the three exact role principals and no unexpected
+   service-level invoker; inherited project-level invokers are enumerated and
+   prevent an exclusivity claim.
+3. Application endpoint authentication enforces issuer, audience,
+   principal/role, and Controller-issued capability before backend dispatch.
+4. Controller identity alone has Firestore access and the capability secret.
+5. Startup hash gate passes inside the deployed image.
+6. Wrong audience, issuer, principal, expired token, and missing auth fail before
    receipt/backend dispatch.
-6. Managed session state reaches each FunctionTool, three real tools return
+7. Managed session state reaches each FunctionTool, three real tools return
    non-echo results, and each call has one persisted receipt.
-7. Exact request retry yields one receipt and no second backend invocation.
-8. Cloud Trace and Firestore read-back use deterministic IDs, not list/search.
+8. Exact request retry yields one receipt and no second backend invocation.
+9. Cloud Trace and Firestore read-back use deterministic IDs, not list/search.

@@ -120,7 +120,7 @@ The owner authorizes the registered `Graphify-Refresh-All` task's fixed inspecte
 
 ### Stop and ask the owner
 
-Stop before any GitHub write, commit, push, merge, destructive action, cloud change, billing decision, external publication, new Graphify semantic transmission, hostname/DNS choice, or use of a credential outside the existing approved workflow. The exposed GitHub credential remains an open risk; do not inspect, print, copy, or persist it.
+Stop before any GitHub write, commit, push, merge, destructive action, cloud change, billing decision, external publication, new Graphify semantic transmission, hostname/DNS choice, or use of a credential outside the existing approved workflow. RCL-106 is terminated under the owner's residual-risk acceptance after the exposure was contained; do not inspect, print, copy, or persist the credential.
 
 The 2026-08-18 owner instruction authorizes the read-only external-auditor request only after the exact publication successor is stable and read back. Future auditor requests remain owner-protected.
 
@@ -216,7 +216,7 @@ Establish Recall as a prize-competitive hackathon project with a managed, audita
 
 ## Immediate next step
 
-Execute every row in `AUDITOR_ACTION_REGISTER_2026-08-21.md` without unilateral removal. Start RCL-301/RCL-302 with F-09/F-11/F-14, mode propagation, and three deterministic outcomes while restoring the cloud launcher and completing the separately protected hour-zero billing/API action. Retain all seven post-entrance extensions in the plan. Obtain owner authorization for exact publication of the independently reviewed P1 remediation, then fresh exact-head PASS and the required PR #2 merge before product work moves to `feature/rcl-30x-*`. `RunEvidenceManifest` is only a coordinator proposal pending owner decision. RCL-106 rotation remains mandatory before publication/submission and no later than feature freeze.
+Execute every row in `AUDITOR_ACTION_REGISTER_2026-08-21.md` without unilateral removal. Start RCL-301/RCL-302 with F-09/F-11/F-14, mode propagation, and three deterministic outcomes while restoring the cloud launcher and completing the separately protected hour-zero billing/API action. Retain all seven post-entrance extensions in the plan. Obtain owner authorization for exact publication of the independently reviewed P1 remediation, then fresh exact-head PASS and the required PR #2 merge before product work moves to `feature/rcl-30x-*`. `RunEvidenceManifest` is only a coordinator proposal pending owner decision. RCL-106 is terminated by DEC-2026-08-25-044 after the owner accepted the residual risk and recorded that the exposure was contained; reopen only for a new exposure, unauthorized use, material credential-scope change, or new owner decision.
 
 ## Known blocker
 
