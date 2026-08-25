@@ -9,20 +9,12 @@ from recall.contracts.enums import FactState
 from recall.ledger.models import ScanRunRecord, WatchCaseRecord
 from recall.ledger.producers import PRODUCER_REGISTRY
 
-from .cohort import MANAGED_COHORT, RUN_PREDICTIONS, ManagedCohortCase
+from .cohort import COHORT_ID, RUN_PREDICTIONS, ManagedCohortCase
 from .preparation import CohortPreparationBundle
 
 
-COHORT_ID = str(uuid5(NAMESPACE_URL, "recall:m2:staged-cohort:v1"))
 TRIGGER_CODE = "COHORT_DAY_MANAGED"
 MANAGED_HISTORY_STARTS_AT = 2
-DAY1_HISTORY = {
-    "day_index": 1,
-    "executed_at": "2026-08-25T15:01:07.720049Z",
-    "selected_for_date": "2026-08-25",
-    "runs_created": 1,
-    "runs_predicted": 1,
-}
 
 
 def day_index(selected_for_date: date) -> int:
@@ -74,6 +66,7 @@ def build_manifest(
     *,
     selected_for_date: date,
     source_commit: str,
+    image_digest: str,
     selected_cases: Sequence[ManagedCohortCase],
     excluded_case_ids: Sequence[str],
     watch_records: Sequence[WatchCaseRecord],
@@ -87,7 +80,11 @@ def build_manifest(
     predicted = RUN_PREDICTIONS[selected_for_date]
     authoritative_ids = tuple(sorted(record.run_id for record in run_records))
     index = day_index(selected_for_date)
-    history = _prior_history(previous_manifest, index=index)
+    history = _prior_history(
+        previous_manifest,
+        history_receipt=bundle.history_receipt,
+        index=index,
+    )
     history.append(
         {
             "day_index": index,
@@ -117,6 +114,7 @@ def build_manifest(
         for item in sorted(selected_cases, key=lambda item: item.case_id)
     ]
     input_ids = {
+        str(bundle.history_receipt["artifact_id"]),
         *(record.artifact_id for record in watch_records),
         *(str(record.scan_run_artifact_id) for record in run_records),
         *(str(row["artifact_id"]) for row in anchor_rows),
@@ -128,7 +126,7 @@ def build_manifest(
     matched = len(authoritative_ids) == predicted
     return build_artifact(
         schema_name="CohortDayManifest",
-        schema_version="1.0.0",
+        schema_version="2.0.0",
         artifact_id=manifest_artifact_id(selected_for_date),
         case_id=COHORT_ID,
         run_id=tick_run_id(selected_for_date),
@@ -146,6 +144,7 @@ def build_manifest(
             "selected_for_date": selected_for_date.isoformat(),
             "scheduled_for": _timestamp(logical_tick_at(selected_for_date)),
             "source_commit": source_commit,
+            "image_digest": image_digest,
             "trigger_code": TRIGGER_CODE,
             "previous_manifest_id": previous_id,
             "managed_history_starts_at_day_index": MANAGED_HISTORY_STARTS_AT,
@@ -206,12 +205,28 @@ def build_mode_receipt(
 
 
 def _prior_history(
-    previous_manifest: Mapping[str, object] | None, *, index: int
+    previous_manifest: Mapping[str, object] | None,
+    *,
+    history_receipt: Mapping[str, object],
+    index: int,
 ) -> list[dict[str, object]]:
     if index == 2:
         if previous_manifest is not None:
             raise RuntimeError("day2_previous_manifest_forbidden")
-        return [dict(DAY1_HISTORY)]
+        parsed = parse_artifact(
+            history_receipt, authorized_producers=PRODUCER_REGISTRY
+        )
+        if parsed.schema_name != "CohortHistoryReceipt":
+            raise RuntimeError("cohort_history_receipt_invalid")
+        return [
+            {
+                "day_index": parsed.payload.day_index,
+                "executed_at": parsed.payload.executed_at,
+                "selected_for_date": parsed.payload.selected_for_date,
+                "runs_created": parsed.payload.runs_created,
+                "runs_predicted": parsed.payload.runs_predicted,
+            }
+        ]
     if previous_manifest is None:
         raise RuntimeError("previous_cohort_manifest_required")
     parsed = parse_artifact(previous_manifest, authorized_producers=PRODUCER_REGISTRY)

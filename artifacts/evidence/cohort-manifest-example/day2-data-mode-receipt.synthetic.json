@@ -1,7 +1,7 @@
 {
   "artifact_id": "c9e72b7c-d07a-5153-8ea1-455acafe9b77",
   "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
-  "content_hash": "01642c3c4abaf18b85ebd0a7dcab014f3d5b3b8fb82dedd82ec0bdb9cb0b1f66",
+  "content_hash": "67eaef9f8553908e54af899847b96217fac19f4186bf9350d32a949d19d2378a",
   "created_at": "2026-08-26T16:01:00Z",
   "data_mode": "SYNTHETIC",
   "declared_composition": "SYNTHETIC_WITH_CAPTURED_REPLAY",
@@ -12,6 +12,7 @@
     "53b8fa8c-1594-54cd-a20a-11de4a03e1a4",
     "64a95a28-747f-5326-bc66-18187776deac",
     "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+    "8c1783f6-5d6d-5ae0-8077-cd7cf5981c17",
     "a7596da9-c49c-5fcf-9f81-f0d286ee5316",
     "b7cd6b9c-c430-54c7-9d31-92f60482e50c",
     "cc96bc9d-f22b-5d48-804f-ff8bbfa21db3"
@@ -37,6 +38,7 @@
     "53b8fa8c-1594-54cd-a20a-11de4a03e1a4",
     "64a95a28-747f-5326-bc66-18187776deac",
     "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+    "8c1783f6-5d6d-5ae0-8077-cd7cf5981c17",
     "a7596da9-c49c-5fcf-9f81-f0d286ee5316",
     "b7cd6b9c-c430-54c7-9d31-92f60482e50c",
     "cc96bc9d-f22b-5d48-804f-ff8bbfa21db3"

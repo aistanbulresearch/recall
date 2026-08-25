@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -20,6 +21,8 @@ from .preparation import (
 
 
 LedgerFactory = Callable[..., Any]
+_SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+_IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 def execute(
@@ -36,6 +39,14 @@ def execute(
     root = (repo_root or Path.cwd()).resolve()
     bundle_sha = _required(environment, "RECALL_COHORT_PREPARATION_SHA256")
     bundle = load_preparation_bundle(root, expected_sha256=bundle_sha)
+    source_commit = _required(environment, "RECALL_SOURCE_COMMIT")
+    if not _SOURCE_COMMIT.fullmatch(source_commit):
+        raise RuntimeError("cohort_source_commit_invalid")
+    if source_commit != bundle.source_commit:
+        raise RuntimeError("source_commit_mismatch")
+    image_digest = _required(environment, "RECALL_IMAGE_DIGEST")
+    if not _IMAGE_DIGEST.fullmatch(image_digest):
+        raise RuntimeError("cohort_image_digest_invalid")
     if args.preview_date:
         selected = date.fromisoformat(args.preview_date)
         result = preview(selected, repo_root=root)
@@ -48,11 +59,10 @@ def execute(
             "runs_predicted": result.runs_predicted,
             "collection_prefix": result.collection_prefix,
             "preparation_bundle_sha256": bundle.bundle_sha256,
+            "source_commit": source_commit,
+            "image_digest": image_digest,
         }
-    source_commit = _required(environment, "RECALL_SOURCE_COMMIT")
     project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
-    if len(source_commit) != 40:
-        raise RuntimeError("cohort_source_commit_invalid")
     now = now_factory()
     selected_date = now.astimezone(timezone.utc).date()
     verifier = LockedPreparationVerifier(bundle)
@@ -80,6 +90,7 @@ def execute(
         ledger,
         bundle=bundle,
         source_commit=source_commit,
+        image_digest=image_digest,
     ).trigger(now=now, previous_manifest=previous)
     return {
         "mode": "LIVE_FIRESTORE_SYNTHETIC_COHORT_TICK",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from recall.scheduler.preparation import (
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SHA = "c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841"
+IMAGE_DIGEST = "sha256:" + "b" * 64
 
 
 def _manifest() -> dict[str, object]:
@@ -27,9 +30,12 @@ def _manifest() -> dict[str, object]:
     ledger = InMemoryLedger(privacy_receipt_verifier=LockedPreparationVerifier(bundle))
     now = datetime(2026, 8, 26, 16, 1, tzinfo=timezone.utc)
     install_prepared_day(ledger, bundle, now=now)
-    result = DayNScheduler(ledger, bundle=bundle, source_commit="a" * 40).trigger(
-        now=now, previous_manifest=None
-    )
+    result = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=bundle.source_commit,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(now=now, previous_manifest=None)
     value = ledger.get_artifact(result.manifest_artifact_id)
     assert value is not None
     return value
@@ -47,8 +53,23 @@ def _overlap_partition(wire: dict[str, object]) -> None:
 def test_cohort_day_manifest_exact_contract_parses() -> None:
     artifact = parse_artifact(_manifest(), authorized_producers=PRODUCER_REGISTRY)
     assert artifact.schema_name == "CohortDayManifest"
-    assert artifact.schema_version == "1.0.0"
+    assert artifact.schema_version == "2.0.0"
+    assert artifact.payload.image_digest == IMAGE_DIGEST
     assert artifact.payload.execution_history[-1]["selected_for_date"] == "2026-08-26"
+
+
+def test_committed_manifest_example_is_v2_and_explicitly_synthetic() -> None:
+    wire = json.loads(
+        (ROOT / "artifacts/evidence/cohort-manifest-example/day2-manifest.synthetic.json")
+        .read_text(encoding="utf-8")
+    )
+    artifact = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    expected_digest = "sha256:" + hashlib.sha256(
+        b"recall:in-memory-synthetic-manifest-example:v2"
+    ).hexdigest()
+    assert artifact.schema_version == "2.0.0"
+    assert artifact.payload.source_commit == _manifest()["source_commit"]
+    assert artifact.payload.image_digest == expected_digest
 
 
 @pytest.mark.parametrize(
@@ -73,6 +94,13 @@ def test_manifest_requires_full_common_envelope() -> None:
     wire = _manifest()
     wire.pop("extensions")
     with pytest.raises(ContractError, match="contract_required_field_missing"):
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY, verify_hash=False)
+
+
+def test_manifest_rejects_non_digest_image_identity() -> None:
+    wire = _manifest()
+    wire["image_digest"] = "sha256:not-hex"
+    with pytest.raises(ContractError, match="contract_hash_invalid:image_digest"):
         parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY, verify_hash=False)
 
 

@@ -2,15 +2,16 @@
 
 ## 2026-08-25 M2 managed Day-N path
 
-Status: L2 implementation and local verification complete at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; L1 deployment and the first actual managed Day-2 tick remain gated.
+Status: L2 base implementation is at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; the adversarial history/F5-lite successor is in final local commit gate. L1 rebuild/repoint and the first actual managed Day-2 tick remain gated.
 
 1. Preserve frozen Day-1 code and evidence. The new Day-N path derives selection from the actual UTC date and rejects a recurring 2026-08-25 execution.
 2. Use the committed 12-case cohort and pre-run predictions: 2026-08-26 = 3, 2026-08-27 = 2, and 2026-08-28 = 4. Do not execute a future cohort day early.
 3. L2 owns `src/recall/scheduler/**`, scheduler scripts/tests, contracts, and evidence examples. L1 exclusively owns `infra/**`, Cloud Run Job/Scheduler definitions, IAM, image packaging, and deployment tooling.
-4. L1 deploys `python -m recall.scheduler.entrypoint` with workload ADC and exact source/project/preparation hashes. Preview must remain a zero-write, no-client selection check.
+4. L1 deploys `python -m recall.scheduler.entrypoint` with workload ADC, bundle `source_commit` in `RECALL_SOURCE_COMMIT`, the actual immutable image digest in `RECALL_IMAGE_DIGEST`, and exact project/preparation hashes. Preview must remain a zero-write, no-client selection check. A source/bundle mismatch or malformed image digest stops before ledger construction.
 5. Before each actual date, perform the separately governed lab-local exact preparation step. This is not managed privacy admission and creates no cross-day WatchCase continuity claim.
-6. Day-2 acceptance requires the actual managed tick, Firestore read-back, exact source/image binding, inventory reconciliation, and a measured billing/cost line. No estimate may be promoted to a measurement.
+6. Day-2 acceptance requires the rebuilt image containing the exact Day-1 `first.json` blob, `CohortDayManifest 2.0.0`, the actual managed tick, Firestore read-back, exact source/image binding, inventory reconciliation, and a measured billing/cost line. No estimate may be promoted to a measurement.
 7. Continue on the real dates only. Each cumulative manifest history entry must bind `day_index`, actual `executed_at`, matching `selected_for_date`, authoritative `runs_created`, and committed `runs_predicted`.
+8. Before Day-3, add a typed failed/incomplete-day continuation artifact and tests. Until then, a missing prior manifest fails closed; do not fabricate an execution timestamp or treat retry configuration as the permanent semantic fix.
 
 ## 2026-08-25 governance docs batch
 

@@ -2,6 +2,17 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-25-F: Fresh live verification hung in authentication/subprocess handling
+
+| Field | Value |
+|---|---|
+| Task | Adversarial Day-1 history and F5-lite pre-commit verification |
+| Severity | Medium; live verification incomplete, local product gates unaffected |
+| Observed | A fresh full suite with live Firestore enabled reached about 30%, marked one failure near the ledger boundary, and then stopped emitting output. A `-x` retry and isolated `test_firestore_ledger.py` also left authentication/subprocess descendants running without a usable traceback. The exact processes created by these attempts were terminated. The first web wrapper command separately attempted dependency reconciliation and refused due no TTY; direct Vitest inside the restricted sandbox hit esbuild access denial. |
+| Impact | No fresh live Firestore PASS or cleanup claim is made for this successor. No Day-2 managed tick was invoked. The failed web wrapper did not install or change dependencies. |
+| Resolution | Verified the changed surfaces with project-local basetemps: focused 36/36, bounded core 299/299, platform 234/234 excluding the known process-spawning token file, privacy 140/140, and direct offline web 48/48 outside the esbuild-restricted sandbox. L1 must rebuild/repoint and run its deployment preflight; live Day-2 execution retains its own hard gate. |
+| Status | Open for live-environment reproduction; fail-loud and excluded from PASS evidence. |
+
 ## ERR-2026-08-25-E: Day-N verification commands required explicit environment and Git capabilities
 
 | Field | Value |

@@ -13,6 +13,7 @@ from recall.ledger.port import LedgerPort
 from recall.ledger.producers import PRODUCER_REGISTRY
 
 from .cohort import MANAGED_COHORT, REPLAY_ANCHORS
+from .history import load_day1_history_receipt
 
 
 BUNDLE_VERSION = "1.0.0"
@@ -36,6 +37,7 @@ class CohortPreparationBundle:
     rights_note: str
     cases: tuple[PreparedCase, ...]
     replay_observations: tuple[Mapping[str, object], ...]
+    history_receipt: Mapping[str, object]
     bundle_sha256: str
 
     @property
@@ -121,6 +123,7 @@ def load_preparation_bundle(
         rights_note=_text(value["rights_note"], "rights_note"),
         cases=cases,
         replay_observations=observations,
+        history_receipt=load_day1_history_receipt(repo_root),
         bundle_sha256=actual_sha256,
     )
     _validate_complete_bundle(bundle)
@@ -134,6 +137,18 @@ def install_prepared_day(
     now: datetime,
 ) -> Mapping[str, int]:
     verifier = LockedPreparationVerifier(bundle)
+    history_created = int(
+        ledger.get_artifact(str(bundle.history_receipt["artifact_id"])) is None
+    )
+    ledger.append_artifact(bundle.history_receipt)
+    persisted_history = ledger.get_artifact(
+        str(bundle.history_receipt["artifact_id"])
+    )
+    if (
+        persisted_history is None
+        or persisted_history["content_hash"] != bundle.history_receipt["content_hash"]
+    ):
+        raise RuntimeError("cohort_history_receipt_missing")
     receipts_created = 0
     cases_created = 0
     anchors_created = 0
@@ -155,6 +170,7 @@ def install_prepared_day(
         anchors_created += int(before is None)
     verify_prepared_day(ledger, bundle)
     return {
+        "history_receipts_created": history_created,
         "privacy_receipts_created": receipts_created,
         "watch_cases_created": cases_created,
         "replay_observations_created": anchors_created,
@@ -164,6 +180,12 @@ def install_prepared_day(
 def verify_prepared_day(
     ledger: LedgerPort, bundle: CohortPreparationBundle
 ) -> None:
+    history = ledger.get_artifact(str(bundle.history_receipt["artifact_id"]))
+    if (
+        history is None
+        or history["content_hash"] != bundle.history_receipt["content_hash"]
+    ):
+        raise RuntimeError("cohort_history_receipt_missing")
     for item in bundle.cases:
         record = ledger.get_watch_case(item.case_id)
         if record is None or record.artifact_id != item.watch_case["artifact_id"]:

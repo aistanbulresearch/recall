@@ -23,18 +23,48 @@ from .payloads import (
     parse_tool_authorization_payload,
     parse_watch_case_payload,
     parse_cohort_day_manifest_payload,
+    parse_cohort_history_receipt_payload,
 )
 
 
 SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
-    "CohortDayManifest": (
+    "CohortHistoryReceipt": (
         "1.0.0",
+        frozenset(
+            {
+                "evidence_path",
+                "evidence_sha256",
+                "evidence_git_blob_oid",
+                "source_commit",
+                "source_tree",
+                "phase",
+                "trigger_code",
+                "day_index",
+                "executed_at",
+                "selected_for_date",
+                "created_run_ids",
+                "selected_case_ids",
+                "excluded_case_ids",
+                "runs_created",
+                "runs_predicted",
+                "readback_counts",
+                "direct_exit_code",
+                "evidence_classification",
+                "atomic_check_ids",
+            }
+        ),
+        parse_cohort_history_receipt_payload,
+        True,
+    ),
+    "CohortDayManifest": (
+        "2.0.0",
         frozenset(
             {
                 "day_index",
                 "selected_for_date",
                 "scheduled_for",
                 "source_commit",
+                "image_digest",
                 "trigger_code",
                 "previous_manifest_id",
                 "managed_history_starts_at_day_index",

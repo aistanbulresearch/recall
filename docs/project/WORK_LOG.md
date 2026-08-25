@@ -2,6 +2,16 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-25-036: Day-1 history binding and F5-lite runtime identity
+
+- Replaced the incorrect free Day-1 history literal with a strict `CohortHistoryReceipt 1.0.0` derived from committed `first.json` bytes (raw SHA-256 `fa588a3eee9d8ac66c6629f8668a1e878cdda7586b256c99299eb0ce56283825`, Git blob `7d82b5158865284c00d89a20445c24db4bca518a`) and the first execution time `2026-08-25T15:00:03.280432Z`.
+- Made receipt append/read-back the first preparation operation; a missing or conflicting receipt stops with zero downstream PrivacyReceipt, WatchCase, replay-observation, ScanRun, or manifest writes. Day-2 history is parsed only from that receipt and the receipt ID is a manifest input.
+- Added the F5-lite startup gate: `RECALL_SOURCE_COMMIT` must be lowercase 40-hex and equal bundle provenance; `RECALL_IMAGE_DIGEST` must be lowercase `sha256:<64 hex>`. Invalid or mismatched values fail before ledger construction with typed runtime reasons.
+- Bumped `CohortDayManifest` from 1.0.0 to 2.0.0 because `image_digest` is a new required strict field. The committed UI/contract example uses an explicitly non-runtime synthetic sentinel; deployed evidence must contain L1's real immutable image digest.
+- Verification: TDD red exited 1 with 23 expected failures before implementation; focused final set passed 36/36 exit 0; bounded core passed 299/299 exit 0; platform excluding `test_gcloud_token.py` passed 234/234 exit 0; privacy passed 140/140 exit 0; direct offline web passed 48/48 exit 0; `git diff --check` and source compilation passed. Independent code review returned PASS with no high blocker.
+- A fresh authorized live-Firestore full-suite attempt reached the ledger boundary, marked one failure, and then left the auth/subprocess path hung; the isolated live file also hung. Both were stopped and are not evidence. No Day-2 cohort tick or product namespace write is claimed from these attempts.
+- The permanent failed/incomplete-day continuation artifact is intentionally deferred to Day-3 morning because the current contract requires a real same-date execution timestamp; no fake timestamp or partial contract was introduced. L1 must rebuild/repoint the job image and set both provenance env values before the Day-2 tick.
+
 ## WORK-2026-08-25-035: Staged cohort expansion and managed Day-N implementation
 
 - Committed the staged cohort expansion separately at `c65ee3d55524caf1d2d9d697c9bff712e35bca82`: 12 SYNTHETIC cases, the original Day-1 three unchanged, five RCL-205 blob-verified captured-replay anchors, and pre-run predictions 3/2/4 for 2026-08-26/27/28.

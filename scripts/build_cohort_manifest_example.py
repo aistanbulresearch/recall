@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +17,9 @@ from recall.scheduler.preparation import (
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path("artifacts/evidence/cohort-manifest-example")
+EXAMPLE_IMAGE_DIGEST = "sha256:" + hashlib.sha256(
+    b"recall:in-memory-synthetic-manifest-example:v2"
+).hexdigest()
 
 
 def main() -> int:
@@ -32,7 +34,8 @@ def main() -> int:
     result = DayNScheduler(
         ledger,
         bundle=bundle,
-        source_commit=_git("rev-parse", "HEAD"),
+        source_commit=bundle.source_commit,
+        image_digest=EXAMPLE_IMAGE_DIGEST,
     ).trigger(now=now, previous_manifest=None)
     manifest = ledger.get_artifact(result.manifest_artifact_id)
     receipt = ledger.get_artifact(result.data_mode_receipt_id)
@@ -41,6 +44,7 @@ def main() -> int:
     target = ROOT / OUTPUT
     target.mkdir(parents=True, exist_ok=True)
     outputs = {
+        "day1-history-receipt.live-synthetic.json": bundle.history_receipt,
         "day2-manifest.synthetic.json": manifest,
         "day2-data-mode-receipt.synthetic.json": receipt,
     }
@@ -55,13 +59,5 @@ def main() -> int:
         hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     print(json.dumps({"files": hashes, "live_execution": False}, sort_keys=True))
     return 0
-
-
-def _git(*arguments: str) -> str:
-    return subprocess.run(
-        ["git", *arguments], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.strip()
-
-
 if __name__ == "__main__":
     raise SystemExit(main())

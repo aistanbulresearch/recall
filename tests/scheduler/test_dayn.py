@@ -17,6 +17,7 @@ from recall.scheduler.manifest import (
     mode_receipt_artifact_id,
     require_single_manifest,
 )
+from recall.scheduler.history import history_receipt_artifact_id
 from recall.scheduler.preparation import (
     DEFAULT_BUNDLE_PATH,
     LockedPreparationVerifier,
@@ -27,7 +28,8 @@ from recall.scheduler.preparation import (
 
 ROOT = Path(__file__).resolve().parents[2]
 BUNDLE_SHA = "c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841"
-SOURCE_COMMIT = "a" * 40
+SOURCE_COMMIT = "c65ee3d55524caf1d2d9d697c9bff712e35bca82"
+IMAGE_DIGEST = "sha256:" + "b" * 64
 DAY2_NOW = datetime(2026, 8, 26, 16, 1, tzinfo=timezone.utc)
 
 
@@ -70,7 +72,12 @@ def test_locked_verifier_rejects_mutated_or_unregistered_receipt() -> None:
 
 def test_day2_creates_three_then_reuses_without_new_manifest() -> None:
     ledger, bundle = _prepared_ledger()
-    scheduler = DayNScheduler(ledger, bundle=bundle, source_commit=SOURCE_COMMIT)
+    scheduler = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    )
     first = scheduler.trigger(now=DAY2_NOW, previous_manifest=None)
     second = scheduler.trigger(now=DAY2_NOW, previous_manifest=None)
     assert len(first.newly_created_run_ids) == 3
@@ -91,13 +98,19 @@ def test_crash_resume_reconciles_authoritative_count_and_one_manifest() -> None:
         ledger,
         bundle=bundle,
         source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
         fault_after_run_writes=1,
     )
     with pytest.raises(RuntimeError, match="synthetic_fault_after_run_write"):
         crashing.trigger(now=DAY2_NOW, previous_manifest=None)
     assert ledger.read_back_count("scan_runs") == 1
     assert ledger.get_artifact(manifest_artifact_id(DAY2_NOW.date())) is None
-    resumed = DayNScheduler(ledger, bundle=bundle, source_commit=SOURCE_COMMIT)
+    resumed = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    )
     result = resumed.trigger(now=DAY2_NOW, previous_manifest=None)
     assert len(result.authoritative_run_ids) == 3
     assert len(result.newly_created_run_ids) == 2
@@ -120,7 +133,10 @@ def test_crash_resume_reconciles_authoritative_count_and_one_manifest() -> None:
 def test_manifest_history_shape_and_manual_day1_boundary() -> None:
     ledger, bundle = _prepared_ledger()
     result = DayNScheduler(
-        ledger, bundle=bundle, source_commit=SOURCE_COMMIT
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
     ).trigger(now=DAY2_NOW, previous_manifest=None)
     manifest = ledger.get_artifact(result.manifest_artifact_id)
     assert manifest is not None
@@ -137,6 +153,8 @@ def test_manifest_history_shape_and_manual_day1_boundary() -> None:
         "2026-08-25",
         "2026-08-26",
     ]
+    assert history[0]["executed_at"] == "2026-08-25T15:00:03.280432Z"
+    assert history_receipt_artifact_id() in artifact.input_artifact_ids
     assert artifact.payload.managed_history_starts_at_day_index == 2
     assert history[-1]["runs_created"] == 3
     assert history[-1]["runs_predicted"] == 3
@@ -155,16 +173,27 @@ def test_preview_constructs_no_ledger_and_day1_recurring_is_rejected() -> None:
 
     value = execute(
         ["--preview-date", "2026-08-26"],
-        environment={"RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA},
+        environment={
+            "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
+            "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
+            "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+        },
         ledger_factory=forbidden_factory,
         repo_root=ROOT,
     )
     assert value["writes"] == 0
     assert value["runs_predicted"] == 3
+    assert value["source_commit"] == SOURCE_COMMIT
+    assert value["image_digest"] == IMAGE_DIGEST
     assert calls == 0
     ledger, bundle = _prepared_ledger()
     with pytest.raises(RuntimeError, match="frozen_day1_recurring_execution_forbidden"):
-        DayNScheduler(ledger, bundle=bundle, source_commit=SOURCE_COMMIT).trigger(
+        DayNScheduler(
+            ledger,
+            bundle=bundle,
+            source_commit=SOURCE_COMMIT,
+            image_digest=IMAGE_DIGEST,
+        ).trigger(
             now=datetime(2026, 8, 25, 16, 1, tzinfo=timezone.utc),
             previous_manifest=None,
         )
@@ -194,6 +223,45 @@ def test_missing_data_mode_receipt_fails_closed() -> None:
     ledger = DroppingLedger(privacy_receipt_verifier=LockedPreparationVerifier(bundle))
     install_prepared_day(ledger, bundle, now=DAY2_NOW)
     with pytest.raises(RuntimeError, match="cohort_data_mode_receipt_missing"):
-        DayNScheduler(ledger, bundle=bundle, source_commit=SOURCE_COMMIT).trigger(
+        DayNScheduler(
+            ledger,
+            bundle=bundle,
+            source_commit=SOURCE_COMMIT,
+            image_digest=IMAGE_DIGEST,
+        ).trigger(
             now=DAY2_NOW, previous_manifest=None
         )
+
+
+@pytest.mark.parametrize(
+    ("source_commit", "image_digest", "reason"),
+    [
+        ("g" * 40, IMAGE_DIGEST, "cohort_source_commit_invalid"),
+        ("a" * 40, IMAGE_DIGEST, "source_commit_mismatch"),
+        (SOURCE_COMMIT, "sha256:not-hex", "cohort_image_digest_invalid"),
+    ],
+)
+def test_entrypoint_refuses_provenance_mismatch_before_ledger_creation(
+    source_commit, image_digest, reason
+) -> None:
+    calls = 0
+
+    def forbidden_factory(**_kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("ledger factory must not run before provenance gate")
+
+    with pytest.raises(RuntimeError, match=reason):
+        execute(
+            [],
+            environment={
+                "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
+                "RECALL_SOURCE_COMMIT": source_commit,
+                "RECALL_IMAGE_DIGEST": image_digest,
+                "RECALL_EXPECTED_PROJECT_SHA256": "c" * 64,
+            },
+            now_factory=lambda: DAY2_NOW,
+            ledger_factory=forbidden_factory,
+            repo_root=ROOT,
+        )
+    assert calls == 0

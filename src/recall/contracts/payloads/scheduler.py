@@ -12,6 +12,7 @@ from ..validation import SHA256, non_empty_string, require_exact_fields, uuid_va
 
 
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
+_IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _MODES = frozenset({"SYNTHETIC_ONLY", "SYNTHETIC_WITH_CAPTURED_REPLAY"})
 
 
@@ -58,6 +59,7 @@ class CohortDayManifestPayload:
     selected_for_date: str
     scheduled_for: str
     source_commit: str
+    image_digest: str
     trigger_code: str
     previous_manifest_id: str | None
     managed_history_starts_at_day_index: int
@@ -82,6 +84,7 @@ class CohortDayManifestPayload:
             "selected_for_date": self.selected_for_date,
             "scheduled_for": self.scheduled_for,
             "source_commit": self.source_commit,
+            "image_digest": self.image_digest,
             "trigger_code": self.trigger_code,
             "previous_manifest_id": self.previous_manifest_id,
             "managed_history_starts_at_day_index": self.managed_history_starts_at_day_index,
@@ -103,6 +106,9 @@ def parse_cohort_day_manifest_payload(
     source_commit = non_empty_string(value["source_commit"], "source_commit")
     if not _COMMIT.fullmatch(source_commit):
         raise ContractError("contract_hash_invalid", "source_commit")
+    image_digest = non_empty_string(value["image_digest"], "image_digest")
+    if not _IMAGE_DIGEST.fullmatch(image_digest):
+        raise ContractError("contract_hash_invalid", "image_digest")
     previous = value["previous_manifest_id"]
     previous_manifest_id = (
         None
@@ -146,6 +152,7 @@ def parse_cohort_day_manifest_payload(
         selected_for_date=selected_for_date,
         scheduled_for=scheduled_for,
         source_commit=source_commit,
+        image_digest=image_digest,
         trigger_code="COHORT_DAY_MANAGED",
         previous_manifest_id=previous_manifest_id,
         managed_history_starts_at_day_index=managed_start,

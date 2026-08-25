@@ -18,7 +18,7 @@
       "vcv": "VCV002895953.1"
     }
   ],
-  "content_hash": "d392cd64cfb2f89f6e29376bba7a47b4e752455278a2656546ca51ed155ebf70",
+  "content_hash": "ca0e1cc6032fa168cf8fbc5be61f10d093c16ad015470d321f21ca33cf5b673d",
   "created_at": "2026-08-26T16:01:00Z",
   "cumulative": {
     "daily_cycles": 2,
@@ -63,7 +63,7 @@
   "execution_history": [
     {
       "day_index": 1,
-      "executed_at": "2026-08-25T15:01:07.720049Z",
+      "executed_at": "2026-08-25T15:00:03.280432Z",
       "runs_created": 1,
       "runs_predicted": 1,
       "selected_for_date": "2026-08-25"
@@ -77,11 +77,13 @@
     }
   ],
   "extensions": {},
+  "image_digest": "sha256:a59aa842c01b23ede51f4a06752435bf3b6b599d7c0c4fbdc59cce079479bced",
   "input_artifact_ids": [
     "1c1ae91a-ff7d-5012-9efb-abdeedbdcec7",
     "21068bac-1ef2-534f-8b69-b1c3f171d155",
     "53b8fa8c-1594-54cd-a20a-11de4a03e1a4",
     "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+    "8c1783f6-5d6d-5ae0-8077-cd7cf5981c17",
     "a7596da9-c49c-5fcf-9f81-f0d286ee5316",
     "b7cd6b9c-c430-54c7-9d31-92f60482e50c",
     "cc96bc9d-f22b-5d48-804f-ff8bbfa21db3"
@@ -96,7 +98,7 @@
   "run_id": "9301d00e-baad-5958-a93d-d4b6de7512bb",
   "scheduled_for": "2026-08-26T16:00:00Z",
   "schema_name": "CohortDayManifest",
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "selected_for_date": "2026-08-26",
   "source_commit": "c65ee3d55524caf1d2d9d697c9bff712e35bca82",
   "status": "VALID",

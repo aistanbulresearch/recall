@@ -74,11 +74,13 @@ class DayNScheduler:
         *,
         bundle: CohortPreparationBundle,
         source_commit: str,
+        image_digest: str,
         fault_after_run_writes: int | None = None,
     ) -> None:
         self._ledger = ledger
         self._bundle = bundle
         self._source_commit = source_commit
+        self._image_digest = image_digest
         self._fault_after_run_writes = fault_after_run_writes
         self.controller = Controller(ledger)
 
@@ -141,6 +143,7 @@ class DayNScheduler:
             manifest = build_manifest(
                 selected_for_date=selected_for_date,
                 source_commit=self._source_commit,
+                image_digest=self._image_digest,
                 selected_cases=selected,
                 excluded_case_ids=excluded,
                 watch_records=watch_records,

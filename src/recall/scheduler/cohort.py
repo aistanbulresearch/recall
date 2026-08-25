@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 from recall.contracts import DataMode
 from recall.contracts.enums import DataComposition
@@ -12,6 +13,7 @@ from recall.contracts.enums import DataComposition
 from .config import COHORT as FROZEN_DAY1_COHORT
 
 
+COHORT_ID = str(uuid5(NAMESPACE_URL, "recall:m2:staged-cohort:v1"))
 SOURCE_MANIFEST = Path("docs/evaluation/HISTORICAL_REPLAY_SOURCE_MANIFEST.json")
 RIGHTS_NOTE = (
     "NCBI ClinVar captures are retained with attribution under the reviewed "
