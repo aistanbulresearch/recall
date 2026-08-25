@@ -8,12 +8,15 @@ That is a check that cannot fire reporting success, and on 2026-08-25 it would
 have produced an M1 branch documenting a running gateway whose Dockerfile,
 build config and server entrypoint were not in the repository.
 
-So this asks two questions, not one:
+So this asks three questions where the obvious check asks one:
 
     1. does the merge complete cleanly?
     2. is every file from the lane branch actually PRESENT afterwards?
+    3. do the RESTORED files match the lane byte for byte?
 
-Question 2 is the one that matters, and it is the one a green merge hides.
+Question 2 is the one that matters most, and it is the one a green merge hides.
+Question 3 closes the smaller version of the same gap: a file restored with the
+wrong bytes is as much a fiction as an absent one.
 
 Everything happens in a throwaway worktree on a throwaway branch. Neither the
 lane branch nor the integration target is modified, and the worktree is removed
@@ -112,9 +115,43 @@ def main() -> int:
                 unrecoverable.append(path)
         result["unrecoverable_without_revert_of_revert"] = unrecoverable
 
+        # Content, not just presence. A file restored with the wrong bytes is as
+        # much a fiction as an absent one -- the same failure wearing a smaller
+        # coat. Compared only for the RESTORED set: files the target did not
+        # have before the merge, so the lane is the only source and the blob
+        # must match exactly. Files the target ALSO modified are excluded on
+        # purpose -- there a merged result differing from the lane is correct,
+        # and flagging it would be a false alarm that trains people to ignore
+        # the check.
+        restored = [
+            f
+            for f in expected
+            if f not in missing
+            and git("cat-file", "-e", f"{args.target}:{f}").returncode != 0
+        ]
+        mismatched = []
+        hash_checked = 0
+        if result["merge_clean"]:
+            # A clean merge leaves a commit, so tree blobs can be compared
+            # directly. That sidesteps working-tree line-ending filters, which
+            # would otherwise make every CRLF file look modified.
+            for f in restored:
+                lane_blob = git("rev-parse", f"{args.lane}:{f}").stdout.strip()
+                merged_blob = git("rev-parse", f"HEAD:{f}", cwd=workdir).stdout.strip()
+                hash_checked += 1
+                if not lane_blob or lane_blob != merged_blob:
+                    mismatched.append({"path": f, "lane": lane_blob[:12], "merged": merged_blob[:12]})
+        result["restored_files"] = len(restored)
+        result["blobs_checked"] = hash_checked
+        result["blobs_matching_lane"] = hash_checked - len(mismatched)
+        result["blob_mismatches"] = mismatched
+        result["blob_check_skipped_reason"] = (
+            None if result["merge_clean"] else "merge conflicted; no merge commit to compare"
+        )
+
         result["verdict"] = (
             "GREEN"
-            if result["merge_clean"] and not missing
+            if result["merge_clean"] and not missing and not mismatched
             else "RED"
         )
         result["why"] = (
@@ -128,6 +165,9 @@ def main() -> int:
                         f"{len(unrecoverable)} of them cannot be restored by any "
                         "re-merge until the revert is reverted on the target"
                     ) if unrecoverable else "",
+                    (
+                        f"{len(mismatched)} restored file(s) do not match the lane byte for byte"
+                    ) if mismatched else "",
                 ])
             )
         )
