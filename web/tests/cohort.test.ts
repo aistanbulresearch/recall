@@ -17,6 +17,7 @@ import {
   unanchoredVcvs,
 } from '../src/viewmodel/cohort';
 import type { ArtifactBundle } from '../src/viewmodel/types';
+import example from './fixtures/cohort-day2-manifest.example.json';
 
 /**
  * A day that genuinely advanced the cohort: it ran on a date, selected work FOR
@@ -249,32 +250,13 @@ describe('every accession number carries its chain', () => {
 
 /* ---------------------------------------------------------------- view model */
 
+/**
+ * Built from the REAL contract example rather than a shape this lane invented,
+ * so a producer-side change breaks in one place instead of silently leaving
+ * these fixtures describing a manifest nobody emits.
+ */
 function manifestArtifact(overrides: Record<string, unknown> = {}) {
-  return {
-    artifact_id: String(overrides.artifact_id ?? 'manifest-1'),
-    case_id: null,
-    content_hash: 'f'.repeat(64),
-    created_at: '2026-08-26T06:00:00Z',
-    data_mode: 'SYNTHETIC_WITH_CAPTURED_REPLAY',
-    extensions: {},
-    input_artifact_ids: [],
-    producer: { component: 'cohort-builder', identity: 'cohort', version: '1.0.0' },
-    run_id: null,
-    schema_name: 'CohortDayManifest',
-    schema_version: '1.0.0',
-    signature_ref: null,
-    status: 'VALID',
-    warnings: [],
-    day_index: 2,
-    delta: { cases_watched: 9, runs_created: 9 },
-    cumulative: { cases_watched: 12, runs_created: 15 },
-    cases: [{ case_id: 'c1', data_mode: 'SYNTHETIC_WITH_CAPTURED_REPLAY', vcv: 'VCV002895953' }],
-    vcv_anchors: [
-      { vcv: 'VCV002895953', capture_path: 'artifacts/captures/rcl-205/a.xlsx', sha256: 'abc123' },
-    ],
-    execution_history: FOUR_REAL_DAYS.slice(0, 2),
-    ...overrides,
-  };
+  return { ...example, ...overrides };
 }
 
 function bundleWith(artifacts: unknown[]): ArtifactBundle {
@@ -290,19 +272,19 @@ function bundleWith(artifacts: unknown[]): ArtifactBundle {
 describe('cohort fields resolve from the manifest', () => {
   it('reads the totals from the manifest rather than counting them here', () => {
     const { fields } = buildViewModel(bundleWith([manifestArtifact()]));
-    // renderScalar preserves numbers as numbers, so these stay numeric.
-    expect(fields['UI-COHORT-DAY-INDEX'].value).toBe(2);
-    expect(fields['UI-COHORT-CASES-DELTA'].value).toBe(9);
-    expect(fields['UI-COHORT-CASES-TOTAL'].value).toBe(12);
-    expect(fields['UI-COHORT-RUNS-TOTAL'].value).toBe(15);
-    // The manifest lists one case but reports twelve watched. The panel must
-    // not silently "correct" the total to the length of the list it can see.
-    expect(fields['UI-COHORT-CASES'].items).toHaveLength(1);
+    // Asserted against the example's own values, so these cannot drift from the
+    // contract without this failing.
+    expect(fields['UI-COHORT-DAY-INDEX'].value).toBe(example.day_index);
+    expect(fields['UI-COHORT-RUNS-TOTAL'].value).toBe(example.cumulative.runs_created);
+    expect(fields['UI-COHORT-CYCLES-TOTAL'].value).toBe(example.cumulative.daily_cycles);
+    // The running total is NOT the length of the case list this day happens to
+    // carry, and the panel must never silently reconcile the two.
+    expect(fields['UI-COHORT-CASES'].items).toHaveLength(example.cases.length);
   });
 
   it('carries lineage for every cohort value it shows', () => {
     const { fields } = buildViewModel(bundleWith([manifestArtifact()]));
-    for (const id of ['UI-COHORT-DAY-INDEX', 'UI-COHORT-CASES-TOTAL', 'UI-COHORT-VCV-ANCHORS']) {
+    for (const id of ['UI-COHORT-DAY-INDEX', 'UI-COHORT-CYCLES-TOTAL', 'UI-COHORT-VCV-ANCHORS']) {
       expect(fields[id].status, id).toBe('KNOWN');
       expect(fields[id].source_refs.length, id).toBeGreaterThan(0);
     }
@@ -310,7 +292,7 @@ describe('cohort fields resolve from the manifest', () => {
 
   it('hides every cohort field when no manifest is present', () => {
     const { fields } = buildViewModel(bundleWith([]));
-    for (const id of ['UI-COHORT-DAY-INDEX', 'UI-COHORT-CASES-TOTAL', 'UI-COHORT-CASES']) {
+    for (const id of ['UI-COHORT-DAY-INDEX', 'UI-COHORT-CYCLES-TOTAL', 'UI-COHORT-CASES']) {
       expect(fields[id].status, id).toBe('UNKNOWN');
       expect(fields[id].value, id).toBeNull();
       expect(fields[id].hidden, id).toBe(true);
@@ -330,7 +312,7 @@ describe('cohort fields resolve from the manifest', () => {
 
   it('rejects a manifest declaring an unsupported version', () => {
     const { fields, rejected } = buildViewModel(
-      bundleWith([manifestArtifact({ schema_version: '2.0.0' })]),
+      bundleWith([manifestArtifact({ schema_version: '3.0.0' })]),
     );
     expect(rejected[0]?.reason_code).toBe('contract_major_unsupported');
     expect(fields['UI-COHORT-DAY-INDEX'].status).toBe('UNKNOWN');

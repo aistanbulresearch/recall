@@ -287,3 +287,9 @@ body {
 }
 
 .case-intervals li[data-headline='true'] .interval-days { font-size: 1.35rem; }
+
+/* Agreement between the manifest's running totals and the history they were
+   derived from. Disagreement is a finding, not a styling variant. */
+.cohort-agreement { font-size: 0.8rem; margin: 0.6rem 0 0; }
+.cohort-agreement[data-agrees='true'] { color: var(--positive); }
+.cohort-agreement[data-agrees='false'] { color: var(--blocked); font-weight: 600; }

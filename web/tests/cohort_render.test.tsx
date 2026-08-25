@@ -13,57 +13,20 @@ import goldenBundle from '../src/bundles/golden.json';
 import { CohortPanel } from '../src/components/CohortPanel';
 import { buildViewModel } from '../src/viewmodel/builder';
 import type { ArtifactBundle } from '../src/viewmodel/types';
+import example from './fixtures/cohort-day2-manifest.example.json';
 
 const golden = goldenBundle as unknown as ArtifactBundle;
 
-const ANCHOR = {
-  vcv: 'VCV002895953',
-  capture_path: 'artifacts/captures/rcl-205/a.xlsx',
-  sha256: 'abc123def456',
-};
+// The real example's own anchor, so the rendered chain is the chain the
+// producer actually emits rather than one this lane made up.
+const ANCHOR = example.vcv_anchors[0];
 
+/**
+ * The REAL contract example with overrides, so these rendering tests cannot
+ * drift into describing a manifest shape nobody emits.
+ */
 function manifest(overrides: Record<string, unknown> = {}) {
-  return {
-    artifact_id: String(overrides.artifact_id ?? 'manifest-1'),
-    case_id: null,
-    content_hash: 'f'.repeat(64),
-    created_at: '2026-08-26T06:00:00Z',
-    data_mode: 'SYNTHETIC_WITH_CAPTURED_REPLAY',
-    extensions: {},
-    input_artifact_ids: [],
-    producer: { component: 'cohort-builder', identity: 'cohort', version: '1.0.0' },
-    run_id: null,
-    schema_name: 'CohortDayManifest',
-    schema_version: '1.0.0',
-    signature_ref: null,
-    status: 'VALID',
-    warnings: [],
-    day_index: 2,
-    delta: { cases_watched: 9, runs_created: 9 },
-    cumulative: { cases_watched: 12, runs_created: 15 },
-    cases: [
-      { case_id: 'case-anchored', data_mode: 'SYNTHETIC_WITH_CAPTURED_REPLAY', vcv: ANCHOR.vcv },
-      { case_id: 'case-plain', data_mode: 'SYNTHETIC' },
-    ],
-    vcv_anchors: [ANCHOR],
-    execution_history: [
-      {
-        day_index: 1,
-        executed_at: '2026-08-25T06:00:00Z',
-        selected_for_date: '2026-08-25',
-        runs_created: 3,
-        runs_predicted: 3,
-      },
-      {
-        day_index: 2,
-        executed_at: '2026-08-26T06:00:00Z',
-        selected_for_date: '2026-08-26',
-        runs_created: 9,
-        runs_predicted: 9,
-      },
-    ],
-    ...overrides,
-  };
+  return { ...example, ...overrides };
 }
 
 function renderWith(artifacts: unknown[]): string {
@@ -80,16 +43,40 @@ describe('cohort panel rendering', () => {
   it('shows the delta and the running total as separate figures', () => {
     const markup = renderWith([manifest()]);
     expect(markup).toContain('data-field-id="UI-COHORT-CASES-DELTA"');
-    expect(markup).toContain('data-field-id="UI-COHORT-CASES-TOTAL"');
+    expect(markup).toContain('data-field-id="UI-COHORT-RUNS-DELTA"');
     expect(markup).toContain('data-field-id="UI-COHORT-RUNS-TOTAL"');
-    expect(markup).toContain('>12<');
-    expect(markup).toContain('>15<');
+    expect(markup).toContain('data-field-id="UI-COHORT-CYCLES-TOTAL"');
+  });
+
+  it('shows which code produced the day, beside the data mode of the manifest', () => {
+    const markup = renderWith([manifest()]);
+    expect(markup).toContain('data-field-id="UI-COHORT-IMAGE-DIGEST"');
+    expect(markup).toContain(example.image_digest);
+    // A synthetic manifest carries a sentinel digest, so the mode travels with
+    // it and a sentinel can never read as a deployed artifact.
+    expect(markup).toContain('data-field-id="UI-COHORT-DATA-MODE"');
+    expect(markup).toContain('sentinel digest');
+  });
+
+  it('says the totals reconcile against the history they came from', () => {
+    const markup = renderWith([manifest()]);
+    expect(markup).toContain('data-agrees="true"');
+  });
+
+  it('says so when the totals disagree with the manifest own history', () => {
+    const markup = renderWith([
+      manifest({ cumulative: { ...example.cumulative, daily_cycles: 99 } }),
+    ]);
+    expect(markup).toContain('data-agrees="false"');
+    expect(markup).toContain('disagree');
+    expect(markup).toContain('daily cycles');
   });
 
   it('labels each case with its own declared mode, not one badge for all', () => {
     const markup = renderWith([manifest()]);
+    // Both modes the 2.0.0 contract permits are present in the real example.
     expect(markup).toContain('data-mode="SYNTHETIC_WITH_CAPTURED_REPLAY"');
-    expect(markup).toContain('data-mode="SYNTHETIC"');
+    expect(markup).toContain('data-mode="SYNTHETIC_ONLY"');
     expect(markup).toContain('data-anchored="true"');
     expect(markup).toContain('data-anchored="false"');
   });
@@ -104,7 +91,9 @@ describe('cohort panel rendering', () => {
   it('marks an accession with no anchor rather than showing it bare', () => {
     const markup = renderWith([
       manifest({
-        cases: [{ case_id: 'orphan', data_mode: 'SYNTHETIC', vcv: 'VCV999999999' }],
+        cases: [
+          { case_id: 'orphan', data_mode: 'SYNTHETIC_WITH_CAPTURED_REPLAY', vcv: 'VCV999999999' },
+        ],
         vcv_anchors: [],
       }),
     ]);
@@ -178,7 +167,7 @@ describe('cohort panel rendering', () => {
       manifest({ artifact_id: 'day-2', day_index: 2 }),
     ]);
     expect(markup).toContain('could not be attributed to a specific day');
-    expect(markup).not.toContain('data-field-id="UI-COHORT-CASES-TOTAL"');
-    expect(markup).not.toContain('>12<');
+    expect(markup).not.toContain('data-field-id="UI-COHORT-RUNS-TOTAL"');
+    expect(markup).not.toContain('data-field-id="UI-COHORT-CYCLES-TOTAL"');
   });
 });

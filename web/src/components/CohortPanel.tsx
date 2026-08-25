@@ -18,6 +18,7 @@ import type { ViewModel } from '../viewmodel/types';
 import {
   anchorFor,
   caseModeCopy,
+  historyAgreement,
   operationSpan,
   unanchoredVcvs,
   type CohortCase,
@@ -61,6 +62,19 @@ export function CohortPanel({ model }: { model: ViewModel }) {
   const span = operationSpan(executions);
   const orphans = unanchoredVcvs(cases, anchors);
 
+  // Rebuilt from the fields rather than read as one object, so each number
+  // carries its own lineage. Missing entries are skipped by the comparison
+  // instead of counting as agreement.
+  const numeric = (fieldId: string): number | undefined => {
+    const field = model[fieldId];
+    return field?.status === 'KNOWN' && typeof field.value === 'number' ? field.value : undefined;
+  };
+  const agreement = historyAgreement(executions, {
+    daily_cycles: numeric('UI-COHORT-CYCLES-TOTAL'),
+    distinct_execution_dates: numeric('UI-COHORT-DISTINCT-DATES'),
+    runs_created: numeric('UI-COHORT-RUNS-TOTAL'),
+  });
+
   return (
     <section className="panel panel-cohort" aria-labelledby="cohort-heading">
       <h2 id="cohort-heading">Cohort</h2>
@@ -81,9 +95,31 @@ export function CohortPanel({ model }: { model: ViewModel }) {
           field={model['UI-COHORT-CASES-DELTA']}
           hint="Read from the day manifest, not counted by this surface."
         />
-        <FieldValue field={model['UI-COHORT-CASES-TOTAL']} />
         <FieldValue field={model['UI-COHORT-RUNS-DELTA']} />
         <FieldValue field={model['UI-COHORT-RUNS-TOTAL']} />
+        <FieldValue field={model['UI-COHORT-CYCLES-TOTAL']} />
+      </div>
+
+      {agreement.checked ? (
+        <p className="cohort-agreement" data-agrees={String(agreement.agrees)}>
+          {agreement.agrees
+            ? 'The running totals match the execution history they were derived from.'
+            : 'These totals disagree with the manifest’s own history: '}
+          {agreement.disagreements.join('; ')}
+        </p>
+      ) : null}
+
+      <h3>Which code produced this</h3>
+      <div className="field-grid">
+        <FieldValue
+          field={model['UI-COHORT-IMAGE-DIGEST']}
+          hint="The running artifact this day's evidence came from."
+        />
+        <FieldValue
+          field={model['UI-COHORT-DATA-MODE']}
+          hint="A synthetic manifest carries a sentinel digest, not a deployed one."
+        />
+        <FieldValue field={model['UI-COHORT-SOURCE-COMMIT']} />
       </div>
 
       {cases.length > 0 ? (

@@ -271,34 +271,100 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     goldenPath: false,
     hideWhenMissing: true,
   },
+  /*
+   * 2.0.0 counts by IDENTITY, not by tally: the day's work is carried as lists
+   * of case and run ids, so the figure on screen is the length of a list a
+   * reader can expand. delta.cases_watched and delta.runs_created do not exist
+   * in this contract and are not reconstructed from anything else.
+   */
   {
     fieldId: 'UI-COHORT-CASES-DELTA',
-    label: 'Cases watched today',
+    label: 'Cases selected today',
     group: 'cohort',
     artifactType: 'CohortDayManifest',
-    jsonPath: '$.delta.cases_watched',
-    derivation: { kind: 'exact' },
+    jsonPath: '$.delta.selected_case_ids',
+    derivation: { kind: 'count' },
     missingStatus: 'UNKNOWN',
     goldenPath: false,
     hideWhenMissing: true,
   },
   {
+    // newly_created, not authoritative: authoritative_run_ids is the union of
+    // newly created and REUSED, so counting it would report reused runs as
+    // today's work.
     fieldId: 'UI-COHORT-RUNS-DELTA',
     label: 'Runs created today',
     group: 'cohort',
     artifactType: 'CohortDayManifest',
-    jsonPath: '$.delta.runs_created',
+    jsonPath: '$.delta.newly_created_run_ids',
+    derivation: { kind: 'count' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // Cumulative CASES watched has no field in 2.0.0 and cannot be derived from
+    // the manifest: it would need the union of selected_case_ids across every
+    // day, which a single day's manifest does not carry. Rather than invent it,
+    // the running total shown is the one the contract actually supports.
+    fieldId: 'UI-COHORT-CYCLES-TOTAL',
+    label: 'Daily cycles to date',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cumulative.daily_cycles',
     derivation: { kind: 'exact' },
     missingStatus: 'UNKNOWN',
     goldenPath: false,
     hideWhenMissing: true,
   },
   {
-    fieldId: 'UI-COHORT-CASES-TOTAL',
-    label: 'Cases watched to date',
+    // The producer's own count of distinct execution dates, derived by it from
+    // execution_history. The panel derives the same figure independently, so the
+    // two can be compared instead of trusted.
+    fieldId: 'UI-COHORT-DISTINCT-DATES',
+    label: 'Distinct execution dates',
     group: 'cohort',
     artifactType: 'CohortDayManifest',
-    jsonPath: '$.cumulative.cases_watched',
+    jsonPath: '$.cumulative.distinct_execution_dates',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // Which code produced this evidence. The example manifest carries a
+    // deterministic synthetic sentinel that the contract README says must never
+    // be cited as runtime evidence, so this value travels beside the artifact's
+    // data_mode exactly as the resolution-mode badge does.
+    fieldId: 'UI-COHORT-IMAGE-DIGEST',
+    label: 'Image digest',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.image_digest',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-SOURCE-COMMIT',
+    label: 'Source commit',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.source_commit',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // The manifest's own declared data mode, so a synthetic sentinel digest can
+    // never read as a deployed one.
+    fieldId: 'UI-COHORT-DATA-MODE',
+    label: 'Manifest data mode',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.data_mode',
     derivation: { kind: 'exact' },
     missingStatus: 'UNKNOWN',
     goldenPath: false,

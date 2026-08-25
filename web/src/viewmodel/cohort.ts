@@ -193,20 +193,84 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
  */
 export function caseModeCopy(dataMode: unknown): { plain: string; anchored: boolean } {
   switch (dataMode) {
+    // The only two modes the 2.0.0 contract permits for a case. It also enforces
+    // that vcv is null exactly when the mode is SYNTHETIC_ONLY, so anchored and
+    // unanchored are contract-level facts rather than presentation choices.
     case 'SYNTHETIC_WITH_CAPTURED_REPLAY':
       return {
         plain: 'Synthetic record anchored to a captured public evidence file.',
         anchored: true,
       };
-    case 'CAPTURED_REPLAY':
-      return { plain: 'Replayed from a captured public evidence file.', anchored: true };
-    case 'SYNTHETIC':
+    case 'SYNTHETIC_ONLY':
       return { plain: 'Synthetic record, not anchored to any captured file.', anchored: false };
-    case 'MOCK':
-      return { plain: 'Fixture record, not anchored to any captured file.', anchored: false };
     default:
       return { plain: 'Data mode not declared by the manifest.', anchored: false };
   }
+}
+
+export interface CohortCumulative {
+  daily_cycles?: unknown;
+  distinct_execution_dates?: unknown;
+  runs_created?: unknown;
+  runs_predicted?: unknown;
+}
+
+export interface HistoryAgreement {
+  /** Whether there was enough of both sides to compare at all. */
+  checked: boolean;
+  agrees: boolean;
+  disagreements: string[];
+}
+
+/**
+ * Does the manifest's own running total agree with the history it was derived
+ * from?
+ *
+ * The producer computes `cumulative` from `execution_history`. This surface
+ * derives the same quantities from the same rows, independently. That makes the
+ * two comparable, and comparison is worth more than either number alone: a
+ * manifest whose totals disagree with its own rows is reporting something no
+ * reader can reconcile, and the panel should say so rather than pick a side.
+ *
+ * This checks agreement WITHIN the manifest. It cannot check that the rows
+ * describe what actually ran, which needs evidence this artifact does not carry.
+ */
+export function historyAgreement(
+  executions: readonly CohortExecution[],
+  cumulative: CohortCumulative | null,
+): HistoryAgreement {
+  if (!cumulative || executions.length === 0) {
+    return { checked: false, agrees: false, disagreements: [] };
+  }
+
+  const dates = executions.map((entry) => utcDate(entry.executed_at));
+  const sum = (key: 'runs_created' | 'runs_predicted') =>
+    executions.reduce((total, entry) => total + Number(entry[key] ?? NaN), 0);
+
+  const comparisons: Array<[string, unknown, number]> = [
+    ['daily cycles', cumulative.daily_cycles, executions.length],
+    ['distinct execution dates', cumulative.distinct_execution_dates, new Set(dates).size],
+    ['runs created', cumulative.runs_created, sum('runs_created')],
+    ['runs predicted', cumulative.runs_predicted, sum('runs_predicted')],
+  ];
+
+  const disagreements: string[] = [];
+  let compared = 0;
+  for (const [label, declared, derived] of comparisons) {
+    if (typeof declared !== 'number' || !Number.isFinite(derived)) {
+      continue;
+    }
+    compared += 1;
+    if (declared !== derived) {
+      disagreements.push(`${label}: manifest says ${declared}, its own history shows ${derived}`);
+    }
+  }
+
+  return {
+    checked: compared > 0,
+    agrees: compared > 0 && disagreements.length === 0,
+    disagreements,
+  };
 }
 
 /** The capture file and hash a VCV is anchored to, or null when unanchored. */
