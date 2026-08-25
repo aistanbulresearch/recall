@@ -50,6 +50,7 @@ from .agentic import (
     parse_managed_path_receipt_payload,
     parse_routing_plan_payload,
 )
+from .scheduler import CohortDayManifestPayload, parse_cohort_day_manifest_payload
 
 __all__ = [
     "DataModePayload",
@@ -72,6 +73,7 @@ __all__ = [
     "EvidenceObservationPayload",
     "ManagedPathReceiptPayload",
     "RoutingPlanPayload",
+    "CohortDayManifestPayload",
     "parse_data_mode_payload",
     "parse_failure_payload",
     "parse_tool_authorization_payload",
@@ -92,4 +94,5 @@ __all__ = [
     "parse_evidence_observation_payload",
     "parse_managed_path_receipt_payload",
     "parse_routing_plan_payload",
+    "parse_cohort_day_manifest_payload",
 ]

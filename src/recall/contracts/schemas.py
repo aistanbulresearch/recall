@@ -22,10 +22,32 @@ from .payloads import (
     parse_scan_run_payload,
     parse_tool_authorization_payload,
     parse_watch_case_payload,
+    parse_cohort_day_manifest_payload,
 )
 
 
 SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
+    "CohortDayManifest": (
+        "1.0.0",
+        frozenset(
+            {
+                "day_index",
+                "selected_for_date",
+                "scheduled_for",
+                "source_commit",
+                "trigger_code",
+                "previous_manifest_id",
+                "managed_history_starts_at_day_index",
+                "delta",
+                "cumulative",
+                "cases",
+                "vcv_anchors",
+                "execution_history",
+            }
+        ),
+        parse_cohort_day_manifest_payload,
+        True,
+    ),
     "RoutingPlan": (
         "1.0.0",
         frozenset(

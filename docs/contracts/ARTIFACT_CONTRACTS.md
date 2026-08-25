@@ -49,6 +49,7 @@ The common envelope remains version `1.0.0`. ADR-0008 changes several payload me
 | `WatchCase` | `2.0.0` | Adds pending observations and typed attention state |
 | `EvidenceDelta` | `2.0.0` | Requires deterministic candidate receipt linkage |
 | `DataModeReceipt` | `2.0.0` | Replaces scalar mode fields with mode set and composition |
+| `CohortDayManifest` | `1.0.0` | Date-bound cohort tick evidence with cumulative daily history |
 | `PolicyDecision` | `2.0.0` | Replaces Boolean facts with evaluated-state enums and removes memory fact |
 
 All unchanged payload contracts remain at `1.0.0` until an executable schema records a later compatible revision.
@@ -73,6 +74,7 @@ All unchanged payload contracts remain at `1.0.0` until an executable schema rec
 | `MemoryAdmissionReceipt` | `memory_candidate_hash`, `scope`, `topic`, `source_refs`, `expires_at`, `decision`, `reason_codes` | MemoryAdmissionGate | Memory adapter, UI | Identity, classification, policy outcome, unsupported evidence |
 | `MemoryRetrievalReceipt` | `query_hash`, `scope`, `returned_memory_refs`, `expiry_check`, `contradiction_check`, `decision`, `reason_codes` | Memory retrieval gate | Agent adapter, UI | Memory body in telemetry, evidence-complete assertion |
 | `DataModeReceipt` | `subject_artifact_ids`, `mode_set`, `declared_composition`, `propagation_status`, `reason_codes` | Deterministic mode gate | API, UI, Policy completeness, release audit | Silent mode conversion, scalar trust ordering |
+| `CohortDayManifest` | `day_index`, `selected_for_date`, `scheduled_for`, `source_commit`, `trigger_code`, `previous_manifest_id`, `managed_history_starts_at_day_index`, `delta`, `cumulative`, `cases`, `vcv_anchors`, `execution_history` | Cohort scheduler | UI cohort panel, operations evidence | Date-pinned replay, prediction drift, incomplete daily history |
 | `PolicyDecision` | `policy_version`, `input_facts`, `outcome`, `reason_codes`, `missing_prerequisites`, `review_trigger`, `existing_task_id` | Deterministic Policy Gate | Controller, Ledger, UI | Model prose as input, notification side effect |
 | `ReviewTask` | `watch_case_id`, `trigger_decision_id`, `state`, `priority_band`, `claim_ids`, `audit_receipt_id`, `simulation`, `deduplication_key` | Controller transactional outbox | Reviewer UI | Patient contact, autonomous clinical action, unlabeled real task |
 | `HumanDecisionReceipt` | `review_task_id`, `actor_role`, `action`, `reason_code`, `decided_at` | Authenticated reviewer workflow | Controller, Ledger | Agent identity as reviewer, free-text patient content |
@@ -110,6 +112,11 @@ The catalog field names above are not open objects. These nested structures are 
 | `DataModeReceipt.declared_composition` | `SYNTHETIC_ONLY`, `CAPTURED_REPLAY_ONLY`, `LIVE_PUBLIC_ONLY`, `MOCK_ONLY`, or `SYNTHETIC_WITH_CAPTURED_REPLAY`; exact deterministic projection from `mode_set` |
 | `FailureReceipt.details` | Registered failure-code-specific object; `loop_detected` permits only `hop_count` and `repeated_state_hash` |
 | `DeploymentReceipt.runtime` | `service`, `revision`, `region`, `resource_name`, `read_back_at` |
+| `CohortDayManifest.execution_history[]` | Exactly `day_index`, `executed_at`, `selected_for_date`, `runs_created`, `runs_predicted`; cumulative, ordered by day index, and each UTC execution date equals `selected_for_date` |
+| `CohortDayManifest.cases[]` | Exactly `case_id`, `data_mode`, `vcv`; `vcv` is null for `SYNTHETIC_ONLY` and required for `SYNTHETIC_WITH_CAPTURED_REPLAY` |
+| `CohortDayManifest.vcv_anchors[]` | Exactly `vcv`, `capture_path`, `sha256`, `artifact_id`; every path is relative and every hash binds committed capture bytes |
+| `CohortDayManifest.delta` | Exactly `selected_case_ids`, `excluded_case_ids`, `newly_created_run_ids`, `reused_run_ids`, `authoritative_run_ids`, `runs_predicted`, `prediction_match`; `runs_created` in history is the authoritative post-reconciliation count, not invocation-local writes |
+| `CohortDayManifest.cumulative` | Exactly `daily_cycles`, `successful_daily_cycles`, `runs_predicted`, `runs_created`, `distinct_execution_dates`; `0` predicted plus `0` created is a valid silent day, while a positive prediction plus `0` authoritative runs is a failed day |
 
 Fields marked nullable in the eventual machine schema still remain present. `null` means not applicable or not yet available only when the contract explicitly permits it; it never means passed.
 

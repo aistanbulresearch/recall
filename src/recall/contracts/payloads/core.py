@@ -45,6 +45,7 @@ from .agentic import (
     ManagedPathReceiptPayload,
     RoutingPlanPayload,
 )
+from .scheduler import CohortDayManifestPayload
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +134,7 @@ Payload = (
     | EvidenceDeltaPayload
     | DeploymentReceiptPayload
     | ManagedPathReceiptPayload
+    | CohortDayManifestPayload
 )
 
 
