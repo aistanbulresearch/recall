@@ -9,7 +9,17 @@
 
 import type { FieldStatus } from './types';
 
-export type FieldGroup = 'global' | 'cloud' | 'watch' | 'privacy' | 'fleet' | 'evidence' | 'citation' | 'policy' | 'task';
+export type FieldGroup =
+  | 'global'
+  | 'cloud'
+  | 'watch'
+  | 'cohort'
+  | 'privacy'
+  | 'fleet'
+  | 'evidence'
+  | 'citation'
+  | 'policy'
+  | 'task';
 
 export type Derivation =
   | { kind: 'exact' }
@@ -222,6 +232,127 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     jsonPath: '$.attention_marker.reason_codes[*]',
     derivation: { kind: 'list' },
     missingStatus: 'INCOMPLETE',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  /*
+   * Cohort day manifest.
+   *
+   * Every figure below is READ from the manifest, never accumulated by this
+   * surface: the manifest is the authority on its own totals, and a panel that
+   * recomputed them would be asserting a second, competing truth.
+   *
+   * UI-COHORT-MANIFEST-DAYS exists to make one builder behaviour safe. When a
+   * bundle carries more than one CohortDayManifest, buildField resolves scalars
+   * from the FIRST match rather than the newest, so a stale day could be shown
+   * with no outward sign. That field collects every manifest present, so the
+   * panel can detect the ambiguity and refuse instead of displaying a number it
+   * cannot attribute to a specific day.
+   */
+  {
+    fieldId: 'UI-COHORT-MANIFEST-DAYS',
+    label: 'Manifest days present',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.day_index',
+    derivation: { kind: 'collect' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-DAY-INDEX',
+    label: 'Day',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.day_index',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-CASES-DELTA',
+    label: 'Cases watched today',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.delta.cases_watched',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-RUNS-DELTA',
+    label: 'Runs created today',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.delta.runs_created',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-CASES-TOTAL',
+    label: 'Cases watched to date',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cumulative.cases_watched',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-RUNS-TOTAL',
+    label: 'Runs created to date',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cumulative.runs_created',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // Per case, so a mixed cohort is never described by one bundle-wide badge.
+    fieldId: 'UI-COHORT-CASES',
+    label: 'Cohort cases',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cases[*]',
+    derivation: { kind: 'list' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // One step from a VCV on screen to the capture file and hash it is anchored
+    // to. A real accession number displayed without its chain is the failure the
+    // 575 finding named.
+    fieldId: 'UI-COHORT-VCV-ANCHORS',
+    label: 'Capture anchors',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.vcv_anchors[*]',
+    derivation: { kind: 'list' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // Execution provenance, cumulative in each day's manifest. The elapsed-days
+    // sentence is derived from these timestamps and is withheld when they do not
+    // prove it. Counters alone cannot distinguish four real days from four runs
+    // in one evening.
+    fieldId: 'UI-COHORT-EXECUTIONS',
+    label: 'Execution history',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.execution_history[*]',
+    derivation: { kind: 'list' },
+    missingStatus: 'UNKNOWN',
     goldenPath: false,
     hideWhenMissing: true,
   },
