@@ -1,5 +1,13 @@
 # Recall Handoff
 
+## Current 2026-08-25 coordinator checkpoint
+
+- Active branch is `feature/rcl-3xx-core`; the integration base is `c46d33499027b8a9a3edfc11c8b6aa654dc76852`. Older branch/head text below is retained as historical context and must not override this block.
+- Day-1 scheduler/admission code and its one-line prediction are implemented in this tree but not yet run live. The live command must use the commit that contains this record as its exact `source_commit`. Fixed logical trigger: `2026-08-25T15:00:00Z`; fixed prefix: `dev_recall_m2_day1_20260825_a7f31c9d_`; database `(default)`; project identity is stored only as SHA-256.
+- Expected live result is exactly one CREATED ScanRun from one due ACTIVE case, two future cases excluded, and zero new ScanRuns/events on the second identical trigger.
+- Continue only in this order: finish review/Judge -> commit -> run first and second phases from that exact commit -> verify manifest/read-back -> evidence/log commit. Do not clean or alter the seven unrelated metadata-only worktree entries.
+- Honest boundary: no managed recurring schedule and no terminal agent execution claim.
+
 ## Incoming agent control block
 
 This is the canonical handover for the next Recall coordinator. Do not create a second competing handover file.

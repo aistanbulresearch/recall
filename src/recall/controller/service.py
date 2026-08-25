@@ -53,6 +53,9 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
         source_cursors: Mapping[str, str],
         schedule_epoch: str,
         data_mode: DataMode,
+        privacy_receipt_id: str,
+        expected_watch_case_version: int,
+        triggered_at: datetime,
         budget_snapshot: Mapping[str, object],
         trace_id: str,
         deadline_at: str,
@@ -65,9 +68,9 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
             data_mode=data_mode.value,
         )
         run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
-        existing = self._ledger.get_scan_run(run_id)
-        if existing is not None:
-            return CreateRunResult(existing, False)
+        watch_case = self._ledger.get_watch_case(watch_case_id)
+        if watch_case is None:
+            raise ContractError("stale_write_rejected", watch_case_id)
         artifact_id = str(uuid5(UUID(run_id), "scan-run-artifact"))
         wire = build_artifact(
             schema_name="ScanRun",
@@ -80,8 +83,10 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
                 "version": "0.1.0",
                 "identity": "controller",
             },
-            created_at=_timestamp(now),
-            input_artifact_ids=(),
+            created_at=_timestamp(triggered_at),
+            input_artifact_ids=tuple(
+                sorted((privacy_receipt_id, watch_case.artifact_id))
+            ),
             data_mode=data_mode,
             status=ArtifactStatus.VALID,
             payload={
@@ -99,7 +104,13 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
             },
             authorized_producers=PRODUCER_REGISTRY,
         )
-        record, created = self._ledger.create_scan_run(wire, now=now)
+        record, created = self._ledger.create_scan_run(
+            wire,
+            expected_watch_case_version=expected_watch_case_version,
+            expected_source_cursors=source_cursors,
+            triggered_at=triggered_at,
+            now=now,
+        )
         return CreateRunResult(record, created)
 
     def create_watch_case(
@@ -108,6 +119,9 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
         watch_case_id: str,
         tenant_id: str,
         region: str,
+        privacy_receipt_id: str,
+        cloud_bound_payload: Mapping[str, object],
+        data_mode: DataMode,
         source_cursors: Mapping[str, str],
         pending_observation_hashes: Sequence[str],
         next_scan_at: str,
@@ -126,8 +140,8 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
                 "identity": "controller",
             },
             created_at=_timestamp(now),
-            input_artifact_ids=(),
-            data_mode=DataMode.SYNTHETIC,
+            input_artifact_ids=(privacy_receipt_id,),
+            data_mode=data_mode,
             status=ArtifactStatus.VALID,
             payload={
                 "tenant_id": tenant_id,
@@ -148,7 +162,9 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
             },
             authorized_producers=PRODUCER_REGISTRY,
         )
-        record, created = self._ledger.create_watch_case(wire, now=now)
+        record, created = self._ledger.create_watch_case(
+            wire, cloud_bound_payload=cloud_bound_payload, now=now
+        )
         return CreateWatchCaseResult(record, created)
 
     def transition(

@@ -1,0 +1,1 @@
+Prediction: At `2026-08-25T15:00:00Z`, `DAY1_MANUAL` over the three fixed SYNTHETIC WatchCases will create exactly one `ScanRun` in `CREATED`, exclude the two future-dated cases, and an identical second trigger will create zero additional ScanRuns or ScanRunEvents.

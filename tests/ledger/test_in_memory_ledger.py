@@ -11,6 +11,7 @@ from recall.controller import Controller, ScanRunEventCode
 from recall.ledger import InMemoryLedger, ScanRunRecord
 
 from .helpers import ARTIFACT_ID, RUN_ID, conflicting_receipt, tool_receipt
+from tests.admission import admit_watch_case, in_memory_ledger
 
 
 CASE_ID = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
@@ -19,13 +20,24 @@ CASE_ID = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
 def _leased_ledger(
     now: datetime, *, lease_seconds: int = 300
 ) -> tuple[InMemoryLedger, Controller, ScanRunRecord]:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
+    admitted, receipt, _payload = admit_watch_case(
+        ledger,
+        controller,
+        case_id=CASE_ID,
+        now=now,
+        next_scan_at="2026-08-22T00:00:00Z",
+        source_cursors={"clinvar": "42"},
+    )
     created = controller.create_run(
         watch_case_id=CASE_ID,
         source_cursors={"clinvar": "42"},
         schedule_epoch="2026-08-22T00:00:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=str(receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=datetime(2026, 8, 22, tzinfo=UTC),
         budget_snapshot={
             "delegation_depth": 1,
             "specialist_invocations": 3,
@@ -60,7 +72,7 @@ def _leased_ledger(
 
 
 def test_append_is_idempotent_but_rejects_same_id_with_different_hash() -> None:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     wire = tool_receipt()
 
     first = ledger.append_artifact(wire)

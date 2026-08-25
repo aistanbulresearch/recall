@@ -8,6 +8,7 @@ import pytest
 from recall.contracts import ContractError, DataMode
 from recall.controller import Controller, ScanRunEventCode, ScanRunState
 from recall.ledger import InMemoryLedger
+from tests.admission import admit_watch_case, in_memory_ledger
 
 from .test_run_coordination import BUDGET, CASE_ID, TRACE_ID
 from .policy_inputs import append_policy_artifacts
@@ -36,31 +37,39 @@ def _facts(candidate: str) -> dict[str, str]:
 
 
 def _policy_ready(
-    *, candidate_event: ScanRunEventCode, create_watch_case: bool = False
+    *,
+    candidate_event: ScanRunEventCode,
+    create_watch_case: bool = False,
+    source_cursors: dict[str, str] | None = None,
 ) -> tuple[Controller, InMemoryLedger, str, datetime]:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
     now = datetime(2026, 8, 22, tzinfo=UTC)
-    if create_watch_case:
-        controller.create_watch_case(
-            watch_case_id=CASE_ID,
-            tenant_id="synthetic-contest-lab",
-            region="us-central1",
-            source_cursors={"clinvar": "42"},
-            pending_observation_hashes=("4" * 64,),
-            next_scan_at="2026-08-22T00:00:00Z",
-            now=now,
-        )
+    cursors = source_cursors or {"clinvar": "42"}
+    admitted, receipt, _payload = admit_watch_case(
+        ledger,
+        controller,
+        case_id=CASE_ID,
+        now=now,
+        next_scan_at="2026-08-22T00:00:00Z",
+        source_cursors=cursors,
+        tenant_id="synthetic-contest-lab",
+    )
     created = controller.create_run(
         watch_case_id=CASE_ID,
-        source_cursors={"clinvar": "42"},
+        source_cursors=cursors,
         schedule_epoch="2026-08-22T00:00:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=str(receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=now,
         budget_snapshot=BUDGET,
         trace_id=TRACE_ID,
         deadline_at="2026-08-22T00:09:59Z",
         now=now,
     ).record
+    if not create_watch_case:
+        ledger._watch_cases.pop(CASE_ID)
     queued = controller.transition(
         created.run_id,
         expected_version=1,

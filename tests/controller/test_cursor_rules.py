@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from dataclasses import replace
 
 from recall.contracts import DataMode
 from recall.contracts.enums import ScanRunEventCode, WatchCaseState
@@ -15,21 +16,15 @@ PENDING_HASH = "c" * 64
 VERIFIED_SNAPSHOT_ID = "eb78d84a-640e-446b-8cf7-d735a97f2f1b"
 
 
-def _attach_watch_case(controller: Controller, now) -> None:
-    controller.create_watch_case(
-        watch_case_id=CASE_ID,
-        tenant_id="synthetic-lab",
-        region="us-central1",
-        source_cursors={"clinvar": "41"},
-        pending_observation_hashes=(PENDING_HASH,),
-        next_scan_at="2026-08-22T00:00:00Z",
-        now=now,
-    )
+def _attach_watch_case(_controller: Controller, _now) -> None:
+    return None
 
 
 def test_abstain_preserves_verified_cursor_and_pending_observation() -> None:
     controller, ledger, run_id, now = _policy_ready(
-        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT
+        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT,
+        create_watch_case=True,
+        source_cursors={"clinvar": "41"},
     )
     _attach_watch_case(controller, now)
     append_policy_artifacts(
@@ -60,7 +55,9 @@ def test_abstain_preserves_verified_cursor_and_pending_observation() -> None:
 
 def test_no_action_advances_exact_verified_cursor_and_clears_pending() -> None:
     controller, ledger, run_id, now = _policy_ready(
-        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT
+        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT,
+        create_watch_case=True,
+        source_cursors={"clinvar": "41"},
     )
     _attach_watch_case(controller, now)
     append_policy_artifacts(
@@ -90,7 +87,9 @@ def test_no_action_advances_exact_verified_cursor_and_clears_pending() -> None:
 
 def test_review_required_links_task_and_advances_only_audited_snapshot() -> None:
     controller, ledger, run_id, now = _policy_ready(
-        candidate_event=ScanRunEventCode.CANDIDATE_PRESENT
+        candidate_event=ScanRunEventCode.CANDIDATE_PRESENT,
+        create_watch_case=True,
+        source_cursors={"clinvar": "41"},
     )
     _attach_watch_case(controller, now)
     artifacts = append_policy_artifacts(
@@ -125,7 +124,9 @@ def test_policy_unavailable_halts_without_advancing_cursor() -> None:
         return {"outcome": "FORGED"}
 
     controller, ledger, run_id, now = _policy_ready(
-        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT
+        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT,
+        create_watch_case=True,
+        source_cursors={"clinvar": "41"},
     )
     _attach_watch_case(controller, now)
     append_policy_artifacts(
@@ -156,7 +157,9 @@ def test_policy_unavailable_halts_without_advancing_cursor() -> None:
 
 def test_abstained_observation_hash_is_reseen_in_next_run() -> None:
     controller, ledger, run_id, now = _policy_ready(
-        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT
+        candidate_event=ScanRunEventCode.CANDIDATE_ABSENT,
+        create_watch_case=True,
+        source_cursors={"clinvar": "41"},
     )
     _attach_watch_case(controller, now)
     append_policy_artifacts(
@@ -173,11 +176,25 @@ def test_abstained_observation_hash_is_reseen_in_next_run() -> None:
         pending_observation_hashes=(PENDING_HASH,),
         now=now + timedelta(seconds=8),
     )
+    watch_case = ledger.get_watch_case(CASE_ID)
+    assert watch_case is not None
+    watch_artifact = ledger.get_artifact(watch_case.artifact_id)
+    assert watch_artifact is not None
+    privacy_receipt_id = str(watch_artifact["input_artifact_ids"][0])
+    ledger._watch_cases[CASE_ID] = replace(
+        watch_case,
+        next_scan_at="2026-08-22T01:00:00Z",
+    )
+    watch_case = ledger.get_watch_case(CASE_ID)
+    assert watch_case is not None
     next_run = controller.create_run(
         watch_case_id=CASE_ID,
         source_cursors={"clinvar": "41"},
         schedule_epoch="2026-08-22T01:00:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=privacy_receipt_id,
+        expected_watch_case_version=watch_case.version,
+        triggered_at=now + timedelta(hours=1),
         budget_snapshot={
             "delegation_depth": 1,
             "specialist_invocations": 3,

@@ -1,5 +1,14 @@
 # Recall Master Plan
 
+## 2026-08-25 M2 Day-1 operational slice
+
+1. Freeze and commit one prediction plus the exact `DAY1_MANUAL` implementation before execution.
+2. Admit exactly three SYNTHETIC WatchCases through an accepted signed PrivacyReceipt bound to the exact CloudBoundPayload; select only the one ACTIVE due case at `2026-08-25T15:00:00Z`.
+3. Execute twice against live Firestore: first trigger creates one `ScanRun`/`RUN_CREATED`; second creates zero new runs/events.
+4. Retain hash-bound read-back evidence with `source_commit`, committed runtime blob hashes, ten atomic checks, direct exit codes, and inventory reconciliation.
+5. Claim boundary: working cohort selection plus a durable Day-1 scheduling record only. Managed recurrence and terminal agent execution remain deferred/not claimed.
+6. Gate order: tests -> independent code review -> Master Judge -> local commit -> live trigger 1 -> live trigger 2 -> evidence commit -> 2026-08-26 13:00 integration and Master Judge re-review.
+
 ## Document control
 
 | Field | Value |

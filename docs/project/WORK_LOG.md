@@ -2,6 +2,14 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-25-032: Day-1 scheduler admission and pre-run implementation
+
+- Added Controller/Ledger admission enforcement that binds a valid accepted signed `PrivacyReceipt` to the exact `CloudBoundPayload`, immutable WatchCase dependency, mutable WatchCase state/version/cursors/`next_scan_at`, and ScanRun idempotency key.
+- Added a fixed three-case SYNTHETIC `DAY1_MANUAL` cohort, one due and two future cases, fixed UTC window/deadline, project/database/prefix assertions, committed-source provenance, deterministic read-back hashing, `redact_json`, and two-phase evidence output.
+- Added the pre-run prediction at `docs/evidence/predictions/2026-08-25--day1-manual-cohort.md` before any live execution.
+- Verification: focused scheduler/admission 24/24 PASS after final review fixes; bounded core 261/261 PASS; privacy 140/140 PASS; platform excluding the separately logged token-process file 234/234 PASS; `compileall` with project-local cache PASS; `git diff --check` and bounded secret/authorship scan PASS.
+- No live Firestore write, commit, push, merge, managed recurring schedule, terminal agent execution, or cloud resource creation has occurred at this checkpoint.
+
 ## WORK-2026-08-14-001: Repository preflight and planning baseline
 
 - Task IDs: RCL-001 through RCL-009

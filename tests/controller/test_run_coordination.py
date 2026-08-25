@@ -8,6 +8,8 @@ from recall.contracts import ContractError, DataMode
 from recall.controller import Controller, ScanRunEventCode, ScanRunState
 from recall.ledger import InMemoryLedger
 
+from tests.admission import admit_watch_case, in_memory_ledger
+
 
 CASE_ID = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
 TRACE_ID = "0a651403-8226-4072-9240-344542b0c5fb"
@@ -25,12 +27,31 @@ BUDGET = {
 }
 
 
-def create(controller: Controller, now: datetime):
+def create(controller: Controller, ledger: InMemoryLedger, now: datetime):
+    admitted_record = ledger.get_watch_case(CASE_ID)
+    if admitted_record is None:
+        admitted, receipt, _payload = admit_watch_case(
+            ledger,
+            controller,
+            case_id=CASE_ID,
+            now=now,
+            next_scan_at="2026-08-22T00:00:00Z",
+            source_cursors={"clinvar": "42", "pubmed": "17"},
+        )
+        admitted_record = admitted.record
+        receipt_id = str(receipt["artifact_id"])
+    else:
+        watch_artifact = ledger.get_artifact(admitted_record.artifact_id)
+        assert watch_artifact is not None
+        receipt_id = str(watch_artifact["input_artifact_ids"][0])
     return controller.create_run(
         watch_case_id=CASE_ID,
         source_cursors={"clinvar": "42", "pubmed": "17"},
         schedule_epoch="2026-08-22T00:00:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=receipt_id,
+        expected_watch_case_version=admitted_record.version,
+        triggered_at=datetime(2026, 8, 22, tzinfo=UTC),
         budget_snapshot=BUDGET,
         trace_id=TRACE_ID,
         deadline_at="2026-08-22T00:09:59Z",
@@ -39,12 +60,12 @@ def create(controller: Controller, now: datetime):
 
 
 def test_create_run_is_idempotent_and_writes_one_artifact_and_event() -> None:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
     now = datetime(2026, 8, 22, tzinfo=UTC)
 
-    first = create(controller, now)
-    second = create(controller, now + timedelta(seconds=1))
+    first = create(controller, ledger, now)
+    second = create(controller, ledger, now + timedelta(seconds=1))
 
     assert first.record.run_id == second.record.run_id
     assert first.created is True
@@ -57,10 +78,10 @@ def test_create_run_is_idempotent_and_writes_one_artifact_and_event() -> None:
 
 
 def test_pointer_state_and_version_match_last_event() -> None:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
     now = datetime(2026, 8, 22, tzinfo=UTC)
-    created = create(controller, now).record
+    created = create(controller, ledger, now).record
 
     queued = controller.transition(
         created.run_id,
@@ -77,10 +98,10 @@ def test_pointer_state_and_version_match_last_event() -> None:
 
 
 def test_expired_lease_can_be_taken_over_with_new_epoch() -> None:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
     now = datetime(2026, 8, 22, tzinfo=UTC)
-    created = create(controller, now).record
+    created = create(controller, ledger, now).record
     queued = controller.transition(
         created.run_id,
         expected_version=1,
@@ -123,10 +144,10 @@ def test_expired_lease_can_be_taken_over_with_new_epoch() -> None:
 
 
 def test_stale_takeover_changes_no_pointer_or_event() -> None:
-    ledger = InMemoryLedger()
+    ledger = in_memory_ledger()
     controller = Controller(ledger)
     now = datetime(2026, 8, 22, tzinfo=UTC)
-    created = create(controller, now).record
+    created = create(controller, ledger, now).record
     queued = controller.transition(
         created.run_id,
         expected_version=1,

@@ -11,6 +11,7 @@ from recall.controller import Controller, ScanRunEventCode
 from recall.ledger import FirestoreLedger
 
 from .helpers import ARTIFACT_ID, RUN_ID, conflicting_receipt, tool_receipt
+from tests.admission import admit_watch_case, verify_test_receipt
 
 
 @pytest.fixture
@@ -28,7 +29,10 @@ def firestore_ledger() -> FirestoreLedger:
             "firestore_test_mode_required:set_RECALL_FIRESTORE_TEST_MODE_to_emulator_or_live"
         )
 
-    ledger = FirestoreLedger.from_default_credentials(collection_prefix=prefix)
+    ledger = FirestoreLedger.from_default_credentials(
+        collection_prefix=prefix,
+        privacy_receipt_verifier=verify_test_receipt,
+    )
     try:
         yield ledger
     finally:
@@ -71,11 +75,22 @@ def test_firestore_cas_lease_events_and_failed_write_stability(
 ) -> None:
     now = datetime(2026, 8, 21, 18, 0, tzinfo=UTC)
     controller = Controller(firestore_ledger)
+    admitted, receipt, _payload = admit_watch_case(
+        firestore_ledger,
+        controller,
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        now=now,
+        next_scan_at="2026-08-22T00:00:00Z",
+        source_cursors={"clinvar": "42"},
+    )
     created = controller.create_run(
         watch_case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
         source_cursors={"clinvar": "42"},
         schedule_epoch="2026-08-22T00:00:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=str(receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=now,
         budget_snapshot={
             "delegation_depth": 1,
             "specialist_invocations": 3,
@@ -145,11 +160,22 @@ def test_firestore_rejects_mismatched_transition_atomically(
 ) -> None:
     now = datetime(2026, 8, 21, 19, 0, tzinfo=UTC)
     controller = Controller(firestore_ledger)
+    admitted, receipt, _payload = admit_watch_case(
+        firestore_ledger,
+        controller,
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        now=now,
+        next_scan_at="2026-08-22T00:01:00Z",
+        source_cursors={"clinvar": "43"},
+    )
     created = controller.create_run(
         watch_case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
         source_cursors={"clinvar": "43"},
         schedule_epoch="2026-08-22T00:01:00Z",
         data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=str(receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=now,
         budget_snapshot={
             "delegation_depth": 1,
             "specialist_invocations": 3,
@@ -214,3 +240,50 @@ def test_firestore_rejects_mismatched_transition_atomically(
     assert pointer_after is not None
     assert pointer_after.state is events[-1].to_state
     assert pointer_after.version == events[-1].sequence
+
+
+def test_firestore_rejects_wrong_mode_admission_without_partial_write(
+    firestore_ledger: FirestoreLedger,
+) -> None:
+    now = datetime(2026, 8, 25, 15, 0, tzinfo=UTC)
+    case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
+    controller = Controller(firestore_ledger)
+    admitted, receipt, _payload = admit_watch_case(
+        firestore_ledger,
+        controller,
+        case_id=case_id,
+        now=now,
+        next_scan_at="2026-08-25T15:00:00Z",
+        source_cursors={"synthetic-source": "cursor-atomic"},
+    )
+    artifacts_before = firestore_ledger.read_back_count("artifacts")
+
+    with pytest.raises(ContractError, match="privacy_not_accepted"):
+        controller.create_run(
+            watch_case_id=case_id,
+            source_cursors={"synthetic-source": "cursor-atomic"},
+            schedule_epoch="2026-08-25T15:00:00Z",
+            data_mode=DataMode.CAPTURED_REPLAY,
+            privacy_receipt_id=str(receipt["artifact_id"]),
+            expected_watch_case_version=admitted.record.version,
+            triggered_at=now,
+            budget_snapshot={
+                "delegation_depth": 0,
+                "specialist_invocations": 0,
+                "model_calls_per_role": 0,
+                "schema_repairs": 0,
+                "agent_retries": 0,
+                "connector_retries": 0,
+                "repeated_state_limit": 1,
+                "wall_time_seconds": 599,
+                "step_deadlines": {},
+                "token_ceilings": {},
+            },
+            trace_id="0a651403-8226-4072-9240-344542b0c5fd",
+            deadline_at="2026-08-25T15:09:59Z",
+            now=now,
+        )
+
+    assert firestore_ledger.read_back_count("artifacts") == artifacts_before
+    assert firestore_ledger.read_back_count("scan_runs") == 0
+    assert firestore_ledger.read_back_count("scan_run_events") == 0

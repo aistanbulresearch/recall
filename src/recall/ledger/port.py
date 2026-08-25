@@ -17,11 +17,21 @@ from .models import (
 
 class LedgerPort(Protocol):
     def create_watch_case(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        cloud_bound_payload: Mapping[str, Any],
+        now: datetime,
     ) -> tuple[WatchCaseRecord, bool]: ...
 
     def create_scan_run(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        expected_watch_case_version: int,
+        expected_source_cursors: Mapping[str, str],
+        triggered_at: datetime,
+        now: datetime,
     ) -> tuple[ScanRunRecord, bool]: ...
 
     def append_artifact(self, value: Mapping[str, Any]) -> Artifact: ...
@@ -93,3 +103,5 @@ class LedgerPort(Protocol):
     def read_back_count(
         self, collection: str, *, run_id: str | None = None
     ) -> int: ...
+
+    def backend_metadata(self) -> Mapping[str, str]: ...

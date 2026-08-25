@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from recall.demo import parse_fixture_spec, run_fixture
 from recall.ledger import FirestoreLedger, InMemoryLedger
+from recall.demo.admission import verify_synthetic_privacy_receipt
 
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
@@ -26,9 +27,20 @@ def _run(path: Path, backend: str) -> dict[str, object]:
     spec = parse_fixture_spec(raw)
     execution_id = uuid4().hex
     if backend == "memory":
-        return {"run": run_fixture(InMemoryLedger(), spec, execution_id=execution_id)}
+        return {
+            "run": run_fixture(
+                InMemoryLedger(
+                    privacy_receipt_verifier=verify_synthetic_privacy_receipt
+                ),
+                spec,
+                execution_id=execution_id,
+            )
+        }
     prefix = f"dev_recall_3e_{uuid4().hex}_"
-    ledger = FirestoreLedger.from_default_credentials(collection_prefix=prefix)
+    ledger = FirestoreLedger.from_default_credentials(
+        collection_prefix=prefix,
+        privacy_receipt_verifier=verify_synthetic_privacy_receipt,
+    )
     result: dict[str, object] = {"collection_prefix": prefix}
     try:
         result["run"] = run_fixture(ledger, spec, execution_id=execution_id)

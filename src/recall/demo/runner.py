@@ -9,6 +9,10 @@ from recall.contracts import DataMode
 from recall.contracts.enums import PresenceState, ScanRunEventCode
 from recall.controller import Controller
 from recall.demo.fixtures import FixtureSpec, append_fixture_artifacts
+from recall.demo.admission import (
+    synthetic_cloud_payload,
+    synthetic_privacy_receipt,
+)
 from recall.ledger.port import LedgerPort
 
 
@@ -44,11 +48,20 @@ def run_fixture(
         ledger,
         **({} if spec.policy_available else {"policy_evaluator": _unavailable_policy}),
     )
-    controller.create_watch_case(
+    privacy_receipt = synthetic_privacy_receipt(
+        case_id, now=started, data_mode=DataMode.CAPTURED_REPLAY
+    )
+    ledger.append_artifact(privacy_receipt)
+    admitted = controller.create_watch_case(
         watch_case_id=case_id,
         tenant_id="synthetic-contest-lab",
         region="us-central1",
-        source_cursors={"synthetic-source": "cursor-000"},
+        privacy_receipt_id=str(privacy_receipt["artifact_id"]),
+        cloud_bound_payload=synthetic_cloud_payload(
+            case_id, data_mode=DataMode.CAPTURED_REPLAY
+        ),
+        data_mode=DataMode.CAPTURED_REPLAY,
+        source_cursors=spec.source_cursors,
         pending_observation_hashes=("c" * 64,),
         next_scan_at=spec.schedule_epoch,
         now=started,
@@ -58,9 +71,16 @@ def run_fixture(
         source_cursors=spec.source_cursors,
         schedule_epoch=spec.schedule_epoch,
         data_mode=DataMode.CAPTURED_REPLAY,
+        privacy_receipt_id=str(privacy_receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=datetime.fromisoformat(
+            spec.schedule_epoch.replace("Z", "+00:00")
+        ),
         budget_snapshot=_BUDGET,
         trace_id=trace_id,
-        deadline_at=(started + timedelta(minutes=10)).isoformat().replace("+00:00", "Z"),
+        deadline_at=(started + timedelta(minutes=10))
+        .isoformat()
+        .replace("+00:00", "Z"),
         now=started,
     )
     duplicate_create = controller.create_run(
@@ -68,9 +88,16 @@ def run_fixture(
         source_cursors=spec.source_cursors,
         schedule_epoch=spec.schedule_epoch,
         data_mode=DataMode.CAPTURED_REPLAY,
+        privacy_receipt_id=str(privacy_receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=datetime.fromisoformat(
+            spec.schedule_epoch.replace("Z", "+00:00")
+        ),
         budget_snapshot=_BUDGET,
         trace_id=trace_id,
-        deadline_at=(started + timedelta(minutes=10)).isoformat().replace("+00:00", "Z"),
+        deadline_at=(started + timedelta(minutes=10))
+        .isoformat()
+        .replace("+00:00", "Z"),
         now=started + timedelta(milliseconds=1),
     )
     queued = controller.transition(
@@ -161,7 +188,9 @@ def run_fixture(
     if not events:
         raise RuntimeError("fixture_scan_run_events_missing")
     last_event = events[-1]
-    policy_artifacts = [item for item in artifacts if item["schema_name"] == "PolicyDecision"]
+    policy_artifacts = [
+        item for item in artifacts if item["schema_name"] == "PolicyDecision"
+    ]
     failures = [item for item in artifacts if item["schema_name"] == "FailureReceipt"]
     if policy_artifacts:
         reasons = list(policy_artifacts[0]["reason_codes"])

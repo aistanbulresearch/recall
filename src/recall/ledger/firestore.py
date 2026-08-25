@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from collections.abc import Mapping
@@ -7,6 +8,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid5
 
+import google.auth
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_client import BaseClient
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -16,6 +18,11 @@ from recall.contracts.enums import ScanRunEventCode, ScanRunState
 from recall.contracts.payloads.lifecycle import ScanRunPayload, WatchCasePayload
 from recall.controller.lifecycle import require_transition
 
+from .admission import (
+    PrivacyReceiptVerifier,
+    validate_scan_run_admission,
+    validate_watch_case_admission,
+)
 from .firestore_terminal import FirestoreTerminalMixin
 from .models import (
     COLLECTION_NAMES,
@@ -39,6 +46,10 @@ class FirestoreLedger(FirestoreTerminalMixin):
         *,
         collection_prefix: str = "",
         cleanup_allowed: bool = False,
+        privacy_receipt_verifier: PrivacyReceiptVerifier | None = None,
+        persistence_surface: str = "FIRESTORE_UNVERIFIED",
+        project_sha256: str = "NOT_VERIFIED",
+        database: str = "(default)",
     ) -> None:
         if not _PREFIX.fullmatch(collection_prefix):
             raise ValueError("collection_prefix_invalid")
@@ -47,21 +58,59 @@ class FirestoreLedger(FirestoreTerminalMixin):
         self._client = client
         self._prefix = collection_prefix
         self._cleanup_allowed = cleanup_allowed
+        self._privacy_receipt_verifier = privacy_receipt_verifier
+        self._persistence_surface = persistence_surface
+        self._project_sha256 = project_sha256
+        self._database = database
 
     @classmethod
     def from_default_credentials(
-        cls, *, collection_prefix: str = ""
+        cls,
+        *,
+        collection_prefix: str = "",
+        privacy_receipt_verifier: PrivacyReceiptVerifier | None = None,
+        expected_project_sha256: str | None = None,
+        database: str = "(default)",
+        require_live: bool = False,
     ) -> "FirestoreLedger":
         emulator = bool(os.getenv("FIRESTORE_EMULATOR_HOST"))
+        if require_live and emulator:
+            raise ValueError("live_firestore_emulator_forbidden")
         if not emulator and collection_prefix and not collection_prefix.startswith(
             "dev_recall_"
         ):
             raise ValueError("live_collection_prefix_must_start_with_dev_recall")
+        credentials, default_project = google.auth.default()
+        project = (
+            os.getenv("RECALL_GCP_PROJECT")
+            or default_project
+            or getattr(credentials, "quota_project_id", None)
+        )
+        if not project:
+            raise ValueError("firestore_project_unresolved")
+        project_sha256 = hashlib.sha256(project.encode("utf-8")).hexdigest()
+        if (
+            expected_project_sha256 is not None
+            and project_sha256 != expected_project_sha256
+        ):
+            raise ValueError("firestore_project_mismatch")
+        if database != "(default)":
+            raise ValueError("firestore_database_mismatch")
         cleanup_allowed = emulator or collection_prefix.startswith("dev_recall_")
         return cls(
-            firestore.Client(database="(default)"),
+            firestore.Client(
+                project=project,
+                credentials=credentials,
+                database=database,
+            ),
             collection_prefix=collection_prefix,
             cleanup_allowed=cleanup_allowed,
+            privacy_receipt_verifier=privacy_receipt_verifier,
+            persistence_surface=(
+                "FIRESTORE_EMULATOR" if emulator else "LIVE_FIRESTORE"
+            ),
+            project_sha256=project_sha256,
+            database=database,
         )
 
     def _collection(self, name: str) -> Any:
@@ -90,7 +139,11 @@ class FirestoreLedger(FirestoreTerminalMixin):
         return artifact
 
     def create_watch_case(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        cloud_bound_payload: Mapping[str, Any],
+        now: datetime,
     ) -> tuple[WatchCaseRecord, bool]:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
         if artifact.schema_name != "WatchCase" or not isinstance(
@@ -99,7 +152,12 @@ class FirestoreLedger(FirestoreTerminalMixin):
             raise ContractError("contract_schema_invalid", "WatchCase")
         if artifact.case_id is None:
             raise ContractError("contract_required_value_missing", "case_id")
+        if len(artifact.input_artifact_ids) != 1:
+            raise ContractError("privacy_not_accepted", "watch_case_receipt_link")
         case_reference = self._collection("watch_cases").document(artifact.case_id)
+        receipt_reference = self._collection("artifacts").document(
+            artifact.input_artifact_ids[0]
+        )
         artifact_reference = self._collection("artifacts").document(
             artifact.artifact_id
         )
@@ -107,10 +165,31 @@ class FirestoreLedger(FirestoreTerminalMixin):
 
         @firestore.transactional
         def create_once(txn: Any) -> tuple[dict[str, object], bool]:
-            snapshot = case_reference.get(transaction=txn)
-            if snapshot.exists:
-                existing = WatchCaseRecord.from_wire(snapshot.to_dict())
-                if existing.artifact_id != artifact.artifact_id:
+            case_snapshot = case_reference.get(transaction=txn)
+            receipt_snapshot = receipt_reference.get(transaction=txn)
+            artifact_snapshot = artifact_reference.get(transaction=txn)
+            validate_watch_case_admission(
+                watch_case=artifact,
+                receipt_wire=(
+                    receipt_snapshot.to_dict() if receipt_snapshot.exists else None
+                ),
+                cloud_payload_wire=cloud_bound_payload,
+                verify_receipt=self._privacy_receipt_verifier,
+            )
+            if case_snapshot.exists:
+                existing = WatchCaseRecord.from_wire(case_snapshot.to_dict())
+                if not artifact_snapshot.exists:
+                    raise ContractError(
+                        "artifact_integrity_failed", artifact.case_id
+                    )
+                existing_artifact = parse_artifact(
+                    artifact_snapshot.to_dict(),
+                    authorized_producers=PRODUCER_REGISTRY,
+                )
+                if (
+                    existing.artifact_id != artifact.artifact_id
+                    or existing_artifact.content_hash != artifact.content_hash
+                ):
                     raise ContractError("artifact_integrity_failed", artifact.case_id)
                 return existing.to_wire(), False
             payload = artifact.payload
@@ -136,7 +215,13 @@ class FirestoreLedger(FirestoreTerminalMixin):
         return WatchCaseRecord.from_wire(wire), created
 
     def create_scan_run(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        expected_watch_case_version: int,
+        expected_source_cursors: Mapping[str, str],
+        triggered_at: datetime,
+        now: datetime,
     ) -> tuple[ScanRunRecord, bool]:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
         if artifact.schema_name != "ScanRun" or not isinstance(
@@ -154,14 +239,78 @@ class FirestoreLedger(FirestoreTerminalMixin):
         )
         event_id = str(uuid5(UUID(artifact.run_id), "scan-run-event:1"))
         event_reference = self._collection("scan_run_events").document(event_id)
+        payload = artifact.payload
+        assert isinstance(payload, ScanRunPayload)
+        case_reference = self._collection("watch_cases").document(
+            payload.watch_case_id
+        )
         transaction = self._client.transaction()
 
         @firestore.transactional
         def create_once(txn: Any) -> tuple[dict[str, object], bool]:
-            snapshot = run_reference.get(transaction=txn)
-            if snapshot.exists:
-                existing = ScanRunRecord.from_wire(snapshot.to_dict())
-                if existing.scan_run_artifact_id != artifact.artifact_id:
+            run_snapshot = run_reference.get(transaction=txn)
+            case_snapshot = case_reference.get(transaction=txn)
+            scan_artifact_snapshot = artifact_reference.get(transaction=txn)
+            watch_record = (
+                WatchCaseRecord.from_wire(case_snapshot.to_dict())
+                if case_snapshot.exists
+                else None
+            )
+            watch_reference = (
+                None
+                if watch_record is None
+                else self._collection("artifacts").document(watch_record.artifact_id)
+            )
+            watch_snapshot = (
+                None
+                if watch_reference is None
+                else watch_reference.get(transaction=txn)
+            )
+            watch_wire = (
+                None
+                if watch_snapshot is None or not watch_snapshot.exists
+                else watch_snapshot.to_dict()
+            )
+            receipt_reference = None
+            if watch_wire is not None:
+                watch_artifact = parse_artifact(
+                    watch_wire, authorized_producers=PRODUCER_REGISTRY
+                )
+                if len(watch_artifact.input_artifact_ids) == 1:
+                    receipt_reference = self._collection("artifacts").document(
+                        watch_artifact.input_artifact_ids[0]
+                    )
+            receipt_snapshot = (
+                None
+                if receipt_reference is None
+                else receipt_reference.get(transaction=txn)
+            )
+            validate_scan_run_admission(
+                scan_run=artifact,
+                receipt_wire=(
+                    None
+                    if receipt_snapshot is None or not receipt_snapshot.exists
+                    else receipt_snapshot.to_dict()
+                ),
+                watch_case_wire=watch_wire,
+                watch_case_record=watch_record,
+                expected_watch_case_version=expected_watch_case_version,
+                expected_source_cursors=expected_source_cursors,
+                triggered_at=triggered_at,
+                verify_receipt=self._privacy_receipt_verifier,
+            )
+            if run_snapshot.exists:
+                existing = ScanRunRecord.from_wire(run_snapshot.to_dict())
+                if not scan_artifact_snapshot.exists:
+                    raise ContractError("artifact_integrity_failed", artifact.run_id)
+                existing_artifact = parse_artifact(
+                    scan_artifact_snapshot.to_dict(),
+                    authorized_producers=PRODUCER_REGISTRY,
+                )
+                if (
+                    existing.scan_run_artifact_id != artifact.artifact_id
+                    or existing_artifact.content_hash != artifact.content_hash
+                ):
                     raise ContractError("artifact_integrity_failed", artifact.run_id)
                 return existing.to_wire(), False
             record = ScanRunRecord(
@@ -195,6 +344,13 @@ class FirestoreLedger(FirestoreTerminalMixin):
 
         wire, created = create_once(transaction)
         return ScanRunRecord.from_wire(wire), created
+
+    def backend_metadata(self) -> Mapping[str, str]:
+        return {
+            "persistence_surface": self._persistence_surface,
+            "project_sha256": self._project_sha256,
+            "database": self._database,
+        }
 
     def get_artifact(self, artifact_id: str) -> dict[str, object] | None:
         snapshot = self._collection("artifacts").document(artifact_id).get()

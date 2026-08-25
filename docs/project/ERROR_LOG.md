@@ -2,6 +2,17 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-25-C: Day-1 pre-run verification exposed environment-bound checks
+
+| Field | Value |
+|---|---|
+| Task | Day-1 scheduler pre-run verification |
+| Severity | Medium |
+| Observed | The first broad core run advanced to 44% and then produced no output; it was interrupted rather than reported green. Isolated `tests/platform/test_gcloud_token.py` reproduced the same behavior after one passing test and was interrupted after 90 seconds. `compileall` initially hit an existing OneDrive `__pycache__` rename denial, and the repo environment has no `ruff` module. |
+| Impact | No product assertion failed and no cloud write occurred, but the broad suite cannot be represented as a completed PASS from this process tree. |
+| Resolution | Re-ran source compilation with a project-local `PYTHONPYCACHEPREFIX` (PASS), split suites by boundary, and retained the process-spawning token test as an explicit unresolved environment gate. Final pre-commit bounded core passed 261/261, privacy 140/140, and platform excluding that exact file 234/234. |
+| Status | Open for the token-test process-tree trigger; product implementation proceeds only through the independent review and Judge gates. |
+
 ## ERR-2026-08-14-001: GitHub CLI config access denied
 
 | Field | Value |

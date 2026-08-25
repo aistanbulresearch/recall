@@ -12,6 +12,11 @@ from recall.contracts.enums import ScanRunEventCode, ScanRunState
 from recall.contracts.payloads.lifecycle import ScanRunPayload, WatchCasePayload
 from recall.controller.lifecycle import require_transition
 
+from .admission import (
+    PrivacyReceiptVerifier,
+    validate_scan_run_admission,
+    validate_watch_case_admission,
+)
 from .memory_terminal import InMemoryTerminalMixin
 from .models import (
     COLLECTION_NAMES,
@@ -26,12 +31,15 @@ from .producers import PRODUCER_REGISTRY
 class InMemoryLedger(InMemoryTerminalMixin):
     collection_names = COLLECTION_NAMES
 
-    def __init__(self) -> None:
+    def __init__(
+        self, *, privacy_receipt_verifier: PrivacyReceiptVerifier | None = None
+    ) -> None:
         self._artifacts: dict[str, dict[str, object]] = {}
         self._scan_runs: dict[str, ScanRunRecord] = {}
         self._scan_run_events: dict[str, ScanRunEventRecord] = {}
         self._watch_cases: dict[str, WatchCaseRecord] = {}
         self._review_tasks: dict[str, ReviewTaskRecord] = {}
+        self._privacy_receipt_verifier = privacy_receipt_verifier
         self._lock = RLock()
 
     def append_artifact(self, value: Mapping[str, Any]) -> Artifact:
@@ -50,7 +58,11 @@ class InMemoryLedger(InMemoryTerminalMixin):
             return artifact
 
     def create_watch_case(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        cloud_bound_payload: Mapping[str, Any],
+        now: datetime,
     ) -> tuple[WatchCaseRecord, bool]:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
         if artifact.schema_name != "WatchCase" or not isinstance(
@@ -60,9 +72,31 @@ class InMemoryLedger(InMemoryTerminalMixin):
         if artifact.case_id is None:
             raise ContractError("contract_required_value_missing", "case_id")
         with self._lock:
+            receipt_wire = (
+                self._artifacts.get(artifact.input_artifact_ids[0])
+                if len(artifact.input_artifact_ids) == 1
+                else None
+            )
+            validate_watch_case_admission(
+                watch_case=artifact,
+                receipt_wire=receipt_wire,
+                cloud_payload_wire=cloud_bound_payload,
+                verify_receipt=self._privacy_receipt_verifier,
+            )
             existing = self._watch_cases.get(artifact.case_id)
             if existing is not None:
-                if existing.artifact_id != artifact.artifact_id:
+                existing_wire = self._artifacts.get(existing.artifact_id)
+                if existing_wire is None:
+                    raise ContractError(
+                        "artifact_integrity_failed", artifact.case_id
+                    )
+                existing_artifact = parse_artifact(
+                    existing_wire, authorized_producers=PRODUCER_REGISTRY
+                )
+                if (
+                    existing.artifact_id != artifact.artifact_id
+                    or existing_artifact.content_hash != artifact.content_hash
+                ):
                     raise ContractError("artifact_integrity_failed", artifact.case_id)
                 return existing, False
             self.append_artifact(value)
@@ -84,7 +118,13 @@ class InMemoryLedger(InMemoryTerminalMixin):
             return record, True
 
     def create_scan_run(
-        self, value: Mapping[str, Any], *, now: datetime
+        self,
+        value: Mapping[str, Any],
+        *,
+        expected_watch_case_version: int,
+        expected_source_cursors: Mapping[str, str],
+        triggered_at: datetime,
+        now: datetime,
     ) -> tuple[ScanRunRecord, bool]:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
         if artifact.schema_name != "ScanRun" or not isinstance(
@@ -97,9 +137,47 @@ class InMemoryLedger(InMemoryTerminalMixin):
             None, ScanRunEventCode.RUN_CREATED, ScanRunState.CREATED
         )
         with self._lock:
+            payload = artifact.payload
+            assert isinstance(payload, ScanRunPayload)
+            watch_record = self._watch_cases.get(payload.watch_case_id)
+            watch_wire = (
+                None
+                if watch_record is None
+                else self._artifacts.get(watch_record.artifact_id)
+            )
+            receipt_wire = None
+            if watch_wire is not None:
+                watch_artifact = parse_artifact(
+                    watch_wire, authorized_producers=PRODUCER_REGISTRY
+                )
+                if len(watch_artifact.input_artifact_ids) == 1:
+                    receipt_wire = self._artifacts.get(
+                        watch_artifact.input_artifact_ids[0]
+                    )
+            validate_scan_run_admission(
+                scan_run=artifact,
+                receipt_wire=receipt_wire,
+                watch_case_wire=watch_wire,
+                watch_case_record=watch_record,
+                expected_watch_case_version=expected_watch_case_version,
+                expected_source_cursors=expected_source_cursors,
+                triggered_at=triggered_at,
+                verify_receipt=self._privacy_receipt_verifier,
+            )
             existing = self._scan_runs.get(artifact.run_id)
             if existing is not None:
-                if existing.scan_run_artifact_id != artifact.artifact_id:
+                existing_wire = self._artifacts.get(
+                    str(existing.scan_run_artifact_id)
+                )
+                if existing_wire is None:
+                    raise ContractError("artifact_integrity_failed", artifact.run_id)
+                existing_artifact = parse_artifact(
+                    existing_wire, authorized_producers=PRODUCER_REGISTRY
+                )
+                if (
+                    existing.scan_run_artifact_id != artifact.artifact_id
+                    or existing_artifact.content_hash != artifact.content_hash
+                ):
                     raise ContractError("artifact_integrity_failed", artifact.run_id)
                 return existing, False
             self.append_artifact(value)
@@ -130,6 +208,13 @@ class InMemoryLedger(InMemoryTerminalMixin):
             self._scan_runs[record.run_id] = record
             self._scan_run_events[event.event_id] = event
             return record, True
+
+    def backend_metadata(self) -> Mapping[str, str]:
+        return {
+            "persistence_surface": "IN_MEMORY_TEST",
+            "project_sha256": "NOT_APPLICABLE",
+            "database": "NOT_APPLICABLE",
+        }
 
     def get_artifact(self, artifact_id: str) -> dict[str, object] | None:
         value = self._artifacts.get(artifact_id)

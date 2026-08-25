@@ -8,6 +8,7 @@ import pytest
 
 from recall.demo import parse_fixture_spec, run_fixture
 from recall.ledger import InMemoryLedger
+from recall.demo.admission import verify_synthetic_privacy_receipt
 
 
 FIXTURE_DIR = Path(__file__).resolve().parents[1] / "fixtures"
@@ -37,9 +38,12 @@ def test_fixture_runs_are_driven_by_validated_artifacts(
 ) -> None:
     raw = json.loads((FIXTURE_DIR / filename).read_text(encoding="utf-8"))
     assert raw.get("expected_outcome") is None
+    spec = parse_fixture_spec(raw)
     report = run_fixture(
-        InMemoryLedger(),
-        parse_fixture_spec(raw),
+        InMemoryLedger(
+            privacy_receipt_verifier=verify_synthetic_privacy_receipt
+        ),
+        spec,
         execution_id=f"test-{filename}",
         now=datetime(2026, 8, 22, tzinfo=UTC),
     )
@@ -71,6 +75,6 @@ def test_fixture_runs_are_driven_by_validated_artifacts(
         }
     else:
         assert report["watch_case_read_back"]["last_verified_snapshot_id"] is None
-        assert report["watch_case_read_back"]["source_cursors"] == {
-            "synthetic-source": "cursor-000"
-        }
+        assert report["watch_case_read_back"]["source_cursors"] == dict(
+            spec.source_cursors
+        )

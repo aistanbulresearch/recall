@@ -1,5 +1,12 @@
 # Recall Status
 
+## 2026-08-25 Day-1 scheduler pre-run checkpoint
+
+- Integrated product reference `c46d33499027b8a9a3edfc11c8b6aa654dc76852` remains the last four-suite GREEN base (core 241, platform 259, privacy 140, web 48).
+- Minimal `DAY1_MANUAL` cohort scheduling is implemented locally with Controller-level PrivacyReceipt admission, ledger transaction revalidation, three fixed SYNTHETIC WatchCases, one due selection, and duplicate-trigger idempotency.
+- Focused scheduler/admission tests pass 24/24 after final review fixes; bounded core passes 261/261; privacy passes 140/140; platform excluding the known process-spawning token file passes 234/234. The isolated token file again hung after its first test in this coordinator process tree and was interrupted; this is recorded in ERROR_LOG and is not reported as green.
+- Live Firestore execution is `NOT YET RUN`. It is blocked until the implementation/prediction commit, stable-tree code review, and Master Judge PASS. No managed recurring schedule or terminal agent execution claim is made.
+
 ## Snapshot
 
 | Field | Current truth |
