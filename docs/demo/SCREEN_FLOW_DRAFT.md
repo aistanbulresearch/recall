@@ -1,6 +1,7 @@
 # Screen-flow draft, four-minute demo
 
 - Status: **DRAFT for owner approval. Visuals are not final and nothing is recorded until this is approved.**
+- Updated 2026-08-25: the live-path decision in section 4 has been made by the owner and is recorded, not proposed.
 - Date: 2026-08-25
 - Lane: L3
 - Governed by: `docs/demo/FOUR_MINUTE_STORYBOARD.md` v2.1, frozen allocation
@@ -223,17 +224,19 @@ Rehearsal decides whether it passes. If it does not, the frame changes again.
 | Evidence card | opening | largest new surface | yes, it is never-cut |
 | DENIED frame headline | fault run | small, composition only | yes, the gate applies |
 | `resolution_mode` badge | registry | small | yes, named in visible proof |
-| Live binding to `run_fixture` output | audited run | M2 work | see below |
+| Live binding to `run_fixture` output | audited run | M2 work, scheduled | yes, the live path ships |
 
-On the live binding: the audited-run segment renders correctly today against a
-static bundle. If M2 binding is not finished, the segment still shows real
-artifact-derived values, but they are values from a recorded run rather than the
-run being watched. The storyboard's critical-live-path rule requires the
-controller, agent invocations, artifact writes, policy evaluation, database
-transitions, and interface updates to execute during recording. **A static bundle
-does not satisfy that rule.** This is the one item where falling back changes
-what the video is entitled to claim, so it needs an explicit decision rather than
-a silent substitution.
+**Decided by the owner, 2026-08-25: the live path ships.** The audited-run
+segment films the real controller, agent invocations, artifact writes, policy
+evaluation, and database transitions, executing during recording, which is what
+the storyboard's critical-live-path rule requires.
+
+The M2 UI binding is therefore a scheduled deliverable with a hard land-by ahead
+of the 28th freeze, not a contingency. The static bundle remains rehearsal
+rendering only.
+
+There is no fallback branch in this plan and no alternative claim language to
+prepare. The video claims the live system because the live system will be there.
 
 ## 5. What the owner is being asked to approve
 
@@ -242,7 +245,9 @@ a silent substitution.
    share a counter.
 3. The DENIED frame change, and that rehearsal rather than this document decides
    whether it passes the gate.
-4. The build list in section 4, and specifically the live-binding decision.
+4. The build list in section 4. The live-binding question that was open when this
+   draft was written has since been decided by the owner and is recorded above,
+   so it is no longer among the approvals sought here.
 
 Visuals are not final. Approving this approves what is shown and where it comes
 from, not how it looks.
