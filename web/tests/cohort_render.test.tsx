@@ -47,8 +47,20 @@ function manifest(overrides: Record<string, unknown> = {}) {
     ],
     vcv_anchors: [ANCHOR],
     execution_history: [
-      { day_index: 1, executed_at: '2026-08-25T06:00:00Z' },
-      { day_index: 2, executed_at: '2026-08-26T06:00:00Z' },
+      {
+        day_index: 1,
+        executed_at: '2026-08-25T06:00:00Z',
+        selected_for_date: '2026-08-25',
+        runs_created: 3,
+        runs_predicted: 3,
+      },
+      {
+        day_index: 2,
+        executed_at: '2026-08-26T06:00:00Z',
+        selected_for_date: '2026-08-26',
+        runs_created: 9,
+        runs_predicted: 9,
+      },
     ],
     ...overrides,
   };
@@ -106,12 +118,51 @@ describe('cohort panel rendering', () => {
     expect(proven).toContain('data-proven="true"');
   });
 
+  it('withholds the sentence when selection was pinned to one date', () => {
+    // Four wakeups, one selection date. The strongest reason this panel exists.
+    const markup = renderWith([
+      manifest({
+        execution_history: [
+          {
+            day_index: 1,
+            executed_at: '2026-08-25T06:00:00Z',
+            selected_for_date: '2026-08-25',
+            runs_created: 3,
+            runs_predicted: 3,
+          },
+          {
+            day_index: 2,
+            executed_at: '2026-08-26T06:00:00Z',
+            selected_for_date: '2026-08-25',
+            runs_created: 0,
+            runs_predicted: 0,
+          },
+        ],
+      }),
+    ]);
+    expect(markup).toContain('data-proven="false"');
+    expect(markup).not.toContain('of operation');
+    expect(markup).toContain('selected work for a different date than it ran');
+  });
+
   it('falls back to counting cycles when two runs share a date', () => {
     const markup = renderWith([
       manifest({
         execution_history: [
-          { day_index: 1, executed_at: '2026-08-25T19:00:00Z' },
-          { day_index: 2, executed_at: '2026-08-25T21:00:00Z' },
+          {
+            day_index: 1,
+            executed_at: '2026-08-25T19:00:00Z',
+            selected_for_date: '2026-08-25',
+            runs_created: 3,
+            runs_predicted: 3,
+          },
+          {
+            day_index: 2,
+            executed_at: '2026-08-25T21:00:00Z',
+            selected_for_date: '2026-08-25',
+            runs_created: 3,
+            runs_predicted: 3,
+          },
         ],
       }),
     ]);

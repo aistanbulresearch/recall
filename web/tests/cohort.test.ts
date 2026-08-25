@@ -18,8 +18,19 @@ import {
 } from '../src/viewmodel/cohort';
 import type { ArtifactBundle } from '../src/viewmodel/types';
 
-function execution(day: number, at: string) {
-  return { day_index: day, executed_at: at };
+/**
+ * A day that genuinely advanced the cohort: it ran on a date, selected work FOR
+ * that same date, and the selection produced runs.
+ */
+function execution(day: number, at: string, overrides: Record<string, unknown> = {}) {
+  return {
+    day_index: day,
+    executed_at: at,
+    selected_for_date: at.slice(0, 10),
+    runs_created: 3,
+    runs_predicted: 3,
+    ...overrides,
+  };
 }
 
 const FOUR_REAL_DAYS = [
@@ -87,6 +98,58 @@ describe('elapsed days are proven, never assumed', () => {
     expect(span.cycles).toBe(0);
     expect(span.proven).toBe(false);
     expect(span.withheldBecause).toBe('no execution record');
+  });
+
+  it('refuses when selection is pinned to a date the day did not run on', () => {
+    // The date-pinned failure: execution dates advance, selection does not, so
+    // days 2-4 create runs that still belong to day 1. Timestamps alone pass.
+    const span = operationSpan([
+      execution(1, '2026-08-25T06:00:00Z', { selected_for_date: '2026-08-25' }),
+      execution(2, '2026-08-26T06:00:00Z', { selected_for_date: '2026-08-25' }),
+      execution(3, '2026-08-27T06:00:00Z', { selected_for_date: '2026-08-25' }),
+    ]);
+    expect(span.proven).toBe(false);
+    expect(span.withheldBecause).toBe('a day selected work for a different date than it ran');
+    // The distinct dates are real; they are just not evidence of cohort days.
+    expect(span.distinctDays).toBe(3);
+  });
+
+  it('refuses when a day does not say what date it selected for', () => {
+    const span = operationSpan([
+      execution(1, '2026-08-25T06:00:00Z'),
+      execution(2, '2026-08-26T06:00:00Z', { selected_for_date: undefined }),
+    ]);
+    expect(span.proven).toBe(false);
+    expect(span.withheldBecause).toBe('a day did not declare the date its selection was driven by');
+  });
+
+  it('refuses when a day woke up and created nothing it had predicted', () => {
+    const span = operationSpan([
+      execution(1, '2026-08-25T06:00:00Z'),
+      execution(2, '2026-08-26T06:00:00Z', { runs_created: 0, runs_predicted: 4 }),
+    ]);
+    expect(span.proven).toBe(false);
+    expect(span.withheldBecause).toBe('a day created no runs and none were predicted');
+  });
+
+  it('refuses when a day records no selection evidence at all', () => {
+    const span = operationSpan([
+      execution(1, '2026-08-25T06:00:00Z'),
+      execution(2, '2026-08-26T06:00:00Z', { runs_created: undefined }),
+    ]);
+    expect(span.proven).toBe(false);
+    expect(span.withheldBecause).toBe('a day recorded no selection evidence');
+  });
+
+  it('accepts a quiet day that pre-committed to creating nothing', () => {
+    // Zero runs is a real cohort day when zero was predicted before it ran. It
+    // is only suspicious when the day expected work and produced none.
+    const span = operationSpan([
+      execution(1, '2026-08-25T06:00:00Z'),
+      execution(2, '2026-08-26T06:00:00Z', { runs_created: 0, runs_predicted: 0 }),
+    ]);
+    expect(span.proven).toBe(true);
+    expect(span.sentence).toContain('Day 2 of operation');
   });
 
   it('counts cycles truthfully even when it withholds the span', () => {

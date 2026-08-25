@@ -2,18 +2,31 @@
  * Cohort day derivations.
  *
  * Counters are read from the manifest, never accumulated here. What IS derived
- * here is the one claim a counter cannot support: that the run days were
- * distinct elapsed days rather than several runs in a single evening. A total
- * of four runs looks identical either way, so the stronger sentence is spoken
- * only when the execution timestamps prove it, and the weaker one otherwise.
+ * here is the claim no counter can support: that four days of cohort operation
+ * happened. Four runs look identical whether they took four days or one
+ * evening, so the sentence is spoken only when the record proves it.
  *
- * This module therefore refuses upward: every uncertainty resolves to the
- * claim that says less.
+ * Two different things can masquerade as that proof, and both are guarded.
+ * Several runs in one evening produce four totals and one date. A job whose
+ * selection is pinned to a constant date produces four dates while every run it
+ * creates still belongs to the first day: perfect timestamps, false sentence.
+ * The subject of the claim is cohort DAYS, not job wakeups, so each day must
+ * show it selected work for the day it ran and that the selection produced
+ * something.
+ *
+ * This module refuses upward: every uncertainty resolves to the claim that
+ * says less.
  */
 
 export interface CohortExecution {
   day_index?: unknown;
   executed_at?: unknown;
+  /** The date the day's case selection was driven by. */
+  selected_for_date?: unknown;
+  /** Runs this day actually created. */
+  runs_created?: unknown;
+  /** Runs this day pre-committed to creating, before it ran. */
+  runs_predicted?: unknown;
 }
 
 export interface CohortCase {
@@ -61,10 +74,18 @@ function plural(count: number, word: string): string {
 /**
  * Decide what the execution history is entitled to claim.
  *
- * The strong claim requires all of: at least two records, every timestamp
- * parseable, one record per distinct calendar date, and day order matching
- * time order. Anything less falls back to counting cycles, which is true
- * regardless of when they ran.
+ * The claim is about COHORT DAYS, not about a job waking up, and those are not
+ * the same thing. Selection pinned to a constant date would execute on four
+ * dates while every run it created still belonged to the first: the timestamps
+ * would look perfect and the sentence would still be false. So each day must
+ * also show that it selected work FOR the day it ran, and that the selection
+ * produced runs or pre-committed to producing none.
+ *
+ * The strong claim requires all of: at least two records; every timestamp
+ * parseable; one record per distinct calendar date; day order matching time
+ * order; each day's selection date equal to the date it executed; and each day
+ * either creating runs or having predicted zero before it ran. Anything less
+ * falls back to counting cycles, which stays true however they ran.
  */
 export function operationSpan(executions: readonly CohortExecution[]): OperationSpan {
   const cycles = executions.length;
@@ -106,6 +127,47 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   const ordered = byDay.every((entry, index) => index === 0 || entry.at > byDay[index - 1].at);
   if (!ordered) {
     return { ...weak('day order and execution order disagree'), distinctDays };
+  }
+
+  // A day that selected work for a date other than the one it ran on did not
+  // advance the cohort, whatever its timestamp says. This is the exact shape a
+  // date-pinned selection leaves behind: execution dates advance, selection
+  // date does not.
+  const pinned = executions.find((entry, index) => {
+    const declared = entry.selected_for_date;
+    return typeof declared !== 'string' || declared !== dates[index];
+  });
+  if (pinned !== undefined) {
+    return {
+      ...weak(
+        typeof pinned.selected_for_date === 'string'
+          ? 'a day selected work for a different date than it ran'
+          : 'a day did not declare the date its selection was driven by',
+      ),
+      distinctDays,
+      ordered: true,
+    };
+  }
+
+  // A day that woke up and selected nothing is a job running, not a cohort day.
+  // Zero counts only when zero was pre-committed before the day ran.
+  const barren = executions.find((entry) => {
+    const created = Number(entry.runs_created);
+    if (!Number.isFinite(created) || created < 0) {
+      return true;
+    }
+    return created === 0 && Number(entry.runs_predicted) !== 0;
+  });
+  if (barren !== undefined) {
+    return {
+      ...weak(
+        Number.isFinite(Number(barren.runs_created))
+          ? 'a day created no runs and none were predicted'
+          : 'a day recorded no selection evidence',
+      ),
+      distinctDays,
+      ordered: true,
+    };
   }
 
   if (cycles < 2) {
