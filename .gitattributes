@@ -26,6 +26,16 @@ corpus/FROZEN_CONFIG.json -text -diff whitespace=cr-at-eol
 corpus/PRIVACY_CORPUS_MANIFEST.json -text -diff whitespace=cr-at-eol
 corpus/ARM_DECLARATION.json -text -diff whitespace=cr-at-eol
 
+# Prose under the evidence tree stays reviewable. The captures are opaque on
+# purpose, but an index that records what each capture does not show is the one
+# surface a reviewer reads as text, and a verdict change in it must be legible as
+# a diff. Only the diff attribute is restored: -text and the whitespace rule still
+# apply, so these files stay byte-stable as well as readable. Scoped to .md rather
+# than all prose extensions because .txt under this tree is a capture format, not
+# prose.
+artifacts/evidence/**/*.md diff
+artifacts/evidence/*.md diff
+
 # Hash-bound code and data. Byte faithful for the same reason, but reviewers
 # legitimately read these as diffs, so they keep textual diff and take the
 # whitespace rule alone.
