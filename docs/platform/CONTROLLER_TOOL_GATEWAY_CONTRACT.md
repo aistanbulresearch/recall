@@ -145,8 +145,7 @@ than risking duplicate public-source or ledger reads.
    principal/role, and Controller-issued capability before backend dispatch.
 4. Controller identity alone has Firestore access and the capability secret.
 5. Startup hash gate passes inside the deployed image.
-6. Wrong audience, issuer, principal, expired token, and missing auth fail before
-   receipt/backend dispatch.
+6. Wrong issuer, wrong principal and missing auth are refused by Cloud Run IAM before the container; wrong audience is refused by application endpoint authentication before backend dispatch; expired-token isolation is NOT EXERCISED (reason recorded in artifacts/evidence/L1_EVIDENCE_INDEX.md).
 7. Managed session state reaches each FunctionTool, three real tools return
    non-echo results, and each call has one persisted receipt.
 8. Exact request retry yields one receipt and no second backend invocation.
