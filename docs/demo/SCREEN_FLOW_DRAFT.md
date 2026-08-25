@@ -117,9 +117,11 @@ Visible proof: `UI-GLOBAL-RUN-ID`, `UI-GLOBAL-TRACE-ID`, `UI-AGENT-STATE`,
 `UI-CITATION-VERIFIED`, `UI-CITATION-STATUS`, `UI-POLICY-OUTCOME`,
 `UI-POLICY-REASONS`, `UI-TASK-COUNT-RUN`.
 
-**Renders today** against a static bundle. Live binding to L2's `run_fixture`
-output is M2 work and is the one dependency that could change this segment. See
-section 4.
+**Films live.** The interface renders correctly today against a static bundle,
+which is the rehearsal rendering. For the shoot it is bound to L2's `run_fixture`
+output so the controller, agent invocations, artifact writes, policy evaluation
+and database transitions execute while the camera runs. That binding is scheduled
+M2 work landing before the 28th freeze. See section 4.
 
 ### 02:38-03:13, fault run, 35s
 
