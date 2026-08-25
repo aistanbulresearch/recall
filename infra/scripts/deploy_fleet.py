@@ -24,7 +24,9 @@ that path cannot be used.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import pathlib
 import logging
 import sys
 import uuid
@@ -43,6 +45,8 @@ from recall.platform.fleet import (  # noqa: E402
     AgentCall,
     FleetMember,
     assert_agent_carries_no_tracing_flag,
+    RECALL_WHEEL,
+    GatewayBinding,
     assert_fleet_config,
     deploy_fleet,
     fleet_summary,
@@ -61,6 +65,12 @@ from recall.platform.runtime import AgentRuntime, VertexAgentEngineClient  # noq
 
 logger = logging.getLogger("recall.platform.fleet")
 
+# Per-role tool overrides, for tests only. EMPTY MEANS "no override", never
+# "no tools": build_agent_bundle falls back to the production tool set when it
+# receives None. This dict previously defaulted to {} at the call site, which is
+# not None, so every agent was built toolless and the factory refused all three
+# with agent_tool_set_invalid. A placeholder default that silently disables the
+# real thing is worse than no default.
 ROLE_TOOLS: dict[AgentRole, dict[str, Any]] = {}
 
 
@@ -72,22 +82,34 @@ def _emit(value: Any, project_id: str, redact: bool) -> None:
 def _build_app(member: FleetMember, *, bypass: bool) -> Any:
     """Build the deployable app for one member from the shared agent factory.
 
-    `to_adk_app()` passes enable_tracing=False, and passing that parameter at all
-    takes telemetry away from the environment variables: the runtime then reports
-    telemetry as on while it is off and emits no spans. While that defect is
-    unfixed, --bypass-factory-tracing-defect constructs the same AdkApp without
-    the parameter. The bypass is temporary and must be removed once the factory
-    stops passing it; the startup guard refuses the flag either way.
+    AdkApp is constructed directly and unconditionally. AgentBundle.to_adk_app()
+    is NOT used, because it calls vertexai.init() itself:
+
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT", "recall-local-smoke")
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+
+    That rewrites GLOBAL SDK state. On 2026-08-25 it repointed our deploy at a
+    hardcoded smoke project in the wrong region and dropped the staging bucket,
+    and all three creates failed 403 CONSUMER_INVALID with zero engines made.
+
+    Re-asserting the binding inside the client is defence in depth, but it
+    cannot be the whole answer here: the three members deploy CONCURRENTLY and
+    the binding is process-global, so one thread's to_adk_app() can clobber
+    another thread's binding between its rebind and its create. Not calling the
+    function that mutates the global removes the race instead of narrowing it.
+
+    The app_name is identical either way. Verified rather than assumed:
+    ROLE_NAMES[role] == role.value.lower() for all three roles.
+
+    `bypass` is retained so the CLI flag keeps working and is now inert; the
+    tracing defect it named appears fixed, and removal is queued.
     """
-
-    from recall.agents import build_agent_bundle
-
-    bundle = build_agent_bundle(member.role, tools=ROLE_TOOLS.get(member.role, {}))
-    if not bypass:
-        return bundle.to_adk_app()
 
     from vertexai import agent_engines
 
+    from recall.agents import build_agent_bundle
+
+    bundle = build_agent_bundle(member.role, tools=ROLE_TOOLS.get(member.role))
     return agent_engines.AdkApp(
         agent=bundle.agent,
         app_name=f"recall_{member.role.value.lower()}",
@@ -105,10 +127,46 @@ def _factory(bypass: bool) -> Any:
     return build
 
 
+
+def assert_wheel_is_current() -> dict[str, Any]:
+    """Refuse to deploy a wheel older than the source it claims to carry.
+
+    Agent Engine installs the wheel, not the working tree, so a stale wheel
+    deploys OLD CODE while every gate passes and the report reads clean. That
+    is the silent version of the failure we already met loudly as
+    ModuleNotFoundError: No module named 'recall'; loud is better, so this
+    makes staleness loud too.
+
+    Rebuild with: uv build --wheel -o dist
+    """
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    wheel = root / RECALL_WHEEL
+    if not wheel.exists():
+        raise PlatformError("fleet_wheel_missing", RECALL_WHEEL)
+    wheel_mtime = wheel.stat().st_mtime
+    newest_source = 0.0
+    newest_name = ""
+    for path in (root / "src" / "recall").rglob("*"):
+        if path.is_file() and path.suffix in (".py", ".txt", ".json"):
+            mtime = path.stat().st_mtime
+            if mtime > newest_source:
+                newest_source, newest_name = mtime, str(path.relative_to(root))
+    if newest_source > wheel_mtime:
+        raise PlatformError("fleet_wheel_stale", newest_name)
+    return {
+        "wheel": RECALL_WHEEL,
+        "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+        "bytes": wheel.stat().st_size,
+        "newest_source_file": newest_name,
+    }
+
+
 def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
     """Prove the configuration and the agents without touching the cloud."""
 
-    assert_fleet_config(config)
+    wheel = assert_wheel_is_current()
+    assert_fleet_config(config, gateway=GatewayBinding.from_env())
     built: list[dict[str, Any]] = []
     for member in FLEET_MEMBERS:
         try:
@@ -136,8 +194,18 @@ def cmd_plan(args: argparse.Namespace, config: PlatformConfig) -> int:
 
 
 def cmd_deploy(args: argparse.Namespace, config: PlatformConfig) -> int:
+    # Before anything is created. A stale or absent wheel means the engines
+    # start with code that is not the code in this working tree, and every
+    # other gate would still pass.
+    payload = assert_wheel_is_current()
+    logger.info("payload %s sha256 %s", payload["wheel"], payload["wheel_sha256"][:12])
     runtime = AgentRuntime(VertexAgentEngineClient(config), config)
-    results = deploy_fleet(runtime, config, _factory(args.bypass_factory_tracing_defect))
+    results = deploy_fleet(
+        runtime,
+        config,
+        _factory(args.bypass_factory_tracing_defect),
+        gateway=GatewayBinding.from_env(),
+    )
 
     catalog = verify_fleet_catalogued(
         RestRegistryClient(config), config.agent_engine_location, results

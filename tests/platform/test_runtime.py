@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -69,6 +70,8 @@ class FakeClient:
         env_vars: Mapping[str, str],
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
+        extra_packages: Sequence[str] = (),
+        gcs_dir_name: str | None = None,
     ) -> Any:
         self.create_kwargs = {
             "agent_engine": agent_engine,
@@ -77,6 +80,8 @@ class FakeClient:
             "requirements": list(requirements),
             "env_vars": dict(env_vars),
             "service_account": service_account,
+            "extra_packages": tuple(extra_packages),
+            "gcs_dir_name": gcs_dir_name,
             "resource_limits": dict(resource_limits) if resource_limits else None,
         }
         name = f"projects/test-project/locations/{REGION}/reasoningEngines/{self._next_id}"
@@ -351,3 +356,61 @@ def test_unpinned_spec_sends_no_shape_and_reads_back_none() -> None:
     engine = _runtime(client).deploy(SPEC, agent_engine=object())
     assert client.create_kwargs["resource_limits"] is None
     assert engine.resource_limits is None
+
+
+# --- the SDK binding is global, and this process does not own it alone --------
+#
+# On 2026-08-25 every fleet engine create failed 403 CONSUMER_INVALID against
+# project recall-local-smoke at locations/global. Our client had called
+# vertexai.init() with the right project, region and staging bucket at
+# construction. Between that and the create, AgentBundle.to_adk_app() called
+# vertexai.init() again -- project from GOOGLE_CLOUD_PROJECT with a hardcoded
+# smoke fallback, location from GOOGLE_CLOUD_LOCATION, which build_agent_bundle
+# had just set to "global" for the model -- silently repointing the SDK and
+# dropping the staging bucket.
+#
+# Binding once at construction is an assumption about other people's code.
+# Binding at the point of use is an invariant we hold ourselves.
+
+
+def test_the_sdk_binding_is_reasserted_before_every_create() -> None:
+    from recall.platform.runtime import VertexAgentEngineClient
+
+    bindings: list[Any] = []
+
+    class FakeEngines:
+        created: list[dict[str, Any]] = []
+
+        @staticmethod
+        def create(**kwargs: Any) -> Any:
+            FakeEngines.created.append(kwargs)
+            return SimpleNamespace(
+                resource_name="projects/p/locations/us-central1/reasoningEngines/1"
+            )
+
+    def fake_initialise(config: Any) -> Any:
+        bindings.append(config)
+        return FakeEngines
+
+    original = VertexAgentEngineClient._initialise
+    VertexAgentEngineClient._initialise = staticmethod(fake_initialise)  # type: ignore[method-assign]
+    try:
+        client = VertexAgentEngineClient(CONFIG)
+        assert len(bindings) == 1, "constructing the client binds once"
+
+        client.create(
+            agent_engine=object(),
+            display_name="recall-watcher",
+            description="d",
+            requirements=[],
+            env_vars={},
+            service_account=None,
+        )
+        assert len(bindings) == 2, (
+            "the binding must be re-asserted at the point of use, or a third "
+            "party's vertexai.init() between construction and create silently "
+            "redirects the deploy"
+        )
+        assert bindings[-1] is CONFIG
+    finally:
+        VertexAgentEngineClient._initialise = original  # type: ignore[method-assign]

@@ -49,6 +49,15 @@ class AgentSpec:
     # Pinned explicitly so the deployed shape is a known quantity rather than a
     # default that has to be guessed when costing the run.
     resource_limits: Mapping[str, str] | None = None
+    # Local files uploaded with the agent. The fleet ships the recall wheel
+    # here: the agent is pickled by reference, so the container must be able
+    # to import recall.* to unpickle it at all.
+    extra_packages: tuple[str, ...] = ()
+    # Per-member staging directory. The SDK pickles the agent to a FIXED
+    # path by default, so concurrent creates overwrite each other and every
+    # engine loads whichever pickle won the race. Measured on 2026-08-25:
+    # three engines, three service accounts, one agent, all gates green.
+    gcs_dir_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +186,8 @@ class AgentRuntime:
             env_vars=dict(spec.env_vars),
             service_account=spec.service_account,
             resource_limits=dict(spec.resource_limits) if spec.resource_limits else None,
+            extra_packages=tuple(spec.extra_packages),
+            gcs_dir_name=spec.gcs_dir_name,
         )
         resource_name = _resource_name_of(created)
         if not isinstance(resource_name, str) or not resource_name:
@@ -380,6 +391,27 @@ class VertexAgentEngineClient:
         self._config = config
         self._engines = self._initialise(config)
 
+    def _rebind(self) -> None:
+        """Re-assert the SDK binding immediately before it is used.
+
+        vertexai.init() writes GLOBAL state, and this process does not own it
+        alone. On 2026-08-25 every engine create failed 403 CONSUMER_INVALID
+        against project recall-local-smoke at locations/global, because
+        AgentBundle.to_adk_app() calls vertexai.init() itself, resolving
+        project from GOOGLE_CLOUD_PROJECT with a hardcoded smoke-project
+        fallback and location from GOOGLE_CLOUD_LOCATION -- which
+        build_agent_bundle had just set to global for the model. Between our
+        init and our create, another lane's factory silently repointed the SDK
+        at a different project and region and dropped the staging bucket.
+
+        Binding once at construction is an assumption about everyone else's
+        behaviour. Binding at the point of use is an invariant we hold
+        ourselves, so no third party's environment mutation can redirect a
+        deploy.
+        """
+
+        self._engines = self._initialise(self._config)
+
     @staticmethod
     def _initialise(config: PlatformConfig) -> Any:
         try:
@@ -404,7 +436,10 @@ class VertexAgentEngineClient:
         env_vars: Mapping[str, str],
         service_account: str | None,
         resource_limits: Mapping[str, str] | None = None,
+        extra_packages: Sequence[str] = (),
+        gcs_dir_name: str | None = None,
     ) -> Any:
+        self._rebind()
         kwargs: dict[str, Any] = {
             "agent_engine": agent_engine,
             "display_name": display_name,
@@ -416,6 +451,10 @@ class VertexAgentEngineClient:
             kwargs["service_account"] = service_account
         if resource_limits:
             kwargs["resource_limits"] = dict(resource_limits)
+        if extra_packages:
+            kwargs["extra_packages"] = list(extra_packages)
+        if gcs_dir_name:
+            kwargs["gcs_dir_name"] = gcs_dir_name
         return self._engines.create(**kwargs)
 
     def get(self, resource_name: str) -> Any:

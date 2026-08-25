@@ -1,0 +1,83 @@
+{
+  "probe": "agent_engine_to_tool_gateway",
+  "mode": "model_mediated",
+  "resource_name": "projects/<project>/locations/us-central1/reasoningEngines/2784075041959051264",
+  "gateway_url": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app",
+  "trace_id": "a2a8dab2b90361dbb939edf88b7ae441",
+  "latency_seconds": 4.6,
+  "tool_invocation_seen": true,
+  "verdict": "CONFIG",
+  "evidence": "tool_capability_missing",
+  "invocation_error": null,
+  "raw_response": [
+    {
+      "model_version": "gemini-3.7-flash",
+      "content": {
+        "parts": [
+          {
+            "function_call": {
+              "id": "call_2024639",
+              "args": {
+                "stage": "PMID:12345678"
+              },
+              "name": "evidence_connector"
+            },
+            "thought_signature": "AY89a19ZBL8OLJqrKvuCk6mOHDSndPjxxavRVwv1b0H95e_rEy3IKvENKKY42REdYueQiEuUAwNcWJPLDsz4N6sR0Kto9muOrVnI5bUtpHuNkrcMLV7ZdxBB8UkdG_a-OsZS8qaNwOxhnlUcrjAQNHZVdHbatSLLSAyQS8KOaTTgIgnzCPuxi0p6ILHFRUa8iAdrykzW5rNMbS-LYOnUUt3MJYs8_Oo6o3ZzVOz6sPVNCpiFHm8_EJPY4VHg9Iu0e1OmzzDB3QBmNxZsQbP2bf_KSw0X-bJXh2xipY20rAVYqcaR0OaS1rhQxYdRFVipUg=="
+          }
+        ],
+        "role": "model"
+      },
+      "finish_reason": "STOP",
+      "usage_metadata": {
+        "candidates_token_count": 26,
+        "candidates_tokens_details": [
+          {
+            "modality": "TEXT",
+            "token_count": 26
+          }
+        ],
+        "prompt_token_count": 632,
+        "prompt_tokens_details": [
+          {
+            "modality": "TEXT",
+            "token_count": 632
+          }
+        ],
+        "thoughts_token_count": 51,
+        "total_token_count": 709,
+        "traffic_type": "ON_DEMAND"
+      },
+      "invocation_id": "e-f8a5be7d-7a9b-45c7-ac46-5fc3dadaeaf3",
+      "author": "evidence_watcher",
+      "actions": {
+        "state_delta": {},
+        "artifact_delta": {},
+        "requested_auth_configs": {},
+        "requested_tool_confirmations": {}
+      },
+      "node_info": {
+        "path": "evidence_watcher@1"
+      },
+      "long_running_tool_ids": [],
+      "id": "82c42ce8-27a1-4fc5-96b2-b715a654cb8a",
+      "timestamp": 1787613373.246142
+    },
+    {
+      "error_code": "RuntimeError",
+      "error_message": "tool_capability_missing",
+      "invocation_id": "e-f8a5be7d-7a9b-45c7-ac46-5fc3dadaeaf3",
+      "author": "evidence_watcher",
+      "actions": {
+        "state_delta": {},
+        "artifact_delta": {},
+        "requested_auth_configs": {},
+        "requested_tool_confirmations": {}
+      },
+      "node_info": {
+        "path": "evidence_watcher@1"
+      },
+      "id": "ff512165-8d78-4914-a9d3-799fa3aeac02",
+      "timestamp": 1787613374.8719866
+    }
+  ]
+}

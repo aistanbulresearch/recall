@@ -1,0 +1,40 @@
+{
+  "artifact": "gateway_posture_evidence",
+  "half": "after",
+  "posture": {
+    "ingress": "all",
+    "enforcement": "IAM only",
+    "iam": "run.invoker on three agent service accounts, no public principals"
+  },
+  "captured_at_utc": "2026-08-24T22:59:37.532891+00:00",
+  "caller": "outside the perimeter (developer workstation)",
+  "service_url": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app",
+  "serving_revision": "recall-tool-gateway-00007-6tg",
+  "claim": "With IAM-only enforcement the same three probes that were previously answered with an identical, credential-independent 404 now receive a reasoned refusal from the IAM layer before the container is reached. The cases are no longer indistinguishable, which is what makes negative-auth evidence interpretable at all.",
+  "results": [
+    {
+      "case": "no_auth_root",
+      "http_code": "403",
+      "seconds": "0.738593",
+      "never_200": true,
+      "never_404": true,
+      "reasoned_refusal": true
+    },
+    {
+      "case": "no_auth_invoke",
+      "http_code": "403",
+      "seconds": "0.358626",
+      "never_200": true,
+      "never_404": true,
+      "reasoned_refusal": true
+    },
+    {
+      "case": "garbage_bearer",
+      "http_code": "401",
+      "seconds": "0.337387",
+      "never_200": true,
+      "never_404": true,
+      "reasoned_refusal": true
+    }
+  ]
+}

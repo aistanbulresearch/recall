@@ -20,6 +20,7 @@ each, which is not an acceptable milestone path.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -38,12 +39,31 @@ from .runtime import AgentRuntime, AgentSpec, DeployedEngine
 
 logger = logging.getLogger(__name__)
 
+# The deployed agent is pickled BY REFERENCE: the container must import
+# recall.agents.* and recall.contracts.* to unpickle it. Without this the
+# engines are created and then fail to start with
+# ModuleNotFoundError: No module named 'recall', which reads as a platform
+# fault and is in fact a missing payload. Built with `uv build --wheel`.
+# Each member stages under its OWN directory. The SDK's default is one fixed
+# path for every deploy, which turns concurrency into a pickle race: on
+# 2026-08-25 all three engines loaded the same agent while display names,
+# service accounts, resource ids and catalog rows were all correct.
+# Concurrency is kept; the shared mutable path is removed.
+def member_staging_dir(member: "FleetMember") -> str:
+    return f"agent_engine/{member.display_name}"
+
+
+RECALL_WHEEL = "dist/recall_agent-0.1.0-py3-none-any.whl"
+FLEET_EXTRA_PACKAGES: tuple[str, ...] = (RECALL_WHEEL,)
+
 FLEET_REQUIREMENTS: tuple[str, ...] = (
     "google-cloud-aiplatform[adk,agent_engines]",
     # Load bearing: without this the model call emits no GenAI span.
     "opentelemetry-instrumentation-google-genai",
     "opentelemetry-instrumentation-grpc",
     "opentelemetry-instrumentation-httpx",
+    # Uploaded by extra_packages and installed from the working directory.
+    RECALL_WHEEL,
 )
 
 
@@ -84,7 +104,41 @@ CATALOG_ATTEMPTS = 6
 CATALOG_INTERVAL_SECONDS = 10
 
 
-def fleet_env_vars(config: PlatformConfig, service_name: str) -> dict[str, str]:
+@dataclass(frozen=True, slots=True)
+class GatewayBinding:
+    """The gateway coordinates an agent is allowed to know.
+
+    An agent receives the URL and the audience and nothing else -- never the
+    capability signing key, never connector credentials. Those live in Secret
+    Manager and reach only the gateway's own runtime service account.
+
+    This is threaded explicitly rather than read from the environment deep
+    inside the spec builder. The fleet's environment is a declared shape, and a
+    value that only appears at the bottom of a call stack is a value nobody
+    checks: fleet_env_vars did not set the gateway variables at all until
+    2026-08-25, so a deployed agent would have failed on
+    tool_gateway_https_required before opening a socket -- a configuration
+    error that reads exactly like an unreachable network.
+    """
+
+    url: str
+    audience: str
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "GatewayBinding":
+        source = os.environ if env is None else env
+        url = source.get("RECALL_TOOL_GATEWAY_URL", "")
+        if not url:
+            raise PlatformError("fleet_gateway_url_missing")
+        # The contract pins the audience to the exact service URL; defaulting to
+        # the URL keeps a single source rather than inviting them to drift.
+        audience = source.get("RECALL_TOOL_GATEWAY_AUDIENCE") or url
+        return cls(url=url, audience=audience)
+
+
+def fleet_env_vars(
+    config: PlatformConfig, service_name: str, *, gateway: GatewayBinding
+) -> dict[str, str]:
     """The proven telemetry and model environment for a deployed agent."""
 
     if not service_name:
@@ -100,10 +154,15 @@ def fleet_env_vars(config: PlatformConfig, service_name: str) -> dict[str, str]:
         # Content capture stays off. OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT
         # is deliberately absent for the same reason.
         "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS": "false",
+        # The only gateway facts an agent carries.
+        "RECALL_TOOL_GATEWAY_URL": gateway.url,
+        "RECALL_TOOL_GATEWAY_AUDIENCE": gateway.audience,
     }
 
 
-def fleet_spec(config: PlatformConfig, member: FleetMember) -> AgentSpec:
+def fleet_spec(
+    config: PlatformConfig, member: FleetMember, *, gateway: GatewayBinding
+) -> AgentSpec:
     """Build the deploy spec for one member, including its own service account."""
 
     identity = identity_for_role(member.role)
@@ -111,9 +170,11 @@ def fleet_spec(config: PlatformConfig, member: FleetMember) -> AgentSpec:
         display_name=member.display_name,
         description=f"Recall {member.role.value} agent",
         requirements=FLEET_REQUIREMENTS,
-        env_vars=fleet_env_vars(config, member.display_name),
+        env_vars=fleet_env_vars(config, member.display_name, gateway=gateway),
         service_account=identity.email(config.project_id),
         resource_limits=dict(FLEET_RESOURCE_LIMITS),
+        extra_packages=FLEET_EXTRA_PACKAGES,
+        gcs_dir_name=member_staging_dir(member),
     )
 
 
@@ -159,6 +220,7 @@ class FleetDeployment:
 EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
     "requirements": FLEET_REQUIREMENTS,
     "resource_limits": dict(FLEET_RESOURCE_LIMITS),
+    "extra_packages": FLEET_EXTRA_PACKAGES,
     "env_keys": frozenset(
         {
             "GOOGLE_CLOUD_LOCATION",
@@ -168,6 +230,8 @@ EXPECTED_FLEET_CONFIG: Mapping[str, Any] = {
             "OTEL_SEMCONV_STABILITY_OPT_IN",
             "OTEL_SERVICE_NAME",
             "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS",
+            "RECALL_TOOL_GATEWAY_URL",
+            "RECALL_TOOL_GATEWAY_AUDIENCE",
         }
     ),
     "env_values": {
@@ -275,6 +339,7 @@ def assert_fleet_config(
     config: PlatformConfig,
     members: Sequence[FleetMember] = FLEET_MEMBERS,
     *,
+    gateway: GatewayBinding,
     expected: Mapping[str, Any] | None = None,
 ) -> None:
     """Refuse to start unless the effective configuration is the locked one.
@@ -300,11 +365,15 @@ def assert_fleet_config(
         if member.service_account_id != expected_account:
             raise _mismatch(f"role_service_accounts.{member.role.value}")
 
-        spec = fleet_spec(config, member)
+        spec = fleet_spec(config, member, gateway=gateway)
         if tuple(spec.requirements) != tuple(expected["requirements"]):
             raise _mismatch("requirements")
         if dict(spec.resource_limits or {}) != dict(expected["resource_limits"]):
             raise _mismatch("resource_limits")
+        if tuple(spec.extra_packages) != tuple(expected["extra_packages"]):
+            raise _mismatch("extra_packages")
+        if spec.gcs_dir_name != member_staging_dir(member):
+            raise _mismatch("gcs_dir_name")
 
         env = dict(spec.env_vars)
         if set(env) != set(expected["env_keys"]):
@@ -317,6 +386,12 @@ def assert_fleet_config(
                 raise _mismatch(f"forbidden_env_keys.{forbidden}")
         if env.get("OTEL_SERVICE_NAME") != member.display_name:
             raise _mismatch("env_values.OTEL_SERVICE_NAME")
+
+        # The trust-boundary check now actually runs at deploy time. It
+        # existed and was tested, but nothing called it on the deploy path,
+        # so an agent carrying the capability key would have passed every
+        # other gate.
+        assert_gateway_config(gateway.url, gateway.audience, env)
 
         if not spec.service_account or not spec.service_account.startswith(
             expected_account + "@"
@@ -356,6 +431,7 @@ def deploy_fleet(
     agent_factory: AgentFactory,
     members: Sequence[FleetMember] = FLEET_MEMBERS,
     *,
+    gateway: GatewayBinding,
     max_workers: int = 3,
     retries: int = 1,
 ) -> list[FleetDeployment]:
@@ -370,7 +446,7 @@ def deploy_fleet(
         raise PlatformError("fleet_no_members")
     # Checked before anything is created. A mismatch stops the run with zero
     # engines in flight.
-    assert_fleet_config(config, members)
+    assert_fleet_config(config, members, gateway=gateway)
 
     def _deploy(member: FleetMember) -> FleetDeployment:
         # Timestamps are recorded per member so 08-24 can measure whether the
@@ -381,7 +457,7 @@ def deploy_fleet(
             try:
                 agent = agent_factory(member)
                 assert_agent_carries_no_tracing_flag(agent)
-                engine = runtime.deploy(fleet_spec(config, member), agent)
+                engine = runtime.deploy(fleet_spec(config, member, gateway=gateway), agent)
             except Exception as exc:  # noqa: BLE001 - the failure is the result
                 error = f"{type(exc).__name__}:{exc}"[:300]
                 logger.error(
@@ -590,3 +666,103 @@ def fleet_summary(
             "COMPLETE" if fleet_trace_is_complete(span_names) else "INCOMPLETE"
         ),
     }
+
+
+# --- rule 14: an artifact's identity is proven by interrogation ---------------
+#
+# On 2026-08-25 the fleet deployed COMPLETE with three engines, three display
+# names, three service accounts, three resource ids and three catalog rows --
+# and one agent. The SDK stages the pickle to a fixed path, so three concurrent
+# creates raced and every engine loaded the winner.
+#
+# Every signal we checked was metadata ABOUT the engine. None was testimony
+# FROM it. A fleet gate that never asks an engine who it is will pass a fleet of
+# clones every time, and the chain smoke downstream would have passed too: the
+# assessor answers plausibly for everyone.
+
+
+def expected_agent_author(member: FleetMember) -> str:
+    """The name the running agent must report for this member."""
+
+    return member.role.value.lower()
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityCheck:
+    """What one engine said when asked who it is."""
+
+    display_name: str
+    resource_name: str
+    expected_author: str
+    observed_authors: tuple[str, ...]
+    matches: bool
+    error: str | None = None
+
+
+def observed_authors(invocation: Any) -> tuple[str, ...]:
+    """Pull the agent names out of a TracedInvocation's events.
+
+    Read from the event dicts rather than from a serialised blob: dumping the
+    dataclass with default=str produces a repr, whose single quotes silently
+    defeat a "author" search and report nothing rather than failing.
+    """
+
+    events = getattr(invocation, "events", ()) or ()
+    names = []
+    for event in events:
+        if isinstance(event, Mapping):
+            author = event.get("author")
+            if isinstance(author, str) and author:
+                names.append(author)
+    return tuple(dict.fromkeys(names))
+
+
+def verify_fleet_identity(
+    invoker: Any,
+    deployments: Sequence[FleetDeployment],
+    *,
+    message: str = "identify yourself",
+    user_id: str = "recall-identity-check",
+) -> list[IdentityCheck]:
+    """Ask every deployed engine who it is, and compare with what it claims."""
+
+    checks: list[IdentityCheck] = []
+    for deployment in deployments:
+        if not deployment.deployed or deployment.engine is None:
+            continue
+        expected = expected_agent_author(deployment.member)
+        try:
+            invocation = invoker.invoke(
+                deployment.engine.resource_name, message=message, user_id=user_id
+            )
+            authors = observed_authors(invocation)
+            error = None
+        except Exception as exc:  # noqa: BLE001 - the failure is the finding
+            authors, error = (), f"{type(exc).__name__}:{exc}"[:200]
+        checks.append(
+            IdentityCheck(
+                display_name=deployment.member.display_name,
+                resource_name=deployment.engine.resource_name,
+                expected_author=expected,
+                observed_authors=authors,
+                matches=bool(authors) and set(authors) == {expected},
+                error=error,
+            )
+        )
+    return checks
+
+
+def fleet_identity_is_distinct(checks: Sequence[IdentityCheck]) -> bool:
+    """True only if every engine is itself AND no two engines are the same one.
+
+    Both halves are required. Per-engine correctness alone would pass a fleet
+    where each engine happened to match; distinctness alone would pass a fleet
+    of three different WRONG agents.
+    """
+
+    if not checks:
+        return False
+    if not all(check.matches for check in checks):
+        return False
+    seen = [check.observed_authors[0] for check in checks if check.observed_authors]
+    return len(seen) == len(checks) == len(set(seen))

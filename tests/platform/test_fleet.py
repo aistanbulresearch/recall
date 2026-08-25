@@ -17,6 +17,11 @@ from recall.platform.fleet import (
     FLEET_RESOURCE_LIMITS,
     AgentCall,
     FleetDeployment,
+    GatewayBinding,
+    expected_agent_author,
+    verify_fleet_identity,
+    fleet_identity_is_distinct,
+    observed_authors,
     deploy_fleet,
     deploy_overlap_seconds,
     fleet_env_vars,
@@ -38,6 +43,14 @@ CONFIG = PlatformConfig(
     model="gemini-3.7-flash",
     model_location="global",
     staging_bucket="gs://recall-agent-engine-staging-test",
+)
+
+# The gateway an agent is allowed to know about. Threaded explicitly so the
+# tests assert the deployed environment carries it, rather than trusting that
+# something further down resolved it.
+GATEWAY = GatewayBinding(
+    url="https://recall-tool-gateway-test.a.run.app",
+    audience="https://recall-tool-gateway-test.a.run.app",
 )
 
 
@@ -66,7 +79,7 @@ def test_each_member_runs_under_its_own_service_account() -> None:
     accounts = {member.service_account_id for member in FLEET_MEMBERS}
     assert accounts == {"recall-sa-watcher", "recall-sa-assessor", "recall-sa-auditor"}
     for member in FLEET_MEMBERS:
-        spec = fleet_spec(CONFIG, member)
+        spec = fleet_spec(CONFIG, member, gateway=GATEWAY)
         assert spec.service_account is not None
         assert spec.service_account.startswith(member.service_account_id + "@")
 
@@ -74,25 +87,25 @@ def test_each_member_runs_under_its_own_service_account() -> None:
 def test_genai_instrumentation_is_always_deployed() -> None:
     assert "opentelemetry-instrumentation-google-genai" in FLEET_REQUIREMENTS
     for member in FLEET_MEMBERS:
-        assert fleet_spec(CONFIG, member).requirements == FLEET_REQUIREMENTS
+        assert fleet_spec(CONFIG, member, gateway=GATEWAY).requirements == FLEET_REQUIREMENTS
 
 
 def test_telemetry_is_enabled_by_environment() -> None:
-    env = fleet_env_vars(CONFIG, "recall-watcher")
+    env = fleet_env_vars(CONFIG, "recall-watcher", gateway=GATEWAY)
     assert env["GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY"] == "true"
     assert env["OTEL_SEMCONV_STABILITY_OPT_IN"] == "gen_ai_latest_experimental"
     assert env["OTEL_SERVICE_NAME"] == "recall-watcher"
 
 
 def test_prompt_content_never_enters_spans() -> None:
-    env = fleet_env_vars(CONFIG, "recall-watcher")
+    env = fleet_env_vars(CONFIG, "recall-watcher", gateway=GATEWAY)
     assert env["ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS"] == "false"
     assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" not in env
 
 
 def test_service_name_is_per_role() -> None:
     names = {
-        fleet_env_vars(CONFIG, member.display_name)["OTEL_SERVICE_NAME"]
+        fleet_env_vars(CONFIG, member.display_name, gateway=GATEWAY)["OTEL_SERVICE_NAME"]
         for member in FLEET_MEMBERS
     }
     assert len(names) == 3
@@ -100,7 +113,7 @@ def test_service_name_is_per_role() -> None:
 
 def test_blank_service_name_is_refused() -> None:
     with pytest.raises(PlatformError) as excinfo:
-        fleet_env_vars(CONFIG, "")
+        fleet_env_vars(CONFIG, "", gateway=GATEWAY)
     assert excinfo.value.code == "fleet_service_name_missing"
 
 
@@ -131,7 +144,7 @@ class RecordingRuntime(AgentRuntime):
 
 def test_members_deploy_concurrently_not_one_after_another() -> None:
     runtime = RecordingRuntime()
-    results = deploy_fleet(runtime, CONFIG, lambda member: object())
+    results = deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     assert len(results) == 3
     assert runtime.peak > 1, "sequential deploys would take three times as long"
     assert fleet_is_complete(results) is True
@@ -139,7 +152,7 @@ def test_members_deploy_concurrently_not_one_after_another() -> None:
 
 def test_one_failed_member_does_not_hide_the_others() -> None:
     runtime = RecordingRuntime(fail_display_name="recall-assessor")
-    results = deploy_fleet(runtime, CONFIG, lambda member: object())
+    results = deploy_fleet(runtime, CONFIG, lambda member: object(), gateway=GATEWAY)
     by_name = {r.member.display_name: r for r in results}
     assert by_name["recall-assessor"].deployed is False
     assert "RuntimeError" in (by_name["recall-assessor"].error or "")
@@ -149,7 +162,7 @@ def test_one_failed_member_does_not_hide_the_others() -> None:
 
 def test_empty_member_list_is_refused() -> None:
     with pytest.raises(PlatformError) as excinfo:
-        deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), members=[])
+        deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), members=[], gateway=GATEWAY)
     assert excinfo.value.code == "fleet_no_members"
 
 
@@ -380,7 +393,7 @@ def test_catalog_attempts_must_be_positive() -> None:
 
 def test_instance_shape_is_pinned_on_every_member() -> None:
     for member in FLEET_MEMBERS:
-        assert fleet_spec(CONFIG, member).resource_limits == dict(FLEET_RESOURCE_LIMITS)
+        assert fleet_spec(CONFIG, member, gateway=GATEWAY).resource_limits == dict(FLEET_RESOURCE_LIMITS)
 
 
 def test_unread_shape_is_reported_as_unread_not_as_requested() -> None:
@@ -424,7 +437,7 @@ class FlakyRuntime(RecordingRuntime):
 
 def test_a_transient_failure_is_retried_once_and_recovers() -> None:
     results = deploy_fleet(
-        FlakyRuntime("recall-assessor"), CONFIG, lambda member: object()
+        FlakyRuntime("recall-assessor"), CONFIG, lambda member: object(), gateway=GATEWAY
     )
     by_name = {r.member.display_name: r for r in results}
     assert by_name["recall-assessor"].deployed is True
@@ -437,6 +450,7 @@ def test_a_permanent_failure_stops_at_the_retry_bound() -> None:
         RecordingRuntime(fail_display_name="recall-assessor"),
         CONFIG,
         lambda member: object(),
+        gateway=GATEWAY,
     )
     failed = next(r for r in results if r.member.display_name == "recall-assessor")
     assert failed.deployed is False
@@ -449,6 +463,7 @@ def test_surviving_members_are_kept_when_one_fails() -> None:
         RecordingRuntime(fail_display_name="recall-assessor"),
         CONFIG,
         lambda member: object(),
+        gateway=GATEWAY,
     )
     kept = [r for r in results if r.deployed]
     assert len(kept) == 2, "a partial fleet keeps what deployed; redeploying is cheap"
@@ -456,14 +471,14 @@ def test_surviving_members_are_kept_when_one_fails() -> None:
 
 
 def test_deploy_timing_is_recorded_for_every_member() -> None:
-    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object())
+    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), gateway=GATEWAY)
     for result in results:
         assert result.started_at.endswith("Z")
         assert result.finished_at.endswith("Z")
 
 
 def test_overlap_is_measured_not_assumed() -> None:
-    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object())
+    results = deploy_fleet(RecordingRuntime(), CONFIG, lambda member: object(), gateway=GATEWAY)
     assert deploy_overlap_seconds(results) > 0, "concurrent deploys overlap in time"
 
 
@@ -485,3 +500,101 @@ def test_serialised_deploys_report_no_overlap() -> None:
         ),
     ]
     assert deploy_overlap_seconds(serial) == 0.0
+
+
+# --- rule 14: identity is proven by interrogation, not by metadata -----------
+#
+# The real failure this encodes: on 2026-08-25 the fleet deployed COMPLETE with
+# three engines, three display names, three service accounts, three resource ids
+# and three catalog rows -- and ONE agent, because concurrent creates raced on a
+# fixed staging path. Every signal checked was metadata ABOUT the engine; none
+# was testimony FROM it.
+
+
+class _Invocation:
+    def __init__(self, author: str | None) -> None:
+        self.events = ({"author": author, "content": {}},) if author else ()
+
+
+class _RecordingInvoker:
+    """Answers with whatever author each resource name is mapped to."""
+
+    def __init__(self, authors_by_resource: dict[str, str | None]) -> None:
+        self._authors = authors_by_resource
+        self.calls: list[str] = []
+
+    def invoke(self, resource_name: str, *, message: str, user_id: str) -> Any:
+        self.calls.append(resource_name)
+        return _Invocation(self._authors.get(resource_name))
+
+
+def _deployments_for(authors: list[str | None]) -> tuple[list[Any], _RecordingInvoker]:
+    results = []
+    mapping: dict[str, str | None] = {}
+    for member, author in zip(FLEET_MEMBERS, authors, strict=True):
+        engine = _engine(member.display_name)
+        mapping[engine.resource_name] = author
+        results.append(
+            FleetDeployment(
+                member,
+                engine,
+                None,
+                started_at="2026-08-25T00:00:00Z",
+                finished_at="2026-08-25T00:00:01Z",
+                attempts=1,
+            )
+        )
+    return results, _RecordingInvoker(mapping)
+
+
+def test_a_correct_fleet_is_confirmed_by_interrogation() -> None:
+    authors = [expected_agent_author(m) for m in FLEET_MEMBERS]
+    deployments, invoker = _deployments_for(list(authors))
+    checks = verify_fleet_identity(invoker, deployments)
+    assert len(invoker.calls) == 3, "every engine must actually be asked"
+    assert all(c.matches for c in checks)
+    assert fleet_identity_is_distinct(checks) is True
+
+
+def test_a_fleet_of_clones_is_refused() -> None:
+    """The exact defect: three engines, correct metadata, one agent."""
+
+    clone = expected_agent_author(FLEET_MEMBERS[1])
+    deployments, invoker = _deployments_for([clone, clone, clone])
+    checks = verify_fleet_identity(invoker, deployments)
+    assert fleet_identity_is_distinct(checks) is False
+    wrong = [c.display_name for c in checks if not c.matches]
+    assert len(wrong) == 2, "the two impostors are named, not just counted"
+
+
+def test_three_different_wrong_agents_are_also_refused() -> None:
+    """Distinctness alone is not identity."""
+
+    deployments, invoker = _deployments_for(["wrong_a", "wrong_b", "wrong_c"])
+    checks = verify_fleet_identity(invoker, deployments)
+    assert fleet_identity_is_distinct(checks) is False
+
+
+def test_an_engine_that_says_nothing_is_not_assumed_correct() -> None:
+    authors = [expected_agent_author(m) for m in FLEET_MEMBERS]
+    authors[0] = None
+    deployments, invoker = _deployments_for(authors)
+    checks = verify_fleet_identity(invoker, deployments)
+    assert checks[0].matches is False
+    assert fleet_identity_is_distinct(checks) is False
+
+
+def test_a_repr_blob_cannot_be_used_to_read_authors() -> None:
+    """Why observed_authors reads events, not a serialised dump.
+
+    json.dumps(invocation, default=str) yields a repr whose single quotes make a
+    '"author"' search find nothing -- reporting a clean absence instead of
+    failing. That is how this check could have been written to never fire.
+    """
+
+    import json
+
+    invocation = _Invocation("evidence_watcher")
+    blob = json.dumps(invocation, default=str)
+    assert '"author":' not in blob
+    assert observed_authors(invocation) == ("evidence_watcher",)
