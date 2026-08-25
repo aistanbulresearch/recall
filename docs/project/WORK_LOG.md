@@ -11,6 +11,7 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Verification: TDD red exited 1 with 23 expected failures before implementation; focused final set passed 36/36 exit 0; bounded core passed 299/299 exit 0; platform excluding `test_gcloud_token.py` passed 234/234 exit 0; privacy passed 140/140 exit 0; direct offline web passed 48/48 exit 0; `git diff --check` and source compilation passed. Independent code review returned PASS with no high blocker.
 - A fresh authorized live-Firestore full-suite attempt reached the ledger boundary, marked one failure, and then left the auth/subprocess path hung; the isolated live file also hung. Both were stopped and are not evidence. No Day-2 cohort tick or product namespace write is claimed from these attempts.
 - The permanent failed/incomplete-day continuation artifact is intentionally deferred to Day-3 morning because the current contract requires a real same-date execution timestamp; no fake timestamp or partial contract was introduced. L1 must rebuild/repoint the job image and set both provenance env values before the Day-2 tick.
+- Product commit: `435fd46035c7a9e9dca7f06b2264799b52cffa30`, tree `afcb1d8042ac49e48823918bd394270afbf9baae`, 29 files, 777 insertions, 57 deletions. Author and committer are `aistanbulresearch`; body, trailers, and notes are empty. Post-commit focused verification passed 36/36 with direct exit 0; no push or merge occurred.
 
 ## WORK-2026-08-25-035: Staged cohort expansion and managed Day-N implementation
 

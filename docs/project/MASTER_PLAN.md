@@ -2,7 +2,7 @@
 
 ## 2026-08-25 M2 managed Day-N path
 
-Status: L2 base implementation is at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; the adversarial history/F5-lite successor is in final local commit gate. L1 rebuild/repoint and the first actual managed Day-2 tick remain gated.
+Status: L2 base implementation is at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; the adversarial history/F5-lite successor is committed locally at `435fd46035c7a9e9dca7f06b2264799b52cffa30`. L1 rebuild/repoint and the first actual managed Day-2 tick remain gated.
 
 1. Preserve frozen Day-1 code and evidence. The new Day-N path derives selection from the actual UTC date and rejects a recurring 2026-08-25 execution.
 2. Use the committed 12-case cohort and pre-run predictions: 2026-08-26 = 3, 2026-08-27 = 2, and 2026-08-28 = 4. Do not execute a future cohort day early.
