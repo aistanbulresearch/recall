@@ -259,6 +259,11 @@ def build_bundle(scenario: str) -> dict[str, Any]:
             {
                 **envelope("RegistryResolutionReceipt", "1.0.0", f"registry-{scenario}", case_id=case_id, run_id=run_id,
                            component="workflow-controller", identity="controller-service"),
+                # Matches what a live fixture run emits. Deliberately not the
+                # aspirational REGISTRY value: a stand-in that claims a stronger
+                # resolution path than the run produces is the overstating this
+                # bundle already did elsewhere.
+                "resolution_mode": "PINNED_FALLBACK",
                 "requested_capabilities": [capability for capability, *_ in roles],
                 "bindings": [
                     {

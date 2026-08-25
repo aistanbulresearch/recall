@@ -1,7 +1,7 @@
 /** Fleet board version 0: roles, revisions, persisted states, and denials. */
 
 import type { ViewField, ViewModel } from '../viewmodel/types';
-import { authorizationCopy, reasonCodeCopy } from '../viewmodel/semantics';
+import { authorizationCopy, denialHeadline, reasonCodeCopy, resolutionModeCopy } from '../viewmodel/semantics';
 import { FieldValue, formatValue } from './FieldValue';
 
 interface Binding {
@@ -14,6 +14,22 @@ interface Binding {
 
 function bindings(field: ViewField): Binding[] {
   return field.items.filter((item): item is Binding => typeof item === 'object' && item !== null);
+}
+
+
+/** Reads the receipt's own fields back out of the derived record entries. */
+function plainDenial(denial: ViewField): string | null {
+  if (denial.status !== 'KNOWN') {
+    return null;
+  }
+  const properties: Record<string, unknown> = {};
+  for (const entry of denial.items) {
+    if (typeof entry === 'object' && entry !== null && 'property' in entry) {
+      const typed = entry as { property: string; value: unknown };
+      properties[typed.property] = typed.value;
+    }
+  }
+  return denialHeadline(properties);
 }
 
 export function FleetBoard({ model }: { model: ViewModel }) {
@@ -55,6 +71,10 @@ export function FleetBoard({ model }: { model: ViewModel }) {
 
       <div className="field-grid">
         <FieldValue field={model['UI-ROUTE-STATUS']} />
+        <FieldValue
+          field={model['UI-CLOUD-RESOLUTION-MODE']}
+          hint={resolutionModeCopy(model['UI-CLOUD-RESOLUTION-MODE'].value).plain}
+        />
         <FieldValue field={model['UI-CLOUD-REGISTRY-COUNT']} />
         <FieldValue field={model['UI-CLOUD-TRANSITIONS']} />
         <FieldValue field={model['UI-WATCH-SCAN-COUNT']} />
@@ -73,8 +93,9 @@ export function FleetBoard({ model }: { model: ViewModel }) {
       {denial.hidden && denial.status !== 'KNOWN' ? null : (
         <div className="denial" data-field-id={denial.field_id} data-status={denial.status}>
           <h3>Blocked action</h3>
-          <p>
-            <strong>{formatValue(denial)}</strong> — {authorizationCopy(denial.value).plain}
+          {plainDenial(denial) ? <p className="denial-plain">{plainDenial(denial)}</p> : null}
+          <p className="denial-decision">
+            <strong>{formatValue(denial)}</strong>: {authorizationCopy(denial.value).plain}
           </p>
           <dl className="denial-detail">
             {denial.items

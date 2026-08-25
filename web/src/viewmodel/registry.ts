@@ -102,6 +102,20 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     goldenPath: false,
   },
   {
+    // resolution_mode lives on RegistryResolutionReceipt, which a live run
+    // produces. It is deliberately NOT read off RoutingPlan: nothing in the
+    // fixture set produces a RoutingPlan, so a badge sourced there would be
+    // permanently UNKNOWN on the live path.
+    fieldId: 'UI-CLOUD-RESOLUTION-MODE',
+    label: 'How the agents were resolved',
+    group: 'fleet',
+    artifactType: 'RegistryResolutionReceipt',
+    jsonPath: '$.resolution_mode',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+  },
+  {
     fieldId: 'UI-CLOUD-REGISTRY-COUNT',
     label: 'Bound agents',
     group: 'cloud',
