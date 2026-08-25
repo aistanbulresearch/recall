@@ -102,15 +102,33 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     goldenPath: false,
   },
   {
-    // resolution_mode lives on RegistryResolutionReceipt, which a live run
-    // produces. It is deliberately NOT read off RoutingPlan: nothing in the
-    // fixture set produces a RoutingPlan, so a badge sourced there would be
-    // permanently UNKNOWN on the live path.
+    // resolution_mode lives on RegistryResolutionReceipt. It is deliberately NOT
+    // read off RoutingPlan: nothing produces a RoutingPlan, so a badge sourced
+    // there would be permanently UNKNOWN.
+    //
+    // The value is NOT evidence of a resolution having happened. No production
+    // path emits this receipt today: the only emitter is a fixture that carries
+    // "PINNED_FALLBACK" as a string constant on a SYNTHETIC artifact with no
+    // bindings. UI-CLOUD-RESOLUTION-SOURCE therefore travels beside it so a
+    // viewer always sees which kind of source produced the value.
     fieldId: 'UI-CLOUD-RESOLUTION-MODE',
     label: 'How the agents were resolved',
     group: 'fleet',
     artifactType: 'RegistryResolutionReceipt',
     jsonPath: '$.resolution_mode',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+  },
+  {
+    // The data mode of the artifact the resolution mode came from. A fixture
+    // constant must never read as a live fact, so the badge shows its own
+    // provenance rather than relying on the reader to know.
+    fieldId: 'UI-CLOUD-RESOLUTION-SOURCE',
+    label: 'Resolution source',
+    group: 'fleet',
+    artifactType: 'RegistryResolutionReceipt',
+    jsonPath: '$.data_mode',
     derivation: { kind: 'exact' },
     missingStatus: 'UNKNOWN',
     goldenPath: false,

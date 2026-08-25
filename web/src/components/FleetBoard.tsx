@@ -1,7 +1,13 @@
 /** Fleet board version 0: roles, revisions, persisted states, and denials. */
 
 import type { ViewField, ViewModel } from '../viewmodel/types';
-import { authorizationCopy, denialHeadline, reasonCodeCopy, resolutionModeCopy } from '../viewmodel/semantics';
+import {
+  authorizationCopy,
+  denialHeadline,
+  reasonCodeCopy,
+  resolutionModeCopy,
+  resolutionSourceCopy,
+} from '../viewmodel/semantics';
 import { FieldValue, formatValue } from './FieldValue';
 
 interface Binding {
@@ -74,6 +80,10 @@ export function FleetBoard({ model }: { model: ViewModel }) {
         <FieldValue
           field={model['UI-CLOUD-RESOLUTION-MODE']}
           hint={resolutionModeCopy(model['UI-CLOUD-RESOLUTION-MODE'].value).plain}
+        />
+        <FieldValue
+          field={model['UI-CLOUD-RESOLUTION-SOURCE']}
+          hint={resolutionSourceCopy(model['UI-CLOUD-RESOLUTION-SOURCE'].value).plain}
         />
         <FieldValue field={model['UI-CLOUD-REGISTRY-COUNT']} />
         <FieldValue field={model['UI-CLOUD-TRANSITIONS']} />

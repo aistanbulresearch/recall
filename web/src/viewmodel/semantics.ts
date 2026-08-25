@@ -105,6 +105,28 @@ export function resolutionModeCopy(value: string | number | null): SemanticEntry
 }
 
 /**
+ * What kind of source the resolution mode came from.
+ *
+ * No production path emits a RegistryResolutionReceipt today. The only emitter
+ * is a fixture carrying a string constant on a SYNTHETIC artifact with no
+ * bindings, so the mode reports what the fixture was written to say rather than
+ * what any resolver did. The badge states that rather than leaving a reader to
+ * assume a measurement.
+ */
+export function resolutionSourceCopy(dataMode: string | number | null): SemanticEntry {
+  if (dataMode === 'SYNTHETIC' || dataMode === 'MOCK') {
+    return {
+      plain: 'Declared by a fixture, not observed from a live resolution.',
+      severity: 'caution',
+    };
+  }
+  if (dataMode === null) {
+    return UNKNOWN_ENTRY;
+  }
+  return { plain: 'Observed from a live resolution.', severity: 'neutral' };
+}
+
+/**
  * One sentence naming who was refused, what they asked for, and why.
  *
  * The comprehension gate asks whether a first-time viewer understands what was

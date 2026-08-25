@@ -4,9 +4,14 @@
  * The DENIED frame is governed by the comprehension gate: a first-time viewer
  * must understand what was refused and why. The headline is composed from the
  * receipt's own fields, so these tests drive it from a real bundle rather than
- * asserting a string. The resolution-mode badge reads
- * RegistryResolutionReceipt, which a live run produces, and never RoutingPlan,
- * which nothing produces.
+ * asserting a string.
+ *
+ * The resolution-mode badge reads RegistryResolutionReceipt rather than
+ * RoutingPlan, which nothing produces at all. That value is not evidence of a
+ * resolution: no production path emits this receipt today, and the only emitter
+ * is a fixture carrying a string constant on a SYNTHETIC artifact with no
+ * bindings. The badge therefore shows the source's data mode beside the value,
+ * so a constant can never read as a live fact.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,7 +19,7 @@ import { describe, expect, it } from 'vitest';
 import faultBundle from '../src/bundles/fault.json';
 import goldenBundle from '../src/bundles/golden.json';
 import { buildViewModel } from '../src/viewmodel/builder';
-import { denialHeadline, resolutionModeCopy } from '../src/viewmodel/semantics';
+import { denialHeadline, resolutionModeCopy, resolutionSourceCopy } from '../src/viewmodel/semantics';
 import type { ArtifactBundle } from '../src/viewmodel/types';
 
 const golden = goldenBundle as unknown as ArtifactBundle;
@@ -70,7 +75,7 @@ describe('DENIED frame, comprehension gate', () => {
 });
 
 describe('resolution mode badge', () => {
-  it('reads RegistryResolutionReceipt, which a live run produces', () => {
+  it('reads RegistryResolutionReceipt rather than the never-produced RoutingPlan', () => {
     const { fields } = buildViewModel(golden);
     const mode = fields['UI-CLOUD-RESOLUTION-MODE'];
     expect(mode.status).toBe('KNOWN');
@@ -92,6 +97,24 @@ describe('resolution mode badge', () => {
     for (const mode of ['REGISTRY', 'MANUAL_SERVICE', 'PINNED_FALLBACK']) {
       expect(resolutionModeCopy(mode).plain.length).toBeGreaterThan(10);
     }
+  });
+
+  it('shows the data mode of the artifact the value came from', () => {
+    const { fields } = buildViewModel(golden);
+    const source = fields['UI-CLOUD-RESOLUTION-SOURCE'];
+    expect(source.status).toBe('KNOWN');
+    expect(String(source.value)).toBe('SYNTHETIC');
+  });
+
+  it('says a fixture-declared value is declared, never observed', () => {
+    const copy = resolutionSourceCopy('SYNTHETIC').plain;
+    expect(copy).toContain('fixture');
+    expect(copy).not.toContain('Observed');
+  });
+
+  it('reserves the observed wording for a non-synthetic source', () => {
+    expect(resolutionSourceCopy('LIVE_PUBLIC').plain).toContain('Observed');
+    expect(resolutionSourceCopy('MOCK').plain).toContain('fixture');
   });
 
   it('does not claim registry discovery when the run fell back', () => {
