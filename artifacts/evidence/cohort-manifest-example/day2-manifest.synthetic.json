@@ -18,7 +18,7 @@
       "vcv": "VCV002895953.1"
     }
   ],
-  "content_hash": "ca0e1cc6032fa168cf8fbc5be61f10d093c16ad015470d321f21ca33cf5b673d",
+  "content_hash": "222f793c218e09ae4a4350472e8169d6cebb70c643fcabe2874753b7624ac4bb",
   "created_at": "2026-08-26T16:01:00Z",
   "cumulative": {
     "daily_cycles": 2,
@@ -64,6 +64,8 @@
     {
       "day_index": 1,
       "executed_at": "2026-08-25T15:00:03.280432Z",
+      "execution_status": "COMPLETE",
+      "failure_receipt_id": null,
       "runs_created": 1,
       "runs_predicted": 1,
       "selected_for_date": "2026-08-25"
@@ -71,13 +73,15 @@
     {
       "day_index": 2,
       "executed_at": "2026-08-26T16:01:00Z",
+      "execution_status": "COMPLETE",
+      "failure_receipt_id": null,
       "runs_created": 3,
       "runs_predicted": 3,
       "selected_for_date": "2026-08-26"
     }
   ],
   "extensions": {},
-  "image_digest": "sha256:a59aa842c01b23ede51f4a06752435bf3b6b599d7c0c4fbdc59cce079479bced",
+  "image_digest": "sha256:24a99e89b5a77fd37eeeffa84bfe2053fd734315b768f380f5d36f9e0c91d922",
   "input_artifact_ids": [
     "1c1ae91a-ff7d-5012-9efb-abdeedbdcec7",
     "21068bac-1ef2-534f-8b69-b1c3f171d155",
@@ -98,7 +102,7 @@
   "run_id": "9301d00e-baad-5958-a93d-d4b6de7512bb",
   "scheduled_for": "2026-08-26T16:00:00Z",
   "schema_name": "CohortDayManifest",
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "selected_for_date": "2026-08-26",
   "source_commit": "c65ee3d55524caf1d2d9d697c9bff712e35bca82",
   "status": "VALID",

@@ -19,6 +19,13 @@ from .manifest import (
     manifest_artifact_id,
     mode_receipt_artifact_id,
 )
+from .continuation import (
+    MissingCohortDay,
+    failure_receipt_ids,
+    persist_failure_receipts,
+    reconcile_existing_manifest_context,
+    validate_persisted_failure_lineage,
+)
 from .preparation import CohortPreparationBundle, verify_prepared_day
 from .config import BUDGET_SNAPSHOT
 
@@ -40,6 +47,7 @@ class DayNResult:
     authoritative_run_ids: tuple[str, ...]
     manifest_artifact_id: str
     data_mode_receipt_id: str
+    failure_receipt_ids: tuple[str, ...]
 
 
 def collection_prefix(selected_for_date: date) -> str:
@@ -89,9 +97,31 @@ class DayNScheduler:
         *,
         now: datetime,
         previous_manifest: Mapping[str, object] | None,
+        missing_days: tuple[MissingCohortDay, ...] = (),
     ) -> DayNResult:
         selected_for_date = _real_selected_date(now)
         verify_prepared_day(self._ledger, self._bundle)
+        manifest_id = manifest_artifact_id(selected_for_date)
+        existing = self._ledger.get_artifact(manifest_id)
+        if existing is None:
+            failure_receipts = persist_failure_receipts(
+                self._ledger,
+                missing_days=missing_days,
+                current_date=selected_for_date,
+                detected_at=now,
+                source_commit=self._source_commit,
+                image_digest=self._image_digest,
+            )
+        else:
+            reconcile_existing_manifest_context(
+                existing,
+                selected_for_date=selected_for_date,
+                previous_manifest=previous_manifest,
+                missing_days=missing_days,
+                source_commit=self._source_commit,
+                image_digest=self._image_digest,
+            )
+            failure_receipts = ()
         selected = cases_for_date(selected_for_date)
         if len(selected) != RUN_PREDICTIONS[selected_for_date]:
             raise RuntimeError("cohort_prediction_mismatch")
@@ -137,8 +167,6 @@ class DayNScheduler:
                 and len(created) == self._fault_after_run_writes
             ):
                 raise RuntimeError("synthetic_fault_after_run_write")
-        manifest_id = manifest_artifact_id(selected_for_date)
-        existing = self._ledger.get_artifact(manifest_id)
         if existing is None:
             manifest = build_manifest(
                 selected_for_date=selected_for_date,
@@ -152,6 +180,7 @@ class DayNScheduler:
                 reused_run_ids=reused,
                 bundle=self._bundle,
                 previous_manifest=previous_manifest,
+                failure_receipts=failure_receipts,
                 executed_at=now,
             )
             self._ledger.append_artifact(manifest)
@@ -162,6 +191,15 @@ class DayNScheduler:
                 sorted(record.run_id for record in run_records)
             ):
                 raise RuntimeError("cohort_manifest_reconciliation_failed")
+        persisted_manifest = self._ledger.get_artifact(manifest_id)
+        if persisted_manifest is None:
+            raise RuntimeError("cohort_manifest_missing")
+        manifest = persisted_manifest
+        validate_persisted_failure_lineage(
+            self._ledger,
+            manifest,
+            previous_manifest=previous_manifest,
+        )
         receipt_id = mode_receipt_artifact_id(selected_for_date)
         receipt = self._ledger.get_artifact(receipt_id)
         if receipt is None:
@@ -182,6 +220,7 @@ class DayNScheduler:
             authoritative_run_ids=tuple(sorted(record.run_id for record in run_records)),
             manifest_artifact_id=manifest_id,
             data_mode_receipt_id=receipt_id,
+            failure_receipt_ids=tuple(sorted(failure_receipt_ids(manifest))),
         )
 
 

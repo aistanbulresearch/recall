@@ -23,8 +23,38 @@ from .payloads import (
     parse_tool_authorization_payload,
     parse_watch_case_payload,
     parse_cohort_day_manifest_payload,
+    parse_cohort_day_manifest_v20_payload,
+    parse_cohort_day_failure_receipt_payload,
     parse_cohort_history_receipt_payload,
 )
+
+
+_COHORT_MANIFEST_FIELDS = frozenset(
+    {
+        "day_index",
+        "selected_for_date",
+        "scheduled_for",
+        "source_commit",
+        "image_digest",
+        "trigger_code",
+        "previous_manifest_id",
+        "managed_history_starts_at_day_index",
+        "delta",
+        "cumulative",
+        "cases",
+        "vcv_anchors",
+        "execution_history",
+    }
+)
+
+
+LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
+    ("CohortDayManifest", "2.0.0"): (
+        _COHORT_MANIFEST_FIELDS,
+        parse_cohort_day_manifest_v20_payload,
+        True,
+    ),
+}
 
 
 SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
@@ -57,25 +87,28 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "CohortDayManifest": (
-        "2.0.0",
+        "2.1.0",
+        _COHORT_MANIFEST_FIELDS,
+        parse_cohort_day_manifest_payload,
+        True,
+    ),
+    "CohortDayFailureReceipt": (
+        "1.0.0",
         frozenset(
             {
                 "day_index",
                 "selected_for_date",
-                "scheduled_for",
+                "detected_at",
+                "failure_code",
+                "expected_manifest_id",
+                "runs_predicted",
+                "runs_created",
                 "source_commit",
                 "image_digest",
-                "trigger_code",
-                "previous_manifest_id",
-                "managed_history_starts_at_day_index",
-                "delta",
-                "cumulative",
-                "cases",
-                "vcv_anchors",
-                "execution_history",
+                "continuation_policy",
             }
         ),
-        parse_cohort_day_manifest_payload,
+        parse_cohort_day_failure_receipt_payload,
         True,
     ),
     "RoutingPlan": (

@@ -50,7 +50,18 @@ from .agentic import (
     parse_managed_path_receipt_payload,
     parse_routing_plan_payload,
 )
-from .scheduler import CohortDayManifestPayload, parse_cohort_day_manifest_payload
+from .scheduler import (
+    CohortDayManifestPayload,
+    parse_cohort_day_manifest_payload,
+)
+from .scheduler_legacy import (
+    CohortDayManifestV20Payload,
+    parse_cohort_day_manifest_v20_payload,
+)
+from .cohort_failure import (
+    CohortDayFailureReceiptPayload,
+    parse_cohort_day_failure_receipt_payload,
+)
 from .cohort_history import (
     CohortHistoryReceiptPayload,
     parse_cohort_history_receipt_payload,
@@ -78,6 +89,8 @@ __all__ = [
     "ManagedPathReceiptPayload",
     "RoutingPlanPayload",
     "CohortDayManifestPayload",
+    "CohortDayManifestV20Payload",
+    "CohortDayFailureReceiptPayload",
     "CohortHistoryReceiptPayload",
     "parse_data_mode_payload",
     "parse_failure_payload",
@@ -100,5 +113,7 @@ __all__ = [
     "parse_managed_path_receipt_payload",
     "parse_routing_plan_payload",
     "parse_cohort_day_manifest_payload",
+    "parse_cohort_day_manifest_v20_payload",
+    "parse_cohort_day_failure_receipt_payload",
     "parse_cohort_history_receipt_payload",
 ]

@@ -49,7 +49,8 @@ The common envelope remains version `1.0.0`. ADR-0008 changes several payload me
 | `WatchCase` | `2.0.0` | Adds pending observations and typed attention state |
 | `EvidenceDelta` | `2.0.0` | Requires deterministic candidate receipt linkage |
 | `DataModeReceipt` | `2.0.0` | Replaces scalar mode fields with mode set and composition |
-| `CohortDayManifest` | `2.0.0` | Date-bound cohort tick evidence with cumulative daily history and immutable image identity |
+| `CohortDayManifest` | `2.1.0` | Date-bound cohort tick evidence with cumulative daily history, typed incomplete-day continuity, and immutable image identity |
+| `CohortDayFailureReceipt` | `1.0.0` | Deterministic record of a missing prior-day manifest after zero-run/event reconciliation |
 | `CohortHistoryReceipt` | `1.0.0` | Immutable bridge from the committed Day-1 run evidence into Day-N history |
 | `PolicyDecision` | `2.0.0` | Replaces Boolean facts with evaluated-state enums and removes memory fact |
 
@@ -76,6 +77,7 @@ All unchanged payload contracts remain at `1.0.0` until an executable schema rec
 | `MemoryRetrievalReceipt` | `query_hash`, `scope`, `returned_memory_refs`, `expiry_check`, `contradiction_check`, `decision`, `reason_codes` | Memory retrieval gate | Agent adapter, UI | Memory body in telemetry, evidence-complete assertion |
 | `DataModeReceipt` | `subject_artifact_ids`, `mode_set`, `declared_composition`, `propagation_status`, `reason_codes` | Deterministic mode gate | API, UI, Policy completeness, release audit | Silent mode conversion, scalar trust ordering |
 | `CohortDayManifest` | `day_index`, `selected_for_date`, `scheduled_for`, `source_commit`, `image_digest`, `trigger_code`, `previous_manifest_id`, `managed_history_starts_at_day_index`, `delta`, `cumulative`, `cases`, `vcv_anchors`, `execution_history` | Cohort scheduler | UI cohort panel, operations evidence | Date-pinned replay, source/image identity drift, prediction drift, incomplete daily history |
+| `CohortDayFailureReceipt` | `day_index`, `selected_for_date`, `detected_at`, `failure_code`, `expected_manifest_id`, `runs_predicted`, `runs_created`, `source_commit`, `image_digest`, `continuation_policy` | Cohort scheduler | Cohort scheduler, UI cohort panel, operations evidence | Missing-day concealment, fabricated zero-run claims, retry timestamp drift |
 | `CohortHistoryReceipt` | `evidence_path`, `evidence_sha256`, `evidence_git_blob_oid`, `source_commit`, `source_tree`, `phase`, `trigger_code`, `day_index`, `executed_at`, `selected_for_date`, `created_run_ids`, `selected_case_ids`, `excluded_case_ids`, `runs_created`, `runs_predicted`, `readback_counts`, `direct_exit_code`, `evidence_classification`, `atomic_check_ids` | Cohort history loader | Cohort scheduler, audit | Free historical literals, second-run timestamp substitution, mutable worktree evidence |
 | `PolicyDecision` | `policy_version`, `input_facts`, `outcome`, `reason_codes`, `missing_prerequisites`, `review_trigger`, `existing_task_id` | Deterministic Policy Gate | Controller, Ledger, UI | Model prose as input, notification side effect |
 | `ReviewTask` | `watch_case_id`, `trigger_decision_id`, `state`, `priority_band`, `claim_ids`, `audit_receipt_id`, `simulation`, `deduplication_key` | Controller transactional outbox | Reviewer UI | Patient contact, autonomous clinical action, unlabeled real task |
@@ -114,12 +116,13 @@ The catalog field names above are not open objects. These nested structures are 
 | `DataModeReceipt.declared_composition` | `SYNTHETIC_ONLY`, `CAPTURED_REPLAY_ONLY`, `LIVE_PUBLIC_ONLY`, `MOCK_ONLY`, or `SYNTHETIC_WITH_CAPTURED_REPLAY`; exact deterministic projection from `mode_set` |
 | `FailureReceipt.details` | Registered failure-code-specific object; `loop_detected` permits only `hop_count` and `repeated_state_hash` |
 | `DeploymentReceipt.runtime` | `service`, `revision`, `region`, `resource_name`, `read_back_at` |
-| `CohortDayManifest.execution_history[]` | Exactly `day_index`, `executed_at`, `selected_for_date`, `runs_created`, `runs_predicted`; cumulative, ordered by day index, and each UTC execution date equals `selected_for_date` |
+| `CohortDayManifest.execution_history[]` | `2.1.0`: exactly `day_index`, `executed_at`, `selected_for_date`, `runs_created`, `runs_predicted`, `execution_status`, `failure_receipt_id`; `COMPLETE` requires a same-date UTC timestamp and null receipt, while `INCOMPLETE` requires null timestamp, zero created runs, and a referenced typed receipt. Strict `2.0.0` read compatibility maps its five-field rows to `COMPLETE` without rewriting the predecessor wire. |
 | `CohortDayManifest.cases[]` | Exactly `case_id`, `data_mode`, `vcv`; `vcv` is null for `SYNTHETIC_ONLY` and required for `SYNTHETIC_WITH_CAPTURED_REPLAY` |
 | `CohortDayManifest.vcv_anchors[]` | Exactly `vcv`, `capture_path`, `sha256`, `artifact_id`; every path is relative and every hash binds committed capture bytes |
 | `CohortDayManifest.delta` | Exactly `selected_case_ids`, `excluded_case_ids`, `newly_created_run_ids`, `reused_run_ids`, `authoritative_run_ids`, `runs_predicted`, `prediction_match`; `runs_created` in history is the authoritative post-reconciliation count, not invocation-local writes |
 | `CohortDayManifest.cumulative` | Exactly `daily_cycles`, `successful_daily_cycles`, `runs_predicted`, `runs_created`, `distinct_execution_dates`; `0` predicted plus `0` created is a valid silent day, while a positive prediction plus `0` authoritative runs is a failed day |
 | `CohortDayManifest.image_digest` | Required lowercase OCI digest shape `sha256:<64 hex>`; identifies the immutable image that produced the manifest |
+| `CohortDayFailureReceipt` | One deterministic ID per missing cohort date; first detection timestamp is immutable, retry reuses the persisted wire, `runs_created=0` is permitted only after the prior namespace has zero ScanRuns and zero `RUN_CREATED` events, and partial state fails closed. |
 | `CohortHistoryReceipt` | Deterministic wire derived only from the exact committed `first.json` bytes; the raw SHA-256, Git blob OID, source commit/tree, all successful atomic checks, direct exit 0, and one ScanRun plus one RUN_CREATED read-back must agree before downstream writes |
 
 Fields marked nullable in the eventual machine schema still remain present. `null` means not applicable or not yet available only when the contract explicitly permits it; it never means passed.

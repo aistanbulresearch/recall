@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 
 from recall.ledger.memory import InMemoryLedger
+from recall.contracts import content_hash
 from recall.scheduler.dayn import DayNScheduler
 from recall.scheduler.preparation import (
     DEFAULT_BUNDLE_PATH,
@@ -18,7 +20,7 @@ from recall.scheduler.preparation import (
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path("artifacts/evidence/cohort-manifest-example")
 EXAMPLE_IMAGE_DIGEST = "sha256:" + hashlib.sha256(
-    b"recall:in-memory-synthetic-manifest-example:v2"
+    b"recall:in-memory-synthetic-manifest-example:v2.1"
 ).hexdigest()
 
 
@@ -41,11 +43,19 @@ def main() -> int:
     receipt = ledger.get_artifact(result.data_mode_receipt_id)
     if manifest is None or receipt is None:
         raise RuntimeError("cohort_manifest_example_missing")
+    legacy_manifest = copy.deepcopy(manifest)
+    legacy_manifest["schema_version"] = "2.0.0"
+    for row in legacy_manifest["execution_history"]:
+        row.pop("execution_status")
+        row.pop("failure_receipt_id")
+    legacy_manifest["content_hash"] = "0" * 64
+    legacy_manifest["content_hash"] = content_hash(legacy_manifest)
     target = ROOT / OUTPUT
     target.mkdir(parents=True, exist_ok=True)
     outputs = {
         "day1-history-receipt.live-synthetic.json": bundle.history_receipt,
         "day2-manifest.synthetic.json": manifest,
+        "day2-manifest.v2.0.legacy.json": legacy_manifest,
         "day2-data-mode-receipt.synthetic.json": receipt,
     }
     hashes = {}

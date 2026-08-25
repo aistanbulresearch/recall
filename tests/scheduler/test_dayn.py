@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import copy
 import hashlib
-from datetime import datetime, timezone
+import json
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from recall.contracts import parse_artifact
+from recall.contracts import content_hash, parse_artifact
 from recall.ledger.memory import InMemoryLedger
 from recall.ledger.producers import PRODUCER_REGISTRY
-from recall.scheduler.dayn import DayNScheduler, collection_prefix, preview
+from recall.scheduler.dayn import (
+    DayNScheduler,
+    _real_selected_date,
+    collection_prefix,
+    preview,
+)
 from recall.scheduler.entrypoint import execute
 from recall.scheduler.manifest import (
     manifest_artifact_id,
@@ -18,6 +24,11 @@ from recall.scheduler.manifest import (
     require_single_manifest,
 )
 from recall.scheduler.history import history_receipt_artifact_id
+from recall.scheduler.continuation import (
+    MissingCohortDay,
+    failure_receipt_artifact_id,
+    validate_persisted_failure_lineage,
+)
 from recall.scheduler.preparation import (
     DEFAULT_BUNDLE_PATH,
     LockedPreparationVerifier,
@@ -31,17 +42,19 @@ BUNDLE_SHA = "c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841"
 SOURCE_COMMIT = "c65ee3d55524caf1d2d9d697c9bff712e35bca82"
 IMAGE_DIGEST = "sha256:" + "b" * 64
 DAY2_NOW = datetime(2026, 8, 26, 16, 1, tzinfo=timezone.utc)
+DAY3_NOW = datetime(2026, 8, 27, 16, 1, tzinfo=timezone.utc)
+DAY4_NOW = datetime(2026, 8, 28, 16, 1, tzinfo=timezone.utc)
 
 
 def _bundle():
     return load_preparation_bundle(ROOT, expected_sha256=BUNDLE_SHA)
 
 
-def _prepared_ledger():
+def _prepared_ledger(now: datetime = DAY2_NOW):
     bundle = _bundle()
     verifier = LockedPreparationVerifier(bundle)
     ledger = InMemoryLedger(privacy_receipt_verifier=verifier)
-    install_prepared_day(ledger, bundle, now=DAY2_NOW)
+    install_prepared_day(ledger, bundle, now=now)
     return ledger, bundle
 
 
@@ -148,6 +161,8 @@ def test_manifest_history_shape_and_manual_day1_boundary() -> None:
         "selected_for_date",
         "runs_created",
         "runs_predicted",
+        "execution_status",
+        "failure_receipt_id",
     )
     assert [item["selected_for_date"] for item in history] == [
         "2026-08-25",
@@ -159,6 +174,8 @@ def test_manifest_history_shape_and_manual_day1_boundary() -> None:
     assert history[-1]["runs_created"] == 3
     assert history[-1]["runs_predicted"] == 3
     assert history[-1]["executed_at"] == "2026-08-26T16:01:00Z"
+    assert history[-1]["execution_status"] == "COMPLETE"
+    assert history[-1]["failure_receipt_id"] is None
     assert artifact.created_at == "2026-08-26T16:01:00Z"
     assert artifact.payload.scheduled_for == "2026-08-26T16:00:00Z"
 
@@ -201,6 +218,401 @@ def test_preview_constructs_no_ledger_and_day1_recurring_is_rejected() -> None:
 
 def test_daily_prefix_is_date_bound() -> None:
     assert collection_prefix(DAY2_NOW.date()) == "dev_recall_m2_cohort_20260826_"
+
+
+def test_execution_at_window_end_is_rejected() -> None:
+    with pytest.raises(RuntimeError, match="cohort_execution_outside_daily_window"):
+        _real_selected_date(
+            datetime(2026, 8, 26, 16, 10, tzinfo=timezone.utc)
+        )
+
+
+def test_missing_day_emits_typed_receipt_and_incomplete_manifest() -> None:
+    ledger, bundle = _prepared_ledger(DAY3_NOW)
+    result = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(
+        now=DAY3_NOW,
+        previous_manifest=None,
+        missing_days=(MissingCohortDay(date(2026, 8, 26)),),
+    )
+    receipt_id = failure_receipt_artifact_id(date(2026, 8, 26))
+    receipt = ledger.get_artifact(receipt_id)
+    assert receipt is not None
+    parsed_receipt = parse_artifact(receipt, authorized_producers=PRODUCER_REGISTRY)
+    assert parsed_receipt.schema_name == "CohortDayFailureReceipt"
+    assert parsed_receipt.payload.detected_at == "2026-08-27T16:01:00Z"
+    manifest = parse_artifact(
+        ledger.get_artifact(result.manifest_artifact_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert manifest.schema_version == "2.1.0"
+    assert manifest.status.value == "INCOMPLETE"
+    assert [row["execution_status"] for row in manifest.payload.execution_history] == [
+        "COMPLETE",
+        "INCOMPLETE",
+        "COMPLETE",
+    ]
+    assert manifest.payload.execution_history[1]["executed_at"] is None
+    assert manifest.payload.execution_history[1]["failure_receipt_id"] == receipt_id
+    assert receipt_id in manifest.input_artifact_ids
+
+
+def test_failure_receipt_retry_reuses_first_detection_bytes() -> None:
+    ledger, bundle = _prepared_ledger(DAY3_NOW)
+    scheduler = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    )
+    missing = (MissingCohortDay(date(2026, 8, 26)),)
+    scheduler.trigger(now=DAY3_NOW, previous_manifest=None, missing_days=missing)
+    receipt_id = failure_receipt_artifact_id(date(2026, 8, 26))
+    first = ledger.get_artifact(receipt_id)
+    scheduler.trigger(
+        now=datetime(2026, 8, 27, 16, 2, tzinfo=timezone.utc),
+        previous_manifest=None,
+        missing_days=missing,
+    )
+    assert ledger.get_artifact(receipt_id) == first
+
+
+def test_retry_with_changed_gap_context_refuses_before_new_writes() -> None:
+    ledger, bundle = _prepared_ledger(DAY3_NOW)
+    scheduler = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    )
+    scheduler.trigger(
+        now=DAY3_NOW,
+        previous_manifest=None,
+        missing_days=(MissingCohortDay(date(2026, 8, 26)),),
+    )
+    before_artifacts = ledger.read_back_count("artifacts")
+    before_runs = ledger.read_back_count("scan_runs")
+    with pytest.raises(RuntimeError, match="cohort_manifest_context_mismatch"):
+        scheduler.trigger(
+            now=datetime(2026, 8, 27, 16, 2, tzinfo=timezone.utc),
+            previous_manifest=None,
+            missing_days=(),
+        )
+    assert ledger.read_back_count("artifacts") == before_artifacts
+    assert ledger.read_back_count("scan_runs") == before_runs
+
+
+def test_failure_receipt_append_failure_precedes_scan_run_writes() -> None:
+    class DroppingLedger(InMemoryLedger):
+        def append_artifact(self, value):
+            if value["schema_name"] == "CohortDayFailureReceipt":
+                return parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
+            return super().append_artifact(value)
+
+    bundle = _bundle()
+    ledger = DroppingLedger(
+        privacy_receipt_verifier=LockedPreparationVerifier(bundle)
+    )
+    install_prepared_day(ledger, bundle, now=DAY3_NOW)
+    with pytest.raises(RuntimeError, match="cohort_failure_receipt_missing"):
+        DayNScheduler(
+            ledger,
+            bundle=bundle,
+            source_commit=SOURCE_COMMIT,
+            image_digest=IMAGE_DIGEST,
+        ).trigger(
+            now=DAY3_NOW,
+            previous_manifest=None,
+            missing_days=(MissingCohortDay(date(2026, 8, 26)),),
+        )
+    assert ledger.read_back_count("scan_runs") == 0
+    assert ledger.read_back_count("scan_run_events") == 0
+    assert ledger.get_artifact(manifest_artifact_id(DAY3_NOW.date())) is None
+
+
+def test_day3_reads_committed_v20_day2_and_emits_v21() -> None:
+    previous = json.loads(
+        (
+            ROOT
+            / "artifacts/evidence/cohort-manifest-example/day2-manifest.v2.0.legacy.json"
+        ).read_text(encoding="utf-8")
+    )
+    ledger, bundle = _prepared_ledger(DAY3_NOW)
+    result = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(now=DAY3_NOW, previous_manifest=previous)
+    manifest = parse_artifact(
+        ledger.get_artifact(result.manifest_artifact_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert manifest.schema_version == "2.1.0"
+    assert manifest.payload.previous_manifest_id == previous["artifact_id"]
+    assert [row["execution_status"] for row in manifest.payload.execution_history] == [
+        "COMPLETE",
+        "COMPLETE",
+        "COMPLETE",
+    ]
+    assert result.failure_receipt_ids == ()
+
+
+def test_multiple_missing_days_emit_ordered_receipts_and_history() -> None:
+    now = datetime(2026, 8, 28, 16, 1, tzinfo=timezone.utc)
+    ledger, bundle = _prepared_ledger(now)
+    result = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(
+        now=now,
+        previous_manifest=None,
+        missing_days=(
+            MissingCohortDay(date(2026, 8, 27)),
+            MissingCohortDay(date(2026, 8, 26)),
+        ),
+    )
+    expected_ids = tuple(
+        sorted(
+            failure_receipt_artifact_id(value)
+            for value in (date(2026, 8, 26), date(2026, 8, 27))
+        )
+    )
+    assert result.failure_receipt_ids == expected_ids
+    manifest = parse_artifact(
+        ledger.get_artifact(result.manifest_artifact_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert [row["day_index"] for row in manifest.payload.execution_history] == [
+        1,
+        2,
+        3,
+        4,
+    ]
+    assert [row["execution_status"] for row in manifest.payload.execution_history] == [
+        "COMPLETE",
+        "INCOMPLETE",
+        "INCOMPLETE",
+        "COMPLETE",
+    ]
+    assert manifest.payload.cumulative["daily_cycles"] == 2
+    assert manifest.payload.cumulative["distinct_execution_dates"] == 2
+
+
+def test_day4_inherits_day3_incomplete_lineage_transitively() -> None:
+    day3_ledger, bundle = _prepared_ledger(DAY3_NOW)
+    day3 = DayNScheduler(
+        day3_ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(
+        now=DAY3_NOW,
+        previous_manifest=None,
+        missing_days=(MissingCohortDay(date(2026, 8, 26)),),
+    )
+    day3_manifest = day3_ledger.get_artifact(day3.manifest_artifact_id)
+    assert day3_manifest is not None
+    day4_now = datetime(2026, 8, 28, 16, 1, tzinfo=timezone.utc)
+    day4_ledger, _ = _prepared_ledger(day4_now)
+    day4 = DayNScheduler(
+        day4_ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(now=day4_now, previous_manifest=day3_manifest)
+    manifest = parse_artifact(
+        day4_ledger.get_artifact(day4.manifest_artifact_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    inherited_id = failure_receipt_artifact_id(date(2026, 8, 26))
+    assert inherited_id in manifest.input_artifact_ids
+    assert inherited_id in day4.failure_receipt_ids
+
+
+def test_dangling_inherited_receipt_produces_zero_current_writes() -> None:
+    day3_ledger, bundle = _prepared_ledger(DAY3_NOW)
+    day3 = DayNScheduler(
+        day3_ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(
+        now=DAY3_NOW,
+        previous_manifest=None,
+        missing_days=(MissingCohortDay(DAY2_NOW.date()),),
+    )
+    receipt_id = failure_receipt_artifact_id(DAY2_NOW.date())
+    day3_ledger._artifacts.pop(receipt_id)  # type: ignore[attr-defined]
+    current, _ = _prepared_ledger(DAY4_NOW)
+    before = _scheduler_counts(current)
+
+    def factory(*, collection_prefix, **_kwargs):
+        if collection_prefix.endswith("20260828_"):
+            return current
+        if collection_prefix.endswith("20260827_"):
+            return day3_ledger
+        raise AssertionError(collection_prefix)
+
+    with pytest.raises(
+        RuntimeError, match="cohort_failure_receipt_lineage_invalid"
+    ):
+        execute(
+            [],
+            environment=_entrypoint_environment(),
+            now_factory=lambda: DAY4_NOW,
+            ledger_factory=factory,
+            repo_root=ROOT,
+        )
+    assert day3_ledger.get_artifact(day3.manifest_artifact_id) is not None
+    assert _scheduler_counts(current) == before
+
+
+def test_wrong_predecessor_id_produces_zero_current_writes() -> None:
+    day2_ledger, bundle = _prepared_ledger(DAY2_NOW)
+    day2 = DayNScheduler(
+        day2_ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(now=DAY2_NOW, previous_manifest=None)
+    day2_manifest = day2_ledger.get_artifact(day2.manifest_artifact_id)
+    assert day2_manifest is not None
+    day3_ledger, _ = _prepared_ledger(DAY3_NOW)
+    day3 = DayNScheduler(
+        day3_ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(now=DAY3_NOW, previous_manifest=day2_manifest)
+    day3_manifest = copy.deepcopy(
+        day3_ledger.get_artifact(day3.manifest_artifact_id)
+    )
+    assert day3_manifest is not None
+    wrong_id = "00000000-0000-4000-8000-000000000001"
+    day3_manifest["previous_manifest_id"] = wrong_id
+    inputs = set(day3_manifest["input_artifact_ids"])
+    inputs.remove(day2.manifest_artifact_id)
+    inputs.add(wrong_id)
+    day3_manifest["input_artifact_ids"] = sorted(inputs)
+    day3_manifest["content_hash"] = content_hash(day3_manifest)
+    day3_ledger._artifacts[day3.manifest_artifact_id] = day3_manifest  # type: ignore[attr-defined]
+    current, _ = _prepared_ledger(DAY4_NOW)
+    before = _scheduler_counts(current)
+
+    def factory(*, collection_prefix, **_kwargs):
+        if collection_prefix.endswith("20260828_"):
+            return current
+        if collection_prefix.endswith("20260827_"):
+            return day3_ledger
+        if collection_prefix.endswith("20260826_"):
+            return day2_ledger
+        raise AssertionError(collection_prefix)
+
+    with pytest.raises(RuntimeError, match="cohort_manifest_predecessor_invalid"):
+        execute(
+            [],
+            environment=_entrypoint_environment(),
+            now_factory=lambda: DAY4_NOW,
+            ledger_factory=factory,
+            repo_root=ROOT,
+        )
+    assert _scheduler_counts(current) == before
+
+
+def test_missing_current_failure_receipt_breaks_lineage_validation() -> None:
+    ledger, bundle = _prepared_ledger(DAY3_NOW)
+    result = DayNScheduler(
+        ledger,
+        bundle=bundle,
+        source_commit=SOURCE_COMMIT,
+        image_digest=IMAGE_DIGEST,
+    ).trigger(
+        now=DAY3_NOW,
+        previous_manifest=None,
+        missing_days=(MissingCohortDay(date(2026, 8, 26)),),
+    )
+    manifest = ledger.get_artifact(result.manifest_artifact_id)
+    assert manifest is not None
+    receipt_id = failure_receipt_artifact_id(date(2026, 8, 26))
+    ledger._artifacts.pop(receipt_id)  # type: ignore[attr-defined]
+    with pytest.raises(RuntimeError, match="cohort_failure_receipt_lineage_invalid"):
+        validate_persisted_failure_lineage(
+            ledger,
+            manifest,
+            previous_manifest=None,
+        )
+
+
+def _scheduler_counts(ledger: InMemoryLedger) -> tuple[int, int, int]:
+    return (
+        ledger.read_back_count("scan_runs"),
+        ledger.read_back_count("scan_run_events"),
+        ledger.read_back_count("artifacts"),
+    )
+
+
+def _entrypoint_environment() -> dict[str, str]:
+    return {
+        "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
+        "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
+        "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+        "RECALL_EXPECTED_PROJECT_SHA256": "c" * 64,
+    }
+
+
+@pytest.mark.parametrize("mode", ["partial", "backend_error"])
+def test_prior_day_failure_produces_zero_current_scheduler_writes(mode) -> None:
+    current, _bundle_value = _prepared_ledger(DAY3_NOW)
+    before_runs = current.read_back_count("scan_runs")
+    before_events = current.read_back_count("scan_run_events")
+    before_artifacts = current.read_back_count("artifacts")
+
+    class PriorLedger:
+        def get_artifact(self, _artifact_id):
+            if mode == "backend_error":
+                raise OSError("prior-ledger-read-failed")
+            return None
+
+        def read_back_count(self, collection):
+            return 1 if collection == "scan_runs" else 0
+
+    prior = PriorLedger()
+
+    def factory(*, collection_prefix, **_kwargs):
+        if collection_prefix.endswith("20260827_"):
+            return current
+        if collection_prefix.endswith("20260826_"):
+            return prior
+        raise AssertionError(collection_prefix)
+
+    reason = (
+        "prior-ledger-read-failed"
+        if mode == "backend_error"
+        else "previous_cohort_day_partial_state"
+    )
+    with pytest.raises((OSError, RuntimeError), match=reason):
+        execute(
+            [],
+            environment={
+                "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
+                "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
+                "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+                "RECALL_EXPECTED_PROJECT_SHA256": "c" * 64,
+            },
+            now_factory=lambda: DAY3_NOW,
+            ledger_factory=factory,
+            repo_root=ROOT,
+        )
+    assert current.read_back_count("scan_runs") == before_runs
+    assert current.read_back_count("scan_run_events") == before_events
+    assert current.read_back_count("artifacts") == before_artifacts
 
 
 def test_bundle_requires_exactly_one_cohort_manifest() -> None:

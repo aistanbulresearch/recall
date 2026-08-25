@@ -75,6 +75,7 @@ def build_manifest(
     reused_run_ids: Sequence[str],
     bundle: CohortPreparationBundle,
     previous_manifest: Mapping[str, object] | None,
+    failure_receipts: Sequence[Mapping[str, object]],
     executed_at: datetime,
 ) -> dict[str, object]:
     predicted = RUN_PREDICTIONS[selected_for_date]
@@ -83,6 +84,7 @@ def build_manifest(
     history = _prior_history(
         previous_manifest,
         history_receipt=bundle.history_receipt,
+        failure_receipts=failure_receipts,
         index=index,
     )
     history.append(
@@ -92,6 +94,8 @@ def build_manifest(
             "selected_for_date": selected_for_date.isoformat(),
             "runs_created": len(authoritative_ids),
             "runs_predicted": predicted,
+            "execution_status": "COMPLETE",
+            "failure_receipt_id": None,
         }
     )
     selected_vcvs = {item.vcv for item in selected_cases if item.vcv is not None}
@@ -118,6 +122,12 @@ def build_manifest(
         *(record.artifact_id for record in watch_records),
         *(str(record.scan_run_artifact_id) for record in run_records),
         *(str(row["artifact_id"]) for row in anchor_rows),
+        *(str(receipt["artifact_id"]) for receipt in failure_receipts),
+        *(
+            str(item["failure_receipt_id"])
+            for item in history
+            if item["failure_receipt_id"] is not None
+        ),
     }
     previous_id = None
     if previous_manifest is not None:
@@ -126,7 +136,7 @@ def build_manifest(
     matched = len(authoritative_ids) == predicted
     return build_artifact(
         schema_name="CohortDayManifest",
-        schema_version="2.0.0",
+        schema_version="2.1.0",
         artifact_id=manifest_artifact_id(selected_for_date),
         case_id=COHORT_ID,
         run_id=tick_run_id(selected_for_date),
@@ -138,7 +148,11 @@ def build_manifest(
         created_at=_timestamp(executed_at.astimezone(timezone.utc)),
         input_artifact_ids=tuple(sorted(input_ids)),
         data_mode=DataMode.SYNTHETIC,
-        status=ArtifactStatus.VALID if matched else ArtifactStatus.INCOMPLETE,
+        status=(
+            ArtifactStatus.VALID
+            if matched and all(item["execution_status"] == "COMPLETE" for item in history)
+            else ArtifactStatus.INCOMPLETE
+        ),
         payload={
             "day_index": index,
             "selected_for_date": selected_for_date.isoformat(),
@@ -208,45 +222,76 @@ def _prior_history(
     previous_manifest: Mapping[str, object] | None,
     *,
     history_receipt: Mapping[str, object],
+    failure_receipts: Sequence[Mapping[str, object]],
     index: int,
 ) -> list[dict[str, object]]:
-    if index == 2:
-        if previous_manifest is not None:
-            raise RuntimeError("day2_previous_manifest_forbidden")
+    if previous_manifest is None:
         parsed = parse_artifact(
             history_receipt, authorized_producers=PRODUCER_REGISTRY
         )
         if parsed.schema_name != "CohortHistoryReceipt":
             raise RuntimeError("cohort_history_receipt_invalid")
-        return [
+        history = [
             {
                 "day_index": parsed.payload.day_index,
                 "executed_at": parsed.payload.executed_at,
                 "selected_for_date": parsed.payload.selected_for_date,
                 "runs_created": parsed.payload.runs_created,
                 "runs_predicted": parsed.payload.runs_predicted,
+                "execution_status": "COMPLETE",
+                "failure_receipt_id": None,
             }
         ]
-    if previous_manifest is None:
-        raise RuntimeError("previous_cohort_manifest_required")
-    parsed = parse_artifact(previous_manifest, authorized_producers=PRODUCER_REGISTRY)
-    if parsed.schema_name != "CohortDayManifest":
-        raise RuntimeError("previous_cohort_manifest_invalid")
-    if parsed.payload.day_index != index - 1:
+    else:
+        parsed = parse_artifact(
+            previous_manifest, authorized_producers=PRODUCER_REGISTRY
+        )
+        if parsed.schema_name != "CohortDayManifest":
+            raise RuntimeError("previous_cohort_manifest_invalid")
+        history = [dict(item) for item in parsed.payload.execution_history]
+        if parsed.schema_version == "2.0.0":
+            history = [
+                {
+                    **item,
+                    "execution_status": "COMPLETE",
+                    "failure_receipt_id": None,
+                }
+                for item in history
+            ]
+    for receipt_wire in failure_receipts:
+        receipt = parse_artifact(
+            receipt_wire, authorized_producers=PRODUCER_REGISTRY
+        )
+        if receipt.schema_name != "CohortDayFailureReceipt":
+            raise RuntimeError("cohort_failure_receipt_invalid")
+        history.append(
+            {
+                "day_index": receipt.payload.day_index,
+                "executed_at": None,
+                "selected_for_date": receipt.payload.selected_for_date,
+                "runs_created": 0,
+                "runs_predicted": receipt.payload.runs_predicted,
+                "execution_status": "INCOMPLETE",
+                "failure_receipt_id": receipt.artifact_id,
+            }
+        )
+    if [item["day_index"] for item in history] != list(range(1, index)):
         raise RuntimeError("previous_cohort_manifest_not_adjacent")
-    return [dict(item) for item in parsed.payload.execution_history]
+    return history
 
 
 def _cumulative(history: Sequence[Mapping[str, object]]) -> dict[str, int]:
+    completed = [item for item in history if item["execution_status"] == "COMPLETE"]
     return {
-        "daily_cycles": len(history),
+        "daily_cycles": len(completed),
         "successful_daily_cycles": sum(
-            int(item["runs_created"] == item["runs_predicted"]) for item in history
+            int(item["runs_created"] == item["runs_predicted"])
+            for item in completed
         ),
         "runs_predicted": sum(int(item["runs_predicted"]) for item in history),
         "runs_created": sum(int(item["runs_created"]) for item in history),
         "distinct_execution_dates": len(
-            {str(item["selected_for_date"]) for item in history}
+            {str(item["executed_at"])[:10] for item in completed}
         ),
     }
 

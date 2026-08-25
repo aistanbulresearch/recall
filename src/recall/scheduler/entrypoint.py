@@ -10,10 +10,18 @@ from pathlib import Path
 from typing import Any
 
 from recall.ledger.firestore import FirestoreLedger
+from recall.contracts import parse_artifact
+from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.platform.redaction import redact_json
 
 from .dayn import DayNScheduler, collection_prefix, preview
 from .manifest import day_index, manifest_artifact_id
+from .cohort import RUN_PREDICTIONS
+from .continuation import (
+    MissingCohortDay,
+    previous_complete_managed_date,
+    validate_persisted_manifest_link,
+)
 from .preparation import (
     LockedPreparationVerifier,
     load_preparation_bundle,
@@ -65,6 +73,8 @@ def execute(
     project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
     now = now_factory()
     selected_date = now.astimezone(timezone.utc).date()
+    if selected_date not in RUN_PREDICTIONS:
+        raise RuntimeError("cohort_prediction_missing")
     verifier = LockedPreparationVerifier(bundle)
     ledger = ledger_factory(
         collection_prefix=collection_prefix(selected_date),
@@ -73,25 +83,22 @@ def execute(
         database="(default)",
         require_live=True,
     )
-    previous = None
-    if day_index(selected_date) > 2:
-        prior_date = selected_date - timedelta(days=1)
-        prior = ledger_factory(
-            collection_prefix=collection_prefix(prior_date),
-            privacy_receipt_verifier=verifier,
-            expected_project_sha256=project_sha,
-            database="(default)",
-            require_live=True,
-        )
-        previous = prior.get_artifact(manifest_artifact_id(prior_date))
-        if previous is None:
-            raise RuntimeError("previous_cohort_manifest_missing")
+    previous, missing_days = _load_prior_context(
+        selected_date,
+        ledger_factory=ledger_factory,
+        verifier=verifier,
+        project_sha=project_sha,
+    )
     result = DayNScheduler(
         ledger,
         bundle=bundle,
         source_commit=source_commit,
         image_digest=image_digest,
-    ).trigger(now=now, previous_manifest=previous)
+    ).trigger(
+        now=now,
+        previous_manifest=previous,
+        missing_days=missing_days,
+    )
     return {
         "mode": "LIVE_FIRESTORE_SYNTHETIC_COHORT_TICK",
         "selected_for_date": result.selected_for_date,
@@ -100,6 +107,7 @@ def execute(
         "authoritative_run_ids": list(result.authoritative_run_ids),
         "manifest_artifact_id": result.manifest_artifact_id,
         "data_mode_receipt_id": result.data_mode_receipt_id,
+        "failure_receipt_ids": list(result.failure_receipt_ids),
         "collection_prefix": collection_prefix(selected_date),
         "backend": dict(ledger.backend_metadata()),
         "claim_boundary": {
@@ -124,6 +132,108 @@ def _required(environment: Mapping[str, str], name: str) -> str:
     if not value:
         raise RuntimeError(f"cohort_required_environment_missing:{name}")
     return value
+
+
+def _load_prior_context(
+    selected_date: date,
+    *,
+    ledger_factory: LedgerFactory,
+    verifier: LockedPreparationVerifier,
+    project_sha: str,
+) -> tuple[Mapping[str, object] | None, tuple[MissingCohortDay, ...]]:
+    if day_index(selected_date) == 2:
+        return None, ()
+    missing = []
+    cursor = selected_date - timedelta(days=1)
+    first_managed_date = date(2026, 8, 26)
+    while cursor >= first_managed_date:
+        if cursor not in RUN_PREDICTIONS:
+            raise RuntimeError("cohort_prediction_gap")
+        prior = ledger_factory(
+            collection_prefix=collection_prefix(cursor),
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+        manifest = prior.get_artifact(manifest_artifact_id(cursor))
+        if manifest is not None:
+            parsed = parse_artifact(
+                manifest, authorized_producers=PRODUCER_REGISTRY
+            )
+            if (
+                parsed.schema_name != "CohortDayManifest"
+                or parsed.payload.day_index != day_index(cursor)
+                or parsed.payload.selected_for_date != cursor.isoformat()
+            ):
+                raise RuntimeError("previous_cohort_manifest_invalid")
+            _validate_prior_manifest_chain(
+                manifest_date=cursor,
+                manifest=manifest,
+                ledger=prior,
+                ledger_factory=ledger_factory,
+                verifier=verifier,
+                project_sha=project_sha,
+            )
+            return manifest, tuple(
+                MissingCohortDay(item) for item in sorted(missing)
+            )
+        if (
+            prior.read_back_count("scan_runs") != 0
+            or prior.read_back_count("scan_run_events") != 0
+        ):
+            raise RuntimeError("previous_cohort_day_partial_state")
+        missing.append(cursor)
+        cursor -= timedelta(days=1)
+    return None, tuple(MissingCohortDay(item) for item in sorted(missing))
+
+
+def _validate_prior_manifest_chain(
+    *,
+    manifest_date: date,
+    manifest: Mapping[str, object],
+    ledger: Any,
+    ledger_factory: LedgerFactory,
+    verifier: LockedPreparationVerifier,
+    project_sha: str,
+) -> None:
+    current_date = manifest_date
+    current_manifest = manifest
+    current_ledger = ledger
+    for _ in range(len(RUN_PREDICTIONS)):
+        previous_date = previous_complete_managed_date(current_manifest)
+        if previous_date is None:
+            validate_persisted_manifest_link(
+                current_ledger,
+                current_manifest,
+                manifest_date=current_date,
+                previous_manifest=None,
+            )
+            return
+        if previous_date not in RUN_PREDICTIONS or previous_date >= current_date:
+            raise RuntimeError("cohort_manifest_predecessor_invalid")
+        previous_ledger = ledger_factory(
+            collection_prefix=collection_prefix(previous_date),
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+        previous_manifest = previous_ledger.get_artifact(
+            manifest_artifact_id(previous_date)
+        )
+        validate_persisted_manifest_link(
+            current_ledger,
+            current_manifest,
+            manifest_date=current_date,
+            previous_manifest=previous_manifest,
+        )
+        if previous_manifest is None:
+            raise RuntimeError("cohort_manifest_predecessor_invalid")
+        current_date = previous_date
+        current_manifest = previous_manifest
+        current_ledger = previous_ledger
+    raise RuntimeError("cohort_manifest_predecessor_chain_unbounded")
 
 
 if __name__ == "__main__":

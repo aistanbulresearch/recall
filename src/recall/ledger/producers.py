@@ -68,6 +68,9 @@ PRODUCER_REGISTRY = ProducerRegistry(
         "DeploymentReceipt": ProducerRule("Release controller", frozenset({"release-controller"})),
         "ManagedPathReceipt": ProducerRule("Deterministic health aggregator", frozenset({"health-aggregator"})),
         "CohortDayManifest": ProducerRule("Cohort scheduler", frozenset({"cohort-scheduler"})),
+        "CohortDayFailureReceipt": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
         "CohortHistoryReceipt": ProducerRule(
             "Cohort history loader", frozenset({"cohort-history-loader"})
         ),

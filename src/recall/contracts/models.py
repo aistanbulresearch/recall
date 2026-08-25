@@ -10,7 +10,7 @@ from .canonical import content_hash
 from .enums import ArtifactStatus, DataMode
 from .errors import ContractError
 from .payloads import Payload
-from .schemas import SCHEMAS
+from .schemas import LEGACY_SCHEMAS, SCHEMAS
 from .validation import (
     SEMVER,
     SHA256,
@@ -150,10 +150,22 @@ def parse_artifact(
     schema_name = value.get("schema_name")
     if not isinstance(schema_name, str) or schema_name not in SCHEMAS:
         raise ContractError("contract_schema_unregistered")
-    version, payload_fields, parser, run_required = SCHEMAS[schema_name]
+    current_version, current_fields, current_parser, current_run_required = SCHEMAS[
+        schema_name
+    ]
+    declared_version = value.get("schema_version")
+    if declared_version == current_version:
+        version = current_version
+        payload_fields = current_fields
+        parser = current_parser
+        run_required = current_run_required
+    else:
+        legacy = LEGACY_SCHEMAS.get((schema_name, str(declared_version)))
+        if legacy is None:
+            raise ContractError("contract_major_unsupported", schema_name)
+        payload_fields, parser, run_required = legacy
+        version = str(declared_version)
     require_exact_fields(value, _COMMON_FIELDS | payload_fields, schema_name)
-    if value["schema_version"] != version:
-        raise ContractError("contract_major_unsupported", schema_name)
     if not SEMVER.fullmatch(str(value["schema_version"])):
         raise ContractError("contract_semver_invalid", "schema_version")
     artifact_id = str(uuid_value(value["artifact_id"], "artifact_id"))

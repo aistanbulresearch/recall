@@ -9,7 +9,6 @@ from typing import Any
 
 from ..errors import ContractError
 from ..validation import SHA256, non_empty_string, require_exact_fields, uuid_value
-from .scheduler_history import parse_execution_history
 
 
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -55,7 +54,7 @@ def _uuid_list(value: Any, field: str) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True, slots=True)
-class CohortDayManifestPayload:
+class CohortDayManifestV20Payload:
     day_index: int
     selected_for_date: str
     scheduled_for: str
@@ -97,9 +96,9 @@ class CohortDayManifestPayload:
         }
 
 
-def parse_cohort_day_manifest_payload(
+def parse_cohort_day_manifest_v20_payload(
     value: Mapping[str, Any],
-) -> CohortDayManifestPayload:
+) -> CohortDayManifestV20Payload:
     selected_for_date = _date(value["selected_for_date"], "selected_for_date")
     scheduled_for = _timestamp(value["scheduled_for"], "scheduled_for")
     if scheduled_for[:10] != selected_for_date:
@@ -120,14 +119,12 @@ def parse_cohort_day_manifest_payload(
     cumulative = _parse_cumulative(value["cumulative"])
     cases = _parse_cases(value["cases"])
     anchors = _parse_anchors(value["vcv_anchors"])
-    history = parse_execution_history(value["execution_history"])
+    history = _parse_history(value["execution_history"])
     day_index = _integer(value["day_index"], "day_index", minimum=1)
     if history[-1]["day_index"] != day_index:
         raise ContractError("contract_value_invalid", "execution_history.day_index")
     if history[-1]["selected_for_date"] != selected_for_date:
         raise ContractError("contract_date_mismatch", "execution_history")
-    if history[-1]["execution_status"] != "COMPLETE":
-        raise ContractError("contract_value_invalid", "execution_history.execution_status")
     if history[-1]["runs_created"] != len(delta["authoritative_run_ids"]):
         raise ContractError("contract_value_invalid", "runs_created")
     if history[-1]["runs_predicted"] != delta["runs_predicted"]:
@@ -147,23 +144,10 @@ def parse_cohort_day_manifest_payload(
         raise ContractError(
             "contract_value_invalid", "managed_history_starts_at_day_index"
         )
-    if day_index == 2 and previous_manifest_id is not None:
+    if (day_index == 2) is not (previous_manifest_id is None):
         raise ContractError("contract_value_invalid", "previous_manifest_id")
-    if (
-        day_index > 2
-        and previous_manifest_id is None
-        and not any(item["execution_status"] == "INCOMPLETE" for item in history)
-    ):
-        raise ContractError("contract_value_invalid", "previous_manifest_id")
-    _validate_manifest_topology(
-        value,
-        delta,
-        cumulative,
-        cases,
-        anchors,
-        history,
-    )
-    return CohortDayManifestPayload(
+    _validate_manifest_topology(value, delta, cumulative, cases, anchors, history)
+    return CohortDayManifestV20Payload(
         day_index=day_index,
         selected_for_date=selected_for_date,
         scheduled_for=scheduled_for,
@@ -300,6 +284,45 @@ def _parse_anchors(value: Any) -> tuple[Mapping[str, object], ...]:
     return tuple(parsed)
 
 
+def _parse_history(value: Any) -> tuple[Mapping[str, object], ...]:
+    if not isinstance(value, list) or not value:
+        raise ContractError("contract_type_invalid", "execution_history")
+    parsed = []
+    fields = frozenset(
+        {"day_index", "executed_at", "selected_for_date", "runs_created", "runs_predicted"}
+    )
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise ContractError("contract_type_invalid", "execution_history")
+        require_exact_fields(item, fields, "execution_history")
+        executed_at = _timestamp(item["executed_at"], "execution_history.executed_at")
+        selected = _date(
+            item["selected_for_date"], "execution_history.selected_for_date"
+        )
+        if executed_at[:10] != selected:
+            raise ContractError("contract_date_mismatch", "execution_history")
+        parsed.append(
+            MappingProxyType(
+                {
+                    "day_index": _integer(item["day_index"], "execution_history.day_index", minimum=1),
+                    "executed_at": executed_at,
+                    "selected_for_date": selected,
+                    "runs_created": _integer(item["runs_created"], "execution_history.runs_created"),
+                    "runs_predicted": _integer(item["runs_predicted"], "execution_history.runs_predicted"),
+                }
+            )
+        )
+    if [item["day_index"] for item in parsed] != list(range(1, len(parsed) + 1)):
+        raise ContractError("contract_order_or_uniqueness_invalid", "execution_history")
+    if len({item["selected_for_date"] for item in parsed}) != len(parsed):
+        raise ContractError("contract_order_or_uniqueness_invalid", "selected_for_date")
+    if [item["selected_for_date"] for item in parsed] != sorted(
+        item["selected_for_date"] for item in parsed
+    ):
+        raise ContractError("contract_order_or_uniqueness_invalid", "selected_for_date")
+    return tuple(parsed)
+
+
 def _validate_manifest_topology(
     value: Mapping[str, Any],
     delta: Mapping[str, object],
@@ -320,45 +343,19 @@ def _validate_manifest_topology(
     input_ids = set(value["input_artifact_ids"])
     if not {item["artifact_id"] for item in anchors}.issubset(input_ids):
         raise ContractError("contract_value_invalid", "vcv_anchors.artifact_id")
-    completed = [item for item in history if item["execution_status"] == "COMPLETE"]
     expected_cumulative = {
-        "daily_cycles": len(completed),
+        "daily_cycles": len(history),
         "successful_daily_cycles": sum(
-            int(item["runs_created"] == item["runs_predicted"])
-            for item in completed
+            int(item["runs_created"] == item["runs_predicted"]) for item in history
         ),
         "runs_predicted": sum(int(item["runs_predicted"]) for item in history),
         "runs_created": sum(int(item["runs_created"]) for item in history),
         "distinct_execution_dates": len(
-            {str(item["executed_at"])[:10] for item in completed}
+            {str(item["selected_for_date"]) for item in history}
         ),
     }
-    failure_ids = {
-        str(item["failure_receipt_id"])
-        for item in history
-        if item["failure_receipt_id"] is not None
-    }
-    if len(failure_ids) != sum(
-        item["failure_receipt_id"] is not None for item in history
-    ):
-        raise ContractError(
-            "contract_order_or_uniqueness_invalid",
-            "execution_history.failure_receipt_id",
-        )
-    if not failure_ids.issubset(set(value["input_artifact_ids"])):
-        raise ContractError(
-            "contract_value_invalid", "execution_history.failure_receipt_id"
-        )
-    previous_id = value["previous_manifest_id"]
-    if previous_id is not None and previous_id not in value["input_artifact_ids"]:
-        raise ContractError("contract_value_invalid", "previous_manifest_id")
     if dict(cumulative) != expected_cumulative:
         raise ContractError("contract_value_invalid", "cumulative")
-    expected_status = (
-        "VALID"
-        if delta["prediction_match"]
-        and all(item["execution_status"] == "COMPLETE" for item in history)
-        else "INCOMPLETE"
-    )
+    expected_status = "VALID" if delta["prediction_match"] else "INCOMPLETE"
     if value["status"] != expected_status:
         raise ContractError("contract_value_invalid", "status")

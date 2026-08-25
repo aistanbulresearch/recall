@@ -21,7 +21,7 @@ lowercase hexadecimal and exactly equal the preparation bundle's
 `source_commit`; a mismatch fails with `source_commit_mismatch` before any
 ledger is constructed. `RECALL_IMAGE_DIGEST` must be the deployed immutable
 digest in lowercase `sha256:<64 hex>` form and is persisted in
-`CohortDayManifest` 2.0.0. The
+`CohortDayManifest` 2.1.0. The
 last value for preparation bundle v1 is
 `c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841`.
 The job uses its service account through workload ADC. No user ADC, HMAC key,
@@ -54,3 +54,23 @@ predictions, and selection, returns `writes: 0`, and never constructs a ledger
 or cloud client. After this L2 commit, L1 must rebuild the image, verify the
 packaged Day-1 blob hash, and repoint the Cloud Run Job to the new digest;
 changing source alone does not change the deployed image.
+
+## Cohort manifest compatibility gate
+
+The 2026-08-26 contract notification is
+`CohortDayManifest 2.0.0 -> 2.1.0`. Version 2.1.0 adds the required
+`execution_status` and `failure_receipt_id` fields to each
+`execution_history` row and registers `CohortDayFailureReceipt 1.0.0` for an
+`INCOMPLETE` prior day. The producer example is
+`artifacts/evidence/cohort-manifest-example/day2-manifest.synthetic.json`;
+the exact 2.0.0 legacy-read fixture remains separate and immutable.
+
+Deployment is fail-closed while either value below is unresolved:
+
+- schema-change commit: `PENDING_LOCAL_PRODUCT_COMMIT`;
+- L3/UI compatibility acknowledgement: `NOT_RECEIVED`.
+
+L1 must not build, repoint, or execute an image that can emit 2.1.0 until L2
+replaces the pending value with the exact product commit and L3 confirms that
+its panel parser and fixtures accept that exact contract. A green scheduler
+suite does not substitute for the L3 acknowledgement.

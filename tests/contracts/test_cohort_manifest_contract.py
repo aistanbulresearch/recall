@@ -53,23 +53,41 @@ def _overlap_partition(wire: dict[str, object]) -> None:
 def test_cohort_day_manifest_exact_contract_parses() -> None:
     artifact = parse_artifact(_manifest(), authorized_producers=PRODUCER_REGISTRY)
     assert artifact.schema_name == "CohortDayManifest"
-    assert artifact.schema_version == "2.0.0"
+    assert artifact.schema_version == "2.1.0"
     assert artifact.payload.image_digest == IMAGE_DIGEST
     assert artifact.payload.execution_history[-1]["selected_for_date"] == "2026-08-26"
 
 
-def test_committed_manifest_example_is_v2_and_explicitly_synthetic() -> None:
+def test_committed_manifest_example_is_v21_and_explicitly_synthetic() -> None:
     wire = json.loads(
         (ROOT / "artifacts/evidence/cohort-manifest-example/day2-manifest.synthetic.json")
         .read_text(encoding="utf-8")
     )
     artifact = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     expected_digest = "sha256:" + hashlib.sha256(
-        b"recall:in-memory-synthetic-manifest-example:v2"
+        b"recall:in-memory-synthetic-manifest-example:v2.1"
     ).hexdigest()
-    assert artifact.schema_version == "2.0.0"
+    assert artifact.schema_version == "2.1.0"
     assert artifact.payload.source_commit == _manifest()["source_commit"]
     assert artifact.payload.image_digest == expected_digest
+
+
+def test_committed_v20_example_reads_without_rewriting_wire() -> None:
+    wire = json.loads(
+        (ROOT / "artifacts/evidence/cohort-manifest-example/day2-manifest.v2.0.legacy.json")
+        .read_text(encoding="utf-8")
+    )
+    before = copy.deepcopy(wire)
+    artifact = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    assert artifact.schema_version == "2.0.0"
+    assert tuple(artifact.payload.execution_history[0]) == (
+        "day_index",
+        "executed_at",
+        "selected_for_date",
+        "runs_created",
+        "runs_predicted",
+    )
+    assert wire == before
 
 
 @pytest.mark.parametrize(
@@ -184,5 +202,46 @@ def test_manifest_rejects_reverse_chronological_history() -> None:
     with pytest.raises(
         ContractError,
         match="contract_order_or_uniqueness_invalid:selected_for_date",
+    ):
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY, verify_hash=False)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda wire: wire["execution_history"][1].__setitem__(
+            "failure_receipt_id", "00000000-0000-4000-8000-000000000001"
+        ),
+        lambda wire: wire["execution_history"][1].__setitem__(
+            "execution_status", "UNKNOWN"
+        ),
+        lambda wire: wire["execution_history"][1].__setitem__("executed_at", None),
+    ],
+)
+def test_v21_history_rejects_status_receipt_timestamp_contradictions(mutate) -> None:
+    wire = copy.deepcopy(_manifest())
+    mutate(wire)
+    with pytest.raises(ContractError):
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY, verify_hash=False)
+
+
+def test_v21_incomplete_history_requires_receipt_in_manifest_inputs() -> None:
+    wire = copy.deepcopy(_manifest())
+    row = wire["execution_history"][0]
+    row["execution_status"] = "INCOMPLETE"
+    row["executed_at"] = None
+    row["runs_created"] = 0
+    row["failure_receipt_id"] = "00000000-0000-4000-8000-000000000001"
+    wire["cumulative"] = {
+        "daily_cycles": 1,
+        "successful_daily_cycles": 1,
+        "runs_predicted": 4,
+        "runs_created": 3,
+        "distinct_execution_dates": 1,
+    }
+    wire["status"] = "INCOMPLETE"
+    with pytest.raises(
+        ContractError,
+        match="contract_value_invalid:execution_history.failure_receipt_id",
     ):
         parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY, verify_hash=False)

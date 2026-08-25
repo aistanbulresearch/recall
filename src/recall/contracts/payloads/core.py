@@ -46,6 +46,8 @@ from .agentic import (
     RoutingPlanPayload,
 )
 from .scheduler import CohortDayManifestPayload
+from .scheduler_legacy import CohortDayManifestV20Payload
+from .cohort_failure import CohortDayFailureReceiptPayload
 from .cohort_history import CohortHistoryReceiptPayload
 
 
@@ -136,6 +138,8 @@ Payload = (
     | DeploymentReceiptPayload
     | ManagedPathReceiptPayload
     | CohortDayManifestPayload
+    | CohortDayManifestV20Payload
+    | CohortDayFailureReceiptPayload
     | CohortHistoryReceiptPayload
 )
 
