@@ -2,6 +2,17 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-25-D: Committed Firestore gate exposed stale fixture times
+
+| Field | Value |
+|---|---|
+| Task | Day-1 committed-source live Firestore pre-run gate |
+| Severity | High, run-blocking |
+| Observed | The four-test live ledger suite returned direct exit 1: two legacy fixtures requested ScanRun creation before their declared `next_scan_at`, and the new admission guard correctly raised `contract_transition_invalid:watch_case_not_due`. |
+| Impact | Source commit `ea95e5e` was not used for the Day-1 firing. No cohort namespace was written. Each exact `dev_recall_3e_*` test namespace was cleaned to five zero counts in `finally`. |
+| Resolution | Align the two fixture clocks with their declared due instants, rerun local and live gates, and create a new reviewed source commit before any cohort firing. |
+| Status | Open until the four-test live Firestore suite passes from the replacement committed HEAD. |
+
 ## ERR-2026-08-25-C: Day-1 pre-run verification exposed environment-bound checks
 
 | Field | Value |

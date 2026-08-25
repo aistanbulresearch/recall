@@ -9,6 +9,7 @@ Append-only. Record substantive actions, verification, and artifact paths.
 - Added the pre-run prediction at `docs/evidence/predictions/2026-08-25--day1-manual-cohort.md` before any live execution.
 - Verification: focused scheduler/admission 24/24 PASS after final review fixes; bounded core 261/261 PASS; privacy 140/140 PASS; platform excluding the separately logged token-process file 234/234 PASS; `compileall` with project-local cache PASS; `git diff --check` and bounded secret/authorship scan PASS.
 - No live Firestore write, commit, push, merge, managed recurring schedule, terminal agent execution, or cloud resource creation has occurred at this checkpoint.
+- Source commit `ea95e5e` was created, then disqualified from firing when the committed live Firestore gate returned direct exit 1 on two pre-due legacy fixture clocks. The admission guard behaved fail-closed and each test prefix cleaned to five zero counts; no Day-1 cohort write occurred. A fixture-only replacement commit is required.
 
 ## WORK-2026-08-14-001: Repository preflight and planning baseline
 

@@ -73,7 +73,7 @@ def test_firestore_append_conflict_and_read_back(
 def test_firestore_cas_lease_events_and_failed_write_stability(
     firestore_ledger: FirestoreLedger,
 ) -> None:
-    now = datetime(2026, 8, 21, 18, 0, tzinfo=UTC)
+    now = datetime(2026, 8, 22, 0, 0, tzinfo=UTC)
     controller = Controller(firestore_ledger)
     admitted, receipt, _payload = admit_watch_case(
         firestore_ledger,
@@ -158,7 +158,7 @@ def test_firestore_cas_lease_events_and_failed_write_stability(
 def test_firestore_rejects_mismatched_transition_atomically(
     firestore_ledger: FirestoreLedger,
 ) -> None:
-    now = datetime(2026, 8, 21, 19, 0, tzinfo=UTC)
+    now = datetime(2026, 8, 22, 0, 1, tzinfo=UTC)
     controller = Controller(firestore_ledger)
     admitted, receipt, _payload = admit_watch_case(
         firestore_ledger,
