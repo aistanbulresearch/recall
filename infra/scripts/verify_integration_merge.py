@@ -40,9 +40,13 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[2]
 SCRATCH_BRANCH = "integration-merge-probe"
 
-# Paths this lane is responsible for. A file outside these is another lane's to
-# check; claiming otherwise would report a coverage we do not have.
-LANE_PREFIXES = (
+# Paths a lane is responsible for. A file outside these belongs to another lane;
+# claiming otherwise would report a coverage we do not have.
+#
+# Configurable because the integration criterion covers more than one lane: the
+# L3 frozen chain has to land as well as the L1 gateway source, and a probe that
+# can only answer for its own lane answers half the question. Defaults to L1.
+DEFAULT_LANE_PREFIXES = (
     "infra/",
     "tests/platform/",
     "src/recall/platform/",
@@ -60,9 +64,9 @@ def git(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]
     )
 
 
-def lane_files(lane: str) -> list[str]:
+def lane_files(lane: str, prefixes: tuple[str, ...]) -> list[str]:
     listing = git("ls-tree", "-r", "--name-only", lane).stdout.splitlines()
-    return [f for f in listing if f.startswith(LANE_PREFIXES)]
+    return [f for f in listing if f.startswith(prefixes)]
 
 
 def main() -> int:
@@ -70,9 +74,15 @@ def main() -> int:
     parser.add_argument("--lane", default="feature/l1-platform")
     parser.add_argument("--target", default="feature/rcl-3xx-core")
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--prefixes",
+        default=",".join(DEFAULT_LANE_PREFIXES),
+        help="comma-separated path prefixes this lane owns",
+    )
     args = parser.parse_args()
 
-    expected = lane_files(args.lane)
+    prefixes = tuple(p.strip() for p in args.prefixes.split(",") if p.strip())
+    expected = lane_files(args.lane, prefixes)
     base = git("merge-base", args.lane, args.target).stdout.strip()
     workdir = Path(tempfile.mkdtemp(prefix="recall_mergeprobe_"))
     result: dict[str, Any] = {
@@ -82,6 +92,7 @@ def main() -> int:
         "target": args.target,
         "target_head": git("rev-parse", "--short", args.target).stdout.strip(),
         "merge_base": base[:12],
+        "lane_prefixes": list(prefixes),
         "lane_files_expected": len(expected),
     }
 
