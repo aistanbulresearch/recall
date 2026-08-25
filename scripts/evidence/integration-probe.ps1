@@ -22,6 +22,15 @@
 .PARAMETER Target
     Integration target. Defaults to feature/rcl-3xx-core.
 
+.NOTES
+    Exit codes. Only 0 means the merged tree was built and passed; every other
+    code requires the caller to decide rather than inherit a verdict.
+
+        0  READY         merged, built, every affected suite passed
+        1  NOT READY     the merge conflicts, or an affected suite failed
+        2  INCONCLUSIVE  a suite this lane affects could not be run at all
+        3  NOTHING BUILT the merge is clean but no suite was affected
+
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\evidence\integration-probe.ps1
 #>
@@ -29,9 +38,11 @@
 param(
     [string]$Lane = '',
     [string]$Target = 'feature/rcl-3xx-core',
-    # Short by design: node_modules under a long temp path exceeds MAX_PATH and
-    # the cleanup then fails with "Filename too long".
-    [string]$ProbeRoot = 'C:\Users\oacav\AppData\Local\Temp\recall-probe',
+    # Empty by default: it is derived per lane below. A FIXED path would mean two
+    # lanes probing the same evening share a directory, and this script clears
+    # that directory on entry, so one lane would delete the other's probe
+    # mid-run. The nightly practice makes concurrent probes the normal case.
+    [string]$ProbeRoot = '',
     # The probe worktree has no venv of its own. Point at the checkout's
     # interpreter so a missing dependency cannot read as a lane failure.
     [string]$PythonExe = 'C:\Users\oacav\OneDrive\Desktop\recall project\.venv\Scripts\python.exe'
@@ -70,6 +81,13 @@ if ([string]::IsNullOrWhiteSpace($Lane)) {
     $Lane = (Invoke-Git rev-parse --abbrev-ref HEAD).Trim()
 }
 
+if ([string]::IsNullOrWhiteSpace($ProbeRoot)) {
+    # Short root by design: node_modules under a long temp path exceeds MAX_PATH
+    # and cleanup then fails with "Filename too long".
+    $slug = ($Lane -replace '[^A-Za-z0-9]', '-')
+    $ProbeRoot = "C:\Users\oacav\AppData\Local\Temp\rp-$slug"
+}
+
 $laneHead = (Invoke-Git rev-parse --short $Lane).Trim()
 $targetHead = (Invoke-Git rev-parse --short $Target).Trim()
 $mergeBase = (Invoke-Git merge-base $Lane $Target).Trim()
@@ -101,6 +119,9 @@ Invoke-Git worktree add --detach $ProbeRoot $probeCommit | Out-Null
 
 $results = [ordered]@{}
 $notRun = [Collections.Generic.List[string]]::new()
+# Suites this lane affects that could not be run at all. Distinct from $notRun,
+# which is suites the lane does not affect.
+$blocked = [Collections.Generic.List[string]]::new()
 $failed = $false
 try {
     # Only run a suite when the merge actually affects it. A green reported for a
@@ -130,7 +151,10 @@ try {
 
     if ($srcTouched -and (Test-Path (Join-Path $ProbeRoot 'pyproject.toml'))) {
         if (-not (Test-Path $PythonExe)) {
-            $notRun.Add("python suite (interpreter not found at $PythonExe)")
+            # A suite that IS affected but CANNOT run is not the same as a suite
+            # that is unaffected. Reporting it as merely "not run" would hand back
+            # a green covering only the suites that happened to be runnable.
+            $blocked.Add("python suite is affected by this lane but the interpreter was not found at $PythonExe")
         } else {
             # tests/ledger/test_firestore_ledger.py is FAIL-LOUD by design: with no
             # RECALL_FIRESTORE_TEST_MODE it errors rather than skipping, so that a
@@ -174,12 +198,22 @@ foreach ($key in $results.Keys) {
     Write-Host ("  {0,-18} exit {1}" -f $key, $code)
 }
 foreach ($skipped in $notRun) { Write-Host "  not run: $skipped" }
+foreach ($stuck in $blocked) { Write-Host "  BLOCKED: $stuck" -ForegroundColor Yellow }
 
 Write-Host ''
+if ($blocked.Count -gt 0) {
+    Write-Host "INCONCLUSIVE: a suite this lane affects could not be run." -ForegroundColor Yellow
+    Write-Host "This is not a pass and not a failure. Fix the environment and re-probe."
+    exit 2
+}
 if ($results.Count -eq 0) {
     Write-Host "MERGES CLEAN, NOTHING BUILT: no suite was affected by this lane." -ForegroundColor Yellow
     Write-Host "That is not a build result. Do not report it as one."
-    exit 0
+    # Exit 3, NOT 0. The warning above addresses a human; the exit code addresses
+    # a machine, and returning 0 here would let any automated caller inherit a
+    # green for a lane where nothing was tested. That is the vacuous green this
+    # instrument exists to refuse, so it must not emit one itself.
+    exit 3
 }
 if ($failed) {
     Write-Host "NOT READY: the merged tree does not pass." -ForegroundColor Red
