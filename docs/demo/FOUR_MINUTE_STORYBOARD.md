@@ -6,7 +6,9 @@
 - **Timing decided 2026-08-24 by the external evaluator, ratified by the owner. The
   allocation below is final, not a proposal.**
 - **The opening is closed. It is locked, measured at 71s, and is not reopened for
-  wordsmithing by any party.**
+  wordsmithing by any party.** One change has passed through this lock: the
+  2026-08-25 claim-gate narrowing, authorised by the owner and required by the
+  auditor's ruling. It cost zero words and zero seconds. The lock stands.
 - Tasks: RCL-207 and RCL-904
 - Updated: 2026-08-24
 - Target duration: 3 minutes 40 seconds
@@ -73,22 +75,24 @@ house style rule against them in documents this lane writes.
 >
 > A cancer patient's genetic test comes back 'uncertain significance': a classification that means do not act, wait for evidence. That one label can stand between her and a drug approved for exactly her kind of tumor.
 >
-> For one real variant in the BRCA2 gene, laboratory evidence that it behaves like the harmful ones went public in September 2024. The clinical record first moved in April 2026. Five hundred and seventy-five days — and in between, nothing was watching.
+> For one real variant in the BRCA2 gene, the laboratory's data deposit went public on GEO in September 2024. The ClinVar record first moved in April 2026. Five hundred and seventy-five days by registry chronology — and in between, nothing was watching.
 >
 > Recall stands watch for her clinical geneticist: a fleet of specialized agents running in the background, unprompted. One watches evidence. One assesses it. One audits every citation — because models invent them. Separate agents, because the one that proposes must never be the one that checks. The controller delegates the work; decisions stay in deterministic policy. And when the evidence is too weak, Recall says so instead of guessing.
 
-### Pending amendment, owner decision required, NOT applied
+### Amendment applied 2026-08-25, owner authorised
 
-The 2026-08-25 claim-gate ruling withdraws content-claim wording for the start of
-the registry interval. The sentence below carries that wording, so the ruling
-requires it to change. The opening is locked by the owner against reopening by
-any party, so the change is recorded here rather than made.
+The 2026-08-25 claim-gate ruling withdrew content-claim wording for the start of
+the registry interval. The opening carried that wording. The owner authorised the
+change through the lock on the same day, on the principle that a lock is a
+practical instrument and a change with technical or competition-rules merit
+proceeds. The narrowing is applied. Both wordings are kept below so the change is
+auditable rather than silent.
 
-Current, as locked:
+Previous wording, withdrawn:
 
 > For one real variant in the BRCA2 gene, laboratory evidence that it behaves like the harmful ones went public in September 2024. The clinical record first moved in April 2026. Five hundred and seventy-five days — and in between, nothing was watching.
 
-Proposed, narrowed to registry chronology:
+Applied, narrowed to registry chronology:
 
 > For one real variant in the BRCA2 gene, the laboratory's data deposit went public on GEO in September 2024. The ClinVar record first moved in April 2026. Five hundred and seventy-five days by registry chronology — and in between, nothing was watching.
 

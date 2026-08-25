@@ -244,7 +244,13 @@ prepare. The video claims the live system because the live system will be there.
 
 1. The segment-by-segment flow above, against the frozen v2.1 allocation.
 2. The evidence card contents and the rule that the 575 and 472 intervals never
-   share a counter.
+   share a counter. The claim gate ruled on these two intervals on 2026-08-25:
+   both may be shown when both are labelled, the registry-chronology interval may
+   lead only while the preregistered interval is displayed beside it, and
+   content-claim wording for the start of the registry interval is withdrawn. The
+   card enforces the pairing from its own data. The opening narration took the
+   same narrowing under the owner's authorisation, at no cost in words or
+   seconds, so this item is decided and is recorded here rather than sought.
 3. The DENIED frame change, and that rehearsal rather than this document decides
    whether it passes the gate.
 4. The build list in section 4. The live-binding question that was open when this
