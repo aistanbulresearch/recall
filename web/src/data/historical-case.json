@@ -1,0 +1,47 @@
+{
+  "governing_document": "docs/evaluation/HISTORICAL_REPLAY_CASE.md",
+  "note": "Machine readable form of the replay case. Every value here is transcribed from the governing document and held to it by a test, so this file cannot drift from the prose it derives from. Intervals are NOT stored: they are computed from the dates at render time, so a displayed number can never disagree with the dates displayed beside it.",
+  "variant": "NM_000059.4:c.7522G>C",
+  "gene": "BRCA2",
+  "clinvar_vcv": "VCV002895953",
+  "geo_accession": "GSE248438",
+  "qualifying_pmid": "39779848",
+  "dates": {
+    "geo_public": "2024-09-27",
+    "qualifying_publication": "2025-01-08",
+    "later_evaluator_date": "2026-02-03",
+    "clinvar_v5_public": "2026-04-25"
+  },
+  "intervals": [
+    {
+      "id": "preregistered_lead_time",
+      "from": "qualifying_publication",
+      "to": "clinvar_v5_public",
+      "label": "Preregistered lead-time metric: qualifying publication to ClinVar reflection",
+      "status": "preregistered",
+      "governing_note": "Only this interval is the preregistered public-source lead-time metric. It is reported for this case only."
+    },
+    {
+      "id": "publication_to_evaluator",
+      "from": "qualifying_publication",
+      "to": "later_evaluator_date",
+      "label": "Contextual: qualifying publication to the later evaluator date",
+      "status": "contextual",
+      "governing_note": "Contextual only, and must be labeled separately."
+    },
+    {
+      "id": "accession_public_to_reflection",
+      "from": "geo_public",
+      "to": "clinvar_v5_public",
+      "label": "GEO accession public to ClinVar reflection",
+      "status": "not_in_governing_document",
+      "governing_note": "This interval is not derived in the governing document and is not the preregistered metric. Its start date is the date the dataset accession became public; the governing document does not infer the exact row state at that date."
+    }
+  ],
+  "honesty_sentences": [
+    "The aggregate record becomes conflicting, not uniformly pathogenic.",
+    "It does not establish that the paper caused the later submission."
+  ],
+  "start_date_caveat": "exact later-captured XLSX row state is not inferred for this date",
+  "headline_interval_id": null
+}
