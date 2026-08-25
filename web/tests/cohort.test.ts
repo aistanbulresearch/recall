@@ -152,6 +152,35 @@ describe('elapsed days are proven, never assumed', () => {
     expect(span.sentence).toContain('Day 2 of operation');
   });
 
+  it('passes a row whose timestamp is value-level wrong, and that is the limit', () => {
+    // The real DAY1_HISTORY row as committed on 2026-08-25 carried the SECOND
+    // execution's timestamp standing in for the day's own run. These are its
+    // actual values. Every check here passes: the dates are distinct, the order
+    // holds, and selected_for_date agrees with executed_at's date.
+    //
+    // The pass is correct and the pass is the point. This gate proves the
+    // history is INTERNALLY CONSISTENT. It cannot prove the history agrees with
+    // the evidence it describes, because nothing here compares a row against the
+    // frozen record of the run it claims to report. A wrong value that is
+    // internally consistent is invisible to every check in this file.
+    //
+    // So this test exists to stop someone reading a green gate as coverage it
+    // does not have. The fix for that class belongs upstream, in sourcing the
+    // row from the evidence, not in a downstream panel guessing.
+    const span = operationSpan([
+      {
+        day_index: 1,
+        executed_at: '2026-08-25T15:01:07Z',
+        selected_for_date: '2026-08-25',
+        runs_created: 3,
+        runs_predicted: 3,
+      },
+      execution(2, '2026-08-26T16:00:00Z'),
+    ]);
+    expect(span.proven).toBe(true);
+    expect(span.withheldBecause).toBeNull();
+  });
+
   it('counts cycles truthfully even when it withholds the span', () => {
     for (const runs of [FOUR_REAL_DAYS, FOUR_REAL_DAYS.slice(0, 2)]) {
       expect(operationSpan(runs).cycles).toBe(runs.length);
