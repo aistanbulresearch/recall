@@ -3,11 +3,10 @@
 - Status: **DRAFT for owner review.** Not published.
 - Date: 2026-08-25
 - Lane: L3
-- Sources: the citation table below. The Mersch et al. figures, PMID 30264118,
-  were verified against the live record on 2026-08-25, cohort size and testing
-  window from the abstract's results sentence; the remaining table entries carry
-  their identifiers and have not been re-pulled since. Measured captures from
-  `artifacts/evidence/**`; frozen figures from
+- Sources: the citation table below, each entry verified against its live record
+  on 2026-08-25. The Mersch cohort size and testing window are taken from that
+  abstract's results sentence, which is the sentence carrying the figure.
+  Measured captures from `artifacts/evidence/**`; frozen figures from
   `artifacts/evidence/p1-frozen-001/p1-frozen-001.corrected-view.json`
 - Every number below was read from its artifact while writing this draft, not
   from memory.
