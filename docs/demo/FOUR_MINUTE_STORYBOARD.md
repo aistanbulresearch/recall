@@ -77,6 +77,35 @@ house style rule against them in documents this lane writes.
 >
 > Recall stands watch for her clinical geneticist: a fleet of specialized agents running in the background, unprompted. One watches evidence. One assesses it. One audits every citation — because models invent them. Separate agents, because the one that proposes must never be the one that checks. The controller delegates the work; decisions stay in deterministic policy. And when the evidence is too weak, Recall says so instead of guessing.
 
+### Pending amendment, owner decision required, NOT applied
+
+The 2026-08-25 claim-gate ruling withdraws content-claim wording for the start of
+the registry interval. The sentence below carries that wording, so the ruling
+requires it to change. The opening is locked by the owner against reopening by
+any party, so the change is recorded here rather than made.
+
+Current, as locked:
+
+> For one real variant in the BRCA2 gene, laboratory evidence that it behaves like the harmful ones went public in September 2024. The clinical record first moved in April 2026. Five hundred and seventy-five days — and in between, nothing was watching.
+
+Proposed, narrowed to registry chronology:
+
+> For one real variant in the BRCA2 gene, the laboratory's data deposit went public on GEO in September 2024. The ClinVar record first moved in April 2026. Five hundred and seventy-five days by registry chronology — and in between, nothing was watching.
+
+What changes, and what does not:
+
+| | |
+|---|---|
+| Withdrawn | "laboratory evidence that it behaves like the harmful ones", a content claim about what the data shows |
+| Sanctioned | "the laboratory's data deposit went public on GEO", registry chronology |
+| Also narrowed | "The clinical record" to "The ClinVar record", naming the registry rather than implying the patient's chart |
+| Counter labelled | "by registry chronology", so the spoken figure states which of the two intervals it is |
+| Word count | 41 words before, 41 words after. The opening stays at **178** words |
+| Timing | unchanged at 71.2s, 150 wpm worst case. The narrowing costs nothing |
+
+The preregistered 472-day interval remains on the evidence card beside the spoken
+figure, labelled, per the same ruling. Nothing else in the opening is touched.
+
 ### Measured length, not estimated
 
 | Measure | Value |

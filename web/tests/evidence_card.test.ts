@@ -101,7 +101,36 @@ describe('only one interval is labelled preregistered', () => {
     expect(byId.accession_public_to_reflection.status).not.toBe('preregistered');
   });
 
-  it('holds no headline until the claim gate rules', () => {
-    expect(caseData.headline_interval_id).toBeNull();
+  it('headlines the interval the claim gate ruled on', () => {
+    expect(caseData.headline_interval_id).toBe('accession_public_to_reflection');
+  });
+
+  it('requires the preregistered interval to accompany the headline', () => {
+    // The ruling permits two counters with two labels. It does not permit the
+    // striking counter on its own, so the requirement is data, not convention.
+    expect(caseData.headline_requires_interval_id).toBe('preregistered_lead_time');
+  });
+
+  it('labels every interval with the basis the ruling sanctioned', () => {
+    const byId = Object.fromEntries(caseData.intervals.map((i) => [i.id, i]));
+    expect(byId.accession_public_to_reflection.claim_basis).toContain('Registry chronology');
+    expect(byId.preregistered_lead_time.claim_basis).toContain('Preregistered lead-time metric');
+    for (const interval of caseData.intervals) {
+      expect(interval.claim_basis.length, interval.id).toBeGreaterThan(10);
+    }
+  });
+
+  it('does not carry the wording the ruling withdrew', () => {
+    // "laboratory evidence public" is a content claim. "the data deposit went
+    // public" is registry chronology. Only the second is sanctioned.
+    expect(JSON.stringify(caseData).toLowerCase()).not.toContain('laboratory evidence public');
+  });
+
+  it('keeps the provenance fact intact, because the ruling authorised display only', () => {
+    const byId = Object.fromEntries(caseData.intervals.map((i) => [i.id, i]));
+    // Still absent from the governing document. Being displayable did not put it
+    // there, and the status must not be quietly upgraded to say it did.
+    expect(byId.accession_public_to_reflection.status).toBe('not_in_governing_document');
+    expect(GOVERNING).not.toContain('575');
   });
 });

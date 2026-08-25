@@ -3,8 +3,9 @@
 - Status: **DRAFT for owner review.** Not published.
 - Date: 2026-08-25
 - Lane: L3
-- Sources: `.remember/why-this-matters.md` citation table, verified 2026-08-25;
-  `artifacts/evidence/**` measured captures; frozen figures from
+- Sources: the citation table below, each entry verified against its live
+  record on 2026-08-25; `artifacts/evidence/**` measured captures; frozen
+  figures from
   `artifacts/evidence/p1-frozen-001/p1-frozen-001.corrected-view.json`
 - Every number below was read from its artifact while writing this draft, not
   from memory.
@@ -18,8 +19,8 @@ variant of uncertain significance. The clinical meaning of that phrase is: do no
 act, wait for evidence.
 
 It is not a rare filing and it does not stay put. In the largest published
-cohort, one commercial laboratory over a decade and 1.45 million individuals
-tested, 24.9% of reported uncertain variants were later reclassified, and for
+cohort, one commercial laboratory and 1.45 million individuals tested, 24.9% of
+reported uncertain variants were later reclassified, and for
 those upgraded to pathogenic or likely pathogenic the median time to an amended
 report was 1.86 years (Mersch et al., JAMA 2018, PMID 30264118,
 [DOI](https://doi.org/10.1001/jama.2018.13152)).
@@ -46,8 +47,10 @@ Records get diffed. Evidence goes unwatched.
 If you maintain software, you already know this shape. You monitor dependencies
 for CVEs. Imagine alerts firing only when the vendor updated the changelog, never
 when the exploit went public. That is the current posture in clinical genetics,
-and one real variant measures what it costs: laboratory evidence public on
-2024-09-27, first clinical-record reflection on 2026-04-25. **575 days.**
+and one real variant measures what it costs: the laboratory's data deposit went
+public on GEO on 2024-09-27; first ClinVar-record reflection followed on
+2026-04-25, **575 days by registry chronology**. Our preregistered lead-time
+metric, counted from the qualifying publication, is **472 days**.
 
 ---
 
@@ -166,7 +169,7 @@ run started, and the commit is in the history. We said in advance what would
 count as success and what would falsify it.
 
 And we published the arm that failed. The model's own character offsets
-contributed **zero** incremental true positives and added hundreds of false
+contributed **zero** incremental true positives and added **903** false
 positives. Only the surface strings it returned, placed by deterministic exact
 search, were worth anything. Both arms are in the report. The failing one is not
 in a footnote.
@@ -180,9 +183,13 @@ in a footnote.
 - Privacy results describe one synthetic corpus. They are not a
   de-identification, clinical, or regulatory claim, and no real-data performance
   is implied.
-- The 575-day interval is one real variant's public chronology. The aggregate
-  ClinVar record became **conflicting, not uniformly pathogenic**, and the
-  chronology **does not establish that the paper caused the later submission**.
+- Two intervals are reported for one real variant and they are not
+  interchangeable. 575 days is registry chronology, from the GEO accession
+  becoming public to the ClinVar-record reflection. 472 days is the
+  preregistered lead-time metric, counted from the qualifying publication. The
+  aggregate ClinVar record became **conflicting, not uniformly pathogenic**, and
+  the chronology **does not establish that the paper caused the later
+  submission**.
 - Structured-only egress acceptance is a property of the payload shape, not a
   detection result, and is never reported as detector or model performance.
 - Recall is a non-clinical research prototype. It creates simulated review tasks
@@ -208,3 +215,23 @@ Verified against live PubMed records on 2026-08-25.
 One qualifier the cohort data deserves: most VUS reclassifications are downgrades
 to benign, 91.2% in that cohort. The upgrades are the rare, high-stakes tail.
 Recall exists for that tail.
+
+---
+
+## Build details
+
+Architecture, including the agent topology and the deterministic control path:
+[`docs/architecture/TARGET_ARCHITECTURE.md`](docs/architecture/TARGET_ARCHITECTURE.md).
+Agent runtime versions are pinned rather than floating, so a run can be
+reproduced against the same stack: `google-adk==2.7.1` and
+`google-cloud-aiplatform[agent_engines]==1.165.1`.
+
+---
+
+## About
+
+Recall was built for the **All Things Agentic Hackathon**.
+
+- Devpost: _link added when the repository goes public_
+- Repository: _link added when the repository goes public_
+- Follow the build: **#AllThingsAgenticHackathon**

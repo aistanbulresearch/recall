@@ -13,14 +13,14 @@
 
 import caseData from '../data/historical-case.json';
 
-type IntervalStatus = 'preregistered' | 'contextual' | 'not_in_governing_document';
-
 interface CaseInterval {
   id: string;
   from: string;
   to: string;
   label: string;
   status: string;
+  /** The sanctioned wording for what kind of claim this interval is. */
+  claim_basis: string;
   governing_note: string;
 }
 
@@ -44,18 +44,28 @@ export function intervalDays(interval: CaseInterval): number {
   return daysBetween(from, to);
 }
 
-function statusNote(status: string): string | null {
-  const table: Record<IntervalStatus, string> = {
-    preregistered: 'Preregistered metric',
-    contextual: 'Contextual, labelled separately',
-    not_in_governing_document: 'Not the preregistered metric',
-  };
-  return table[status as IntervalStatus] ?? null;
+/**
+ * The headline may only be drawn when the interval the ruling requires beside it
+ * is also being shown. The ruling permits two counters with two labels; it does
+ * not permit the striking one alone.
+ */
+function headlineId(intervals: readonly CaseInterval[]): string | null {
+  const headline = caseData.headline_interval_id;
+  const required = caseData.headline_requires_interval_id;
+  if (!headline) {
+    return null;
+  }
+  const present = new Set(intervals.map((interval) => interval.id));
+  if (required && !present.has(required)) {
+    return null;
+  }
+  return present.has(headline) ? headline : null;
 }
 
 export function EvidenceCard() {
   const intervals = caseData.intervals as CaseInterval[];
   const dates = caseData.dates as Record<string, string>;
+  const headline = headlineId(intervals);
 
   return (
     <section className="panel panel-evidence-card" aria-labelledby="evidence-card-heading">
@@ -94,12 +104,15 @@ export function EvidenceCard() {
 
       <ul className="case-intervals">
         {intervals.map((interval) => (
-          <li key={interval.id} data-interval-id={interval.id} data-status={interval.status}>
+          <li
+            key={interval.id}
+            data-interval-id={interval.id}
+            data-status={interval.status}
+            data-headline={String(interval.id === headline)}
+          >
             <span className="interval-days">{intervalDays(interval)} days</span>
             <span className="interval-label">{interval.label}</span>
-            {statusNote(interval.status) ? (
-              <span className="interval-status">{statusNote(interval.status)}</span>
-            ) : null}
+            <span className="interval-status">{interval.claim_basis}</span>
           </li>
         ))}
       </ul>

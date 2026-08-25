@@ -277,3 +277,13 @@ body {
 .cohort-unanchored, .cohort-warning { color: var(--caution); }
 .cohort-warning { font-size: 0.8rem; margin: 0.6rem 0 0; }
 .cohort-withheld { color: var(--caution); }
+
+/* The headlined interval. The ruling permits it to lead only while the
+   preregistered interval is displayed beside it, so the emphasis is a border
+   and weight rather than hiding the other rows. */
+.case-intervals li[data-headline='true'] {
+  border-color: var(--neutral);
+  border-width: 2px;
+}
+
+.case-intervals li[data-headline='true'] .interval-days { font-size: 1.35rem; }

@@ -127,9 +127,12 @@ try {
     # Only run a suite when the merge actually affects it. A green reported for a
     # suite that never ran is worse than no figure at all.
     $webTouched = (& git diff --name-only "$Target...$Lane" -- web/) -ne $null
-    # scripts/ is included deliberately. Leaving it out once let a changed
-    # Python file pass under a report that said the python suite was unaffected.
-    $srcTouched = (& git diff --name-only "$Target...$Lane" -- src/ tests/ scripts/) -ne $null
+    # Every directory this project keeps python in. scripts/ and infra/ were each
+    # added after a lane's changed python file passed under a report claiming the
+    # python suite was unaffected: scripts/ from L3's own lane, infra/ from L1's,
+    # where that lane's python lives by the lane split. Neither omission was
+    # visible from the chair that wrote the check.
+    $srcTouched = (& git diff --name-only "$Target...$Lane" -- src/ tests/ scripts/ infra/) -ne $null
 
     if ($webTouched -and (Test-Path (Join-Path $ProbeRoot 'web\package.json'))) {
         Push-Location (Join-Path $ProbeRoot 'web')
@@ -179,7 +182,7 @@ try {
             } finally { Pop-Location }
         }
     } else {
-        $notRun.Add('python suite (the lane changes no python under src/, tests/ or scripts/)')
+        $notRun.Add('python suite (the lane changes no python under src/, tests/, scripts/ or infra/)')
     }
 }
 finally {
