@@ -2,6 +2,17 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-25-E: Day-N verification commands required explicit environment and Git capabilities
+
+| Field | Value |
+|---|---|
+| Task | Managed Day-N implementation verification and local commit |
+| Severity | Low; evidence-orchestration only |
+| Observed | The first preview invocation omitted `RECALL_COHORT_PREPARATION_SHA256` and failed loudly. The first full-suite invocation omitted `RECALL_FIRESTORE_TEST_MODE`, so four live Firestore tests stopped at setup. The repository `.venv` has no `ruff` module. The first sandboxed `git add` could not create `.git/index.lock`. |
+| Impact | No product or cloud state was mutated by the failed preview/setup attempts; no false green was reported. The live suite and local commit were delayed. |
+| Resolution | Re-ran preview with the exact committed bundle hash (exit 0, writes 0); re-ran the entire suite with the owner-approved explicit `live` mode (692/692, exit 0, cleanup read-back zero); retained `ruff` as unavailable and used `compileall`, diff, tests, review, and Judge gates; repeated exact-path staging through the approved Git capability. |
+| Status | Closed for this work unit; adding `ruff` remains a future dependency decision, not an implied check. |
+
 ## ERR-2026-08-25-D: Committed Firestore gate exposed stale fixture times
 
 | Field | Value |

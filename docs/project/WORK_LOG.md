@@ -2,6 +2,15 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-25-035: Staged cohort expansion and managed Day-N implementation
+
+- Committed the staged cohort expansion separately at `c65ee3d55524caf1d2d9d697c9bff712e35bca82`: 12 SYNTHETIC cases, the original Day-1 three unchanged, five RCL-205 blob-verified captured-replay anchors, and pre-run predictions 3/2/4 for 2026-08-26/27/28.
+- Implemented a new date-aware Day-N path without modifying frozen `day1.py`, scheduler `config.py`, Day-1 evidence, or `infra/**`. Real selection derives from actual UTC time in a 16:00:00Z-16:09:59Z window; the 2026-08-25 recurrence and unregistered dates fail closed.
+- Added exact committed lab-preparation locks, typed EvidenceObservation anchors, date-isolated Firestore prefixes, idempotent crash/resume reconciliation, one strict `CohortDayManifest 1.0.0`, a required downstream `DataModeReceipt`, and an importable zero-write preview/real entrypoint for L1.
+- Verification commands and results: focused coordinator tests 25/25 exit 0; independent code review 30/30 exit 0 and PASS; `python -m pytest -q` with `RECALL_FIRESTORE_TEST_MODE=live` collected and passed 692/692 with direct exit 0; direct existing Vitest passed 48/48 with exit 0; post-test Firestore read-back found zero matching `dev_recall_3e_*` or `dev_recall_m2_cohort_*` collections; `compileall`, `git diff --check`, and bounded secret scan passed; Master Judge returned PASS.
+- Product commit: `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`, tree `51515d860704bf2ede64bd07d867edc8141bd6d1`, 22 files, 1,976 insertions, 2 deletions. Author and committer are `aistanbulresearch`; commit body and trailers are empty. No push or merge occurred.
+- Claim boundary: deterministic date-isolated implementation is verified. L1 deployment, workload identity, actual Day-2 execution, billing/cost evidence, and live Day-2 read-back remain `NOT VERIFIED`; managed admission, cross-day WatchCase continuity, and terminal agent execution are not claimed.
+
 ## WORK-2026-08-25-034: Governance termination, gateway truth, and L1 evidence index
 
 - Recorded owner acceptance and termination of RCL-106 in DEC-2026-08-25-044 and `docs/governance/RCL-106_TERMINATION_DECISION.md`; the exposure wording remains `contained` and no credential value was inspected or stored.

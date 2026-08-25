@@ -2,11 +2,12 @@
 
 ## Current 2026-08-25 coordinator checkpoint
 
-- Active branch is `feature/rcl-3xx-core`; the integration base is `c46d33499027b8a9a3edfc11c8b6aa654dc76852`. Older branch/head text below is retained as historical context and must not override this block.
-- Day-1 scheduler/admission ran live from source commit `14587ac5ab9fa854b4d9b0a2138dad81761bb756` at the fixed `2026-08-25T15:00:00Z` trigger using prefix `dev_recall_m2_day1_20260825_a7f31c9d_` and database `(default)`.
-- Result: one due ACTIVE case produced exactly one CREATED ScanRun/RUN_CREATED event; two future cases were excluded; second trigger created zero new records and reused the same run. Both direct exits were 0 and independent Firestore read-back matched.
-- Evidence manifest: `artifacts/evidence/day1-manual-20260825-a7f31c9d/manifest.json`, SHA-256 `c47bd52b0785032cb652202ca77f792c726658b8c74f772a624347280ff4a2de`. Next: evidence commit, then the 2026-08-26 13:00 integration/Master Judge window. Do not clean the successful evidence prefix or alter the seven unrelated worktree entries.
-- Honest boundary: no managed recurring schedule and no terminal agent execution claim.
+- Active branch is `feature/rcl-3xx-core`. Staged cohort expansion is commit `c65ee3d55524caf1d2d9d697c9bff712e35bca82`; the L2 managed Day-N implementation is commit `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`. Older branch/head text below is historical and must not override this block.
+- Day-1 remains the live historical record from source `14587ac5ab9fa854b4d9b0a2138dad81761bb756`; its frozen code and evidence were not changed. The new path contains 12 cases, five exact RCL-205 replay anchors, and committed Day2/3/4 predictions 3/2/4.
+- L1 entrypoint: `python -m recall.scheduler.entrypoint`; deployment contract: `docs/platform/COHORT_JOB_ENTRYPOINT.md`; preparation bundle SHA-256: `c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841`. L2 made no `infra/**` change.
+- Verification at the product commit: code review PASS, Master Judge PASS, Python 692/692 including authorized LIVE Firestore/SYNTHETIC integration tests, web 48/48, and transient cohort/test collection read-back zero. Preview for 2026-08-26 selected three and wrote zero without constructing a cloud client.
+- Next gate: L1 supplies Cloud Run Job/Scheduler/IAM/deploy files, validates preview, and deploys the exact source. The actual Day-2 tick must occur on 2026-08-26 with Firestore read-back, source/image binding, inventory reconciliation, and measured billing/cost evidence.
+- Honest boundary: deployment, workload identity, actual managed Day-2 execution, and billing are `NOT VERIFIED`; managed admission, cross-day WatchCase continuity, and terminal agent execution are not claimed. Do not alter the seven unrelated worktree entries.
 
 ## Incoming agent control block
 

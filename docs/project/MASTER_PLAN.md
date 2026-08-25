@@ -1,5 +1,17 @@
 # Recall Master Plan
 
+## 2026-08-25 M2 managed Day-N path
+
+Status: L2 implementation and local verification complete at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; L1 deployment and the first actual managed Day-2 tick remain gated.
+
+1. Preserve frozen Day-1 code and evidence. The new Day-N path derives selection from the actual UTC date and rejects a recurring 2026-08-25 execution.
+2. Use the committed 12-case cohort and pre-run predictions: 2026-08-26 = 3, 2026-08-27 = 2, and 2026-08-28 = 4. Do not execute a future cohort day early.
+3. L2 owns `src/recall/scheduler/**`, scheduler scripts/tests, contracts, and evidence examples. L1 exclusively owns `infra/**`, Cloud Run Job/Scheduler definitions, IAM, image packaging, and deployment tooling.
+4. L1 deploys `python -m recall.scheduler.entrypoint` with workload ADC and exact source/project/preparation hashes. Preview must remain a zero-write, no-client selection check.
+5. Before each actual date, perform the separately governed lab-local exact preparation step. This is not managed privacy admission and creates no cross-day WatchCase continuity claim.
+6. Day-2 acceptance requires the actual managed tick, Firestore read-back, exact source/image binding, inventory reconciliation, and a measured billing/cost line. No estimate may be promoted to a measurement.
+7. Continue on the real dates only. Each cumulative manifest history entry must bind `day_index`, actual `executed_at`, matching `selected_for_date`, authoritative `runs_created`, and committed `runs_predicted`.
+
 ## 2026-08-25 governance docs batch
 
 1. Terminate RCL-106 under owner residual-risk acceptance after the exposure was contained; preserve the distinction from technical remediation.
@@ -231,7 +243,7 @@ Prize targeting by evidence fit remains Best Architectural Design first, Individ
 | RCL-306 | Implement deterministic Policy Gate truth table | implemented and locally verified | Identical artifacts produce identical outcomes in local tests |
 | RCL-307 | Build the initial Recall web shell and live run timeline | not-started | UI reads backend artifacts and shows fixture labels |
 | RCL-308 | Demonstrate fixture-driven `NO_ACTION`, `ABSTAIN`, and `REVIEW_REQUIRED` without LLMs | implemented and locally verified | Deterministic fixture runs cover the three policy outcomes plus technical `HALTED` |
-| RCL-309 | Implement durable `WatchCase` scheduling, short `ScanRun` leases, and separate `ReviewTask` lifecycle | partial | Lease, CAS, idempotency, and separate lifecycle contracts are implemented; scheduler and accelerated Week 0/3/6 execution remain pending |
+| RCL-309 | Implement durable `WatchCase` scheduling, short `ScanRun` leases, and separate `ReviewTask` lifecycle | partial | Lease, CAS, idempotency, separate lifecycle contracts, and date-isolated Day-N scheduling are locally verified; L1 managed deployment, actual Day-2 execution, and terminal agent processing remain pending |
 | RCL-310 | Package required run evidence in a machine-readable `RunEvidenceManifest` | proposed; owner decision required | Coordinator proposal only; if approved, it binds run ID, deployed revision, trace ID, `mode_set`, input/output artifact hashes, terminal state, simulated task count, guardrail activation counters, and measured latency. The auditor's underlying evidence requirements remain mandatory even if this packaging proposal is declined |
 
 **Recovery gate:** the minimum authority path runs locally without models, all three terminal outcomes are visible from fixtures, mode badges and `mode_set` are derived, and no displayed result is hard-coded. Durable week-sequence orchestration is not required.

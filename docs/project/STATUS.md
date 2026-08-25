@@ -1,5 +1,13 @@
 # Recall Status
 
+## 2026-08-25 managed Day-N implementation checkpoint
+
+- Staged cohort expansion is committed at `c65ee3d55524caf1d2d9d697c9bff712e35bca82`: 12 SYNTHETIC cases, including the original Day-1 three unchanged, five RCL-205 hash-bound `CAPTURED_REPLAY` anchors, and committed predictions of 3/2/4 runs for 2026-08-26/27/28.
+- The L2 Day-N implementation is committed locally at `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`. It derives the selected date from the actual UTC clock, rejects frozen Day-1 recurrence, uses date-isolated collection prefixes, records actual execution time separately from logical schedule time, reconciles idempotent retries, and emits one strict `CohortDayManifest 1.0.0` plus a downstream `DataModeReceipt`.
+- The importable L1 entrypoint is `python -m recall.scheduler.entrypoint`. Selection preview for 2026-08-26 returned three selected cases and `writes: 0` without constructing a ledger or cloud client. The committed preparation bundle SHA-256 is `c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841`; no HMAC key is supplied to the managed job.
+- Verification: independent code review PASS (30/30 focused), Master Judge PASS, repository Python suite 692/692 with the four authorized LIVE Firestore/SYNTHETIC integration tests, web 48/48, and post-test `dev_recall_3e_*`/`dev_recall_m2_cohort_*` collection read-back count zero.
+- Claim boundary: the date-isolated Day-N implementation and deterministic local tests are verified. Cloud Run Job/Scheduler/IAM deployment, workload-identity behavior, actual managed Day-2 execution, billing/cost evidence, and live Day-2 read-back remain `NOT VERIFIED`. Managed admission, cross-day WatchCase continuity, and terminal agent execution are not claimed. No `infra/**` file was changed by L2.
+
 ## 2026-08-25 governance reconciliation
 
 - RCL-106 is `TERMINATED` by owner decision DEC-2026-08-25-044. The exposure was detected and contained on 2026-08-22; this is residual-risk acceptance, not a claim of technical remediation.
@@ -23,7 +31,7 @@
 | Updated | 2026-08-21 |
 | Phase | 72-hour recovery: bounded P1 remediation plus owner-approved Phase 3 golden path; Phase 1 billing linkage remains separately protected |
 | Overall state | Last passing external audit is c861; the published 46af successor has two bounded P1 findings. Their local remediation passes all six validator entrypoints, 88 exact aggregate mutations, five positive controls, and independent re-review, but still awaits owner-authorized publication. RCL-011 is `PARTIAL_FAIL_CLOSED / DEFERRED` with zero `MECHANISM_PROVED`, two `EXECUTED`, and seven unchanged `NOT VERIFIED`; local product implementation is authorized, while PR #2 merge awaits a fresh exact-head PASS. |
-| Product code | Started; RCL-302, RCL-303, RCL-304, RCL-306, and RCL-308 are implemented and locally verified; RCL-309 is partial (lease, CAS, and idempotency implemented; scheduler pending) |
+| Product code | Started; RCL-302, RCL-303, RCL-304, RCL-306, and RCL-308 are implemented and locally verified; RCL-309 now includes a locally verified date-isolated Day-N scheduler, while managed deployment and live Day-2 execution remain pending |
 | Deployment | Not started |
 | Scientific validation | Not performed |
 | Clinical validation | Not performed |

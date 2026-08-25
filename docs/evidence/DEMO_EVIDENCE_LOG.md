@@ -26,6 +26,7 @@ Append evidence at the moment it is produced. Do not rely on recreating a transi
 | DEMO-020 | TBD | A synthetic case consumes current ClinVar evidence with a visible `LIVE_PUBLIC` receipt | Innovation, Demo | Synthetic plus live public | TBD | TBD | planned after entrance gate | No patient action or clinical claim |
 | DEMO-021 | TBD | Blog and social posts point to the exact hosted run, video, limitations, and evidence | Bonus | Public publication | TBD | TBD | planned after entrance gate | Publish only after all linked claims agree |
 | DEMO-022 | 2026-08-25 | One due synthetic WatchCase creates one durable ScanRun; repeated manual delivery creates zero duplicates | Innovation, Architecture | LIVE infrastructure, SYNTHETIC data | Run `37ec818b-719b-5dc2-8995-e85f1b67cfdf`; source `14587ac5ab9fa854b4d9b0a2138dad81761bb756` | `artifacts/evidence/day1-manual-20260825-a7f31c9d/` | live verified | Day-1 manual scheduling only; no managed recurrence and no terminal agent execution |
+| DEMO-023 | 2026-08-25 | Day-N preview shows the 2026-08-26 selection and committed prediction without creating a cloud client or write | Architecture, Fleet | In-memory SYNTHETIC example plus CAPTURED_REPLAY anchors | Source `367637b12e92eda0c2aa54c8bdc12af3adbfe99d`; `CohortDayManifest 1.0.0` example | `artifacts/evidence/cohort-manifest-example/`; `docs/platform/COHORT_JOB_ENTRYPOINT.md` | implementation verified; managed capture pending | Not Cloud Run Job proof, not an actual Day-2 execution, and not billing evidence |
 
 ## Capture requirements
 
