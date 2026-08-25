@@ -167,3 +167,73 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* Evidence card. Every interval is computed from the dates above it, so the
+   day count and its span are shown together and never separated. Status is
+   carried in words as well as border, because only one interval is the
+   preregistered metric and a viewer must be able to tell which without colour. */
+.panel-evidence-card .case-identity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.case-identity dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.case-identity dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
+.case-identity code, .case-intervals code { font-size: 0.82rem; overflow-wrap: anywhere; }
+
+.case-intervals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.case-intervals li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.7rem;
+  align-items: baseline;
+}
+
+.interval-days {
+  font-size: 1.15rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--neutral);
+}
+
+.interval-label { font-size: 0.85rem; }
+
+.interval-status {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.case-intervals li[data-status='preregistered'] { border-color: var(--neutral); }
+.case-intervals li[data-status='preregistered'] .interval-status { color: var(--neutral); font-weight: 600; }
+.case-intervals li[data-status='contextual'],
+.case-intervals li[data-status='not_in_governing_document'] { border-style: dashed; }
+.case-intervals li[data-status='not_in_governing_document'] .interval-status { color: var(--caution); }
+
+.case-caveat { font-size: 0.78rem; color: var(--ink-soft); margin: 0.8rem 0 0.4rem; }
+
+.case-honesty {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}

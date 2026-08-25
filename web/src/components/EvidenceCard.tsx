@@ -104,8 +104,12 @@ export function EvidenceCard() {
         ))}
       </ul>
 
+      {/* start_date_caveat is a verbatim fragment of the governing document, held
+          to it by test, so the sentence is built around the quote rather than the
+          quote reworded to fit the sentence. */}
       <p className="case-caveat">
-        The GEO date is when the dataset accession became public. {caseData.start_date_caveat}.
+        The GEO date is when the dataset accession became public, and the governing
+        document records that the {caseData.start_date_caveat}.
       </p>
 
       <ul className="case-honesty">
