@@ -3,9 +3,11 @@
 - Status: **DRAFT for owner review.** Not published.
 - Date: 2026-08-25
 - Lane: L3
-- Sources: the citation table below, each entry verified against its live
-  record on 2026-08-25; `artifacts/evidence/**` measured captures; frozen
-  figures from
+- Sources: the citation table below. The Mersch et al. figures, PMID 30264118,
+  were verified against the live record on 2026-08-25, cohort size and testing
+  window from the abstract's results sentence; the remaining table entries carry
+  their identifiers and have not been re-pulled since. Measured captures from
+  `artifacts/evidence/**`; frozen figures from
   `artifacts/evidence/p1-frozen-001/p1-frozen-001.corrected-view.json`
 - Every number below was read from its artifact while writing this draft, not
   from memory.
@@ -19,10 +21,10 @@ variant of uncertain significance. The clinical meaning of that phrase is: do no
 act, wait for evidence.
 
 It is not a rare filing and it does not stay put. In the largest published
-cohort, one commercial laboratory and 1.45 million individuals tested, 24.9% of
-reported uncertain variants were later reclassified, and for
-those upgraded to pathogenic or likely pathogenic the median time to an amended
-report was 1.86 years (Mersch et al., JAMA 2018, PMID 30264118,
+cohort, one commercial laboratory and 1.45 million individuals tested from 2006
+through 2018, 24.9% of reported uncertain variants were later reclassified, and
+for those upgraded to pathogenic or likely pathogenic the median time to an
+amended report was 1.86 years (Mersch et al., JAMA 2018, PMID 30264118,
 [DOI](https://doi.org/10.1001/jama.2018.13152)).
 
 Reclassification is not paperwork. When laboratories resolved uncertain variants
