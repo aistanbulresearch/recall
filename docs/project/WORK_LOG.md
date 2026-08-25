@@ -2,6 +2,14 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-25-033: Day-1 live cohort firing
+
+- Fired `DAY1_MANUAL` from committed source `14587ac5ab9fa854b4d9b0a2138dad81761bb756` at the locked UTC trigger on LIVE Firestore with SYNTHETIC data.
+- Phase 1 direct exit 0 created exactly one ScanRun and one RUN_CREATED event from one due ACTIVE WatchCase; two future WatchCases were excluded. Phase 2 direct exit 0 created zero new runs/events and reused the existing run; full read-back equality passed.
+- Independent read-back confirmed artifacts 7, WatchCases 3, ScanRuns 1, ScanRunEvents 1, ReviewTasks 0. The manifest binds 104 committed runtime blobs and has SHA-256 `c47bd52b0785032cb652202ca77f792c726658b8c74f772a624347280ff4a2de`.
+- Inventory: zero new cloud resource types, 12 retained Firestore evidence documents, and zero documents remaining from transient live-ledger test prefixes. Managed recurrence and terminal agent execution remain explicitly not claimed.
+- Evidence: `artifacts/evidence/day1-manual-20260825-a7f31c9d/` and its `RUN_REPORT.md`.
+
 ## WORK-2026-08-25-032: Day-1 scheduler admission and pre-run implementation
 
 - Added Controller/Ledger admission enforcement that binds a valid accepted signed `PrivacyReceipt` to the exact `CloudBoundPayload`, immutable WatchCase dependency, mutable WatchCase state/version/cursors/`next_scan_at`, and ScanRun idempotency key.

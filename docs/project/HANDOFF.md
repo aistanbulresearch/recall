@@ -3,9 +3,9 @@
 ## Current 2026-08-25 coordinator checkpoint
 
 - Active branch is `feature/rcl-3xx-core`; the integration base is `c46d33499027b8a9a3edfc11c8b6aa654dc76852`. Older branch/head text below is retained as historical context and must not override this block.
-- Day-1 scheduler/admission code and its one-line prediction are implemented in this tree but not yet run live. The live command must use the commit that contains this record as its exact `source_commit`. Fixed logical trigger: `2026-08-25T15:00:00Z`; fixed prefix: `dev_recall_m2_day1_20260825_a7f31c9d_`; database `(default)`; project identity is stored only as SHA-256.
-- Expected live result is exactly one CREATED ScanRun from one due ACTIVE case, two future cases excluded, and zero new ScanRuns/events on the second identical trigger.
-- Continue only in this order: finish review/Judge -> commit -> run first and second phases from that exact commit -> verify manifest/read-back -> evidence/log commit. Do not clean or alter the seven unrelated metadata-only worktree entries.
+- Day-1 scheduler/admission ran live from source commit `14587ac5ab9fa854b4d9b0a2138dad81761bb756` at the fixed `2026-08-25T15:00:00Z` trigger using prefix `dev_recall_m2_day1_20260825_a7f31c9d_` and database `(default)`.
+- Result: one due ACTIVE case produced exactly one CREATED ScanRun/RUN_CREATED event; two future cases were excluded; second trigger created zero new records and reused the same run. Both direct exits were 0 and independent Firestore read-back matched.
+- Evidence manifest: `artifacts/evidence/day1-manual-20260825-a7f31c9d/manifest.json`, SHA-256 `c47bd52b0785032cb652202ca77f792c726658b8c74f772a624347280ff4a2de`. Next: evidence commit, then the 2026-08-26 13:00 integration/Master Judge window. Do not clean the successful evidence prefix or alter the seven unrelated worktree entries.
 - Honest boundary: no managed recurring schedule and no terminal agent execution claim.
 
 ## Incoming agent control block

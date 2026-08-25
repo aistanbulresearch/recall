@@ -2,6 +2,8 @@
 
 ## 2026-08-25 M2 Day-1 operational slice
 
+Status: completed and live-verified from source commit `14587ac5ab9fa854b4d9b0a2138dad81761bb756`; evidence commit and 2026-08-26 integration review remain.
+
 1. Freeze and commit one prediction plus the exact `DAY1_MANUAL` implementation before execution.
 2. Admit exactly three SYNTHETIC WatchCases through an accepted signed PrivacyReceipt bound to the exact CloudBoundPayload; select only the one ACTIVE due case at `2026-08-25T15:00:00Z`.
 3. Execute twice against live Firestore: first trigger creates one `ScanRun`/`RUN_CREATED`; second creates zero new runs/events.
