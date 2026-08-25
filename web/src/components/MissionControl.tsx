@@ -4,6 +4,7 @@ import type { ViewModel } from '../viewmodel/types';
 import { reasonCodeCopy } from '../viewmodel/semantics';
 import { DataModeBadge, PolicyOutcomeBadge, RunStateBadge } from './Badges';
 import { FieldValue, formatValue } from './FieldValue';
+import { CohortPanel } from './CohortPanel';
 import { EvidenceCard } from './EvidenceCard';
 import { FleetBoard } from './FleetBoard';
 import { PrivacyPanel } from './PrivacyPanel';
@@ -69,6 +70,8 @@ export function MissionControl({ model }: { model: ViewModel }) {
             <ReasonList model={model} fieldId="UI-WATCH-ATTENTION" heading="Attention" />
           ) : null}
         </section>
+
+        <CohortPanel model={model} />
 
         <EvidenceCard />
 

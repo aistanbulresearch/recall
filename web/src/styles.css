@@ -237,3 +237,43 @@ body {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+
+/* Cohort panel. A case states its own composition, and any accession number
+   shows the capture file and hash it is anchored to on the same line. */
+.cohort-cases {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cohort-cases li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.cohort-cases li[data-anchored='true'] { border-color: var(--neutral); }
+.cohort-cases li[data-anchored='false'] { border-style: dashed; }
+
+.cohort-case-id { font-weight: 700; }
+
+.cohort-case-mode {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.cohort-case-copy { color: var(--ink-soft); }
+.cohort-case-chain { overflow-wrap: anywhere; }
+.cohort-hash { color: var(--ink-soft); }
+.cohort-unanchored, .cohort-warning { color: var(--caution); }
+.cohort-warning { font-size: 0.8rem; margin: 0.6rem 0 0; }
+.cohort-withheld { color: var(--caution); }

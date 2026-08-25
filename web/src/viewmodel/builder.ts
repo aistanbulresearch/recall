@@ -51,6 +51,10 @@ export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
   FailureReceipt: ['1.0.0'],
   DeploymentReceipt: ['1.0.0'],
   ManagedPathReceipt: ['1.0.0'],
+  // Cohort day manifest. Bound to the contract proposed to L2 on 2026-08-25 and
+  // pending its accept-or-amend; an artifact declaring any other version is
+  // rejected as contract_major_unsupported rather than read optimistically.
+  CohortDayManifest: ['1.0.0'],
 };
 
 export interface RejectedArtifact {
