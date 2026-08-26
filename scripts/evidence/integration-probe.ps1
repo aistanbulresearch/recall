@@ -16,6 +16,14 @@
     web/ gets no web figures, and the report says so rather than implying a suite
     was green when it never executed.
 
+    It also answers the second freeze question: did every lane file ARRIVE
+    INTACT. Ownership decides the check. A file only the lane touched since the
+    merge base must arrive in the merged tree byte-identical to the lane's blob;
+    any difference means the merge mutated lane content, which is the
+    silent-loss class, and the probe fails. A file BOTH sides touched is
+    expected to content-merge, so it is listed for human review rather than
+    auto-failed; .gitattributes and cross-lane docs live here by design.
+
 .PARAMETER Lane
     Branch to probe. Defaults to the current branch.
 
@@ -193,7 +201,20 @@ finally {
     & git worktree prune 2>&1 | Out-Null
 }
 
-# ---------------------------------------------------------------- 3. report
+# ---------------------------------------------------------------- 3. bytes
+# Did every lane file arrive intact? Compared against the probe COMMIT, not any
+# working tree, so eol smudging cannot fake a difference or hide one.
+$laneFiles = @(& git diff --name-only "$mergeBase" "$Lane")
+$targetFiles = @(& git diff --name-only "$mergeBase" "$Target")
+$sharedFiles = @($laneFiles | Where-Object { $targetFiles -contains $_ })
+$exclusiveFiles = @($laneFiles | Where-Object { $targetFiles -notcontains $_ })
+
+$mutated = @()
+if ($exclusiveFiles.Count -gt 0) {
+    $mutated = @(& git diff --name-only $probeCommit $Lane -- @($exclusiveFiles))
+}
+
+# ---------------------------------------------------------------- 4. report
 Write-Host ''
 foreach ($key in $results.Keys) {
     $code = $results[$key]
@@ -204,6 +225,17 @@ foreach ($skipped in $notRun) { Write-Host "  not run: $skipped" }
 foreach ($stuck in $blocked) { Write-Host "  BLOCKED: $stuck" -ForegroundColor Yellow }
 
 Write-Host ''
+Write-Host ("  bytes: {0} lane files, {1} exclusive intact-checked, {2} shared (content-merge expected)" -f `
+    $laneFiles.Count, $exclusiveFiles.Count, $sharedFiles.Count)
+foreach ($file in $sharedFiles) { Write-Host "  shared, review by hand: $file" }
+foreach ($file in $mutated) { Write-Host "  MUTATED IN MERGE: $file" -ForegroundColor Red }
+
+Write-Host ''
+if ($mutated.Count -gt 0) {
+    Write-Host "NOT READY: the merge changed lane-owned bytes." -ForegroundColor Red
+    Write-Host "A file only this lane touched does not match the lane's blob in the merged tree."
+    exit 1
+}
 if ($blocked.Count -gt 0) {
     Write-Host "INCONCLUSIVE: a suite this lane affects could not be run." -ForegroundColor Yellow
     Write-Host "This is not a pass and not a failure. Fix the environment and re-probe."
