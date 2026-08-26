@@ -2,12 +2,12 @@
 
 ## 2026-08-26 compressed machine-triggered cycle package
 
-Status: plan-isolation product commit `2d8bebbe97794865f77f037dea518a39e8f75e38` and regenerated bundle are implementation/test/Judge GREEN. The owner reports no compressed cycle ran. L1 rebuild/repoint and L3 rebind are next; runtime remains `NOT VERIFIED`.
+Status: plan-4 product commit `b5cd5a815baad5980a3d62bfb49ab980b63e3057` and bundle SHA-256 `4b494be9c82de3c3762ecc6249169b26922334f6e47af0010dafb163667a5f57` are implementation/test/Judge GREEN. c1 success and c2 missed-window facts are `OWNER_REPORTED`; independent cloud read-back is `NOT VERIFIED`.
 
-1. Freeze 2.1.0 and legacy prediction bytes. Use only plan SHA-256 `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4` for timing, predictions, and prefix isolation.
-2. Execute c1-c5 only inside their declared windows with predictions 3/2/4/1/1 and at least 20 minutes between windows. Runtime overrides and manual run starts are prohibited.
-3. Prepare all 450 c6 onboarding cases but create its trigger only after the c1-c5 `CohortHeadroomReceipt` has decision `PASS` from authoritative manifest and ScanRun read-back.
-4. Before c1, rebuild/repoint, prepare only `p5f18998f11c1` prefixes from bundle SHA-256 `5a69eb4394f64c1e666aeb624cac3e4e312b3758a9e48f311a8cb0eef610f7dd`, then run Cloud Run `--verify-prefix`. Any nonzero result blocks the session; do not delete or reuse abandoned prefixes.
+1. Freeze c1 in plan-3. Use plan-4 SHA-256 `4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89` for all remaining timing, predictions, and prefix isolation.
+2. Execute c2-c5 only inside 22:30/22:50/23:10/23:30Z windows with predictions 2/4/1/1. c2 reads the declared plan-3 c1 predecessor; c3-c5 read current-plan predecessors. No c1 copy is permitted.
+3. Prepare all 450 c6 onboarding cases, but do not create its 2026-08-27 12:00Z trigger until Task 2 implements `FIRESTORE_BATCH_V1`, the exact c1-c5 `CohortHeadroomReceipt` is PASS, and authoritative read-back matches.
+4. Rebuild/repoint, prepare only unexecuted `p4c2b5ededcf7` prefixes from the current bundle, and run Cloud Run `--verify-prefix`. Any nonzero result blocks that cycle.
 5. L1 owns `infra/**`, scheduler-SA IAM, image/repoint, 1200-second timeout, plan-derived one-shot triggers, preflight, and cloud read-back. L2 owns the importable entrypoint, contracts, preparation, and tests. L3 derives UI labels only from manifest `schedule_mode`, preserves row-level provenance, and ships only the final manifest in the demo bundle.
 6. Record each cycle as `cycle_id | prediction | observation | run IDs | event count | idempotency`; keep intermediate manifests in evidence and expose only the final manifest to the demo. Do not claim runtime before those artifacts exist.
 7. After the frozen deployment, run one post-freeze verification tick against that exact revision. No Aug 29/30 tail-day claim remains under DEC-2026-08-26-046.

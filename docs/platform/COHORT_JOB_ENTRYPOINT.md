@@ -15,11 +15,11 @@ with explicit `RECALL_SCHEDULER_MODE=LEGACY_DAYN`; there is no implicit fallback
 
 The compressed image must package these exact committed inputs:
 
-- product source commit `2d8bebbe97794865f77f037dea518a39e8f75e38`;
+- product source commit `b5cd5a815baad5980a3d62bfb49ab980b63e3057`;
 - `artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json`,
-  SHA-256 `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4`;
+  SHA-256 `4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89`;
 - `artifacts/evidence/cohort-compression/preparation-bundle-v2.json`, SHA-256
-  `5a69eb4394f64c1e666aeb624cac3e4e312b3758a9e48f311a8cb0eef610f7dd`.
+  `4b494be9c82de3c3762ecc6249169b26922334f6e47af0010dafb163667a5f57`.
 
 `RECALL_SOURCE_COMMIT` must be lowercase 40-hex and equal both the product
 source and bundle provenance. `RECALL_IMAGE_DIGEST` must be the deployed
@@ -40,6 +40,10 @@ has its own cycle identity, plan-isolated prefix, schedule epoch, and declared
 UTC window. The prefix is
 `dev_recall_m2_compressed_p<first-12-plan-sha>_<cycle>_<logical-date>_`;
 never reuse an abandoned unscoped prefix.
+Plan 4 declares c2's predecessor as the immutable plan-3 c1 prefix, plan hash,
+and manifest ID. L1 must not copy c1 into the plan-4 namespace. c3-c6 resolve
+their predecessor from the current plan namespace. Any missing or mismatched
+declared predecessor fails before current-cycle writes.
 The runtime clock must fall in exactly one window. Zero or multiple matches
 fail closed, and no runtime window override exists.
 
@@ -48,14 +52,17 @@ cases, but L1 must not create its trigger until the exact c1-c5 manifests and
 authoritative ScanRun counts produce a content-addressed
 `CohortHeadroomReceipt` whose decision is `PASS`. `DENIED`, missing, or
 mismatched headroom blocks c6 writes.
+Plan 4 marks c6 `FIRESTORE_BATCH_V1`; the current Task-1 image refuses c6
+before ledger construction. L1 must not create the c6 trigger until the
+separately reviewed batching implementation is merged and deployed.
 
 ## Preparation and zero-write preflight
 
-Every session prefix must be prepared with the current product image, including
+Every unexecuted session prefix must be prepared with the current product image, including
 `CohortHistoryReceipt` persistence and read-back. Old seed data is not
 compatible with a new image merely because the namespace exists.
 
-Before c1, run this through Cloud Run Job execution under the same image,
+Before each remaining cycle, run this through Cloud Run Job execution under the same image,
 service account, environment, and prefix that the trigger will use:
 
 ```text

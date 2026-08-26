@@ -1,5 +1,12 @@
 # Recall Status
 
+## 2026-08-27 plan-4 continuation checkpoint
+
+- Product commit `b5cd5a815baad5980a3d62bfb49ab980b63e3057` binds c2 to immutable plan-3 c1 evidence and keeps c3-c6 current-plan chained. Plan SHA-256 is `4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89`; bundle SHA-256 is `4b494be9c82de3c3762ecc6249169b26922334f6e47af0010dafb163667a5f57`.
+- Remaining windows are c2 22:30Z, c3 22:50Z, c4 23:10Z, c5 23:30Z on 2026-08-26; c6 is 2026-08-27 12:00-12:29:59Z. Predictions and trigger policies remain 3/2/4/1/1/450 and unchanged.
+- `OWNER_REPORTED`: plan-3 c1 completed 3/3 and c2 missed its window because the operator layer slept. Independent cloud read-back and exact c1 content hash are `NOT VERIFIED` by L2.
+- c1 is `EXTERNAL_IMMUTABLE`; plan-4 never copies it. c6 is `FIRESTORE_BATCH_V1` and the Task-1 image rejects it before ledger construction. Focused exact-tree suite passed 30/30 with direct exit 0; Master Judge PASS. Plan-4 preparation, preflight, triggers, and cycle outcomes remain `NOT VERIFIED`.
+
 ## 2026-08-26 compressed machine-triggered scheduler checkpoint
 
 - Current product commit `2d8bebbe97794865f77f037dea518a39e8f75e38` adds a 12-hex plan discriminator to every compressed prefix and shifts the six windows before any cycle ran. Dates, predictions, policies, case semantics, frozen Day-1 evidence, and `infra/**` are unchanged.

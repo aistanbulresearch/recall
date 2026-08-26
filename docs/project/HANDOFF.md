@@ -1,5 +1,12 @@
 # Recall Handoff
 
+## Current 2026-08-27 plan-4 checkpoint
+
+- Branch `feature/rcl-3xx-core`; product commit `b5cd5a815baad5980a3d62bfb49ab980b63e3057`. Plan SHA-256 `4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89`; bundle SHA-256 `4b494be9c82de3c3762ecc6249169b26922334f6e47af0010dafb163667a5f57`, source-bound to that product commit.
+- `OWNER_REPORTED`: plan-3 c1 completed 3/3; its prefix is `dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_` and manifest ID is `bd51bd00-fcf4-5d91-a45d-4d203e02127c`. c2 missed its plan-3 window. Independent cloud read-back is `NOT VERIFIED`.
+- Plan-4 c2 explicitly reads that external predecessor; c3-c6 read current-plan predecessors. Never copy or re-prepare c1. Remaining windows are 22:30/22:50/23:10/23:30Z; c6 is 2026-08-27 12:00-12:29:59Z.
+- L1 must rebuild/repoint, prepare and preflight only unexecuted plan-4 prefixes, and derive triggers only from the plan. The Task-1 image refuses c6 before ledger construction; wait for Task-2 batching commit/Judge before any c6 trigger. Local focused suite 30/30 direct exit 0; Master Judge PASS. Cloud runtime remains `NOT VERIFIED`.
+
 ## Current 2026-08-26 compressed-cycle checkpoint
 
 - Active branch is `feature/rcl-3xx-core`; current product commit is `2d8bebbe97794865f77f037dea518a39e8f75e38` (tree `9d95719e9c8fb403780f7b26ee6ab5bef3331696`). This L2 work unit performed no push, merge, cloud action, or `infra/**` edit. The owner reports no compressed cycle ran; independent cloud read-back is `NOT VERIFIED`.

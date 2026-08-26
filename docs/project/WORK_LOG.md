@@ -2,6 +2,14 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-27-041: Plan-4 cross-plan continuation
+
+- Preserved plan-3 c1 as external immutable evidence and added an exact c2 predecessor binding to plan SHA, prefix, and manifest ID. c3-c6 remain current-plan chained; no c1 ledger copy path exists.
+- Shifted only c2-c5 windows to 22:30/22:50/23:10/23:30Z and c6 to 2026-08-27 12:00-12:29:59Z. Predictions, logical dates, and trigger policies are unchanged.
+- Added `FIRESTORE_BATCH_V1` as a c6 execution gate. Master Judge found that the first guard occurred after headroom persistence; entrypoint now rejects before ledger construction, and the regression proves zero ledger-factory calls.
+- Product commit `b5cd5a815baad5980a3d62bfb49ab980b63e3057`; plan SHA-256 `4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89`; bundle SHA-256 `4b494be9c82de3c3762ecc6249169b26922334f6e47af0010dafb163667a5f57`. Post-commit focused suite passed 30/30 with direct exit 0; Master Judge PASS.
+- No push, merge, cloud mutation, trigger, Firestore write, or `infra/**` change occurred. c1/c2 runtime facts are `OWNER_REPORTED`; plan-4 runtime is `NOT VERIFIED`.
+
 ## WORK-2026-08-26-040: Plan-isolated compressed prefixes
 
 - `OWNER_REPORTED`: re-preparation failed because append-only unscoped prefixes contained earlier-iteration bytes under the same artifact IDs. Independent cloud read-back and mechanism proof are `NOT VERIFIED`. Added `p<first-12-plan-sha>` to every compressed prefix; prep, preview, verification, current-cycle, and predecessor reads use one helper.

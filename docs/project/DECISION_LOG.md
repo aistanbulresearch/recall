@@ -387,3 +387,11 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Decision: Derive every compressed prefix from the first 12 hex characters of the full plan SHA plus cycle and logical date. The instruction to preserve abandoned unscoped namespaces without delete, overwrite, or manifest reference is owner-directed; their present cloud state is `OWNER_REPORTED`.
 - Current binding: plan SHA-256 `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4` maps to `p5f18998f11c1`; c1-c6 start 20:40/21:10/21:40/22:10/22:40/23:10Z.
 - Evidence boundary: implementation, focused tests, hashes, and Master Judge are verified. Cloud inventory, old-prefix contents, current-prefix preparation, preflight, triggers, and cycles remain `NOT VERIFIED`.
+
+## DEC-2026-08-27-049: Preserve c1 across compressed plan iterations
+
+- Status: owner-approved; c1 success and c2 missed-window facts are `OWNER_REPORTED`, not independently verified by L2.
+- Decision: plan-4 c2 binds its predecessor to the exact plan-3 SHA, c1 prefix, and c1 manifest ID. c1 is external immutable and is never copied into plan-4. c3-c6 bind to the preceding cycle in the current plan.
+- Timing: c2-c5 start 22:30/22:50/23:10/23:30Z on 2026-08-26; c6 is declared for 2026-08-27 12:00-12:29:59Z. Predictions, logical dates, and trigger policies do not change.
+- c6 boundary: `FIRESTORE_BATCH_V1` is mandatory. Until Task 2 is implemented, tested, and Judge-approved, entrypoint refuses c6 before ledger construction.
+- Evidence boundary: plan/bundle hashes, local tests, source behavior, and Master Judge are verified. Cloud preparation, preflight, triggers, c1/c2 read-back, and remaining outcomes are `NOT VERIFIED`.

@@ -2,6 +2,18 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-27-K: Initial c6 batching guard followed headroom persistence
+
+| Field | Value |
+|---|---|
+| Task | Plan-4 c6 batching gate |
+| Severity | High; pre-commit blocker |
+| Observed | Master Judge found that entrypoint persisted a headroom receipt before the scheduler-level `FIRESTORE_BATCH_V1` rejection. |
+| Impact | The proposed zero-write gate was false at the real entrypoint boundary. No cloud execution occurred in this L2 work unit. |
+| Resolution | Reject external-immutable and batch-required cycles immediately after cycle resolution, before ledger construction, predecessor reads, or headroom evaluation. |
+| Verification | Entry-point regression passed with zero ledger-factory calls; focused suite 30/30 direct exit 0; Master Judge PASS. |
+| Status | Closed locally; cloud mechanism remains `NOT VERIFIED`. |
+
 ## ERR-2026-08-26-J: Unscoped plan iterations collided in append-only prefixes
 
 | Field | Value |
