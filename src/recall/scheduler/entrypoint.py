@@ -101,7 +101,7 @@ def execute(
             "selected_case_ids": sorted(selected_ids),
             "excluded_case_ids": excluded,
             "runs_predicted": cycle.runs_predicted,
-            "collection_prefix": compressed_collection_prefix(cycle),
+            "collection_prefix": compressed_collection_prefix(plan, cycle),
             "plan_sha256": plan.sha256,
             "preparation_bundle_sha256": bundle.bundle_sha256,
             "source_commit": source_commit,
@@ -116,7 +116,7 @@ def execute(
             raise RuntimeError("compressed_verify_prefix_invalid") from exc
         cycle = plan.by_due_date(due)
         ledger = ledger_factory(
-            collection_prefix=compressed_collection_prefix(cycle),
+            collection_prefix=compressed_collection_prefix(plan, cycle),
             privacy_receipt_verifier=verifier,
             expected_project_sha256=project_sha,
             database="(default)",
@@ -137,7 +137,7 @@ def execute(
             "writes": 0,
             "cycle_id": cycle.cycle_id,
             "cohort_due_date": cycle.cohort_due_date.isoformat(),
-            "collection_prefix": compressed_collection_prefix(cycle),
+            "collection_prefix": compressed_collection_prefix(plan, cycle),
             "readback": after,
             "plan_sha256": plan.sha256,
             "preparation_bundle_sha256": bundle.bundle_sha256,
@@ -145,7 +145,7 @@ def execute(
     now = now_factory()
     cycle = resolve_declared_cycle(now, plan)
     ledger = ledger_factory(
-        collection_prefix=compressed_collection_prefix(cycle),
+        collection_prefix=compressed_collection_prefix(plan, cycle),
         privacy_receipt_verifier=verifier,
         expected_project_sha256=project_sha,
         database="(default)",
@@ -155,7 +155,7 @@ def execute(
     prior_ledgers = {}
     for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
         prior_ledger = ledger_factory(
-            collection_prefix=compressed_collection_prefix(prior_cycle),
+            collection_prefix=compressed_collection_prefix(plan, prior_cycle),
             privacy_receipt_verifier=verifier,
             expected_project_sha256=project_sha,
             database="(default)",
@@ -199,7 +199,7 @@ def execute(
         "authoritative_run_ids": list(result.authoritative_run_ids),
         "manifest_artifact_id": result.manifest_artifact_id,
         "data_mode_receipt_id": result.data_mode_receipt_id,
-        "collection_prefix": compressed_collection_prefix(cycle),
+        "collection_prefix": compressed_collection_prefix(plan, cycle),
         "plan_sha256": plan.sha256,
         "schedule_mode": plan.schedule_mode,
         "backend": dict(ledger.backend_metadata()),

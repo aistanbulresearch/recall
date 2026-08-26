@@ -10,8 +10,8 @@
       "cycle_index": 1,
       "runs_predicted": 3,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T20:09:59Z",
-      "window_start": "2026-08-26T20:00:00Z"
+      "window_end": "2026-08-26T20:49:59Z",
+      "window_start": "2026-08-26T20:40:00Z"
     },
     {
       "cohort_due_date": "2026-08-27",
@@ -19,8 +19,8 @@
       "cycle_index": 2,
       "runs_predicted": 2,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T20:39:59Z",
-      "window_start": "2026-08-26T20:30:00Z"
+      "window_end": "2026-08-26T21:19:59Z",
+      "window_start": "2026-08-26T21:10:00Z"
     },
     {
       "cohort_due_date": "2026-08-28",
@@ -28,8 +28,8 @@
       "cycle_index": 3,
       "runs_predicted": 4,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T21:09:59Z",
-      "window_start": "2026-08-26T21:00:00Z"
+      "window_end": "2026-08-26T21:49:59Z",
+      "window_start": "2026-08-26T21:40:00Z"
     },
     {
       "cohort_due_date": "2026-08-29",
@@ -37,8 +37,8 @@
       "cycle_index": 4,
       "runs_predicted": 1,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T21:39:59Z",
-      "window_start": "2026-08-26T21:30:00Z"
+      "window_end": "2026-08-26T22:19:59Z",
+      "window_start": "2026-08-26T22:10:00Z"
     },
     {
       "cohort_due_date": "2026-08-30",
@@ -46,8 +46,8 @@
       "cycle_index": 5,
       "runs_predicted": 1,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T22:09:59Z",
-      "window_start": "2026-08-26T22:00:00Z"
+      "window_end": "2026-08-26T22:49:59Z",
+      "window_start": "2026-08-26T22:40:00Z"
     },
     {
       "cohort_due_date": "2026-08-31",
@@ -55,8 +55,8 @@
       "cycle_index": 6,
       "runs_predicted": 450,
       "trigger_policy": "HEADROOM_GATE_AFTER_C1_C5",
-      "window_end": "2026-08-26T22:39:59Z",
-      "window_start": "2026-08-26T22:30:00Z"
+      "window_end": "2026-08-26T23:19:59Z",
+      "window_start": "2026-08-26T23:10:00Z"
     }
   ]
 }

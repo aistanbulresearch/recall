@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from recall.scheduler.compressed_plan import (
 )
 from recall.scheduler.compressed_cohort import all_compressed_cases, cases_for_cycle
 from recall.scheduler.compressed_identity import (
+    collection_prefix,
     manifest_artifact_id,
     mode_receipt_artifact_id,
     tick_run_id,
@@ -60,17 +62,17 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
 def test_resolver_requires_exactly_one_declared_window() -> None:
     plan = load_compressed_plan(ROOT)
     assert resolve_declared_cycle(
-        datetime(2026, 8, 26, 20, 5, tzinfo=timezone.utc), plan
+        datetime(2026, 8, 26, 20, 45, tzinfo=timezone.utc), plan
     ).cycle_id == "c1"
     with pytest.raises(RuntimeError, match="window_match_invalid:0"):
         resolve_declared_cycle(
-            datetime(2026, 8, 26, 20, 15, tzinfo=timezone.utc), plan
+            datetime(2026, 8, 26, 20, 55, tzinfo=timezone.utc), plan
         )
 
 
 def test_plan_rejects_overlap_and_short_gap() -> None:
     value = copy.deepcopy(_wire())
-    value["cycles"][1]["window_start"] = "2026-08-26T20:15:00Z"
+    value["cycles"][1]["window_start"] = "2026-08-26T20:55:00Z"
     with pytest.raises(RuntimeError, match="gap_invalid"):
         parse_compressed_plan(value, sha256="0" * 64)
 
@@ -91,11 +93,11 @@ def test_resolver_rejects_ambiguous_windows_even_if_parser_is_bypassed() -> None
     object.__setattr__(
         overlapping.cycles[1],
         "window_start",
-        datetime(2026, 8, 26, 20, 5, tzinfo=timezone.utc),
+        datetime(2026, 8, 26, 20, 45, tzinfo=timezone.utc),
     )
     with pytest.raises(RuntimeError, match="window_match_invalid:2"):
         resolve_declared_cycle(
-            datetime(2026, 8, 26, 20, 6, tzinfo=timezone.utc), overlapping
+            datetime(2026, 8, 26, 20, 46, tzinfo=timezone.utc), overlapping
         )
 
 
@@ -112,3 +114,7 @@ def test_cycle_identities_are_unique_and_do_not_collide_with_legacy() -> None:
     assert not set(manifests) & {
         legacy_manifest_id(item.cohort_due_date) for item in plan.cycles
     }
+    prefixes = [collection_prefix(plan, item) for item in plan.cycles]
+    assert len(set(prefixes)) == 6
+    assert all(f"_p{plan.sha256[:12]}_" in item for item in prefixes)
+    assert collection_prefix(replace(plan, sha256="f" * 64), plan.cycles[0]) != prefixes[0]

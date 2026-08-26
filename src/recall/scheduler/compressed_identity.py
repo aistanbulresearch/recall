@@ -40,9 +40,9 @@ def headroom_receipt_id(
     )
 
 
-def collection_prefix(cycle: CompressedCycle) -> str:
+def collection_prefix(plan: CompressedPlan, cycle: CompressedCycle) -> str:
     return (
-        f"dev_recall_m2_compressed_{cycle.cycle_id}_"
+        f"dev_recall_m2_compressed_p{plan.sha256[:12]}_{cycle.cycle_id}_"
         f"{cycle.cohort_due_date:%Y%m%d}_"
     )
 

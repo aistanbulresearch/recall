@@ -34,7 +34,7 @@ def main() -> int:
     )
     verifier = CompressedPreparationVerifier(bundle)
     ledger = FirestoreLedger.from_default_credentials(
-        collection_prefix=collection_prefix(cycle),
+        collection_prefix=collection_prefix(plan, cycle),
         privacy_receipt_verifier=verifier,
         expected_project_sha256=project_sha,
         database="(default)",
@@ -51,7 +51,7 @@ def main() -> int:
         "mode": "LAB_LOCAL_PREPARATION_LIVE_FIRESTORE_SYNTHETIC_DATA",
         "cycle_id": cycle.cycle_id,
         "cohort_due_date": selected_date.isoformat(),
-        "collection_prefix": collection_prefix(cycle),
+        "collection_prefix": collection_prefix(plan, cycle),
         "plan_sha256": plan.sha256,
         "writes": dict(result),
         "readback": {

@@ -136,7 +136,7 @@ def test_v3_contract_rejects_envelope_time_outside_declared_cycle() -> None:
     _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle("c1")
     wire = copy.deepcopy(ledger.get_artifact(result.manifest_artifact_id))
     assert wire is not None
-    wire["created_at"] = "2026-08-26T20:40:00Z"
+    wire["created_at"] = "2026-08-26T20:50:00Z"
     wire["content_hash"] = content_hash(wire)
     with pytest.raises(ContractError, match="execution_history.current"):
         parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
@@ -153,10 +153,10 @@ def test_v3_contract_rejects_relabelled_failure_and_cycle_window() -> None:
         parse_artifact(failure, authorized_producers=PRODUCER_REGISTRY)
 
     window = copy.deepcopy(original)
-    window["scheduled_for"] = "2026-08-26T19:59:59Z"
-    window["window_start"] = "2026-08-26T19:59:59Z"
-    window["execution_history"][-1]["scheduled_for"] = "2026-08-26T19:59:59Z"
-    window["execution_history"][-1]["window_start"] = "2026-08-26T19:59:59Z"
+    window["scheduled_for"] = "2026-08-26T20:39:59Z"
+    window["window_start"] = "2026-08-26T20:39:59Z"
+    window["execution_history"][-1]["scheduled_for"] = "2026-08-26T20:39:59Z"
+    window["execution_history"][-1]["window_start"] = "2026-08-26T20:39:59Z"
     window["content_hash"] = content_hash(window)
     parsed = parse_artifact(window, authorized_producers=PRODUCER_REGISTRY)
     with pytest.raises(RuntimeError, match="compressed_manifest_plan_mismatch"):
@@ -185,7 +185,7 @@ def test_same_cycle_retry_reuses_runs_manifest_and_events() -> None:
         source_commit=bundle.source_commit,
         image_digest=IMAGE_DIGEST,
     ).trigger(
-        now=datetime(2026, 8, 26, 20, 1, tzinfo=timezone.utc),
+        now=datetime(2026, 8, 26, 20, 41, tzinfo=timezone.utc),
         previous_manifest=None,
     )
     assert second.newly_created_run_ids == ()
@@ -200,7 +200,7 @@ def test_same_cycle_retry_reuses_runs_manifest_and_events() -> None:
 
 def test_in_window_late_trigger_is_the_real_admission_and_event_time() -> None:
     plan, bundle, _sha, cycle, ledger = _prepared("c1")
-    invoked_at = datetime(2026, 8, 26, 20, 1, 7, tzinfo=timezone.utc)
+    invoked_at = datetime(2026, 8, 26, 20, 41, 7, tzinfo=timezone.utc)
     result = CompressedCycleScheduler(
         ledger,
         plan=plan,
@@ -209,7 +209,7 @@ def test_in_window_late_trigger_is_the_real_admission_and_event_time() -> None:
         source_commit=bundle.source_commit,
         image_digest=IMAGE_DIGEST,
     ).trigger(now=invoked_at, previous_manifest=None)
-    expected = "2026-08-26T20:01:07Z"
+    expected = "2026-08-26T20:41:07Z"
     for run_id in result.authoritative_run_ids:
         record = ledger.get_scan_run(run_id)
         assert record is not None
@@ -269,8 +269,8 @@ def test_c2_contract_rejects_relabelled_inherited_c1_window() -> None:
     wire = copy.deepcopy(c2_ledger.get_artifact(c2_result.manifest_artifact_id))
     assert wire is not None
     inherited = wire["execution_history"][2]
-    inherited["scheduled_for"] = "2026-08-26T19:59:59Z"
-    inherited["window_start"] = "2026-08-26T19:59:59Z"
+    inherited["scheduled_for"] = "2026-08-26T20:39:59Z"
+    inherited["window_start"] = "2026-08-26T20:39:59Z"
     wire["content_hash"] = content_hash(wire)
     parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     with pytest.raises(
@@ -295,10 +295,10 @@ def test_epoch_only_and_day1_to_compressed_epoch_change_idempotency_key() -> Non
         **fields, schedule_epoch="2026-08-25T15:00:00Z"
     )
     compressed = scan_idempotency_key(
-        **fields, schedule_epoch="2026-08-26T20:00:00Z"
+        **fields, schedule_epoch="2026-08-26T20:40:00Z"
     )
     adjacent = scan_idempotency_key(
-        **fields, schedule_epoch="2026-08-26T20:30:00Z"
+        **fields, schedule_epoch="2026-08-26T21:10:00Z"
     )
     assert len({day1, compressed, adjacent}) == 3
 
@@ -323,14 +323,14 @@ def test_admission_rejects_mismatched_epoch_without_writes() -> None:
         ).controller.create_run(
             watch_case_id=case.case_id,
             source_cursors=dict(record.source_cursors),
-            schedule_epoch="2026-08-26T20:01:00Z",
+            schedule_epoch="2026-08-26T20:41:00Z",
             data_mode=watch.data_mode,
             privacy_receipt_id=watch.input_artifact_ids[0],
             expected_watch_case_version=record.version,
             triggered_at=cycle.window_start,
             budget_snapshot=BUDGET_SNAPSHOT,
             trace_id="00000000-0000-4000-8000-000000000001",
-            deadline_at="2026-08-26T20:09:59Z",
+            deadline_at="2026-08-26T20:49:59Z",
             now=cycle.window_start,
         )
     assert before == (ledger.read_back_count("scan_runs"), ledger.read_back_count("scan_run_events"))
@@ -360,7 +360,7 @@ def test_verify_prefix_reads_live_shape_and_writes_zero() -> None:
     assert result["verified"] is True
     assert result["writes"] == 0
     assert result["plan_sha256"] == plan.sha256
-    assert calls == ["dev_recall_m2_compressed_c1_20260826_"]
+    assert calls == [f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c1_20260826_"]
     assert before == {name: ledger.read_back_count(name) for name in ledger.collection_names}
 
 
@@ -368,7 +368,9 @@ def test_entrypoint_resolves_cycle_from_clock_without_runtime_override() -> None
     plan, bundle, bundle_sha, cycle, ledger = _prepared("c1")
 
     def factory(**kwargs):
-        assert kwargs["collection_prefix"] == "dev_recall_m2_compressed_c1_20260826_"
+        assert kwargs["collection_prefix"] == (
+            f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c1_20260826_"
+        )
         return ledger
 
     result = execute(
@@ -411,12 +413,12 @@ def test_entrypoint_rejects_premature_cycle_before_ledger_creation() -> None:
                 "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
             },
             now_factory=lambda: datetime(
-                2026, 8, 26, 19, 59, 59, tzinfo=timezone.utc
+                2026, 8, 26, 20, 39, 59, tzinfo=timezone.utc
             ),
             ledger_factory=factory,
             repo_root=ROOT,
         )
-    assert cycle.window_start.isoformat() == "2026-08-26T20:00:00+00:00"
+    assert cycle.window_start.isoformat() == "2026-08-26T20:40:00+00:00"
     assert calls == []
 
 
