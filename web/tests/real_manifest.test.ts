@@ -24,12 +24,11 @@ import type { ArtifactBundle } from '../src/viewmodel/types';
 import example from './fixtures/cohort-day2-manifest.example.json';
 import legacy from './fixtures/cohort-day2-manifest.v2.0.legacy.json';
 
-const COHORT_FIELDS = [
+const SHARED_FIELDS = [
   'UI-COHORT-DAY-INDEX',
   'UI-COHORT-CASES-DELTA',
   'UI-COHORT-RUNS-DELTA',
   'UI-COHORT-RUNS-TOTAL',
-  'UI-COHORT-CYCLES-TOTAL',
   'UI-COHORT-DISTINCT-DATES',
   'UI-COHORT-IMAGE-DIGEST',
   'UI-COHORT-SOURCE-COMMIT',
@@ -38,6 +37,25 @@ const COHORT_FIELDS = [
   'UI-COHORT-VCV-ANCHORS',
   'UI-COHORT-EXECUTIONS',
 ] as const;
+
+/**
+ * Required fields are VERSION-SCOPED, like the validation itself: a 2.x
+ * manifest must resolve daily_cycles, a 3.0.0 manifest must resolve the
+ * compressed fields, and demanding a field the version does not carry would
+ * fail a correct manifest for a semantic it never declared.
+ */
+function requiredFields(schemaVersion: unknown): readonly string[] {
+  if (schemaVersion === '3.0.0') {
+    return [
+      ...SHARED_FIELDS,
+      'UI-COHORT-COMPRESSED-TOTAL',
+      'UI-COHORT-SCHEDULE-MODE',
+      'UI-COHORT-CYCLE-ID',
+      'UI-COHORT-PLAN-SHA256',
+    ];
+  }
+  return [...SHARED_FIELDS, 'UI-COHORT-CYCLES-TOTAL'];
+}
 
 interface ManifestLike {
   schema_name?: unknown;
@@ -71,7 +89,7 @@ function fullCheck(manifest: ManifestLike, label: string): string[] {
   if (rejected.length > 0) {
     failures.push(`artifact rejected: ${rejected[0].reason_code}`);
   }
-  for (const id of COHORT_FIELDS) {
+  for (const id of requiredFields(manifest.schema_version)) {
     const field = fields[id];
     report.push(`  ${id.padEnd(28)} ${String(field.status === 'KNOWN' ? field.value : field.status)}`);
     if (field.status !== 'KNOWN') {
@@ -103,6 +121,19 @@ function fullCheck(manifest: ManifestLike, label: string): string[] {
   console.log(report.join('\n'));
   return failures;
 }
+
+describe('version-scoped requirements', () => {
+  it('demands the compressed fields of a 3.0.0 manifest, not daily_cycles', () => {
+    const v3 = requiredFields('3.0.0');
+    expect(v3).toContain('UI-COHORT-COMPRESSED-TOTAL');
+    expect(v3).toContain('UI-COHORT-SCHEDULE-MODE');
+    expect(v3).not.toContain('UI-COHORT-CYCLES-TOTAL');
+    // 2.x keeps the inverse, so neither version is judged by the other's rules.
+    const v2 = requiredFields('2.1.0');
+    expect(v2).toContain('UI-COHORT-CYCLES-TOTAL');
+    expect(v2).not.toContain('UI-COHORT-COMPRESSED-TOTAL');
+  });
+});
 
 describe('full-render check', () => {
   it('passes on the committed 2.1.0 example', () => {
