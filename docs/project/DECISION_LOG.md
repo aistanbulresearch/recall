@@ -380,3 +380,10 @@ Append-only. Supersede decisions with a new entry rather than deleting history.
 - Decision: Replace only the six UTC execution windows in `COMPRESSED_PREDICTION_PLAN_V2`: c1 `20:00:00-20:09:59`, c2 `20:30:00-20:39:59`, c3 `21:00:00-21:09:59`, c4 `21:30:00-21:39:59`, c5 `22:00:00-22:09:59`, and c6 `22:30:00-22:39:59`, all on 2026-08-26. Preserve logical due dates, predictions, case identities, semantic payload values, and trigger policies.
 - Integrity consequence: Because the preparation bundle binds `plan_sha256` and WatchCase `next_scan_at` to each schedule epoch, it must be regenerated from the shifted product commit; preserving stale bundle bytes would fail preflight. This is a binding/schedule update, not a cohort-content change.
 - Evidence boundary: Plan hash, bundle hash, local tests, and Master Judge are verified. Rebuild, repoint, re-preparation, Cloud Run prefix preflight, Scheduler triggers, and every cycle result remain `NOT VERIFIED`.
+
+## DEC-2026-08-26-048: Isolate every compressed plan iteration by prefix
+
+- Status: owner-accepted after an `OWNER_REPORTED` append-only re-preparation rejection of different bytes under existing artifact IDs; absence of cycle execution is also `OWNER_REPORTED`. Independent cloud read-back and mechanism proof are `NOT VERIFIED`.
+- Decision: Derive every compressed prefix from the first 12 hex characters of the full plan SHA plus cycle and logical date. The instruction to preserve abandoned unscoped namespaces without delete, overwrite, or manifest reference is owner-directed; their present cloud state is `OWNER_REPORTED`.
+- Current binding: plan SHA-256 `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4` maps to `p5f18998f11c1`; c1-c6 start 20:40/21:10/21:40/22:10/22:40/23:10Z.
+- Evidence boundary: implementation, focused tests, hashes, and Master Judge are verified. Cloud inventory, old-prefix contents, current-prefix preparation, preflight, triggers, and cycles remain `NOT VERIFIED`.

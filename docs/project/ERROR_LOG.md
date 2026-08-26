@@ -2,6 +2,18 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-26-J: Unscoped plan iterations collided in append-only prefixes
+
+| Field | Value |
+|---|---|
+| Task | Third compressed-plan iteration and re-preparation |
+| Severity | High; session-blocking, ledger integrity preserved |
+| Observed | `OWNER_REPORTED`: re-preparation attempted different wire bytes under artifact IDs already present in the same unscoped cycle/date collections, and the append-only ledger rejected them. Independent cloud read-back and mechanism proof are `NOT VERIFIED`. |
+| Impact | `OWNER_REPORTED`: no overwrite or silent reuse occurred, no cycle ran, and old prepared bytes remain abandoned without an accepted manifest reference. Independent cloud inventory/read-back is `NOT VERIFIED`. |
+| Resolution | Add `p<first-12-plan-sha>` to every compressed prefix and route prep, preview, verification, current-cycle, and predecessor reads through one helper. Preserve old namespaces; their current cloud state remains `OWNER_REPORTED`, not independently verified. |
+| Verification | Different plan hashes produce different prefixes; current prefix contains `p5f18998f11c1`; focused suite passed 27/27 with direct exit 0; product Master Judge passed. |
+| Status | Resolved locally; rebuild/repoint/current-prefix prep/cloud preflight/runtime remain `NOT VERIFIED`. |
+
 ## ERR-2026-08-26-I: Window shift invalidated stale test times and preparation bindings
 
 | Field | Value |

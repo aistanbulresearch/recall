@@ -2,6 +2,14 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-26-040: Plan-isolated compressed prefixes
+
+- `OWNER_REPORTED`: re-preparation failed because append-only unscoped prefixes contained earlier-iteration bytes under the same artifact IDs. Independent cloud read-back and mechanism proof are `NOT VERIFIED`. Added `p<first-12-plan-sha>` to every compressed prefix; prep, preview, verification, current-cycle, and predecessor reads use one helper.
+- Current windows start 20:40/21:10/21:40/22:10/22:40/23:10Z. Logical dates, predictions 3/2/4/1/1/450, and policies are unchanged; all gaps are 1,201 seconds.
+- Plan SHA-256 is `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4`. One stale negative `created_at` became in-window and caused the first red; after correction, focused tests passed 27/27 with direct exit 0. Master Judge passed the exact eight-path diff.
+- Product commit is `2d8bebbe97794865f77f037dea518a39e8f75e38` (tree `9d95719e9c8fb403780f7b26ee6ab5bef3331696`). Regenerated bundle SHA-256 is `5a69eb4394f64c1e666aeb624cac3e4e312b3758a9e48f311a8cb0eef610f7dd`, binding 462 cases and five observations.
+- The old unscoped namespaces' append-only/abandoned state and absence of accepted manifest references are `OWNER_REPORTED`; independent cloud inventory/read-back is `NOT VERIFIED`. L2 performed no delete, cloud action, cycle, Firestore write, push, merge, or `infra/**` change.
+
 ## WORK-2026-08-26-039: Pre-run compressed-window shift
 
 - At owner direction, before any compressed cycle ran, shifted only the six `COMPRESSED_PREDICTION_PLAN_V2` windows to c1 `20:00`, c2 `20:30`, c3 `21:00`, c4 `21:30`, c5 `22:00`, and c6 `22:30` UTC on 2026-08-26. Logical due dates, predictions 3/2/4/1/1/450, case identities, semantic payload values, and trigger policies are unchanged; measured inter-cycle gaps are 1,201 seconds.

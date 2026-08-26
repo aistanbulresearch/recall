@@ -15,11 +15,11 @@ with explicit `RECALL_SCHEDULER_MODE=LEGACY_DAYN`; there is no implicit fallback
 
 The compressed image must package these exact committed inputs:
 
-- product source commit `29a833c30e16d70edccadbe10d574769f542787e`;
+- product source commit `2d8bebbe97794865f77f037dea518a39e8f75e38`;
 - `artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json`,
-  SHA-256 `05e61f4bbe3d6bb7540ecae310e3c6f9423dcae3a7933db59ef4267e84fd9226`;
+  SHA-256 `5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4`;
 - `artifacts/evidence/cohort-compression/preparation-bundle-v2.json`, SHA-256
-  `4487e4d3e5973e0e714348f1d420a9328046ed1ba49f5c1a0478e9f174b90d04`.
+  `5a69eb4394f64c1e666aeb624cac3e4e312b3758a9e48f311a8cb0eef610f7dd`.
 
 `RECALL_SOURCE_COMMIT` must be lowercase 40-hex and equal both the product
 source and bundle provenance. `RECALL_IMAGE_DIGEST` must be the deployed
@@ -36,7 +36,10 @@ Run Job timeout is 1200 seconds. Only scheduler-SA may invoke the job.
 `COMPRESSED_PREDICTION_PLAN_V2` is the sole timing and prediction source. L1
 must parse that committed file to instantiate the one-shot Cloud Scheduler
 triggers; hand-selected or separately copied times are prohibited. Each trigger
-has its own cycle identity, prefix, schedule epoch, and declared UTC window.
+has its own cycle identity, plan-isolated prefix, schedule epoch, and declared
+UTC window. The prefix is
+`dev_recall_m2_compressed_p<first-12-plan-sha>_<cycle>_<logical-date>_`;
+never reuse an abandoned unscoped prefix.
 The runtime clock must fall in exactly one window. Zero or multiple matches
 fail closed, and no runtime window override exists.
 
@@ -75,7 +78,7 @@ own `trigger_code` and `scheduled_for` and are validated under the rules of the
 version that produced each row.
 
 L3 must acknowledge compatibility against exact product commit
-`29a833c30e16d70edccadbe10d574769f542787e` before L1 executes the compressed
+`2d8bebbe97794865f77f037dea518a39e8f75e38` before L1 executes the compressed
 image. The visible label must be derived from manifest `schedule_mode`; copied
 component text is prohibited. Intermediate manifests remain in the evidence
 directory. Only the final manifest may enter the demo bundle.
