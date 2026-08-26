@@ -2,14 +2,16 @@
   "decision_reference": "DEC-2026-08-26-046",
   "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
   "schedule_mode": "COMPRESSED_MACHINE_TRIGGERED",
-  "schema_version": "2.0.0",
+  "schema_version": "2.1.0",
   "cycles": [
     {
       "cohort_due_date": "2026-08-26",
       "cycle_id": "c1",
       "cycle_index": 1,
+      "predecessor": null,
       "runs_predicted": 3,
       "trigger_policy": "ALWAYS",
+      "write_path": "EXTERNAL_IMMUTABLE",
       "window_end": "2026-08-26T20:49:59Z",
       "window_start": "2026-08-26T20:40:00Z"
     },
@@ -17,46 +19,86 @@
       "cohort_due_date": "2026-08-27",
       "cycle_id": "c2",
       "cycle_index": 2,
+      "predecessor": {
+        "binding": "EXTERNAL_PLAN",
+        "collection_prefix": "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_",
+        "cycle_id": "c1",
+        "manifest_artifact_id": "bd51bd00-fcf4-5d91-a45d-4d203e02127c",
+        "plan_sha256": "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
+      },
       "runs_predicted": 2,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T21:19:59Z",
-      "window_start": "2026-08-26T21:10:00Z"
+      "window_end": "2026-08-26T22:39:59Z",
+      "window_start": "2026-08-26T22:30:00Z",
+      "write_path": "SERIAL_VERIFIED"
     },
     {
       "cohort_due_date": "2026-08-28",
       "cycle_id": "c3",
       "cycle_index": 3,
+      "predecessor": {
+        "binding": "CURRENT_PLAN",
+        "collection_prefix": null,
+        "cycle_id": "c2",
+        "manifest_artifact_id": null,
+        "plan_sha256": null
+      },
       "runs_predicted": 4,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T21:49:59Z",
-      "window_start": "2026-08-26T21:40:00Z"
+      "window_end": "2026-08-26T22:59:59Z",
+      "window_start": "2026-08-26T22:50:00Z",
+      "write_path": "SERIAL_VERIFIED"
     },
     {
       "cohort_due_date": "2026-08-29",
       "cycle_id": "c4",
       "cycle_index": 4,
+      "predecessor": {
+        "binding": "CURRENT_PLAN",
+        "collection_prefix": null,
+        "cycle_id": "c3",
+        "manifest_artifact_id": null,
+        "plan_sha256": null
+      },
       "runs_predicted": 1,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T22:19:59Z",
-      "window_start": "2026-08-26T22:10:00Z"
+      "window_end": "2026-08-26T23:19:59Z",
+      "window_start": "2026-08-26T23:10:00Z",
+      "write_path": "SERIAL_VERIFIED"
     },
     {
       "cohort_due_date": "2026-08-30",
       "cycle_id": "c5",
       "cycle_index": 5,
+      "predecessor": {
+        "binding": "CURRENT_PLAN",
+        "collection_prefix": null,
+        "cycle_id": "c4",
+        "manifest_artifact_id": null,
+        "plan_sha256": null
+      },
       "runs_predicted": 1,
       "trigger_policy": "ALWAYS",
-      "window_end": "2026-08-26T22:49:59Z",
-      "window_start": "2026-08-26T22:40:00Z"
+      "window_end": "2026-08-26T23:39:59Z",
+      "window_start": "2026-08-26T23:30:00Z",
+      "write_path": "SERIAL_VERIFIED"
     },
     {
       "cohort_due_date": "2026-08-31",
       "cycle_id": "c6",
       "cycle_index": 6,
+      "predecessor": {
+        "binding": "CURRENT_PLAN",
+        "collection_prefix": null,
+        "cycle_id": "c5",
+        "manifest_artifact_id": null,
+        "plan_sha256": null
+      },
       "runs_predicted": 450,
       "trigger_policy": "HEADROOM_GATE_AFTER_C1_C5",
-      "window_end": "2026-08-26T23:19:59Z",
-      "window_start": "2026-08-26T23:10:00Z"
+      "window_end": "2026-08-27T12:29:59Z",
+      "window_start": "2026-08-27T12:00:00Z",
+      "write_path": "FIRESTORE_BATCH_V1"
     }
   ]
 }

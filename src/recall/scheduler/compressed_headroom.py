@@ -16,10 +16,11 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 
 from .cohort import COHORT_ID
 from .compressed_identity import (
+    evidence_legacy_failure_receipt_id,
+    evidence_manifest_artifact_id,
+    evidence_mode_receipt_artifact_id,
+    evidence_plan,
     headroom_receipt_id,
-    legacy_failure_receipt_id,
-    manifest_artifact_id,
-    mode_receipt_artifact_id,
     tick_run_id,
 )
 from .compressed_plan import (
@@ -65,7 +66,8 @@ def _build_headroom_receipt(
     for cycle in plan.cycles[:5]:
         ledger = prior_ledgers.get(cycle.cycle_id)
         reasons = []
-        manifest_id = manifest_artifact_id(plan, cycle)
+        cycle_plan = evidence_plan(plan, cycle)
+        manifest_id = evidence_manifest_artifact_id(plan, cycle)
         manifest = None if ledger is None else ledger.get_artifact(manifest_id)
         mode_bound = False
         manifest_hash = None
@@ -81,9 +83,9 @@ def _build_headroom_receipt(
                 parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
                 verify_manifest_against_plan(
                     parsed,
-                    plan,
-                    expected_legacy_failure_receipt_id=legacy_failure_receipt_id(
-                        plan, plan.by_id("c1")
+                    cycle_plan,
+                    expected_legacy_failure_receipt_id=evidence_legacy_failure_receipt_id(
+                        plan
                     ),
                 )
                 status = parsed.status.value
@@ -91,7 +93,7 @@ def _build_headroom_receipt(
                 if (
                     parsed.schema_version != "3.0.0"
                     or parsed.payload.cycle_id != cycle.cycle_id
-                    or parsed.payload.plan_sha256 != plan.sha256
+                    or parsed.payload.plan_sha256 != cycle_plan.sha256
                     or parsed.payload.cumulative["historical_incomplete_attempts"] != 1
                 ):
                     reasons.append("manifest_contract_mismatch")
@@ -99,7 +101,7 @@ def _build_headroom_receipt(
                     reasons.append("manifest_not_valid")
             except Exception:
                 reasons.append("manifest_parse_failed")
-            mode_id = mode_receipt_artifact_id(plan, cycle)
+            mode_id = evidence_mode_receipt_artifact_id(plan, cycle)
             mode = ledger.get_artifact(mode_id)
             if mode is not None:
                 try:

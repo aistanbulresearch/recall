@@ -14,6 +14,7 @@ from recall.scheduler.compressed_plan import (
     load_compressed_plan,
     parse_compressed_plan,
     resolve_declared_cycle,
+    PLAN3_SHA256,
 )
 from recall.scheduler.compressed_cohort import all_compressed_cases, cases_for_cycle
 from recall.scheduler.compressed_identity import (
@@ -22,6 +23,8 @@ from recall.scheduler.compressed_identity import (
     mode_receipt_artifact_id,
     tick_run_id,
     trace_id,
+    evidence_collection_prefix,
+    evidence_manifest_artifact_id,
 )
 from recall.scheduler.manifest import manifest_artifact_id as legacy_manifest_id
 
@@ -44,10 +47,28 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         ("c5", 1),
         ("c6", 450),
     ]
+    assert [item.window_start.isoformat() for item in plan.cycles] == [
+        "2026-08-26T20:40:00+00:00",
+        "2026-08-26T22:30:00+00:00",
+        "2026-08-26T22:50:00+00:00",
+        "2026-08-26T23:10:00+00:00",
+        "2026-08-26T23:30:00+00:00",
+        "2026-08-27T12:00:00+00:00",
+    ]
     assert all(
-        current.window_start.timestamp() - prior.window_end.timestamp() >= 1200
+        current.window_start.timestamp() - prior.window_start.timestamp() >= 1200
         for prior, current in zip(plan.cycles, plan.cycles[1:])
     )
+    c2 = plan.by_id("c2")
+    assert c2.predecessor is not None
+    assert c2.predecessor.plan_sha256 == PLAN3_SHA256
+    assert evidence_collection_prefix(plan, plan.by_id("c1")) == (
+        "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_"
+    )
+    assert evidence_manifest_artifact_id(plan, plan.by_id("c1")) == (
+        "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
+    )
+    assert plan.by_id("c6").write_path == "FIRESTORE_BATCH_V1"
     cases = all_compressed_cases(plan.cycles)
     assert len(cases) == 462
     assert sum(item.cycle_id == "historical-day1" for item in cases) == 1
@@ -72,9 +93,22 @@ def test_resolver_requires_exactly_one_declared_window() -> None:
 
 def test_plan_rejects_overlap_and_short_gap() -> None:
     value = copy.deepcopy(_wire())
-    value["cycles"][1]["window_start"] = "2026-08-26T20:55:00Z"
-    with pytest.raises(RuntimeError, match="gap_invalid"):
+    value["cycles"][2]["window_start"] = "2026-08-26T22:45:00Z"
+    with pytest.raises(RuntimeError, match="start_interval_invalid"):
         parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_plan_rejects_external_predecessor_drift_and_missing_batch_gate() -> None:
+    predecessor = copy.deepcopy(_wire())
+    predecessor["cycles"][1]["predecessor"]["manifest_artifact_id"] = (
+        "00000000-0000-4000-8000-000000000001"
+    )
+    with pytest.raises(RuntimeError, match="external_predecessor_invalid"):
+        parse_compressed_plan(predecessor, sha256="0" * 64)
+    batch = copy.deepcopy(_wire())
+    batch["cycles"][5]["write_path"] = "SERIAL_VERIFIED"
+    with pytest.raises(RuntimeError, match="batch_gate_missing"):
+        parse_compressed_plan(batch, sha256="0" * 64)
 
 
 def test_plan_hash_rejects_prediction_table_drift(tmp_path: Path) -> None:

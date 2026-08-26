@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import copy
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from recall.scheduler.compressed_identity import (
     mode_receipt_artifact_id,
 )
 from recall.scheduler.compressed_plan import (
+    PLAN3_SHA256,
     load_compressed_plan,
     verify_manifest_against_plan,
 )
@@ -66,6 +68,10 @@ def _loaded():
 
 def _prepared(cycle_id: str):
     plan, bundle, bundle_sha = _loaded()
+    if cycle_id == "c1":
+        cycles = list(plan.cycles)
+        cycles[0] = replace(cycles[0], write_path="SERIAL_VERIFIED")
+        plan = replace(plan, sha256=PLAN3_SHA256, cycles=tuple(cycles))
     cycle = plan.by_id(cycle_id)
     ledger = InMemoryLedger(
         privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
@@ -90,6 +96,13 @@ def _run_cycle(cycle_id: str, previous=None):
         previous_manifest=previous,
     )
     return plan, bundle, bundle_sha, cycle, ledger, result
+
+
+def _serial_c6_context(plan, cycle):
+    cycles = list(plan.cycles)
+    serial = replace(cycle, write_path="SERIAL_VERIFIED")
+    cycles[cycle.cycle_index - 1] = serial
+    return replace(plan, cycles=tuple(cycles)), serial
 
 
 def test_c1_emits_v3_with_visible_failure_and_valid_recovery() -> None:
@@ -274,7 +287,7 @@ def test_c2_contract_rejects_relabelled_inherited_c1_window() -> None:
     wire["content_hash"] = content_hash(wire)
     parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     with pytest.raises(
-        RuntimeError, match="compressed_manifest_history_plan_mismatch"
+        RuntimeError, match="compressed_manifest_plan_mismatch"
     ):
         verify_manifest_against_plan(
             parsed,
@@ -337,7 +350,7 @@ def test_admission_rejects_mismatched_epoch_without_writes() -> None:
 
 
 def test_verify_prefix_reads_live_shape_and_writes_zero() -> None:
-    plan, bundle, bundle_sha, cycle, ledger = _prepared("c1")
+    plan, bundle, bundle_sha, cycle, ledger = _prepared("c2")
     before = {name: ledger.read_back_count(name) for name in ledger.collection_names}
     calls = []
 
@@ -346,7 +359,7 @@ def test_verify_prefix_reads_live_shape_and_writes_zero() -> None:
         return ledger
 
     result = execute(
-        ["--verify-prefix", "20260826"],
+        ["--verify-prefix", "20260827"],
         environment={
             "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
             "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
@@ -360,18 +373,23 @@ def test_verify_prefix_reads_live_shape_and_writes_zero() -> None:
     assert result["verified"] is True
     assert result["writes"] == 0
     assert result["plan_sha256"] == plan.sha256
-    assert calls == [f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c1_20260826_"]
+    assert calls == [f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c2_20260827_"]
     assert before == {name: ledger.read_back_count(name) for name in ledger.collection_names}
 
 
 def test_entrypoint_resolves_cycle_from_clock_without_runtime_override() -> None:
-    plan, bundle, bundle_sha, cycle, ledger = _prepared("c1")
+    _old, _old_bundle, _old_sha, _c1, c1_ledger, c1_result = _run_cycle("c1")
+    c1_manifest = c1_ledger.get_artifact(c1_result.manifest_artifact_id)
+    assert c1_manifest is not None
+    plan, bundle, bundle_sha, cycle, ledger = _prepared("c2")
 
     def factory(**kwargs):
-        assert kwargs["collection_prefix"] == (
-            f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c1_20260826_"
-        )
-        return ledger
+        prefix = kwargs["collection_prefix"]
+        if prefix == f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c2_20260827_":
+            return ledger
+        if prefix == "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_":
+            return c1_ledger
+        raise AssertionError(prefix)
 
     result = execute(
         [],
@@ -386,10 +404,61 @@ def test_entrypoint_resolves_cycle_from_clock_without_runtime_override() -> None
         ledger_factory=factory,
         repo_root=ROOT,
     )
-    assert result["cycle_id"] == "c1"
+    assert result["cycle_id"] == "c2"
     assert result["schedule_mode"] == "COMPRESSED_MACHINE_TRIGGERED"
     assert result["plan_sha256"] == plan.sha256
-    assert len(result["newly_created_run_ids"]) == 3
+    assert len(result["newly_created_run_ids"]) == 2
+
+
+def test_plan4_c1_is_immutable_and_c6_batch_gate_precedes_writes() -> None:
+    plan, bundle, _sha = _loaded()
+    for cycle_id, reason in (
+        ("c1", "compressed_cycle_external_immutable"),
+        ("c6", "compressed_batch_write_path_required"),
+    ):
+        cycle = plan.by_id(cycle_id)
+        ledger = InMemoryLedger(
+            privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+        )
+        before = tuple(ledger.read_back_count(name) for name in ledger.collection_names)
+        with pytest.raises(RuntimeError, match=reason):
+            CompressedCycleScheduler(
+                ledger,
+                plan=plan,
+                cycle=cycle,
+                bundle=bundle,
+                source_commit=bundle.source_commit,
+                image_digest=IMAGE_DIGEST,
+            ).trigger(now=cycle.window_start, previous_manifest=None)
+        assert before == tuple(
+            ledger.read_back_count(name) for name in ledger.collection_names
+        )
+
+
+def test_entrypoint_c6_batch_gate_precedes_ledger_construction() -> None:
+    plan, bundle, bundle_sha = _loaded()
+    c6 = plan.by_id("c6")
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        raise AssertionError("ledger construction is forbidden before batch support")
+
+    with pytest.raises(RuntimeError, match="compressed_batch_write_path_required"):
+        execute(
+            [],
+            environment={
+                "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
+                "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
+                "RECALL_SOURCE_COMMIT": bundle.source_commit,
+                "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+                "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
+            },
+            now_factory=lambda: c6.window_start,
+            ledger_factory=factory,
+            repo_root=ROOT,
+        )
+    assert calls == []
 
 
 def test_entrypoint_rejects_premature_cycle_before_ledger_creation() -> None:
@@ -556,6 +625,7 @@ def test_c4_mode_receipt_carries_transitive_replay_provenance() -> None:
 
 def test_c6_requires_fresh_persisted_headroom_and_binds_manifest() -> None:
     plan, bundle, _sha, c6, c6_ledger = _prepared("c6")
+    plan, c6 = _serial_c6_context(plan, c6)
     ledgers = {}
     previous = None
     for cycle_id in ("c1", "c2", "c3", "c4", "c5"):
@@ -606,6 +676,7 @@ def test_c6_requires_fresh_persisted_headroom_and_binds_manifest() -> None:
 
 def test_c6_rejects_unpersisted_and_stale_headroom_without_run_writes() -> None:
     plan, bundle, _sha, c6, c6_ledger = _prepared("c6")
+    plan, c6 = _serial_c6_context(plan, c6)
     ledgers = {}
     previous = None
     for cycle_id in ("c1", "c2", "c3", "c4", "c5"):

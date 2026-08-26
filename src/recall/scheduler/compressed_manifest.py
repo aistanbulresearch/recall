@@ -11,6 +11,8 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 from .cohort import COHORT_ID
 from .compressed_cohort import CompressedCohortCase
 from .compressed_identity import (
+    evidence_manifest_artifact_id,
+    evidence_plan,
     manifest_artifact_id,
     mode_receipt_artifact_id,
     tick_run_id,
@@ -241,10 +243,12 @@ def _prior_history(
         raise RuntimeError("compressed_previous_manifest_missing")
     parsed = parse_artifact(previous_manifest, authorized_producers=PRODUCER_REGISTRY)
     prior_cycle = plan.cycles[cycle.cycle_index - 2]
+    prior_plan = evidence_plan(plan, prior_cycle)
     if (
         parsed.schema_version != "3.0.0"
         or parsed.payload.cycle_id != prior_cycle.cycle_id
-        or parsed.artifact_id != manifest_artifact_id(plan, prior_cycle)
+        or parsed.payload.plan_sha256 != prior_plan.sha256
+        or parsed.artifact_id != evidence_manifest_artifact_id(plan, prior_cycle)
     ):
         raise RuntimeError("compressed_previous_manifest_invalid")
     return [dict(item) for item in parsed.payload.execution_history]

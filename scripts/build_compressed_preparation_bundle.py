@@ -24,7 +24,9 @@ from recall.privacy.receipt import verify_privacy_receipt  # noqa: E402
 from recall.privacy.signing import LocalSigner  # noqa: E402
 from recall.scheduler.cohort import REPLAY_ANCHORS, RIGHTS_NOTE  # noqa: E402
 from recall.scheduler.compressed_cohort import all_compressed_cases  # noqa: E402
-from recall.scheduler.compressed_identity import legacy_failure_receipt_id  # noqa: E402
+from recall.scheduler.compressed_identity import (  # noqa: E402
+    evidence_legacy_failure_receipt_id,
+)
 from recall.scheduler.compressed_plan import (  # noqa: E402
     DECISION_REFERENCE,
     load_compressed_plan,
@@ -135,7 +137,7 @@ def _build_failure_receipt(plan, source_commit: str, prepared_at: str):
     return build_artifact(
         schema_name="CompressedCycleFailureReceipt",
         schema_version="1.0.0",
-        artifact_id=legacy_failure_receipt_id(plan, cycle),
+        artifact_id=evidence_legacy_failure_receipt_id(plan),
         case_id=COHORT_ID,
         run_id=str(uuid5(NAMESPACE_URL, f"recall:legacy-day2-failure:{source_commit}")),
         producer={"component": "managed-cohort-scheduler", "version": "3.0.0", "identity": "cohort-scheduler"},

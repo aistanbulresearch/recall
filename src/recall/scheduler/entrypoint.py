@@ -31,6 +31,8 @@ from .compressed_cohort import all_compressed_cases, cases_for_cycle
 from .compressed_headroom import evaluate_and_persist_headroom
 from .compressed_identity import (
     collection_prefix as compressed_collection_prefix,
+    evidence_collection_prefix,
+    evidence_manifest_artifact_id,
     manifest_artifact_id as compressed_manifest_artifact_id,
 )
 from .compressed_plan import load_compressed_plan, resolve_declared_cycle
@@ -144,6 +146,10 @@ def execute(
         }
     now = now_factory()
     cycle = resolve_declared_cycle(now, plan)
+    if cycle.write_path == "EXTERNAL_IMMUTABLE":
+        raise RuntimeError("compressed_cycle_external_immutable")
+    if cycle.write_path == "FIRESTORE_BATCH_V1":
+        raise RuntimeError("compressed_batch_write_path_required")
     ledger = ledger_factory(
         collection_prefix=compressed_collection_prefix(plan, cycle),
         privacy_receipt_verifier=verifier,
@@ -155,7 +161,7 @@ def execute(
     prior_ledgers = {}
     for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
         prior_ledger = ledger_factory(
-            collection_prefix=compressed_collection_prefix(plan, prior_cycle),
+            collection_prefix=evidence_collection_prefix(plan, prior_cycle),
             privacy_receipt_verifier=verifier,
             expected_project_sha256=project_sha,
             database="(default)",
@@ -165,7 +171,7 @@ def execute(
     if cycle.cycle_index > 1:
         predecessor = plan.cycles[cycle.cycle_index - 2]
         previous = prior_ledgers[predecessor.cycle_id].get_artifact(
-            compressed_manifest_artifact_id(plan, predecessor)
+            evidence_manifest_artifact_id(plan, predecessor)
         )
         if previous is None:
             raise RuntimeError("compressed_previous_manifest_missing")

@@ -14,7 +14,7 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 from .compressed_cohort import all_compressed_cases, cases_for_cycle
 from .compressed_headroom import require_headroom_pass
 from .compressed_identity import (
-    legacy_failure_receipt_id,
+    evidence_legacy_failure_receipt_id,
     manifest_artifact_id,
     mode_receipt_artifact_id,
     trace_id,
@@ -77,6 +77,10 @@ class CompressedCycleScheduler:
         resolved = resolve_declared_cycle(now, self._plan)
         if resolved != self._cycle:
             raise RuntimeError("compressed_cycle_resolution_mismatch")
+        if self._cycle.write_path == "EXTERNAL_IMMUTABLE":
+            raise RuntimeError("compressed_cycle_external_immutable")
+        if self._cycle.write_path == "FIRESTORE_BATCH_V1":
+            raise RuntimeError("compressed_batch_write_path_required")
         verify_prepared_cycle(
             self._ledger, self._bundle, self._plan, self._cycle
         )
@@ -182,8 +186,8 @@ class CompressedCycleScheduler:
             verify_manifest_against_plan(
                 parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY),
                 self._plan,
-                expected_legacy_failure_receipt_id=legacy_failure_receipt_id(
-                    self._plan, self._plan.by_id("c1")
+                expected_legacy_failure_receipt_id=evidence_legacy_failure_receipt_id(
+                    self._plan
                 ),
             )
             self._ledger.append_artifact(manifest)
@@ -233,8 +237,8 @@ class CompressedCycleScheduler:
         verify_manifest_against_plan(
             parsed,
             self._plan,
-            expected_legacy_failure_receipt_id=legacy_failure_receipt_id(
-                self._plan, self._plan.by_id("c1")
+            expected_legacy_failure_receipt_id=evidence_legacy_failure_receipt_id(
+                self._plan
             ),
         )
         expected_previous = (

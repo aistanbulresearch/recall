@@ -16,7 +16,10 @@ _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SCHEDULE_MODE = "COMPRESSED_MACHINE_TRIGGERED"
 _TRIGGER_CODE = "COHORT_COMPRESSED_MACHINE_TRIGGERED"
-_PLAN_SHA256 = "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
+_PLAN_SHA256S = {
+    "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4",
+    "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89",
+}
 _HISTORY_FIELDS = frozenset(
     {
         "sequence_index",
@@ -122,7 +125,7 @@ def parse_cohort_day_manifest_v3_payload(
     if not _IMAGE_DIGEST.fullmatch(image_digest):
         raise ContractError("contract_hash_invalid", "image_digest")
     plan_hash = non_empty_string(value["plan_sha256"], "plan_sha256")
-    if not SHA256.fullmatch(plan_hash) or plan_hash != _PLAN_SHA256:
+    if not SHA256.fullmatch(plan_hash) or plan_hash not in _PLAN_SHA256S:
         raise ContractError("contract_hash_invalid", "plan_sha256")
     if (
         value["plan_version"] != "COMPRESSED_PREDICTION_PLAN_V2"

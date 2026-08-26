@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -12,12 +13,25 @@ PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
 )
 EXPECTED_PLAN_SHA256 = (
-    "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
+    "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89"
 )
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
 SCHEDULE_MODE = "COMPRESSED_MACHINE_TRIGGERED"
 TRIGGER_CODE = "COHORT_COMPRESSED_MACHINE_TRIGGERED"
+PLAN3_SHA256 = "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
+PLAN3_C1_PREFIX = "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_"
+PLAN3_C1_MANIFEST_ID = "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True, slots=True)
+class PredecessorBinding:
+    binding: str
+    cycle_id: str
+    plan_sha256: str | None
+    collection_prefix: str | None
+    manifest_artifact_id: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +43,8 @@ class CompressedCycle:
     window_start: datetime
     window_end: datetime
     trigger_policy: str
+    predecessor: PredecessorBinding | None
+    write_path: str
 
     @property
     def schedule_epoch(self) -> str:
@@ -84,7 +100,7 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
     }:
         raise RuntimeError("compressed_plan_shape_invalid")
     if (
-        value["schema_version"] != "2.0.0"
+        value["schema_version"] != "2.1.0"
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
@@ -123,6 +139,8 @@ def _parse_cycle(value: Any) -> CompressedCycle:
         "window_start",
         "window_end",
         "trigger_policy",
+        "predecessor",
+        "write_path",
     }
     if not isinstance(value, dict) or set(value) != fields:
         raise RuntimeError("compressed_cycle_shape_invalid")
@@ -148,7 +166,36 @@ def _parse_cycle(value: Any) -> CompressedCycle:
         window_start=_parse_timestamp(value["window_start"]),
         window_end=_parse_timestamp(value["window_end"]),
         trigger_policy=_text(value["trigger_policy"]),
+        predecessor=_parse_predecessor(value["predecessor"]),
+        write_path=_text(value["write_path"]),
     )
+
+
+def _parse_predecessor(value: Any) -> PredecessorBinding | None:
+    if value is None:
+        return None
+    fields = {
+        "binding", "cycle_id", "plan_sha256", "collection_prefix",
+        "manifest_artifact_id",
+    }
+    if not isinstance(value, dict) or set(value) != fields:
+        raise RuntimeError("compressed_predecessor_shape_invalid")
+    binding = _text(value["binding"])
+    cycle_id = _text(value["cycle_id"])
+    if binding == "CURRENT_PLAN":
+        if any(value[field] is not None for field in (
+            "plan_sha256", "collection_prefix", "manifest_artifact_id"
+        )):
+            raise RuntimeError("compressed_predecessor_current_binding_invalid")
+        return PredecessorBinding(binding, cycle_id, None, None, None)
+    if binding != "EXTERNAL_PLAN":
+        raise RuntimeError("compressed_predecessor_binding_invalid")
+    plan_sha = _text(value["plan_sha256"])
+    prefix = _text(value["collection_prefix"])
+    manifest_id = _text(value["manifest_artifact_id"])
+    if not _SHA256.fullmatch(plan_sha):
+        raise RuntimeError("compressed_predecessor_plan_hash_invalid")
+    return PredecessorBinding(binding, cycle_id, plan_sha, prefix, manifest_id)
 
 
 def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
@@ -166,9 +213,36 @@ def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
         if item.window_end <= item.window_start:
             raise RuntimeError("compressed_cycle_window_invalid")
         if position:
-            gap = item.window_start - cycles[position - 1].window_end
-            if gap < timedelta(minutes=20):
-                raise RuntimeError("compressed_cycle_verification_gap_invalid")
+            previous = cycles[position - 1]
+            if item.window_start - previous.window_start < timedelta(minutes=20):
+                raise RuntimeError("compressed_cycle_start_interval_invalid")
+            if item.window_start <= previous.window_end:
+                raise RuntimeError("compressed_cycle_window_overlap")
+            binding = item.predecessor
+            if binding is None or binding.cycle_id != previous.cycle_id:
+                raise RuntimeError("compressed_predecessor_cycle_invalid")
+        elif item.predecessor is not None:
+            raise RuntimeError("compressed_c1_predecessor_forbidden")
+    if cycles[0].write_path != "EXTERNAL_IMMUTABLE":
+        raise RuntimeError("compressed_c1_execution_binding_invalid")
+    if any(item.write_path != "SERIAL_VERIFIED" for item in cycles[1:5]):
+        raise RuntimeError("compressed_serial_write_path_invalid")
+    if cycles[-1].write_path != "FIRESTORE_BATCH_V1":
+        raise RuntimeError("compressed_c6_batch_gate_missing")
+    c2_binding = cycles[1].predecessor
+    if (
+        c2_binding is None
+        or c2_binding.binding != "EXTERNAL_PLAN"
+        or c2_binding.plan_sha256 != PLAN3_SHA256
+        or c2_binding.collection_prefix != PLAN3_C1_PREFIX
+        or c2_binding.manifest_artifact_id != PLAN3_C1_MANIFEST_ID
+    ):
+        raise RuntimeError("compressed_c2_external_predecessor_invalid")
+    if any(
+        item.predecessor is None or item.predecessor.binding != "CURRENT_PLAN"
+        for item in cycles[2:]
+    ):
+        raise RuntimeError("compressed_current_predecessor_invalid")
 
 
 def verify_manifest_against_plan(
