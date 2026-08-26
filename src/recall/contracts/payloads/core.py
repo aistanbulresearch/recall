@@ -46,9 +46,14 @@ from .agentic import (
     RoutingPlanPayload,
 )
 from .scheduler import CohortDayManifestPayload
+from .scheduler_v3 import CohortDayManifestV3Payload
 from .scheduler_legacy import CohortDayManifestV20Payload
 from .cohort_failure import CohortDayFailureReceiptPayload
 from .cohort_history import CohortHistoryReceiptPayload
+from .compressed_receipts import (
+    CohortHeadroomReceiptPayload,
+    CompressedCycleFailureReceiptPayload,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,9 +143,12 @@ Payload = (
     | DeploymentReceiptPayload
     | ManagedPathReceiptPayload
     | CohortDayManifestPayload
+    | CohortDayManifestV3Payload
     | CohortDayManifestV20Payload
     | CohortDayFailureReceiptPayload
     | CohortHistoryReceiptPayload
+    | CohortHeadroomReceiptPayload
+    | CompressedCycleFailureReceiptPayload
 )
 
 

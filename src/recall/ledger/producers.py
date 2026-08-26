@@ -74,6 +74,12 @@ PRODUCER_REGISTRY = ProducerRegistry(
         "CohortHistoryReceipt": ProducerRule(
             "Cohort history loader", frozenset({"cohort-history-loader"})
         ),
+        "CompressedCycleFailureReceipt": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
+        "CohortHeadroomReceipt": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
         "HistoricalReplayEvaluation": ProducerRule("Evaluation harness", frozenset({"evaluation-harness"})),
         "UtilityEvaluation": ProducerRule("Evaluation harness", frozenset({"evaluation-harness"})),
         "PrivacyEvaluation": ProducerRule("Evaluation harness", frozenset({"evaluation-harness"})),

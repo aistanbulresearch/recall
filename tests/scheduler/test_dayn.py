@@ -191,6 +191,7 @@ def test_preview_constructs_no_ledger_and_day1_recurring_is_rejected() -> None:
     value = execute(
         ["--preview-date", "2026-08-26"],
         environment={
+            "RECALL_SCHEDULER_MODE": "LEGACY_DAYN",
             "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
             "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
             "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
@@ -560,6 +561,7 @@ def _scheduler_counts(ledger: InMemoryLedger) -> tuple[int, int, int]:
 
 def _entrypoint_environment() -> dict[str, str]:
     return {
+        "RECALL_SCHEDULER_MODE": "LEGACY_DAYN",
         "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
         "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
         "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
@@ -601,6 +603,7 @@ def test_prior_day_failure_produces_zero_current_scheduler_writes(mode) -> None:
         execute(
             [],
             environment={
+                "RECALL_SCHEDULER_MODE": "LEGACY_DAYN",
                 "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
                 "RECALL_SOURCE_COMMIT": SOURCE_COMMIT,
                 "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
@@ -667,6 +670,7 @@ def test_entrypoint_refuses_provenance_mismatch_before_ledger_creation(
         execute(
             [],
             environment={
+                "RECALL_SCHEDULER_MODE": "LEGACY_DAYN",
                 "RECALL_COHORT_PREPARATION_SHA256": BUNDLE_SHA,
                 "RECALL_SOURCE_COMMIT": source_commit,
                 "RECALL_IMAGE_DIGEST": image_digest,

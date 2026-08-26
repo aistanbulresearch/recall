@@ -23,9 +23,12 @@ from .payloads import (
     parse_tool_authorization_payload,
     parse_watch_case_payload,
     parse_cohort_day_manifest_payload,
+    parse_cohort_day_manifest_v3_payload,
     parse_cohort_day_manifest_v20_payload,
     parse_cohort_day_failure_receipt_payload,
     parse_cohort_history_receipt_payload,
+    parse_cohort_headroom_receipt_payload,
+    parse_compressed_cycle_failure_receipt_payload,
 )
 
 
@@ -47,11 +50,30 @@ _COHORT_MANIFEST_FIELDS = frozenset(
     }
 )
 
+_COHORT_MANIFEST_V3_FIELDS = _COHORT_MANIFEST_FIELDS | frozenset(
+    {
+        "cycle_id",
+        "cycle_index",
+        "plan_version",
+        "plan_sha256",
+        "cohort_due_date",
+        "window_start",
+        "window_end",
+        "schedule_mode",
+        "headroom_receipt_id",
+    }
+)
+
 
 LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
     ("CohortDayManifest", "2.0.0"): (
         _COHORT_MANIFEST_FIELDS,
         parse_cohort_day_manifest_v20_payload,
+        True,
+    ),
+    ("CohortDayManifest", "2.1.0"): (
+        _COHORT_MANIFEST_FIELDS,
+        parse_cohort_day_manifest_payload,
         True,
     ),
 }
@@ -87,9 +109,46 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "CohortDayManifest": (
-        "2.1.0",
-        _COHORT_MANIFEST_FIELDS,
-        parse_cohort_day_manifest_payload,
+        "3.0.0",
+        _COHORT_MANIFEST_V3_FIELDS,
+        parse_cohort_day_manifest_v3_payload,
+        True,
+    ),
+    "CompressedCycleFailureReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "cohort_due_date",
+                "scheduled_for",
+                "failure_code",
+                "runs_predicted",
+                "runs_created",
+                "evidence_state",
+                "decision_reference",
+                "continuation_policy",
+            }
+        ),
+        parse_compressed_cycle_failure_receipt_payload,
+        True,
+    ),
+    "CohortHeadroomReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "plan_sha256",
+                "input_snapshot_sha256",
+                "gate_version",
+                "required_cycle_ids",
+                "observed_cycles",
+                "aggregate_runs_predicted",
+                "aggregate_runs_created",
+                "aggregate_run_events",
+                "decision",
+                "reason_codes",
+                "evidence_watermark",
+            }
+        ),
+        parse_cohort_headroom_receipt_payload,
         True,
     ),
     "CohortDayFailureReceipt": (

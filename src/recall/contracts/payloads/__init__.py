@@ -54,6 +54,10 @@ from .scheduler import (
     CohortDayManifestPayload,
     parse_cohort_day_manifest_payload,
 )
+from .scheduler_v3 import (
+    CohortDayManifestV3Payload,
+    parse_cohort_day_manifest_v3_payload,
+)
 from .scheduler_legacy import (
     CohortDayManifestV20Payload,
     parse_cohort_day_manifest_v20_payload,
@@ -65,6 +69,12 @@ from .cohort_failure import (
 from .cohort_history import (
     CohortHistoryReceiptPayload,
     parse_cohort_history_receipt_payload,
+)
+from .compressed_receipts import (
+    CohortHeadroomReceiptPayload,
+    CompressedCycleFailureReceiptPayload,
+    parse_cohort_headroom_receipt_payload,
+    parse_compressed_cycle_failure_receipt_payload,
 )
 
 __all__ = [
@@ -89,9 +99,12 @@ __all__ = [
     "ManagedPathReceiptPayload",
     "RoutingPlanPayload",
     "CohortDayManifestPayload",
+    "CohortDayManifestV3Payload",
     "CohortDayManifestV20Payload",
     "CohortDayFailureReceiptPayload",
     "CohortHistoryReceiptPayload",
+    "CohortHeadroomReceiptPayload",
+    "CompressedCycleFailureReceiptPayload",
     "parse_data_mode_payload",
     "parse_failure_payload",
     "parse_tool_authorization_payload",
@@ -113,7 +126,10 @@ __all__ = [
     "parse_managed_path_receipt_payload",
     "parse_routing_plan_payload",
     "parse_cohort_day_manifest_payload",
+    "parse_cohort_day_manifest_v3_payload",
     "parse_cohort_day_manifest_v20_payload",
     "parse_cohort_day_failure_receipt_payload",
     "parse_cohort_history_receipt_payload",
+    "parse_cohort_headroom_receipt_payload",
+    "parse_compressed_cycle_failure_receipt_payload",
 ]

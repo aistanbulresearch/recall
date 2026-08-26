@@ -8,12 +8,12 @@ from pathlib import Path
 
 from recall.ledger.firestore import FirestoreLedger
 from recall.platform.redaction import redact_json
-from recall.scheduler.dayn import collection_prefix
-from recall.scheduler.cohort import RUN_PREDICTIONS
-from recall.scheduler.preparation import (
-    LockedPreparationVerifier,
-    install_prepared_day,
-    load_preparation_bundle,
+from recall.scheduler.compressed_identity import collection_prefix
+from recall.scheduler.compressed_plan import load_compressed_plan
+from recall.scheduler.compressed_preparation import (
+    CompressedPreparationVerifier,
+    install_prepared_cycle,
+    load_compressed_bundle,
 )
 
 
@@ -22,32 +22,37 @@ def main() -> int:
     parser.add_argument("--date", required=True)
     args = parser.parse_args()
     selected_date = date.fromisoformat(args.date)
-    if selected_date <= date(2026, 8, 25) or selected_date not in RUN_PREDICTIONS:
-        raise RuntimeError("cohort_preparation_date_not_registered")
-    expected_bundle_sha = os.environ.get("RECALL_COHORT_PREPARATION_SHA256")
+    root = Path.cwd()
+    plan = load_compressed_plan(root)
+    cycle = plan.by_due_date(selected_date)
+    expected_bundle_sha = os.environ.get("RECALL_COMPRESSED_PREPARATION_SHA256")
     project_sha = os.environ.get("RECALL_EXPECTED_PROJECT_SHA256")
     if not expected_bundle_sha or not project_sha:
         raise RuntimeError("cohort_preparation_environment_missing")
-    bundle = load_preparation_bundle(
-        Path.cwd(), expected_sha256=expected_bundle_sha
+    bundle = load_compressed_bundle(
+        root, expected_sha256=expected_bundle_sha, plan=plan
     )
-    verifier = LockedPreparationVerifier(bundle)
+    verifier = CompressedPreparationVerifier(bundle)
     ledger = FirestoreLedger.from_default_credentials(
-        collection_prefix=collection_prefix(selected_date),
+        collection_prefix=collection_prefix(cycle),
         privacy_receipt_verifier=verifier,
         expected_project_sha256=project_sha,
         database="(default)",
         require_live=True,
     )
-    result = install_prepared_day(
+    result = install_prepared_cycle(
         ledger,
         bundle,
+        plan,
+        cycle,
         now=datetime.now(timezone.utc),
     )
     payload = {
         "mode": "LAB_LOCAL_PREPARATION_LIVE_FIRESTORE_SYNTHETIC_DATA",
-        "selected_for_date": selected_date.isoformat(),
-        "collection_prefix": collection_prefix(selected_date),
+        "cycle_id": cycle.cycle_id,
+        "cohort_due_date": selected_date.isoformat(),
+        "collection_prefix": collection_prefix(cycle),
+        "plan_sha256": plan.sha256,
         "writes": dict(result),
         "readback": {
             name: ledger.read_back_count(name)

@@ -26,6 +26,19 @@ from .preparation import (
     LockedPreparationVerifier,
     load_preparation_bundle,
 )
+from .compressed import CompressedCycleScheduler
+from .compressed_cohort import all_compressed_cases, cases_for_cycle
+from .compressed_headroom import evaluate_and_persist_headroom
+from .compressed_identity import (
+    collection_prefix as compressed_collection_prefix,
+    manifest_artifact_id as compressed_manifest_artifact_id,
+)
+from .compressed_plan import load_compressed_plan, resolve_declared_cycle
+from .compressed_preparation import (
+    CompressedPreparationVerifier,
+    load_compressed_bundle,
+    verify_prepared_cycle,
+)
 
 
 LedgerFactory = Callable[..., Any]
@@ -40,6 +53,172 @@ def execute(
     now_factory: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ledger_factory: LedgerFactory = FirestoreLedger.from_default_credentials,
     repo_root: Path | None = None,
+) -> dict[str, object]:
+    scheduler_mode = _required(environment, "RECALL_SCHEDULER_MODE")
+    if scheduler_mode == "LEGACY_DAYN":
+        return _execute_legacy(
+            argv,
+            environment=environment,
+            now_factory=now_factory,
+            ledger_factory=ledger_factory,
+            repo_root=repo_root,
+        )
+    if scheduler_mode != "COMPRESSED_V3":
+        raise RuntimeError("cohort_scheduler_mode_invalid")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--preview-date")
+    parser.add_argument("--verify-prefix")
+    args = parser.parse_args(list(argv))
+    root = (repo_root or Path.cwd()).resolve()
+    plan = load_compressed_plan(root)
+    bundle_sha = _required(environment, "RECALL_COMPRESSED_PREPARATION_SHA256")
+    bundle = load_compressed_bundle(
+        root, expected_sha256=bundle_sha, plan=plan
+    )
+    source_commit = _required(environment, "RECALL_SOURCE_COMMIT")
+    if not _SOURCE_COMMIT.fullmatch(source_commit):
+        raise RuntimeError("cohort_source_commit_invalid")
+    if source_commit != bundle.source_commit:
+        raise RuntimeError("source_commit_mismatch")
+    image_digest = _required(environment, "RECALL_IMAGE_DIGEST")
+    if not _IMAGE_DIGEST.fullmatch(image_digest):
+        raise RuntimeError("cohort_image_digest_invalid")
+    if args.preview_date:
+        selected = date.fromisoformat(args.preview_date)
+        cycle = plan.by_due_date(selected)
+        selected_cases = cases_for_cycle(cycle)
+        selected_ids = {item.case_id for item in selected_cases}
+        excluded = sorted(
+            item.case_id
+            for item in all_compressed_cases(plan.cycles)
+            if item.case_id not in selected_ids
+        )
+        return {
+            "mode": "DRY_RUN_COMPRESSED_SELECTION_PREVIEW",
+            "writes": 0,
+            "cycle_id": cycle.cycle_id,
+            "cohort_due_date": cycle.cohort_due_date.isoformat(),
+            "selected_case_ids": sorted(selected_ids),
+            "excluded_case_ids": excluded,
+            "runs_predicted": cycle.runs_predicted,
+            "collection_prefix": compressed_collection_prefix(cycle),
+            "plan_sha256": plan.sha256,
+            "preparation_bundle_sha256": bundle.bundle_sha256,
+            "source_commit": source_commit,
+            "image_digest": image_digest,
+        }
+    project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
+    verifier = CompressedPreparationVerifier(bundle)
+    if args.verify_prefix:
+        try:
+            due = datetime.strptime(args.verify_prefix, "%Y%m%d").date()
+        except ValueError as exc:
+            raise RuntimeError("compressed_verify_prefix_invalid") from exc
+        cycle = plan.by_due_date(due)
+        ledger = ledger_factory(
+            collection_prefix=compressed_collection_prefix(cycle),
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+        before = {
+            name: ledger.read_back_count(name) for name in ledger.collection_names
+        }
+        verify_prepared_cycle(ledger, bundle, plan, cycle)
+        after = {
+            name: ledger.read_back_count(name) for name in ledger.collection_names
+        }
+        if after != before:
+            raise RuntimeError("compressed_verify_prefix_wrote_data")
+        return {
+            "mode": "LIVE_FIRESTORE_COMPRESSED_PREFIX_VERIFICATION",
+            "verified": True,
+            "writes": 0,
+            "cycle_id": cycle.cycle_id,
+            "cohort_due_date": cycle.cohort_due_date.isoformat(),
+            "collection_prefix": compressed_collection_prefix(cycle),
+            "readback": after,
+            "plan_sha256": plan.sha256,
+            "preparation_bundle_sha256": bundle.bundle_sha256,
+        }
+    now = now_factory()
+    cycle = resolve_declared_cycle(now, plan)
+    ledger = ledger_factory(
+        collection_prefix=compressed_collection_prefix(cycle),
+        privacy_receipt_verifier=verifier,
+        expected_project_sha256=project_sha,
+        database="(default)",
+        require_live=True,
+    )
+    previous = None
+    prior_ledgers = {}
+    for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
+        prior_ledger = ledger_factory(
+            collection_prefix=compressed_collection_prefix(prior_cycle),
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+        prior_ledgers[prior_cycle.cycle_id] = prior_ledger
+    if cycle.cycle_index > 1:
+        predecessor = plan.cycles[cycle.cycle_index - 2]
+        previous = prior_ledgers[predecessor.cycle_id].get_artifact(
+            compressed_manifest_artifact_id(plan, predecessor)
+        )
+        if previous is None:
+            raise RuntimeError("compressed_previous_manifest_missing")
+    headroom = None
+    if cycle.cycle_id == "c6":
+        headroom = evaluate_and_persist_headroom(
+            plan=plan,
+            c6_cycle=cycle,
+            prior_ledgers=prior_ledgers,
+            c6_ledger=ledger,
+        )
+    result = CompressedCycleScheduler(
+        ledger,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        source_commit=source_commit,
+        image_digest=image_digest,
+    ).trigger(
+        now=now,
+        previous_manifest=previous,
+        headroom_receipt=headroom,
+        headroom_prior_ledgers=prior_ledgers if cycle.cycle_id == "c6" else None,
+    )
+    return {
+        "mode": "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE",
+        "cycle_id": result.cycle_id,
+        "cohort_due_date": result.cohort_due_date,
+        "newly_created_run_ids": list(result.newly_created_run_ids),
+        "reused_run_ids": list(result.reused_run_ids),
+        "authoritative_run_ids": list(result.authoritative_run_ids),
+        "manifest_artifact_id": result.manifest_artifact_id,
+        "data_mode_receipt_id": result.data_mode_receipt_id,
+        "collection_prefix": compressed_collection_prefix(cycle),
+        "plan_sha256": plan.sha256,
+        "schedule_mode": plan.schedule_mode,
+        "backend": dict(ledger.backend_metadata()),
+        "claim_boundary": {
+            "managed_tick": "EXECUTED",
+            "managed_admission": "NOT_CLAIMED_LAB_LOCAL_PREPARATION",
+            "cross_day_watch_case_continuity": "NOT_CLAIMED_DATE_ISOLATED",
+            "terminal_agent_execution": "NOT_RUN_NOT_CLAIMED",
+        },
+    }
+
+
+def _execute_legacy(
+    argv: Sequence[str],
+    *,
+    environment: Mapping[str, str],
+    now_factory: Callable[[], datetime],
+    ledger_factory: LedgerFactory,
+    repo_root: Path | None,
 ) -> dict[str, object]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-date")
@@ -122,7 +301,27 @@ def execute(
 def main(argv: Sequence[str] | None = None) -> int:
     import sys
 
-    result = execute(sys.argv[1:] if argv is None else argv, environment=os.environ)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    try:
+        result = execute(arguments, environment=os.environ)
+    except Exception as exc:
+        if "--verify-prefix" not in arguments:
+            raise
+        print(
+            json.dumps(
+                redact_json(
+                    {
+                        "mode": "LIVE_FIRESTORE_COMPRESSED_PREFIX_VERIFICATION",
+                        "verified": False,
+                        "writes": 0,
+                        "error": type(exc).__name__,
+                        "reason": str(exc),
+                    }
+                ),
+                sort_keys=True,
+            )
+        )
+        return 1
     print(json.dumps(redact_json(result), sort_keys=True))
     return 0
 
