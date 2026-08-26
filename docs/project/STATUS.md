@@ -1,5 +1,14 @@
 # Recall Status
 
+## 2026-08-26 compressed machine-triggered scheduler checkpoint
+
+- Local product commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427` implements the owner-approved compressed-cycle path without changing frozen `CohortDayManifest 2.1.0`, legacy `RUN_PREDICTIONS`, frozen Day-1 evidence, or `infra/**`.
+- `COMPRESSED_PREDICTION_PLAN_V2` is the single timing source. Its committed SHA-256 is `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b`; c1-c5 predict 3/2/4/1/1 runs, and c6 prepares 450 onboarding cases but remains conditional on the measured headroom receipt.
+- `CohortDayManifest 3.0.0` binds cycle identity, logical due date, the declared execution window, actual UTC execution time, `COMPRESSED_MACHINE_TRIGGERED`, plan hash, per-row governance, retained trigger provenance, and a headroom receipt. The compressed population is 462 cases; the historical Day-1 selected case is permanently excluded from compressed selection.
+- The preparation bundle was regenerated from the product commit: SHA-256 `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`, 462 cases, five hash-verified replay observations, no persisted signing key. `SYNTHETIC_WITH_CAPTURED_REPLAY` is preserved transitively.
+- Local verification: focused compressed suite 27/27 PASS, bounded deterministic core 345/345 PASS, platform 259/259 PASS, privacy 140/140 PASS, and offline web 48/48 PASS, each with direct exit 0. A broad run without `RECALL_FIRESTORE_TEST_MODE` produced 345 passes plus four explicit mode-required setup errors and direct exit 1; it is not a green claim. Independent code review and Master Judge returned PASS with no P0/P1 blocker.
+- Deployment, Cloud Run prefix preflight, Firestore execution, Cloud Scheduler triggers, c1-c6 observations, headroom authorization, billing, and the final demo bundle remain `NOT VERIFIED`. L1 must derive triggers from the plan and use scheduler-SA only; L3 must rebind to exact 3.0.0 before execution.
+
 ## 2026-08-26 failed-day continuation checkpoint
 
 - Local product commit `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` emits `CohortDayManifest 2.1.0`, retains strict read-only compatibility for exact 2.0.0 wires, and adds typed `CohortDayFailureReceipt 1.0.0` records for reconciled missing cohort days.

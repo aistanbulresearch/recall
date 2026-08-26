@@ -2,6 +2,18 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-26-H: Compressed scheduler verification exposed explicit environment gates
+
+| Field | Value |
+|---|---|
+| Task | Compressed machine-triggered cycle implementation and pre-commit verification |
+| Severity | Low; evidence-orchestration only |
+| Observed | The initial broad core command did not set `RECALL_FIRESTORE_TEST_MODE`; 345 tests passed and four live-ledger tests stopped at their required setup gate, producing direct exit 1. A wildcard passed literally to `py_compile`, the first pnpm wrapper forms were invalid or attempted dependency reconciliation, restricted Vitest hit esbuild `EACCES`, and the restricted platform subprocess path hung. The ignored `.pytest-tmp/` root contains access-restricted leftovers and remains untracked. |
+| Impact | No false green, cloud write, dependency installation, product-state mutation, or evidence promotion occurred. The failed broad run is not reported as PASS. |
+| Resolution | Used `compileall`, the existing offline Vitest binary outside the restricted esbuild boundary, the approved platform subprocess environment, project-local basetemps, and an explicit deterministic-core command that excludes only the separately governed live Firestore file. Exact product gates passed before commit. |
+| Verification | Focused 27/27, deterministic core 345/345, platform 259/259, privacy 140/140, web 48/48, VCV 5/5, diff/secret gates, independent review, and Master Judge all passed with direct exit 0 where applicable. |
+| Status | Closed for the local implementation; cloud/Firestore compressed-cycle runtime remains `NOT VERIFIED`. |
+
 ## ERR-2026-08-26-G: Verification environment produced non-evidentiary attempts
 
 | Field | Value |

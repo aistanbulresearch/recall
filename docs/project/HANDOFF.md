@@ -1,5 +1,15 @@
 # Recall Handoff
 
+## Current 2026-08-26 compressed-cycle checkpoint
+
+- Active branch is `feature/rcl-3xx-core`; product commit is `347f93580dd615bfb8a2be1ce0cfbd0edc68f427` (tree `92fea902f59859a6a9a6f7bbbfddeaed0527c93f`). No push, merge, cloud action, or `infra/**` edit occurred.
+- Locked plan: `artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json`, SHA-256 `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b`. Timing and predictions must be read from this file, never recopied by hand.
+- Regenerated preparation bundle: `artifacts/evidence/cohort-compression/preparation-bundle-v2.json`, SHA-256 `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`, source commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427`, 462 cases, five replay observations, signing key not persisted.
+- L1 handoff: set `RECALL_SCHEDULER_MODE=COMPRESSED_V3`; package the exact plan/bundle; use scheduler-SA only; set timeout 1200 seconds; derive one-shot triggers from the plan; re-prepare every prefix with current code; run Cloud Run `--verify-prefix YYYYMMDD` for every session prefix before c1; do not create c6 unless the content-addressed headroom receipt accepts exact c1-c5 read-back.
+- L3 handoff: `CohortDayManifest 3.0.0` is a separate compressed contract. Rebind the parser/fixtures to cycle fields, plan hash, actual execution time, retained per-row `trigger_code`/`scheduled_for`, `headroom_receipt_id`, and `schedule_mode`. Derive the visible accelerated/machine-triggered label only from `schedule_mode`; the demo bundle may contain only the final manifest.
+- Local evidence: focused 27/27, bounded deterministic core 345/345, platform 259/259, privacy 140/140, web 48/48, VCV 5/5; direct exit 0. Independent code review and Master Judge PASS. The mode-unspecified Firestore run exited 1 at its explicit setup gate and is not a PASS claim.
+- Runtime boundary: deployment, workload identity, prefix preflight, Firestore writes/read-back, Cloud Scheduler triggers, c1-c6 observations, c6 headroom decision, billing, and final demo binding are `NOT VERIFIED`.
+
 ## Current 2026-08-26 coordinator checkpoint
 
 - Active branch is `feature/rcl-3xx-core`; current local product commit is `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e` (tree `9742b3a97ec4792115c75e7290df529fb30854ec`). It adds typed failed-day continuation without changing frozen Day-1 evidence or `infra/**`.

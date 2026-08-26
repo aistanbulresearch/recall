@@ -2,6 +2,21 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-26-038: Compressed machine-triggered cycle package
+
+- Implemented `COMPRESSED_PREDICTION_PLAN_V2` as the hash-locked single timing source and `CohortDayManifest 3.0.0` as a separate compressed-schedule contract. Frozen 2.1.0 and legacy `RUN_PREDICTIONS` bytes are unchanged.
+- Added cycle-scoped identities, prefixes, schedule epochs, real-time window resolution, exact-one-window fail-closed behavior, per-row historical governance, explicit `COMPRESSED_MACHINE_TRIGGERED` provenance, zero-write `--verify-prefix`, and current-code re-preparation verification. Missing scheduler mode now fails closed; legacy execution requires explicit `LEGACY_DAYN`.
+- Prepared 462 cases: the original population including the historical Day-1 case, which is retained but never selected, plus 450 conditional onboarding cases. Five RCL-205 captures were rechecked against committed hashes and retained as `SYNTHETIC_WITH_CAPTURED_REPLAY` observations.
+- Headroom is a content-addressed `CohortHeadroomReceipt`: c1-c5 manifests and authoritative ScanRun read-back must match the plan before c6 may be triggered. Count drift changes receipt identity and yields `DENIED`.
+- Verification commands and direct results:
+  - `.\.venv\Scripts\python.exe -m pytest tests\scheduler\test_compressed_plan.py tests\scheduler\test_compressed_scheduler.py --basetemp temp\pytest-compressed-precommit -o addopts=""` passed 27/27 and exited 0.
+  - `.\.venv\Scripts\python.exe -m pytest tests --ignore=tests\platform --ignore=tests\privacy --ignore=tests\ledger\test_firestore_ledger.py --basetemp temp\pytest-core-precommit-deterministic -o addopts=""` passed 345/345 and exited 0.
+  - The previously completed exact-tree lane gates passed platform 259/259, privacy 140/140, and offline web 48/48, each with direct exit 0. The full mode-unspecified run returned 345 passes plus four fail-loud Firestore setup errors and exit 1; it is not represented as PASS.
+  - `git diff --check`, source compilation, bounded secret scan, VCV blob/hash verification 5/5, independent code review, and stable-tree Master Judge passed.
+- Product commit: `347f93580dd615bfb8a2be1ce0cfbd0edc68f427`, tree `92fea902f59859a6a9a6f7bbbfddeaed0527c93f`, 22 paths, 3,424 insertions, 26 deletions. The numbers come from `git show --shortstat` and `git diff-tree`; author and committer are `aistanbulresearch`, with no trailers.
+- Regenerated `artifacts/evidence/cohort-compression/preparation-bundle-v2.json` after the product commit. It binds source commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427`, plan hash `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b`, 462 cases, five replay observations, and file SHA-256 `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`; no signing key is persisted.
+- No push, merge, cloud mutation, Firestore write, Scheduler trigger, billing action, or `infra/**` edit occurred. Runtime results remain `NOT VERIFIED`.
+
 ## WORK-2026-08-26-037: Typed incomplete-day continuation and evidence discipline
 
 - Implemented `CohortDayManifest 2.1.0` with strict exact-version dispatch: existing 2.0.0 wires remain legacy-read-only while the scheduler emits only 2.1.0. Added `CohortDayFailureReceipt 1.0.0`, immutable first-detection timestamps, byte-stable retry, incomplete history rows, and transitive receipt/predecessor inputs.

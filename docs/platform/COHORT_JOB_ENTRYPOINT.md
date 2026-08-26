@@ -1,75 +1,94 @@
 # Managed cohort job entrypoint contract
 
-L1 owns every Cloud Run Job, Cloud Scheduler, image, IAM, and deployment file.
-L2 provides only the importable command:
+L1 owns every Cloud Run Job, Cloud Scheduler trigger, image, IAM binding, and
+deployment file. L2 provides the importable command only:
 
 ```text
 python -m recall.scheduler.entrypoint
 ```
 
-The daily schedule is `16:00 UTC`; a `09:00 UTC` trigger is rejected because
-the committed cases are due at `15:00 UTC`. The real execution window is
-`16:00:00Z` through `16:09:59Z`. Real mode derives the selected date from the
-UTC clock and has no date override. Each date uses
-`dev_recall_m2_cohort_YYYYMMDD_` and proves a date-isolated synthetic cohort-day
-execution, not cross-day WatchCase continuity.
+## Required mode and immutable inputs
 
-Required environment variables are `RECALL_SOURCE_COMMIT`,
-`RECALL_IMAGE_DIGEST`, `RECALL_EXPECTED_PROJECT_SHA256`, and
-`RECALL_COHORT_PREPARATION_SHA256`. `RECALL_SOURCE_COMMIT` must be 40-character
-lowercase hexadecimal and exactly equal the preparation bundle's
-`source_commit`; a mismatch fails with `source_commit_mismatch` before any
-ledger is constructed. `RECALL_IMAGE_DIGEST` must be the deployed immutable
-digest in lowercase `sha256:<64 hex>` form and is persisted in
-`CohortDayManifest` 2.1.0. The
-last value for preparation bundle v1 is
-`c460340e75bf186980c8e7a938c5c5e0b4da89599890b2864af7dabdb4ffe841`.
-The job uses its service account through workload ADC. No user ADC, HMAC key,
-or `RECALL_PRIVACY_SIGNING_KEY` may enter the image or job configuration.
+Compressed execution requires `RECALL_SCHEDULER_MODE=COMPRESSED_V3`. Absence or
+any other value fails closed. Historical date-aware execution is available only
+with explicit `RECALL_SCHEDULER_MODE=LEGACY_DAYN`; there is no implicit fallback.
 
-The image must also contain the exact committed Day-1 evidence blob at
-`artifacts/evidence/day1-manual-20260825-a7f31c9d/first.json`. Its raw SHA-256
-is `fa588a3eee9d8ac66c6629f8668a1e878cdda7586b256c99299eb0ce56283825`
-and Git blob OID is `7d82b5158865284c00d89a20445c24db4bca518a`. Startup and preview fail
-closed if the packaged bytes differ. L2 projects those bytes into a
-deterministic `CohortHistoryReceipt 1.0.0`; preparation persists and reads
-that receipt back before any WatchCase, ScanRun, or manifest write. The Day-2
-manifest names the receipt in `input_artifact_ids` and derives the historical
-entry exclusively from it.
+The compressed image must package these exact committed inputs:
 
-Before each date, the owner/coordinator runs the lab-local preparation command
-against that date's namespace. It installs only the exact committed synthetic
-PrivacyReceipt, WatchCase, and replay-observation wires locked by the bundle.
-The managed job revalidates the lock before creating ScanRuns. This proves
-managed scheduling, not managed privacy admission.
+- product source commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427`;
+- `artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json`,
+  SHA-256 `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b`;
+- `artifacts/evidence/cohort-compression/preparation-bundle-v2.json`, SHA-256
+  `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`.
 
-Deployment verification without a second selection:
+`RECALL_SOURCE_COMMIT` must be lowercase 40-hex and equal both the product
+source and bundle provenance. `RECALL_IMAGE_DIGEST` must be the deployed
+immutable lowercase `sha256:<64 hex>` digest. The existing project and
+preparation hash environment gates remain mandatory. Any disagreement stops
+before a scheduler write.
+
+The job uses its scheduler service account through workload ADC. No user ADC,
+HMAC key, or `RECALL_PRIVACY_SIGNING_KEY` may enter the image or job. The Cloud
+Run Job timeout is 1200 seconds. Only scheduler-SA may invoke the job.
+
+## Plan-derived triggers
+
+`COMPRESSED_PREDICTION_PLAN_V2` is the sole timing and prediction source. L1
+must parse that committed file to instantiate the one-shot Cloud Scheduler
+triggers; hand-selected or separately copied times are prohibited. Each trigger
+has its own cycle identity, prefix, schedule epoch, and declared UTC window.
+The runtime clock must fall in exactly one window. Zero or multiple matches
+fail closed, and no runtime window override exists.
+
+c1-c5 have committed predictions 3/2/4/1/1. c6 has 450 prepared onboarding
+cases, but L1 must not create its trigger until the exact c1-c5 manifests and
+authoritative ScanRun counts produce a content-addressed
+`CohortHeadroomReceipt` whose decision is `PASS`. `DENIED`, missing, or
+mismatched headroom blocks c6 writes.
+
+## Preparation and zero-write preflight
+
+Every session prefix must be prepared with the current product image, including
+`CohortHistoryReceipt` persistence and read-back. Old seed data is not
+compatible with a new image merely because the namespace exists.
+
+Before c1, run this through Cloud Run Job execution under the same image,
+service account, environment, and prefix that the trigger will use:
 
 ```text
-python -m recall.scheduler.entrypoint --preview-date 2026-08-26
+python -m recall.scheduler.entrypoint --verify-prefix YYYYMMDD
 ```
 
-Preview validates the committed bundle, Day-1 evidence blob, RCL-205 hashes,
-predictions, and selection, returns `writes: 0`, and never constructs a ledger
-or cloud client. After this L2 commit, L1 must rebuild the image, verify the
-packaged Day-1 blob hash, and repoint the Cloud Run Job to the new digest;
-changing source alone does not change the deployed image.
+The command constructs the configured ledger, verifies the complete prepared
+prefix, performs zero writes, prints a JSON result, and exits 0/1. Run it for
+every session prefix. Any nonzero result blocks the whole session. The older
+selection preview is not a substitute because it does not prove ledger
+preparation read-back.
 
-## Cohort manifest compatibility gate
+## Manifest and UI compatibility gate
 
-The 2026-08-26 contract notification is
-`CohortDayManifest 2.0.0 -> 2.1.0`. Version 2.1.0 adds the required
-`execution_status` and `failure_receipt_id` fields to each
-`execution_history` row and registers `CohortDayFailureReceipt 1.0.0` for an
-`INCOMPLETE` prior day. The producer example is
-`artifacts/evidence/cohort-manifest-example/day2-manifest.synthetic.json`;
-the exact 2.0.0 legacy-read fixture remains separate and immutable.
+Compressed execution emits `CohortDayManifest 3.0.0`; it does not relax or
+rewrite historical 2.1.0. The compressed contract adds cycle identity/index,
+plan version/hash, logical cohort due date, declared window, actual execution
+time, `schedule_mode`, and `headroom_receipt_id`. Historical rows retain their
+own `trigger_code` and `scheduled_for` and are validated under the rules of the
+version that produced each row.
 
-Deployment is fail-closed while either value below is unresolved:
+L3 must acknowledge compatibility against exact product commit
+`347f93580dd615bfb8a2be1ce0cfbd0edc68f427` before L1 executes the compressed
+image. The visible label must be derived from manifest `schedule_mode`; copied
+component text is prohibited. Intermediate manifests remain in the evidence
+directory. Only the final manifest may enter the demo bundle.
 
-- schema-change commit: `7ebc733063e816ac0f4f3b012b6e99d9f055ee8e`;
-- L3/UI compatibility acknowledgement: `NOT_RECEIVED`.
+## Evidence and claim boundary
 
-L1 must not build, repoint, or execute an image that can emit 2.1.0 until L3
-confirms that its panel parser and fixtures accept that exact product commit.
-A green scheduler suite does not substitute for the L3 acknowledgement.
+For every cycle, retain `cycle_id | prediction | observation | run IDs | event
+count | idempotency`, exact source/image/plan/bundle hashes, trigger identity,
+real UTC timestamps, direct exits, prefix read-back, and inventory/cost
+reconciliation. After deployment freeze, retain one verification tick against
+that exact immutable revision.
+
+Local implementation and deterministic tests are verified. Cloud deployment,
+workload identity, prefix preflight, Scheduler triggers, Firestore execution,
+c1-c6 observations, c6 headroom authorization, billing, final UI binding, and
+the post-freeze tick remain `NOT VERIFIED` until their exact artifacts exist.
