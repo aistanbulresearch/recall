@@ -60,17 +60,17 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
 def test_resolver_requires_exactly_one_declared_window() -> None:
     plan = load_compressed_plan(ROOT)
     assert resolve_declared_cycle(
-        datetime(2026, 8, 26, 20, 35, tzinfo=timezone.utc), plan
+        datetime(2026, 8, 26, 20, 5, tzinfo=timezone.utc), plan
     ).cycle_id == "c1"
     with pytest.raises(RuntimeError, match="window_match_invalid:0"):
         resolve_declared_cycle(
-            datetime(2026, 8, 26, 20, 45, tzinfo=timezone.utc), plan
+            datetime(2026, 8, 26, 20, 15, tzinfo=timezone.utc), plan
         )
 
 
 def test_plan_rejects_overlap_and_short_gap() -> None:
     value = copy.deepcopy(_wire())
-    value["cycles"][1]["window_start"] = "2026-08-26T20:35:00Z"
+    value["cycles"][1]["window_start"] = "2026-08-26T20:15:00Z"
     with pytest.raises(RuntimeError, match="gap_invalid"):
         parse_compressed_plan(value, sha256="0" * 64)
 
@@ -91,11 +91,11 @@ def test_resolver_rejects_ambiguous_windows_even_if_parser_is_bypassed() -> None
     object.__setattr__(
         overlapping.cycles[1],
         "window_start",
-        datetime(2026, 8, 26, 20, 35, tzinfo=timezone.utc),
+        datetime(2026, 8, 26, 20, 5, tzinfo=timezone.utc),
     )
     with pytest.raises(RuntimeError, match="window_match_invalid:2"):
         resolve_declared_cycle(
-            datetime(2026, 8, 26, 20, 36, tzinfo=timezone.utc), overlapping
+            datetime(2026, 8, 26, 20, 6, tzinfo=timezone.utc), overlapping
         )
 
 
