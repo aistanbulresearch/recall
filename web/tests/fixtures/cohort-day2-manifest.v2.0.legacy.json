@@ -18,7 +18,7 @@
       "vcv": "VCV002895953.1"
     }
   ],
-  "content_hash": "222f793c218e09ae4a4350472e8169d6cebb70c643fcabe2874753b7624ac4bb",
+  "content_hash": "5c67fc8f58f76401b17364ccd507099976d7471bd51035f87a52c79c5ee89461",
   "created_at": "2026-08-26T16:01:00Z",
   "cumulative": {
     "daily_cycles": 2,
@@ -64,8 +64,6 @@
     {
       "day_index": 1,
       "executed_at": "2026-08-25T15:00:03.280432Z",
-      "execution_status": "COMPLETE",
-      "failure_receipt_id": null,
       "runs_created": 1,
       "runs_predicted": 1,
       "selected_for_date": "2026-08-25"
@@ -73,8 +71,6 @@
     {
       "day_index": 2,
       "executed_at": "2026-08-26T16:01:00Z",
-      "execution_status": "COMPLETE",
-      "failure_receipt_id": null,
       "runs_created": 3,
       "runs_predicted": 3,
       "selected_for_date": "2026-08-26"
@@ -102,7 +98,7 @@
   "run_id": "9301d00e-baad-5958-a93d-d4b6de7512bb",
   "scheduled_for": "2026-08-26T16:00:00Z",
   "schema_name": "CohortDayManifest",
-  "schema_version": "2.1.0",
+  "schema_version": "2.0.0",
   "selected_for_date": "2026-08-26",
   "source_commit": "c65ee3d55524caf1d2d9d697c9bff712e35bca82",
   "status": "VALID",

@@ -51,11 +51,15 @@ export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
   FailureReceipt: ['1.0.0'],
   DeploymentReceipt: ['1.0.0'],
   ManagedPathReceipt: ['1.0.0'],
-  // Cohort day manifest. Bound to 2.0.0, the shipped contract. 1.0.0 was the
-  // shape proposed to L2 on 2026-08-25 and is deliberately NOT accepted: no
-  // 1.0.0 manifest was ever emitted, so accepting it would only let a shape
-  // nothing produces read as valid.
-  CohortDayManifest: ['2.0.0'],
+  // Cohort day manifest. Both versions, mirroring the producer's own schema
+  // map, which keeps 2.0.0 as a legacy read beside 2.1.0: day-2 was emitted as
+  // 2.0.0 and day-3 onward emits 2.1.0. 1.0.0 stays out; nothing ever emitted
+  // it. Each day's bundle carries ONE manifest in one version, so a mixed
+  // history never occurs inside an artifact: the version split is across days,
+  // which this surface never stitches (one-manifest-per-bundle rule).
+  CohortDayManifest: ['2.0.0', '2.1.0'],
+  // The typed receipt an INCOMPLETE 2.1.0 history row references.
+  CohortDayFailureReceipt: ['1.0.0'],
 };
 
 export interface RejectedArtifact {

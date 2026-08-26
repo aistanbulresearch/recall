@@ -161,6 +161,31 @@ describe('cohort panel rendering', () => {
     expect(markup).toContain('two runs share a calendar date');
   });
 
+  it('names an incomplete day and its failure receipt on screen', () => {
+    const markup = renderWith([
+      manifest({
+        execution_history: [
+          ...example.execution_history,
+          {
+            day_index: 3,
+            executed_at: null,
+            selected_for_date: '2026-08-27',
+            runs_created: 0,
+            runs_predicted: 3,
+            execution_status: 'INCOMPLETE',
+            failure_receipt_id: '11111111-1111-5111-8111-111111111111',
+          },
+        ],
+      }),
+    ]);
+    expect(markup).toContain('Day 3 did not complete');
+    expect(markup).toContain('11111111-1111-5111-8111-111111111111');
+    // The claim the completed days carry still renders, with the incomplete
+    // day named rather than hidden.
+    expect(markup).toContain('data-proven="true"');
+    expect(markup).toContain('1 incomplete day');
+  });
+
   it('refuses every figure when two day manifests are present', () => {
     const markup = renderWith([
       manifest({ artifact_id: 'day-1', day_index: 1 }),

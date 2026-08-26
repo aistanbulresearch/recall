@@ -20,6 +20,7 @@ import {
   caseModeCopy,
   historyAgreement,
   operationSpan,
+  rowStatus,
   unanchoredVcvs,
   type CohortCase,
   type CohortExecution,
@@ -99,6 +100,19 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         <FieldValue field={model['UI-COHORT-RUNS-TOTAL']} />
         <FieldValue field={model['UI-COHORT-CYCLES-TOTAL']} />
       </div>
+
+      {executions.some((entry) => rowStatus(entry) === 'INCOMPLETE') ? (
+        <ul className="cohort-incomplete-days">
+          {executions
+            .filter((entry) => rowStatus(entry) === 'INCOMPLETE')
+            .map((entry) => (
+              <li key={String(entry.day_index)}>
+                Day {String(entry.day_index)} did not complete. Failure receipt{' '}
+                <code>{String(entry.failure_receipt_id ?? 'MISSING')}</code>
+              </li>
+            ))}
+        </ul>
+      ) : null}
 
       {agreement.checked ? (
         <p className="cohort-agreement" data-agrees={String(agreement.agrees)}>

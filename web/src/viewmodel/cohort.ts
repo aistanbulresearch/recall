@@ -27,6 +27,25 @@ export interface CohortExecution {
   runs_created?: unknown;
   /** Runs this day pre-committed to creating, before it ran. */
   runs_predicted?: unknown;
+  /** 2.1.0: COMPLETE or INCOMPLETE. Absent on 2.0.0 rows. */
+  execution_status?: unknown;
+  /** 2.1.0: the typed failure receipt an INCOMPLETE day must reference. */
+  failure_receipt_id?: unknown;
+}
+
+/**
+ * A 2.0.0 row carries no execution_status, and under that contract every
+ * recorded row WAS a completed execution: executed_at was required and
+ * non-null. So the absence of the field is itself evidence of COMPLETE, not an
+ * unknown to refuse on. Anything other than the two contract values is treated
+ * as INCOMPLETE-shaped and fails the receipt requirement below, so an invented
+ * status cannot pass as a completed day.
+ */
+export function rowStatus(entry: CohortExecution): 'COMPLETE' | 'INCOMPLETE' {
+  if (entry.execution_status === undefined || entry.execution_status === 'COMPLETE') {
+    return 'COMPLETE';
+  }
+  return 'INCOMPLETE';
 }
 
 export interface CohortCase {
@@ -81,11 +100,15 @@ function plural(count: number, word: string): string {
  * also show that it selected work FOR the day it ran, and that the selection
  * produced runs or pre-committed to producing none.
  *
- * The strong claim requires all of: at least two records; every timestamp
- * parseable; one record per distinct calendar date; day order matching time
- * order; each day's selection date equal to the date it executed; and each day
- * either creating runs or having predicted zero before it ran. Anything less
- * falls back to counting cycles, which stays true however they ran.
+ * The strong claim requires all of: at least two COMPLETED days; every
+ * completed timestamp parseable; one completed record per distinct calendar
+ * date; day order matching time order; each completed day's selection date
+ * equal to the date it executed; and each completed day either creating runs
+ * or having predicted zero before it ran. A 2.1.0 INCOMPLETE day does not
+ * poison the claim: it must carry a typed failure receipt and zero created
+ * runs, and it is then counted and named rather than folded into the span.
+ * Anything less falls back to counting cycles, which stays true however they
+ * ran.
  */
 export function operationSpan(executions: readonly CohortExecution[]): OperationSpan {
   const cycles = executions.length;
@@ -102,21 +125,46 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     return weak('no execution record');
   }
 
-  const stamps = executions.map((entry) => Date.parse(String(entry.executed_at)));
-  const dates = executions.map((entry) => utcDate(entry.executed_at));
+  // 2.1.0 distinguishes a day that ran from a day that failed with a typed
+  // receipt. The gates below prove the COMPLETE days; an INCOMPLETE day is not
+  // proof of anything by itself, but it is an honest record, so it does not
+  // poison the claim the complete days can still carry. It is counted and
+  // named, never folded into the span.
+  const complete = executions.filter((entry) => rowStatus(entry) === 'COMPLETE');
+  const incomplete = executions.filter((entry) => rowStatus(entry) === 'INCOMPLETE');
+
+  // An incomplete day with no typed receipt is not the 2.1.0 shape; it is a
+  // hole. The contract requires the reference, so its absence withholds.
+  const unreceipted = incomplete.find(
+    (entry) => typeof entry.failure_receipt_id !== 'string' || entry.failure_receipt_id.length === 0,
+  );
+  if (unreceipted !== undefined) {
+    return weak('an incomplete day carries no failure receipt');
+  }
+  // The contract also pins an incomplete day to zero created runs.
+  if (incomplete.some((entry) => Number(entry.runs_created) !== 0)) {
+    return weak('an incomplete day claims to have created runs');
+  }
+
+  if (complete.length === 0) {
+    return weak('no day completed');
+  }
+
+  const stamps = complete.map((entry) => Date.parse(String(entry.executed_at)));
+  const dates = complete.map((entry) => utcDate(entry.executed_at));
   if (dates.some((date) => date === null)) {
     return weak('an execution timestamp did not parse');
   }
 
   const distinctDays = new Set(dates).size;
-  if (distinctDays !== cycles) {
+  if (distinctDays !== complete.length) {
     return {
       ...weak('two runs share a calendar date'),
       distinctDays,
     };
   }
 
-  const byDay = [...executions].map((entry, index) => ({
+  const byDay = [...complete].map((entry, index) => ({
     day: Number(entry.day_index),
     at: stamps[index],
   }));
@@ -132,8 +180,10 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   // A day that selected work for a date other than the one it ran on did not
   // advance the cohort, whatever its timestamp says. This is the exact shape a
   // date-pinned selection leaves behind: execution dates advance, selection
-  // date does not.
-  const pinned = executions.find((entry, index) => {
+  // date does not. The 2.1.0 contract now enforces this equality itself for
+  // COMPLETE rows; this stays as defence in depth against a producer that does
+  // not run that parser.
+  const pinned = complete.find((entry, index) => {
     const declared = entry.selected_for_date;
     return typeof declared !== 'string' || declared !== dates[index];
   });
@@ -149,9 +199,11 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     };
   }
 
-  // A day that woke up and selected nothing is a job running, not a cohort day.
-  // Zero counts only when zero was pre-committed before the day ran.
-  const barren = executions.find((entry) => {
+  // A COMPLETE day that woke up and selected nothing is a job running, not a
+  // cohort day. Zero counts only when zero was pre-committed before it ran. An
+  // INCOMPLETE day is exempt: its zero is what failure looks like, and the
+  // typed receipt already accounts for it.
+  const barren = complete.find((entry) => {
     const created = Number(entry.runs_created);
     if (!Number.isFinite(created) || created < 0) {
       return true;
@@ -170,9 +222,15 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     };
   }
 
-  if (cycles < 2) {
-    return { ...weak('a single day cannot establish a span'), distinctDays, ordered: true };
+  if (complete.length < 2) {
+    return { ...weak('a single completed day cannot establish a span'), distinctDays, ordered: true };
   }
+
+  const sentence =
+    incomplete.length === 0
+      ? `Day ${cycles} of operation, across ${plural(distinctDays, 'distinct day')}.`
+      : `Day ${cycles} of operation: ${plural(distinctDays, 'completed day')}, ` +
+        `${plural(incomplete.length, 'incomplete day')} with a typed failure receipt.`;
 
   return {
     cycles,
@@ -180,7 +238,7 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     ordered: true,
     proven: true,
     withheldBecause: null,
-    sentence: `Day ${cycles} of operation, across ${plural(distinctDays, 'distinct day')}.`,
+    sentence,
   };
 }
 
@@ -243,12 +301,17 @@ export function historyAgreement(
     return { checked: false, agrees: false, disagreements: [] };
   }
 
-  const dates = executions.map((entry) => utcDate(entry.executed_at));
+  // Mirrors the producer's own derivation exactly: daily_cycles and the
+  // distinct dates count COMPLETE rows only, while the run sums range over ALL
+  // rows (an incomplete day contributes its prediction and its zero). Deriving
+  // anything else here would manufacture a disagreement out of semantics.
+  const complete = executions.filter((entry) => rowStatus(entry) === 'COMPLETE');
+  const dates = complete.map((entry) => utcDate(entry.executed_at));
   const sum = (key: 'runs_created' | 'runs_predicted') =>
     executions.reduce((total, entry) => total + Number(entry[key] ?? NaN), 0);
 
   const comparisons: Array<[string, unknown, number]> = [
-    ['daily cycles', cumulative.daily_cycles, executions.length],
+    ['daily cycles', cumulative.daily_cycles, complete.length],
     ['distinct execution dates', cumulative.distinct_execution_dates, new Set(dates).size],
     ['runs created', cumulative.runs_created, sum('runs_created')],
     ['runs predicted', cumulative.runs_predicted, sum('runs_predicted')],
