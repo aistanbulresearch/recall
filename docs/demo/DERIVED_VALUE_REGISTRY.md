@@ -105,7 +105,7 @@ worked.
 One `CohortDayManifest` per bundle. When more than one is present, every field
 below is refused on screen, because the builder resolves scalars from the first
 match and a stale day would otherwise display unmarked. Accepted schema
-versions mirror the producer's own map (2.0.0 legacy, 2.1.0 current). Counters
+versions mirror the producer's own map (2.0.0/2.1.0 legacy, 3.0.0 current). Counters
 are read from the manifest, never accumulated by the surface; day figures count
 by identity (id-list lengths), never `authoritative_run_ids`, which includes
 reused runs.
@@ -124,6 +124,10 @@ reused runs.
 | UI-COHORT-DATA-MODE | Manifest data mode | `CohortDayManifest $.data_mode` | Exact enum | `UNKNOWN` |
 | UI-COHORT-CASES | Cohort cases | `CohortDayManifest $.cases[*]` | Per-case row with own `data_mode` (contract: vcv null iff `SYNTHETIC_ONLY`); one badge never describes a mixed cohort | `UNKNOWN`, list hidden |
 | UI-COHORT-VCV-ANCHORS | Capture anchors | `CohortDayManifest $.vcv_anchors[*]` | Every rendered VCV resolves in one step to `capture_path` + `sha256`; unanchored VCVs are marked, never shown bare | `UNKNOWN` |
+| UI-COHORT-SCHEDULE-MODE | Schedule mode | `CohortDayManifest $.schedule_mode` | 3.0.0 declared mode; the compressed-session label renders from this field or not at all | `UNKNOWN`; no label |
+| UI-COHORT-CYCLE-ID | Cycle | `CohortDayManifest $.cycle_id` | Exact compressed cycle id | `UNKNOWN` |
+| UI-COHORT-PLAN-SHA256 | Prediction plan | `CohortDayManifest $.plan_sha256` | Exact hash chaining every cycle's counters to the pre-committed plan | `UNKNOWN` |
+| UI-COHORT-COMPRESSED-TOTAL | Compressed cycles completed | `CohortDayManifest $.cumulative.compressed_cycles_completed` | Producer figure over declared compressed rows only; compared against panel derivation | `UNKNOWN` |
 | UI-COHORT-EXECUTIONS | Execution history | `CohortDayManifest $.execution_history[*]` | Elapsed-days sentence derived, withheld with a stated reason unless proven (distinct ordered dates, selection date equals execution date, selection evidence); 2.1.0 INCOMPLETE rows are named with their typed failure receipt, never folded into the span | `UNKNOWN` |
 
 The elapsed-days sentence never upgrades: several cycles on one calendar date

@@ -358,6 +358,56 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     hideWhenMissing: true,
   },
   {
+    // 3.0.0: the declared schedule mode. The compressed-session label renders
+    // from THIS field or not at all; copy typed into a component is forbidden.
+    fieldId: 'UI-COHORT-SCHEDULE-MODE',
+    label: 'Schedule mode',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.schedule_mode',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.0.0: which compressed cycle this manifest reports.
+    fieldId: 'UI-COHORT-CYCLE-ID',
+    label: 'Cycle',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cycle_id',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.0.0: hash of the pre-committed prediction plan; the chain from every
+    // cycle's counters back to the plan that predicted them.
+    fieldId: 'UI-COHORT-PLAN-SHA256',
+    label: 'Prediction plan',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.plan_sha256',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.0.0 rename of cumulative.daily_cycles; only compressed rows count.
+    fieldId: 'UI-COHORT-COMPRESSED-TOTAL',
+    label: 'Compressed cycles completed',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.cumulative.compressed_cycles_completed',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
     // The manifest's own declared data mode, so a synthetic sentinel digest can
     // never read as a deployed one.
     fieldId: 'UI-COHORT-DATA-MODE',

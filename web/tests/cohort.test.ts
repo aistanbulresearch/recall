@@ -312,7 +312,7 @@ describe('cohort fields resolve from the manifest', () => {
 
   it('rejects a manifest declaring an unsupported version', () => {
     const { fields, rejected } = buildViewModel(
-      bundleWith([manifestArtifact({ schema_version: '3.0.0' })]),
+      bundleWith([manifestArtifact({ schema_version: '4.0.0' })]),
     );
     expect(rejected[0]?.reason_code).toBe('contract_major_unsupported');
     expect(fields['UI-COHORT-DAY-INDEX'].status).toBe('UNKNOWN');

@@ -27,10 +27,43 @@ export interface CohortExecution {
   runs_created?: unknown;
   /** Runs this day pre-committed to creating, before it ran. */
   runs_predicted?: unknown;
-  /** 2.1.0: COMPLETE or INCOMPLETE. Absent on 2.0.0 rows. */
+  /** 2.1.0+: COMPLETE or INCOMPLETE. Absent on 2.0.0 rows. */
   execution_status?: unknown;
-  /** 2.1.0: the typed failure receipt an INCOMPLETE day must reference. */
+  /** 2.1.0+: the typed failure receipt an INCOMPLETE day must reference. */
   failure_receipt_id?: unknown;
+  /** 3.0.0: declared schedule mode of the row; the compressed declaration. */
+  schedule_mode?: unknown;
+  /** 3.0.0: which contract governs THIS row; rows validate by their own rules. */
+  source_schema_version?: unknown;
+  /** 3.0.0: per-row trigger evidence. */
+  trigger_code?: unknown;
+  /** 3.0.0: the due date the cycle's selection was driven by. */
+  cohort_due_date?: unknown;
+  /** 3.0.0: cycle window bounds; executed_at must fall inside them. */
+  window_start?: unknown;
+  window_end?: unknown;
+  cycle_id?: unknown;
+  sequence_index?: unknown;
+}
+
+/** The 3.0.0 compressed-row declaration value, pinned by the contract. */
+export const COMPRESSED_SCHEDULE_MODE = 'COMPRESSED_MACHINE_TRIGGERED';
+
+/** Is this row a declared compressed-session cycle? */
+export function isCompressedRow(entry: CohortExecution): boolean {
+  return entry.schedule_mode === COMPRESSED_SCHEDULE_MODE;
+}
+
+/**
+ * What the row's declared schedule mode means, in words. The label rides on
+ * the artifact field, never on copy typed into a component; an undeclared mode
+ * gets no label at all rather than a guessed one.
+ */
+export function scheduleModeCopy(mode: unknown): string | null {
+  if (mode === COMPRESSED_SCHEDULE_MODE) {
+    return 'Machine-triggered accelerated schedule (supervised verification)';
+  }
+  return null;
 }
 
 /**
@@ -132,6 +165,12 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   // named, never folded into the span.
   const complete = executions.filter((entry) => rowStatus(entry) === 'COMPLETE');
   const incomplete = executions.filter((entry) => rowStatus(entry) === 'INCOMPLETE');
+  // Declared compressed cycles are judged by their own rules: date-sharing
+  // among them is the DECLARED design, not evidence of a faked span. An
+  // UNDECLARED shared date still withholds below, so the fake-compression
+  // guard survives the compression era intact.
+  const compressed = complete.filter(isCompressedRow);
+  const dayRows = complete.filter((entry) => !isCompressedRow(entry));
 
   // An incomplete day with no typed receipt is not the 2.1.0 shape; it is a
   // hole. The contract requires the reference, so its absence withholds.
@@ -150,22 +189,52 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     return weak('no day completed');
   }
 
-  const stamps = complete.map((entry) => Date.parse(String(entry.executed_at)));
-  const dates = complete.map((entry) => utcDate(entry.executed_at));
+  // Gates for the declared compressed rows, mirroring the shipped contract as
+  // defence in depth: parseable timestamp inside the declared window, trigger
+  // evidence present, and the cycle's runs matching its pre-committed
+  // prediction (the contract refuses a mismatched cycle outright).
+  for (const row of compressed) {
+    const executed = Date.parse(String(row.executed_at));
+    if (Number.isNaN(executed)) {
+      return weak('a compressed cycle timestamp did not parse');
+    }
+    const start = Date.parse(String(row.window_start));
+    const end = Date.parse(String(row.window_end));
+    if (Number.isNaN(start) || Number.isNaN(end) || executed < start || executed > end) {
+      return weak('a compressed cycle ran outside its declared window');
+    }
+    if (typeof row.trigger_code !== 'string' || row.trigger_code.length === 0) {
+      return weak('a compressed cycle carries no trigger evidence');
+    }
+    if (Number(row.runs_created) !== Number(row.runs_predicted)) {
+      return weak('a compressed cycle missed its pre-committed prediction');
+    }
+  }
+  const compressedStamps = compressed.map((row) => Date.parse(String(row.executed_at)));
+  const compressedOrdered = compressedStamps.every(
+    (at, index) => index === 0 || at > compressedStamps[index - 1],
+  );
+  if (!compressedOrdered) {
+    return weak('compressed cycle order and execution order disagree');
+  }
+
+  const stamps = dayRows.map((entry) => Date.parse(String(entry.executed_at)));
+  const dates = dayRows.map((entry) => utcDate(entry.executed_at));
   if (dates.some((date) => date === null)) {
     return weak('an execution timestamp did not parse');
   }
 
   const distinctDays = new Set(dates).size;
-  if (distinctDays !== complete.length) {
+  if (distinctDays !== dayRows.length) {
     return {
       ...weak('two runs share a calendar date'),
       distinctDays,
     };
   }
 
-  const byDay = [...complete].map((entry, index) => ({
-    day: Number(entry.day_index),
+  const byDay = [...dayRows].map((entry, index) => ({
+    // 2.x rows carry day_index; 3.0.0 history rows order by sequence_index.
+    day: Number(entry.day_index ?? entry.sequence_index),
     at: stamps[index],
   }));
   if (byDay.some((entry) => !Number.isFinite(entry.day))) {
@@ -183,8 +252,10 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   // date does not. The 2.1.0 contract now enforces this equality itself for
   // COMPLETE rows; this stays as defence in depth against a producer that does
   // not run that parser.
-  const pinned = complete.find((entry, index) => {
-    const declared = entry.selected_for_date;
+  const pinned = dayRows.find((entry, index) => {
+    // 2.x rows declare selected_for_date; CohortHistoryReceipt day rows declare
+    // cohort_due_date. Either one must equal the date the row executed.
+    const declared = entry.selected_for_date ?? entry.cohort_due_date;
     return typeof declared !== 'string' || declared !== dates[index];
   });
   if (pinned !== undefined) {
@@ -203,7 +274,7 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   // cohort day. Zero counts only when zero was pre-committed before it ran. An
   // INCOMPLETE day is exempt: its zero is what failure looks like, and the
   // typed receipt already accounts for it.
-  const barren = complete.find((entry) => {
+  const barren = dayRows.find((entry) => {
     const created = Number(entry.runs_created);
     if (!Number.isFinite(created) || created < 0) {
       return true;
@@ -223,14 +294,25 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
   }
 
   if (complete.length < 2) {
-    return { ...weak('a single completed day cannot establish a span'), distinctDays, ordered: true };
+    return { ...weak('a single completed cycle cannot establish a span'), distinctDays, ordered: true };
   }
 
+  const parts: string[] = [];
+  if (dayRows.length > 0) {
+    parts.push(`${plural(distinctDays, 'completed day')} on distinct dates`);
+  }
+  if (compressed.length > 0) {
+    parts.push(
+      `${plural(compressed.length, 'cycle')} in the declared machine-triggered compressed session`,
+    );
+  }
+  if (incomplete.length > 0) {
+    parts.push(`${plural(incomplete.length, 'incomplete attempt')} with a typed failure receipt`);
+  }
   const sentence =
-    incomplete.length === 0
+    compressed.length === 0 && incomplete.length === 0
       ? `Day ${cycles} of operation, across ${plural(distinctDays, 'distinct day')}.`
-      : `Day ${cycles} of operation: ${plural(distinctDays, 'completed day')}, ` +
-        `${plural(incomplete.length, 'incomplete day')} with a typed failure receipt.`;
+      : `${plural(cycles, 'recorded cycle')}: ${parts.join(', ')}.`;
 
   return {
     cycles,
@@ -271,6 +353,11 @@ export interface CohortCumulative {
   distinct_execution_dates?: unknown;
   runs_created?: unknown;
   runs_predicted?: unknown;
+  /** 3.0.0 names. */
+  compressed_cycles_completed?: unknown;
+  successful_compressed_cycles?: unknown;
+  logical_days_covered?: unknown;
+  historical_incomplete_attempts?: unknown;
 }
 
 export interface HistoryAgreement {
@@ -301,21 +388,49 @@ export function historyAgreement(
     return { checked: false, agrees: false, disagreements: [] };
   }
 
-  // Mirrors the producer's own derivation exactly: daily_cycles and the
-  // distinct dates count COMPLETE rows only, while the run sums range over ALL
-  // rows (an incomplete day contributes its prediction and its zero). Deriving
-  // anything else here would manufacture a disagreement out of semantics.
+  // Mirrors the producer's own derivation for whichever contract shaped the
+  // history. 3.0.0 (any declared compressed row present): cycle and run counts
+  // range over COMPRESSED rows only, distinct dates over compressed executed
+  // dates, logical days over compressed due dates, and incomplete attempts
+  // over ALL rows. 2.1.0: daily_cycles and distinct dates count COMPLETE rows,
+  // run sums range over all rows. Deriving anything else here would
+  // manufacture a disagreement out of semantics.
   const complete = executions.filter((entry) => rowStatus(entry) === 'COMPLETE');
-  const dates = complete.map((entry) => utcDate(entry.executed_at));
+  const compressed = complete.filter(isCompressedRow);
+  const v3 = compressed.length > 0;
+  const scope = v3 ? compressed : executions;
   const sum = (key: 'runs_created' | 'runs_predicted') =>
-    executions.reduce((total, entry) => total + Number(entry[key] ?? NaN), 0);
+    scope.reduce((total, entry) => total + Number(entry[key] ?? NaN), 0);
+  const dates = (v3 ? compressed : complete).map((entry) => utcDate(entry.executed_at));
 
-  const comparisons: Array<[string, unknown, number]> = [
-    ['daily cycles', cumulative.daily_cycles, complete.length],
-    ['distinct execution dates', cumulative.distinct_execution_dates, new Set(dates).size],
-    ['runs created', cumulative.runs_created, sum('runs_created')],
-    ['runs predicted', cumulative.runs_predicted, sum('runs_predicted')],
-  ];
+  const comparisons: Array<[string, unknown, number]> = v3
+    ? [
+        ['compressed cycles completed', cumulative.compressed_cycles_completed, compressed.length],
+        [
+          'successful compressed cycles',
+          cumulative.successful_compressed_cycles,
+          compressed.filter((row) => Number(row.runs_created) === Number(row.runs_predicted)).length,
+        ],
+        ['distinct execution dates', cumulative.distinct_execution_dates, new Set(dates).size],
+        [
+          'logical days covered',
+          cumulative.logical_days_covered,
+          new Set(compressed.map((row) => String(row.cohort_due_date))).size,
+        ],
+        ['runs created', cumulative.runs_created, sum('runs_created')],
+        ['runs predicted', cumulative.runs_predicted, sum('runs_predicted')],
+        [
+          'historical incomplete attempts',
+          cumulative.historical_incomplete_attempts,
+          executions.filter((entry) => rowStatus(entry) === 'INCOMPLETE').length,
+        ],
+      ]
+    : [
+        ['daily cycles', cumulative.daily_cycles, complete.length],
+        ['distinct execution dates', cumulative.distinct_execution_dates, new Set(dates).size],
+        ['runs created', cumulative.runs_created, sum('runs_created')],
+        ['runs predicted', cumulative.runs_predicted, sum('runs_predicted')],
+      ];
 
   const disagreements: string[] = [];
   let compared = 0;

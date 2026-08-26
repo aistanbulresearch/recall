@@ -183,7 +183,7 @@ describe('cohort panel rendering', () => {
     // The claim the completed days carry still renders, with the incomplete
     // day named rather than hidden.
     expect(markup).toContain('data-proven="true"');
-    expect(markup).toContain('1 incomplete day');
+    expect(markup).toContain('1 incomplete attempt');
   });
 
   it('refuses every figure when two day manifests are present', () => {

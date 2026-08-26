@@ -81,8 +81,8 @@ describe('2.1.0 incomplete days', () => {
     expect(span.proven).toBe(true);
     expect(span.cycles).toBe(3);
     expect(span.distinctDays).toBe(2);
-    expect(span.sentence).toContain('Day 3 of operation');
-    expect(span.sentence).toContain('1 incomplete day');
+    expect(span.sentence).toContain('3 recorded cycles');
+    expect(span.sentence).toContain('1 incomplete attempt');
     expect(span.sentence).toContain('failure receipt');
   });
 
@@ -107,7 +107,7 @@ describe('2.1.0 incomplete days', () => {
   it('does not call a lone completed day plus failures a span', () => {
     const span = operationSpan([completeRows[0], incompleteRow]);
     expect(span.proven).toBe(false);
-    expect(span.withheldBecause).toBe('a single completed day cannot establish a span');
+    expect(span.withheldBecause).toBe('a single completed cycle cannot establish a span');
   });
 
   it('agreement mirrors the producer: cycles and dates count COMPLETE rows only', () => {

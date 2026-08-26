@@ -57,9 +57,16 @@ export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
   // it. Each day's bundle carries ONE manifest in one version, so a mixed
   // history never occurs inside an artifact: the version split is across days,
   // which this surface never stitches (one-manifest-per-bundle rule).
-  CohortDayManifest: ['2.0.0', '2.1.0'],
-  // The typed receipt an INCOMPLETE 2.1.0 history row references.
+  // 3.0.0 is the compressed-session contract (2026-08-26); 2.0.0/2.1.0 stay as
+  // historical reads, mirroring the producer's own legacy map. 2.0.0 never
+  // produced a real manifest; 2.1.0's real-world validation was pre-empted by
+  // the failed 16:00Z tick, so both are contract-and-example verified only.
+  CohortDayManifest: ['2.0.0', '2.1.0', '3.0.0'],
+  // Typed receipts a history row may reference; bundles carry them as inputs.
   CohortDayFailureReceipt: ['1.0.0'],
+  CohortHistoryReceipt: ['1.0.0'],
+  CompressedCycleFailureReceipt: ['1.0.0'],
+  CohortHeadroomReceipt: ['1.0.0'],
 };
 
 export interface RejectedArtifact {

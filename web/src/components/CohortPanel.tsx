@@ -21,6 +21,7 @@ import {
   historyAgreement,
   operationSpan,
   rowStatus,
+  scheduleModeCopy,
   unanchoredVcvs,
   type CohortCase,
   type CohortExecution,
@@ -72,6 +73,7 @@ export function CohortPanel({ model }: { model: ViewModel }) {
   };
   const agreement = historyAgreement(executions, {
     daily_cycles: numeric('UI-COHORT-CYCLES-TOTAL'),
+    compressed_cycles_completed: numeric('UI-COHORT-COMPRESSED-TOTAL'),
     distinct_execution_dates: numeric('UI-COHORT-DISTINCT-DATES'),
     runs_created: numeric('UI-COHORT-RUNS-TOTAL'),
   });
@@ -90,8 +92,15 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         ) : null}
       </p>
 
+      {scheduleModeCopy(model['UI-COHORT-SCHEDULE-MODE'].value) ? (
+        <p className="cohort-schedule-mode" data-field-id="UI-COHORT-SCHEDULE-MODE">
+          {scheduleModeCopy(model['UI-COHORT-SCHEDULE-MODE'].value)}
+        </p>
+      ) : null}
+
       <div className="field-grid">
         <FieldValue field={model['UI-COHORT-DAY-INDEX']} />
+        <FieldValue field={model['UI-COHORT-CYCLE-ID']} />
         <FieldValue
           field={model['UI-COHORT-CASES-DELTA']}
           hint="Read from the day manifest, not counted by this surface."
@@ -99,6 +108,7 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         <FieldValue field={model['UI-COHORT-RUNS-DELTA']} />
         <FieldValue field={model['UI-COHORT-RUNS-TOTAL']} />
         <FieldValue field={model['UI-COHORT-CYCLES-TOTAL']} />
+        <FieldValue field={model['UI-COHORT-COMPRESSED-TOTAL']} />
       </div>
 
       {executions.some((entry) => rowStatus(entry) === 'INCOMPLETE') ? (
@@ -134,6 +144,10 @@ export function CohortPanel({ model }: { model: ViewModel }) {
           hint="A synthetic manifest carries a sentinel digest, not a deployed one."
         />
         <FieldValue field={model['UI-COHORT-SOURCE-COMMIT']} />
+        <FieldValue
+          field={model['UI-COHORT-PLAN-SHA256']}
+          hint="Pre-committed prediction plan every cycle's counters trace to."
+        />
       </div>
 
       {cases.length > 0 ? (
