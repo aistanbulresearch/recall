@@ -15,11 +15,11 @@ with explicit `RECALL_SCHEDULER_MODE=LEGACY_DAYN`; there is no implicit fallback
 
 The compressed image must package these exact committed inputs:
 
-- product source commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427`;
+- product source commit `29a833c30e16d70edccadbe10d574769f542787e`;
 - `artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json`,
-  SHA-256 `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b`;
+  SHA-256 `05e61f4bbe3d6bb7540ecae310e3c6f9423dcae3a7933db59ef4267e84fd9226`;
 - `artifacts/evidence/cohort-compression/preparation-bundle-v2.json`, SHA-256
-  `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`.
+  `4487e4d3e5973e0e714348f1d420a9328046ed1ba49f5c1a0478e9f174b90d04`.
 
 `RECALL_SOURCE_COMMIT` must be lowercase 40-hex and equal both the product
 source and bundle provenance. `RECALL_IMAGE_DIGEST` must be the deployed
@@ -75,7 +75,7 @@ own `trigger_code` and `scheduled_for` and are validated under the rules of the
 version that produced each row.
 
 L3 must acknowledge compatibility against exact product commit
-`347f93580dd615bfb8a2be1ce0cfbd0edc68f427` before L1 executes the compressed
+`29a833c30e16d70edccadbe10d574769f542787e` before L1 executes the compressed
 image. The visible label must be derived from manifest `schedule_mode`; copied
 component text is prohibited. Intermediate manifests remain in the evidence
 directory. Only the final manifest may enter the demo bundle.

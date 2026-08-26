@@ -2,12 +2,12 @@
 
 ## 2026-08-26 compressed machine-triggered cycle package
 
-Status: local product commit `347f93580dd615bfb8a2be1ce0cfbd0edc68f427` and regenerated preparation bundle are implementation/test/Judge GREEN. L1 deployment and L3 rebind are next; all compressed runtime results remain `NOT VERIFIED`.
+Status: window-shift product commit `29a833c30e16d70edccadbe10d574769f542787e` and regenerated preparation bundle are implementation/test/Judge GREEN. No compressed cycle ran under the superseded plan. L1 rebuild/repoint and L3 rebind are next; all compressed runtime results remain `NOT VERIFIED`.
 
-1. Freeze 2.1.0 and legacy prediction bytes. Use only `COMPRESSED_PREDICTION_PLAN_V2` SHA-256 `93393476b4162f0cd6036048d3e5692c6ae1b91f1ede74b6911f80c56930531b` for cycle timing and prediction values.
+1. Freeze 2.1.0 and legacy prediction bytes. Use only `COMPRESSED_PREDICTION_PLAN_V2` SHA-256 `05e61f4bbe3d6bb7540ecae310e3c6f9423dcae3a7933db59ef4267e84fd9226` for cycle timing and prediction values.
 2. Execute c1-c5 only inside their declared windows with predictions 3/2/4/1/1 and at least 20 minutes between windows. Runtime overrides and manual run starts are prohibited.
 3. Prepare all 450 c6 onboarding cases but create its trigger only after the c1-c5 `CohortHeadroomReceipt` has decision `PASS` from authoritative manifest and ScanRun read-back.
-4. Before c1, rebuild/repoint the exact product image, re-prepare every cycle prefix from preparation bundle SHA-256 `906a01ebb4c1a42d49ba4e360fd499632610432277889d44dcb34bda19665d53`, then execute `--verify-prefix` through Cloud Run under the same scheduler service account and environment. Any nonzero result blocks the session.
+4. Before c1, rebuild/repoint the exact product image, re-prepare every cycle prefix from preparation bundle SHA-256 `4487e4d3e5973e0e714348f1d420a9328046ed1ba49f5c1a0478e9f174b90d04`, then execute `--verify-prefix` through Cloud Run under the same scheduler service account and environment. Any nonzero result blocks the session.
 5. L1 owns `infra/**`, scheduler-SA IAM, image/repoint, 1200-second timeout, plan-derived one-shot triggers, preflight, and cloud read-back. L2 owns the importable entrypoint, contracts, preparation, and tests. L3 derives UI labels only from manifest `schedule_mode`, preserves row-level provenance, and ships only the final manifest in the demo bundle.
 6. Record each cycle as `cycle_id | prediction | observation | run IDs | event count | idempotency`; keep intermediate manifests in evidence and expose only the final manifest to the demo. Do not claim runtime before those artifacts exist.
 7. After the frozen deployment, run one post-freeze verification tick against that exact revision. No Aug 29/30 tail-day claim remains under DEC-2026-08-26-046.

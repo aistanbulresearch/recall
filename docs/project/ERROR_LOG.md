@@ -2,6 +2,18 @@
 
 Append-only. Log errors even when a retry succeeds.
 
+## ERR-2026-08-26-I: Window shift invalidated stale test times and preparation bindings
+
+| Field | Value |
+|---|---|
+| Task | Owner-directed pre-run compressed-window shift |
+| Severity | Medium; deployment-blocking if left stale, no runtime impact because no cycle ran |
+| Observed | The first focused run returned 7 failures and the second returned 2 because test literals still represented the superseded windows. Inspection also showed that a byte-identical preparation bundle would retain the old `plan_sha256` and old WatchCase `next_scan_at` schedule epochs, causing fail-closed preparation/preflight mismatches. |
+| Impact | This L2 work unit performed no cloud or Firestore action and no stale plan was certified. The owner reports that the superseded c1 trigger was stopped; independent cloud read-back is `NOT VERIFIED`. A literal reading of “bundle unchanged” was technically incompatible with the existing immutable-binding contract. |
+| Resolution | Reconciled only test timing fixtures, committed the five-path plan/hash/test change after Master Judge PASS, and regenerated the bundle from that product commit while preserving case identities, payloads, predictions, replay set, and trigger policies. |
+| Verification | Third focused run passed 27/27 with direct exit 0; non-window plan fields compare equal; all five measured gaps are 1,201 seconds. New plan and bundle hashes are recorded in the current handoff. |
+| Status | Resolved locally; L1 rebuild/repoint/re-prep/preflight and runtime remain `NOT VERIFIED`. |
+
 ## ERR-2026-08-26-H: Compressed scheduler verification exposed explicit environment gates
 
 | Field | Value |

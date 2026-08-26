@@ -2,6 +2,14 @@
 
 Append-only. Record substantive actions, verification, and artifact paths.
 
+## WORK-2026-08-26-039: Pre-run compressed-window shift
+
+- At owner direction, before any compressed cycle ran, shifted only the six `COMPRESSED_PREDICTION_PLAN_V2` windows to c1 `20:00`, c2 `20:30`, c3 `21:00`, c4 `21:30`, c5 `22:00`, and c6 `22:30` UTC on 2026-08-26. Logical due dates, predictions 3/2/4/1/1/450, case identities, semantic payload values, and trigger policies are unchanged; measured inter-cycle gaps are 1,201 seconds.
+- New plan SHA-256 is `05e61f4bbe3d6bb7540ecae310e3c6f9423dcae3a7933db59ef4267e84fd9226`. Focused verification initially exposed seven and then two stale test-time literals; after fixture-only reconciliation, the exact compressed suite passed 27/27 with direct exit 0. Master Judge returned PASS for the exact five-path product diff.
+- Product commit `29a833c30e16d70edccadbe10d574769f542787e` (tree `1616928990b53b9ca9f7e7b6dcc93698ae2ffe03`) contains only the plan, both hash gates, and the two focused test files.
+- The preparation bundle could not remain byte-identical because it binds both `plan_sha256` and each WatchCase `next_scan_at` to the cycle schedule epoch. Case IDs, PrivacyReceipt IDs, WatchCase IDs, cloud payload IDs, cursors, predictions, semantic payload values, and replay membership are unchanged; preparation timestamps, signatures/content hashes, replay-observation artifact IDs, schedule epochs, and plan/source bindings were regenerated. Source commit is `29a833c30e16d70edccadbe10d574769f542787e`, with 462 cases, five replay observations, SHA-256 `4487e4d3e5973e0e714348f1d420a9328046ed1ba49f5c1a0478e9f174b90d04`, and no persisted signing key.
+- This L2 work unit performed no compressed cycle, cloud preflight, trigger, Firestore write, push, merge, or `infra/**` change. The owner reports that the superseded c1 trigger was stopped; independent cloud read-back is `NOT VERIFIED`. L1 must rebuild/repoint, re-prepare, and repeat every zero-write prefix preflight from the successor evidence HEAD.
+
 ## WORK-2026-08-26-038: Compressed machine-triggered cycle package
 
 - Implemented `COMPRESSED_PREDICTION_PLAN_V2` as the hash-locked single timing source and `CohortDayManifest 3.0.0` as a separate compressed-schedule contract. Frozen 2.1.0 and legacy `RUN_PREDICTIONS` bytes are unchanged.
