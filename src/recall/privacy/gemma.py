@@ -13,6 +13,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable
 
@@ -194,9 +195,19 @@ class OllamaChatTransport:
     keep_alive: str = OLLAMA_DEFAULT_KEEP_ALIVE
     think: bool = False
     response_format: str | None = None
+    # Called per request, so a short-lived credential (a Cloud Run ID token
+    # expires in about an hour) stays fresh across a multi-hour run. A static
+    # header dict would authenticate the first hour and fail the rest. The
+    # provider is injected from outside; this module never mints credentials
+    # and never logs what the provider returns.
+    auth_header_provider: Callable[[], Mapping[str, str]] | None = None
 
     def request_settings(self) -> dict[str, Any]:
-        """Exactly what this transport sends, for the manifest."""
+        """Exactly what this transport sends, for the manifest.
+
+        Auth is reported as a flag, never as header values: credentials do not
+        belong in evidence.
+        """
 
         return {
             "server_kind": "ollama",
@@ -205,6 +216,7 @@ class OllamaChatTransport:
             "keep_alive": self.keep_alive,
             "think": self.think,
             "format": self.response_format,
+            "authenticated": self.auth_header_provider is not None,
         }
 
     def __call__(self, note_text: str, timeout_seconds: float) -> str:
@@ -221,10 +233,13 @@ class OllamaChatTransport:
         }
         if self.response_format:
             body["format"] = self.response_format
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        if self.auth_header_provider is not None:
+            headers.update(self.auth_header_provider())
         request = urllib.request.Request(
             url=f"{self.base_url.rstrip('/')}/api/chat",
             data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         try:

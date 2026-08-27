@@ -109,3 +109,66 @@ def test_proposal_count_is_bounded() -> None:
 def test_json_embedded_in_prose_is_recovered() -> None:
     outcome = detector(lambda text, timeout: 'Result: {"spans": []} done').propose("note")
     assert outcome.usable is True
+
+
+class _CapturingOpener:
+    """Records the headers urllib would send, without any network."""
+
+    def __init__(self) -> None:
+        self.headers: list[dict[str, str]] = []
+
+
+def test_auth_header_provider_is_called_per_request(monkeypatch) -> None:
+    """A short-lived credential must be re-read on every call, not captured once.
+
+    A Cloud Run ID token expires in about an hour; a run takes several. The
+    transport therefore takes a provider and asks it per request, so token
+    refresh is the provider's problem and never the transport's state.
+    """
+
+    import urllib.request
+
+    from recall.privacy.gemma import OllamaChatTransport
+
+    seen: list[str] = []
+    tokens = iter(["token-1", "token-2"])
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b'{"message": {"content": "{}"}}'
+
+    def fake_urlopen(request, timeout):
+        seen.append(request.get_header("Authorization"))
+        return _Response()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    transport = OllamaChatTransport(
+        base_url="https://gpu.internal.example",
+        model_id="gemma-test",
+        auth_header_provider=lambda: {"Authorization": f"Bearer {next(tokens)}"},
+    )
+    transport("note one", timeout_seconds=5.0)
+    transport("note two", timeout_seconds=5.0)
+    assert seen == ["Bearer token-1", "Bearer token-2"]
+
+
+def test_request_settings_reports_auth_as_flag_never_value() -> None:
+    """Credentials must not reach the evidence manifest."""
+
+    from recall.privacy.gemma import OllamaChatTransport
+
+    secret = "Bearer definitely-a-credential"
+    transport = OllamaChatTransport(
+        auth_header_provider=lambda: {"Authorization": secret}
+    )
+    settings = transport.request_settings()
+    assert settings["authenticated"] is True
+    assert secret not in repr(settings)
+    plain = OllamaChatTransport()
+    assert plain.request_settings()["authenticated"] is False
