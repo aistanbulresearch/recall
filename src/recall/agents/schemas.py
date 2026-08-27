@@ -78,7 +78,7 @@ class ClaimAuditProposal(StrictOutput):
     claim_id: str
     cited_identifier: str
     reason_codes: list[str]
-    refetched_source: RefetchedSourceOutput
+    refetched_source: RefetchedSourceOutput | None
 
 
 class CitationAuditOutput(StrictOutput):

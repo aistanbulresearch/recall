@@ -16,19 +16,25 @@ from .payloads import (
     parse_failure_payload,
     parse_policy_decision_payload,
     parse_privacy_receipt_payload,
+    parse_privacy_receipt_v11_payload,
     parse_registry_resolution_payload,
     parse_review_task_payload,
     parse_scan_run_event_payload,
     parse_scan_run_payload,
+    parse_scan_run_v11_payload,
     parse_tool_authorization_payload,
     parse_watch_case_payload,
     parse_cohort_day_manifest_payload,
     parse_cohort_day_manifest_v3_payload,
+    parse_cohort_day_manifest_v31_payload,
+    parse_cohort_day_manifest_v32_payload,
     parse_cohort_day_manifest_v20_payload,
     parse_cohort_day_failure_receipt_payload,
     parse_cohort_history_receipt_payload,
     parse_cohort_headroom_receipt_payload,
     parse_compressed_cycle_failure_receipt_payload,
+    parse_cohort_ramp_gate_receipt_payload,
+    parse_agent_execution_receipt_payload,
 )
 
 
@@ -63,9 +69,37 @@ _COHORT_MANIFEST_V3_FIELDS = _COHORT_MANIFEST_FIELDS | frozenset(
         "headroom_receipt_id",
     }
 )
+_COHORT_MANIFEST_V31_FIELDS = _COHORT_MANIFEST_V3_FIELDS | frozenset(
+    {"epoch_label", "evaluation_role", "ramp_gate_receipt_id", "write_metrics", "parity"}
+)
+_COHORT_MANIFEST_V32_FIELDS = _COHORT_MANIFEST_V31_FIELDS | frozenset(
+    {"agent_execution_summary", "run_outcomes"}
+)
 
 
 LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
+    ("ScanRun", "1.0.0"): (
+        frozenset(
+            {
+                "watch_case_id", "state", "scheduled_for", "attempt",
+                "lease_epoch", "deadline_at", "budget_snapshot",
+                "idempotency_key", "trace_id", "terminal_policy_decision_id",
+                "failure_receipt_ids",
+            }
+        ),
+        parse_scan_run_payload,
+        True,
+    ),
+    ("PrivacyReceipt", "1.0.0"): (
+        frozenset(
+            {
+                "decision", "detector_versions", "identifier_classes_checked",
+                "detectors", "outbound", "payload_hash", "signature_ref",
+            }
+        ),
+        parse_privacy_receipt_payload,
+        False,
+    ),
     ("CohortDayManifest", "2.0.0"): (
         _COHORT_MANIFEST_FIELDS,
         parse_cohort_day_manifest_v20_payload,
@@ -74,6 +108,16 @@ LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
     ("CohortDayManifest", "2.1.0"): (
         _COHORT_MANIFEST_FIELDS,
         parse_cohort_day_manifest_payload,
+        True,
+    ),
+    ("CohortDayManifest", "3.0.0"): (
+        _COHORT_MANIFEST_V3_FIELDS,
+        parse_cohort_day_manifest_v3_payload,
+        True,
+    ),
+    ("CohortDayManifest", "3.1.0"): (
+        _COHORT_MANIFEST_V31_FIELDS,
+        parse_cohort_day_manifest_v31_payload,
         True,
     ),
 }
@@ -109,9 +153,9 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "CohortDayManifest": (
-        "3.0.0",
-        _COHORT_MANIFEST_V3_FIELDS,
-        parse_cohort_day_manifest_v3_payload,
+        "3.2.0",
+        _COHORT_MANIFEST_V32_FIELDS,
+        parse_cohort_day_manifest_v32_payload,
         True,
     ),
     "CompressedCycleFailureReceipt": (
@@ -149,6 +193,19 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
             }
         ),
         parse_cohort_headroom_receipt_payload,
+        True,
+    ),
+    "CohortRampGateReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "target_plan_sha256", "target_cycle_id", "input_snapshot_sha256",
+                "gate_version", "metric_policy", "predecessor_binding",
+                "observed_metrics", "decision", "reason_codes",
+                "evidence_watermark",
+            }
+        ),
+        parse_cohort_ramp_gate_receipt_payload,
         True,
     ),
     "CohortDayFailureReceipt": (
@@ -237,7 +294,7 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "PrivacyReceipt": (
-        "1.0.0",
+        "1.1.0",
         frozenset(
             {
                 "decision",
@@ -247,9 +304,14 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
                 "outbound",
                 "payload_hash",
                 "signature_ref",
+                "execution_locus",
+                "transport_class",
+                "endpoint_class",
+                "model_id",
+                "model_revision",
             }
         ),
-        parse_privacy_receipt_payload,
+        parse_privacy_receipt_v11_payload,
         False,
     ),
     "RegistryResolutionReceipt": (
@@ -331,7 +393,7 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "ScanRun": (
-        "1.0.0",
+        "1.1.0",
         frozenset(
             {
                 "watch_case_id",
@@ -345,9 +407,26 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
                 "trace_id",
                 "terminal_policy_decision_id",
                 "failure_receipt_ids",
+                "execution_profile",
             }
         ),
-        parse_scan_run_payload,
+        parse_scan_run_v11_payload,
+        True,
+    ),
+    "AgentExecutionReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "execution_profile", "agent_role", "attempt",
+                "execution_status", "runtime_class", "model_id",
+                "model_revision", "endpoint_class", "location", "trace_id",
+                "invocation_id", "started_at", "completed_at", "latency_ms",
+                "turns", "http_429_count", "tool_call_ids", "tool_response_ids",
+                "tool_records",
+                "started_receipt_id", "failure_code",
+            }
+        ),
+        parse_agent_execution_receipt_payload,
         True,
     ),
     "ReviewTask": (

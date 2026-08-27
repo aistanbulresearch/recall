@@ -149,6 +149,44 @@ class ReplayConnector:
             "snapshot_payload": snapshot_payload,
         }
 
+    def source_projection(self, source_id: str) -> dict[str, object]:
+        """Return deterministic fields derived from hash-verified frozen bytes."""
+
+        verified = {str(item["source_id"]): item for item in self.verify_manifest()}
+        source = verified.get(source_id)
+        if source is None:
+            raise ContractError("source_schema_drift", source_id)
+        fields = self._structured_fields(source)
+        if source_id.startswith("clinvar_positive_"):
+            positive = self._manifest["positive_case"]
+            fields.update(
+                {
+                    "gene": positive["gene"],
+                    "transcript_hgvs": positive["transcript_hgvs"],
+                    "protein_hgvs": positive["protein_hgvs"],
+                    "aggregate_classification": self._clinvar_classification(
+                        source_id, source
+                    ),
+                }
+            )
+        elif source_id.startswith("clinvar_negative_"):
+            matches = [
+                item
+                for item in self._manifest.get("negative_controls", [])
+                if item.get("vcv_version") == source["semantic_anchor"]
+            ]
+            if len(matches) != 1:
+                raise ContractError("source_schema_drift", "negative_control")
+            control = matches[0]
+            fields.update(
+                {
+                    key: control[key]
+                    for key in ("gene", "transcript_hgvs", "protein_hgvs")
+                    if key in control
+                }
+            )
+        return fields
+
     def _build_observation(
         self,
         source: Mapping[str, Any],
@@ -282,6 +320,32 @@ class ReplayConnector:
                 }
             )
         return fields
+
+    def _clinvar_classification(
+        self, source_id: str, source: Mapping[str, Any]
+    ) -> str:
+        try:
+            body = self._resolve_capture(source).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ContractError("source_schema_drift", source_id) from exc
+        if source_id in {"clinvar_positive_v1", "clinvar_positive_v4"}:
+            pattern = (
+                r'(?s)<div class="single-item-value">\s*'
+                r'Uncertain significance\s*</div>'
+            )
+            classification = "UNCERTAIN_SIGNIFICANCE"
+        elif source_id == "clinvar_positive_v5":
+            pattern = (
+                r'(?s)<div class="single-item-value">\s*'
+                r'Conflicting classifications of pathogenicity\s*<br />\s*'
+                r'Likely pathogenic \(1\); Uncertain significance \(2\)'
+            )
+            classification = "CONFLICTING"
+        else:
+            raise ContractError("source_schema_drift", source_id)
+        if re.search(pattern, body) is None:
+            raise ContractError("source_schema_drift", "clinvar_classification")
+        return classification
 
     def _pubmed_citation_metadata(
         self, source: Mapping[str, Any]

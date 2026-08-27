@@ -44,9 +44,24 @@ def _latest(payloads: Sequence[object], payload_type: type):
 def build_policy_input_facts(
     ledger: LedgerPort, run_id: str
 ) -> dict[str, str]:
+    wires = list(ledger.list_by_run(run_id))
+    # Admission receipts are deliberately runless, but ScanRun binds them by
+    # immutable input ID. Policy evaluation must follow that declared edge
+    # rather than treating the accepted privacy gate as NOT_EVALUATED.
+    referenced_ids = {
+        str(artifact_id)
+        for wire in wires
+        if wire.get("schema_name") == "ScanRun"
+        for artifact_id in wire.get("input_artifact_ids", ())
+    }
+    known_ids = {str(wire["artifact_id"]) for wire in wires}
+    for artifact_id in sorted(referenced_ids - known_ids):
+        referenced = ledger.get_artifact(artifact_id)
+        if referenced is not None:
+            wires.append(referenced)
     artifacts = [
         parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-        for wire in ledger.list_by_run(run_id)
+        for wire in wires
     ]
     artifacts.sort(key=lambda item: (item.created_at, item.artifact_id))
     payloads = [artifact.payload for artifact in artifacts]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from datetime import datetime
 from threading import RLock
@@ -8,14 +8,23 @@ from typing import Any
 from uuid import UUID, uuid5
 
 from recall.contracts import Artifact, ContractError, parse_artifact
-from recall.contracts.enums import ScanRunEventCode, ScanRunState
+from recall.contracts.enums import (
+    ExecutionProfile,
+    ScanRunEventCode,
+    ScanRunState,
+)
 from recall.contracts.payloads.lifecycle import ScanRunPayload, WatchCasePayload
-from recall.controller.lifecycle import require_transition
+from recall.controller.lifecycle import require_transition, transition_target
 
 from .admission import (
     PrivacyReceiptVerifier,
     validate_scan_run_admission,
     validate_watch_case_admission,
+)
+from .agent_step import (
+    validate_agent_step_artifacts,
+    validate_started_receipt_binding,
+    validate_tool_authorization_bindings,
 )
 from .memory_terminal import InMemoryTerminalMixin
 from .models import (
@@ -250,6 +259,93 @@ class InMemoryLedger(InMemoryTerminalMixin):
                 next_lease_expires_at=next_lease_expires_at,
             )
 
+    def commit_agent_step(
+        self,
+        run_id: str,
+        *,
+        expected_version: int,
+        lease_epoch: int,
+        event_code: ScanRunEventCode,
+        artifacts: Sequence[Mapping[str, Any]],
+        now: datetime,
+    ) -> ScanRunRecord:
+        parsed_artifacts = tuple(
+            parse_artifact(item, authorized_producers=PRODUCER_REGISTRY)
+            for item in artifacts
+        )
+        validate_agent_step_artifacts(run_id, event_code, parsed_artifacts)
+        with self._lock:
+            current = self._scan_runs.get(run_id)
+            if current is None or current.scan_run_artifact_id is None:
+                raise ContractError("stale_write_rejected", run_id)
+            scan_wire = self._artifacts.get(current.scan_run_artifact_id)
+            if scan_wire is None:
+                raise ContractError("ledger_integrity_failed", run_id)
+            scan_artifact = parse_artifact(
+                scan_wire, authorized_producers=PRODUCER_REGISTRY
+            )
+            if (
+                scan_artifact.schema_version != "1.1.0"
+                or scan_artifact.payload.execution_profile
+                is not ExecutionProfile.FULL_AUDIT_V1
+            ):
+                raise ContractError("full_audit_profile_required", run_id)
+            for artifact in parsed_artifacts:
+                existing = self._artifacts.get(artifact.artifact_id)
+                if existing is not None and existing["content_hash"] != artifact.content_hash:
+                    raise ContractError("artifact_integrity_failed", artifact.artifact_id)
+            terminal_receipt = next(
+                artifact
+                for artifact in parsed_artifacts
+                if artifact.schema_name == "AgentExecutionReceipt"
+            )
+            started_wire = self._artifacts.get(
+                terminal_receipt.payload.started_receipt_id
+            )
+            if started_wire is None:
+                raise ContractError(
+                    "ledger_integrity_failed", "started_receipt_id"
+                )
+            validate_started_receipt_binding(
+                terminal_receipt,
+                parse_artifact(
+                    started_wire, authorized_producers=PRODUCER_REGISTRY
+                ),
+            )
+            authorization_receipts = []
+            for record in terminal_receipt.payload.tool_records:
+                receipt_wire = self._artifacts.get(
+                    record["authorization_receipt_id"]
+                )
+                if receipt_wire is None:
+                    raise ContractError(
+                        "ledger_integrity_failed", "tool_authorization_binding"
+                    )
+                authorization_receipts.append(
+                    parse_artifact(
+                        receipt_wire, authorized_producers=PRODUCER_REGISTRY
+                    )
+                )
+            validate_tool_authorization_bindings(
+                terminal_receipt, authorization_receipts
+            )
+            target = transition_target(current.state, event_code)
+            updated = self._transition_locked(
+                run_id,
+                expected_version=expected_version,
+                lease_epoch=lease_epoch,
+                to_state=target.value,
+                event_code=event_code,
+                now=now,
+                next_lease_expires_at=None,
+                allow_full_audit=True,
+            )
+            for artifact in parsed_artifacts:
+                self._artifacts.setdefault(
+                    artifact.artifact_id, deepcopy(artifact.to_wire())
+                )
+            return updated
+
     def _transition_locked(
         self,
         run_id: str,
@@ -260,6 +356,7 @@ class InMemoryLedger(InMemoryTerminalMixin):
         event_code: ScanRunEventCode,
         now: datetime,
         next_lease_expires_at: datetime | None,
+        allow_full_audit: bool = False,
     ) -> ScanRunRecord:
         current = self._scan_runs.get(run_id)
         if current is None:
@@ -282,6 +379,11 @@ class InMemoryLedger(InMemoryTerminalMixin):
             closed_event = ScanRunEventCode(event_code)
         except ValueError as exc:
             raise ContractError("contract_enum_invalid", "scan_run_transition") from exc
+        if (
+            closed_event is ScanRunEventCode.FULL_AUDIT_REQUIRED
+            and not allow_full_audit
+        ):
+            raise ContractError("full_audit_specialized_commit_required")
         require_transition(prior_state, closed_event, target_state)
         version = expected_version + 1
         updated = ScanRunRecord(

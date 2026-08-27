@@ -48,6 +48,9 @@ PRODUCER_REGISTRY = ProducerRegistry(
         "EvidenceDelta": ProducerRule("Evidence Assessor", frozenset({"evidence-assessor"})),
         "AssessmentReceipt": ProducerRule("Evidence Assessor", frozenset({"evidence-assessor"})),
         "CitationAuditReceipt": ProducerRule("Citation Auditor", frozenset({"citation-auditor"})),
+        "AgentExecutionReceipt": ProducerRule(
+            "Controller agent executor", frozenset({"controller-agent-executor"})
+        ),
         "MemoryAdmissionReceipt": ProducerRule("MemoryAdmissionGate", frozenset({"memory-admission-gate"})),
         "MemoryRetrievalReceipt": ProducerRule("Memory retrieval gate", frozenset({"memory-retrieval-gate"})),
         "DataModeReceipt": ProducerRule("Deterministic mode gate", frozenset({"controller-mode-gate"})),
@@ -78,6 +81,9 @@ PRODUCER_REGISTRY = ProducerRegistry(
             "Cohort scheduler", frozenset({"cohort-scheduler"})
         ),
         "CohortHeadroomReceipt": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
+        "CohortRampGateReceipt": ProducerRule(
             "Cohort scheduler", frozenset({"cohort-scheduler"})
         ),
         "HistoricalReplayEvaluation": ProducerRule("Evaluation harness", frozenset({"evaluation-harness"})),

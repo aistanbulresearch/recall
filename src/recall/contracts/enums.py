@@ -25,6 +25,31 @@ class AgentRole(StrEnum):
     CITATION_AUDITOR = "CITATION_AUDITOR"
 
 
+class ExecutionProfile(StrEnum):
+    FULL_AUDIT_V1 = "FULL_AUDIT_V1"
+
+
+class AgentExecutionStatus(StrEnum):
+    STARTED = "STARTED"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ExecutionLocus(StrEnum):
+    LAB_LOCAL = "LAB_LOCAL"
+    CLOUD_ISOLATED = "CLOUD_ISOLATED"
+
+
+class TransportClass(StrEnum):
+    LOCAL_PROCESS = "LOCAL_PROCESS"
+    PRIVATE_SERVICE = "PRIVATE_SERVICE"
+
+
+class EndpointClass(StrEnum):
+    OLLAMA_LOCAL = "OLLAMA_LOCAL"
+    VERTEX_AI_GLOBAL = "VERTEX_AI_GLOBAL"
+
+
 class ToolDecision(StrEnum):
     ALLOWED = "ALLOWED"
     DENIED = "DENIED"
@@ -39,6 +64,12 @@ class FactState(StrEnum):
 class AuditStatus(StrEnum):
     COMPLETE = "COMPLETE"
     INCOMPLETE = "INCOMPLETE"
+
+
+class RunAuditStatus(StrEnum):
+    COMPLETE = "COMPLETE"
+    INCOMPLETE = "INCOMPLETE"
+    NOT_EVALUATED = "NOT_EVALUATED"
 
 
 class CitationVerdict(StrEnum):
@@ -112,6 +143,7 @@ class ScanRunEventCode(StrEnum):
     CANDIDATE_ABSENT = "candidate_absent"
     CANDIDATE_PRESENT = "candidate_present"
     CANDIDATE_UNKNOWN = "candidate_unknown"
+    FULL_AUDIT_REQUIRED = "full_audit_required"
     ASSESSMENT_COMPLETED = "assessment_completed"
     AUDIT_COMPLETED = "audit_completed"
     PREREQUISITE_FAILED = "prerequisite_failed"

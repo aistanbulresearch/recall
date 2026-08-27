@@ -139,7 +139,7 @@ def test_each_failure_code_accepts_only_its_closed_details_schema(
         _build_failure(code, details=invalid)
 
 
-def test_failure_registry_has_exact_27_code_projection_snapshot() -> None:
+def test_failure_registry_has_exact_28_code_projection_snapshot() -> None:
     expected = {
         "privacy_not_accepted": ("privacy_accepted", "FAIL", ("privacy_not_accepted",)),
         "contract_unknown_field": ("assessment_valid", "FAIL", ("assessment_invalid",)),
@@ -155,6 +155,7 @@ def test_failure_registry_has_exact_27_code_projection_snapshot() -> None:
         "source_schema_drift": ("source_schema_valid", "FAIL", ("source_schema_invalid",)),
         "candidate_delta_unknown": ("candidate_delta_state", "UNKNOWN", ("candidate_delta_not_evaluated",)),
         "agent_schema_invalid": ("assessment_valid", "FAIL", ("assessment_invalid",)),
+        "agent_timeout": None,
         "citation_mismatch": ("all_material_claims_verified", "FAIL", ("material_claim_unverified",)),
         "counter_evidence_incomplete": ("counter_evidence_complete", "FAIL", ("counter_evidence_incomplete",)),
         "audit_incomplete": ("citation_audit_complete", "FAIL", ("citation_audit_incomplete",)),
@@ -180,8 +181,8 @@ def test_failure_registry_has_exact_27_code_projection_snapshot() -> None:
         for code, projection in FAILURE_REGISTRY.items()
     }
 
-    assert len(FailureCode) == 27
-    assert len(FAILURE_REGISTRY) == 27
+    assert len(FailureCode) == 28
+    assert len(FAILURE_REGISTRY) == 28
     assert actual == expected
     assert MEMORY_AUTHORITY_CONFLICT_PROJECTION.fact_name == "assessment_valid"
     assert MEMORY_AUTHORITY_CONFLICT_PROJECTION.fact_state is FactState.FAIL

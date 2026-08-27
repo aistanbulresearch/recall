@@ -85,7 +85,10 @@ class FirestoreTerminalMixin:
                 or current.lease_epoch != lease_epoch
             ):
                 raise ContractError("stale_write_rejected", run_id)
-            if current.state is not ScanRunState.POLICY_EVALUATION:
+            if (
+                target is not ScanRunState.HALTED
+                and current.state is not ScanRunState.POLICY_EVALUATION
+            ):
                 raise ContractError("contract_transition_invalid", current.state.value)
             require_transition(current.state, closed_event, target)
             if current.lease_expires_at is not None and now >= current.lease_expires_at:

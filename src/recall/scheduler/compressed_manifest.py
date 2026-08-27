@@ -20,6 +20,7 @@ from .compressed_identity import (
 from .compressed_plan import CompressedCycle, CompressedPlan, TRIGGER_CODE
 from .compressed_preparation import CompressedPreparationBundle
 from .history import DAY1_EXECUTED_AT
+from .full_audit_phase import FullAuditPhaseResult, outcome_to_wire
 
 
 DAY1_SCHEDULED_FOR = "2026-08-25T15:00:00Z"
@@ -39,7 +40,9 @@ def build_compressed_manifest(
     reused_run_ids: Sequence[str],
     bundle: CompressedPreparationBundle,
     previous_manifest: Mapping[str, object] | None,
-    headroom_receipt: Mapping[str, object] | None,
+    ramp_gate_receipt: Mapping[str, object] | None,
+    write_metrics: Mapping[str, object] | None,
+    agent_phase: FullAuditPhaseResult | None,
     executed_at: datetime,
 ) -> dict[str, object]:
     authoritative = tuple(sorted(item.run_id for item in run_records))
@@ -49,10 +52,24 @@ def build_compressed_manifest(
         previous_manifest=previous_manifest,
         bundle=bundle,
     )
+    schema_version = (
+        "3.2.0"
+        if cycle.execution_profile == "FULL_AUDIT_V1"
+        else ("3.0.0" if cycle.cycle_index < 3 else "3.1.0")
+    )
+    if (agent_phase is None) is (cycle.execution_profile == "FULL_AUDIT_V1"):
+        raise RuntimeError("compressed_agent_phase_binding_invalid")
+    agent_qualified = agent_phase is None or (
+        int(agent_phase.summary["halted_runs"]) == 0
+        and int(agent_phase.summary["incomplete_runs"]) == 0
+        and int(agent_phase.summary["not_evaluated_runs"]) == 0
+        and int(agent_phase.summary["complete_runs"])
+        == int(agent_phase.summary["total_runs"])
+    )
     history.append(
         {
             "sequence_index": len(history) + 1,
-            "source_schema_version": "CohortDayManifest/3.0.0",
+            "source_schema_version": f"CohortDayManifest/{schema_version}",
             "cycle_id": cycle.cycle_id,
             "cycle_index": cycle.cycle_index,
             "cohort_due_date": cycle.cohort_due_date.isoformat(),
@@ -63,7 +80,7 @@ def build_compressed_manifest(
             "executed_at": _timestamp(executed_at),
             "runs_created": len(authoritative),
             "runs_predicted": cycle.runs_predicted,
-            "execution_status": "COMPLETE",
+            "execution_status": "COMPLETE" if agent_qualified else "INCOMPLETE",
             "failure_receipt_id": None,
             "evidence_state": "LIVE_INFRASTRUCTURE_SYNTHETIC_DATA",
             "schedule_mode": plan.schedule_mode,
@@ -105,56 +122,101 @@ def build_compressed_manifest(
     if previous_manifest is not None:
         previous_id = str(previous_manifest["artifact_id"])
         inputs.add(previous_id)
-    if headroom_receipt is not None:
-        inputs.add(str(headroom_receipt["artifact_id"]))
-    matched = len(authoritative) == cycle.runs_predicted
+    if ramp_gate_receipt is not None:
+        inputs.add(str(ramp_gate_receipt["artifact_id"]))
+    if agent_phase is not None:
+        for outcome in agent_phase.outcomes:
+            inputs.update(outcome.agent_execution_receipt_ids)
+            inputs.update(outcome.failure_receipt_ids)
+            if outcome.citation_audit_receipt_id is not None:
+                inputs.add(outcome.citation_audit_receipt_id)
+            if outcome.policy_decision_id is not None:
+                inputs.add(outcome.policy_decision_id)
+    predicted_match = len(authoritative) == cycle.runs_predicted
+    parity_match = (
+        len(newly_created_run_ids) == cycle.runs_predicted
+        and len(reused_run_ids) == 0
+    )
+    qualified = (predicted_match if cycle.cycle_index < 3 else (
+        predicted_match
+        and parity_match
+        and write_metrics is not None
+        and write_metrics["persistence_surface"] == "LIVE_FIRESTORE"
+        and int(write_metrics["effective_write_millis_per_case"]) <= 2000
+    )) and agent_qualified
+    payload = {
+        "day_index": cycle.cycle_index + 1,
+        "selected_for_date": cycle.cohort_due_date.isoformat(),
+        "scheduled_for": cycle.schedule_epoch,
+        "source_commit": source_commit,
+        "image_digest": image_digest,
+        "trigger_code": TRIGGER_CODE,
+        "previous_manifest_id": previous_id,
+        "managed_history_starts_at_day_index": 2,
+        "cycle_id": cycle.cycle_id,
+        "cycle_index": cycle.cycle_index,
+        "plan_version": plan.version,
+        "plan_sha256": plan.sha256,
+        "cohort_due_date": cycle.cohort_due_date.isoformat(),
+        "window_start": cycle.schedule_epoch,
+        "window_end": _timestamp(cycle.window_end),
+        "schedule_mode": plan.schedule_mode,
+        "headroom_receipt_id": None,
+        "delta": {
+            "selected_case_ids": sorted(item.case_id for item in selected_cases),
+            "excluded_case_ids": sorted(excluded_case_ids),
+            "newly_created_run_ids": sorted(newly_created_run_ids),
+            "reused_run_ids": sorted(reused_run_ids),
+            "authoritative_run_ids": list(authoritative),
+            "runs_predicted": cycle.runs_predicted,
+            "prediction_match": predicted_match,
+        },
+        "cumulative": _cumulative(history),
+        "cases": cases,
+        "vcv_anchors": anchors,
+        "execution_history": history,
+    }
+    if cycle.cycle_index >= 3:
+        assert ramp_gate_receipt is not None and write_metrics is not None
+        payload.update(
+            {
+                "epoch_label": cycle.epoch_label,
+                "evaluation_role": cycle.evaluation_role,
+                "ramp_gate_receipt_id": str(ramp_gate_receipt["artifact_id"]),
+                "write_metrics": dict(write_metrics),
+                "parity": {
+                    "expected_newly_created_runs": cycle.runs_predicted,
+                    "actual_newly_created_runs": len(newly_created_run_ids),
+                    "expected_reused_runs": 0,
+                    "actual_reused_runs": len(reused_run_ids),
+                    "new_epoch_required": True,
+                    "same_write_path_as_ramp": True,
+                    "parity_match": parity_match,
+                },
+            }
+        )
+    if agent_phase is not None:
+        payload.update(
+            {
+                "agent_execution_summary": dict(agent_phase.summary),
+                "run_outcomes": [
+                    outcome_to_wire(item, epoch_label=cycle.epoch_label)
+                    for item in agent_phase.outcomes
+                ],
+            }
+        )
     return build_artifact(
         schema_name="CohortDayManifest",
-        schema_version="3.0.0",
+        schema_version=schema_version,
         artifact_id=manifest_artifact_id(plan, cycle),
         case_id=COHORT_ID,
         run_id=tick_run_id(plan, cycle),
-        producer={"component": "managed-cohort-scheduler", "version": "3.0.0", "identity": "cohort-scheduler"},
+        producer={"component": "managed-cohort-scheduler", "version": schema_version, "identity": "cohort-scheduler"},
         created_at=_timestamp(executed_at),
         input_artifact_ids=tuple(sorted(inputs)),
         data_mode=DataMode.SYNTHETIC,
-        status=ArtifactStatus.VALID if matched else ArtifactStatus.INCOMPLETE,
-        payload={
-            "day_index": cycle.cycle_index + 1,
-            "selected_for_date": cycle.cohort_due_date.isoformat(),
-            "scheduled_for": cycle.schedule_epoch,
-            "source_commit": source_commit,
-            "image_digest": image_digest,
-            "trigger_code": TRIGGER_CODE,
-            "previous_manifest_id": previous_id,
-            "managed_history_starts_at_day_index": 2,
-            "cycle_id": cycle.cycle_id,
-            "cycle_index": cycle.cycle_index,
-            "plan_version": plan.version,
-            "plan_sha256": plan.sha256,
-            "cohort_due_date": cycle.cohort_due_date.isoformat(),
-            "window_start": cycle.schedule_epoch,
-            "window_end": _timestamp(cycle.window_end),
-            "schedule_mode": plan.schedule_mode,
-            "headroom_receipt_id": (
-                None
-                if headroom_receipt is None
-                else str(headroom_receipt["artifact_id"])
-            ),
-            "delta": {
-                "selected_case_ids": sorted(item.case_id for item in selected_cases),
-                "excluded_case_ids": sorted(excluded_case_ids),
-                "newly_created_run_ids": sorted(newly_created_run_ids),
-                "reused_run_ids": sorted(reused_run_ids),
-                "authoritative_run_ids": list(authoritative),
-                "runs_predicted": cycle.runs_predicted,
-                "prediction_match": matched,
-            },
-            "cumulative": _cumulative(history),
-            "cases": cases,
-            "vcv_anchors": anchors,
-            "execution_history": history,
-        },
+        status=ArtifactStatus.VALID if qualified else ArtifactStatus.INCOMPLETE,
+        payload=payload,
         authorized_producers=PRODUCER_REGISTRY,
     )
 
@@ -245,7 +307,7 @@ def _prior_history(
     prior_cycle = plan.cycles[cycle.cycle_index - 2]
     prior_plan = evidence_plan(plan, prior_cycle)
     if (
-        parsed.schema_version != "3.0.0"
+        parsed.schema_version not in {"3.0.0", "3.1.0", "3.2.0"}
         or parsed.payload.cycle_id != prior_cycle.cycle_id
         or parsed.payload.plan_sha256 != prior_plan.sha256
         or parsed.artifact_id != evidence_manifest_artifact_id(plan, prior_cycle)

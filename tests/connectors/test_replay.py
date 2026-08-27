@@ -139,6 +139,19 @@ def test_function_tool_result_is_json_serializable_and_hash_derived() -> None:
     assert len(result["snapshot_payload"]["snapshot_hash"]) == 64
 
 
+def test_source_projection_derives_exact_allele_and_classification_from_frozen_bytes() -> None:
+    connector = ReplayConnector(REPO_ROOT, MANIFEST)
+
+    baseline = connector.source_projection("clinvar_positive_v1")
+    later = connector.source_projection("clinvar_positive_v5")
+    negative = connector.source_projection("clinvar_negative_splice")
+
+    assert baseline["transcript_hgvs"] == "NM_000059.4:c.7522G>C"
+    assert baseline["aggregate_classification"] == "UNCERTAIN_SIGNIFICANCE"
+    assert later["aggregate_classification"] == "CONFLICTING"
+    assert negative["transcript_hgvs"] == "NM_000059.4:c.425+3A>G"
+
+
 def test_adk_function_tool_accepts_sync_replay_connector() -> None:
     connector = ReplayConnector(REPO_ROOT, MANIFEST)
 

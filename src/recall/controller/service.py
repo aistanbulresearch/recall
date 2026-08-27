@@ -4,7 +4,13 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from recall.contracts import ArtifactStatus, ContractError, DataMode, build_artifact
+from recall.contracts import (
+    ArtifactStatus,
+    ContractError,
+    DataMode,
+    ExecutionProfile,
+    build_artifact,
+)
 from recall.contracts.enums import (
     ScanRunEventCode,
     ScanRunState,
@@ -60,6 +66,7 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
         trace_id: str,
         deadline_at: str,
         now: datetime,
+        execution_profile: ExecutionProfile | None = None,
     ) -> CreateRunResult:
         key = scan_idempotency_key(
             watch_case_id=watch_case_id,
@@ -72,9 +79,24 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
         if watch_case is None:
             raise ContractError("stale_write_rejected", watch_case_id)
         artifact_id = str(uuid5(UUID(run_id), "scan-run-artifact"))
+        payload = {
+            "watch_case_id": watch_case_id,
+            "state": ScanRunState.CREATED.value,
+            "scheduled_for": schedule_epoch,
+            "attempt": 0,
+            "lease_epoch": 0,
+            "deadline_at": deadline_at,
+            "budget_snapshot": dict(budget_snapshot),
+            "idempotency_key": key,
+            "trace_id": trace_id,
+            "terminal_policy_decision_id": None,
+            "failure_receipt_ids": [],
+        }
+        if execution_profile is not None:
+            payload["execution_profile"] = execution_profile.value
         wire = build_artifact(
             schema_name="ScanRun",
-            schema_version="1.0.0",
+            schema_version="1.1.0" if execution_profile is not None else "1.0.0",
             artifact_id=artifact_id,
             case_id=watch_case_id,
             run_id=run_id,
@@ -89,19 +111,7 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
             ),
             data_mode=data_mode,
             status=ArtifactStatus.VALID,
-            payload={
-                "watch_case_id": watch_case_id,
-                "state": ScanRunState.CREATED.value,
-                "scheduled_for": schedule_epoch,
-                "attempt": 0,
-                "lease_epoch": 0,
-                "deadline_at": deadline_at,
-                "budget_snapshot": dict(budget_snapshot),
-                "idempotency_key": key,
-                "trace_id": trace_id,
-                "terminal_policy_decision_id": None,
-                "failure_receipt_ids": [],
-            },
+            payload=payload,
             authorized_producers=PRODUCER_REGISTRY,
         )
         record, created = self._ledger.create_scan_run(

@@ -13,7 +13,7 @@ PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
 )
 EXPECTED_PLAN_SHA256 = (
-    "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89"
+    "7d585c432fa85c4e32a7aec018b060ba38d1589b9ca9f2009dded10a09ca4e27"
 )
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
@@ -32,6 +32,9 @@ class PredecessorBinding:
     plan_sha256: str | None
     collection_prefix: str | None
     manifest_artifact_id: str | None
+    manifest_content_hash: str | None
+    mode_receipt_artifact_id: str | None
+    mode_receipt_content_hash: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +48,11 @@ class CompressedCycle:
     trigger_policy: str
     predecessor: PredecessorBinding | None
     write_path: str
+    epoch_label: str
+    evaluation_role: str
+    execution_timeout_seconds: int
+    activation: str
+    execution_profile: str
 
     @property
     def schedule_epoch(self) -> str:
@@ -57,6 +65,7 @@ class CompressedPlan:
     sha256: str
     schedule_mode: str
     decision_reference: str
+    window_semantics: str
     cycles: tuple[CompressedCycle, ...]
 
     def by_id(self, cycle_id: str) -> CompressedCycle:
@@ -97,25 +106,29 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
         "decision_reference",
         "schedule_mode",
         "cycles",
+        "window_semantics",
     }:
         raise RuntimeError("compressed_plan_shape_invalid")
+    schema_version = value["schema_version"]
     if (
-        value["schema_version"] != "2.1.0"
+        schema_version not in {"2.2.0", "2.3.0"}
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
+        or value["window_semantics"] != "TRIGGER_START_ONLY"
     ):
         raise RuntimeError("compressed_plan_declaration_invalid")
     raw_cycles = value["cycles"]
     if not isinstance(raw_cycles, list):
         raise RuntimeError("compressed_plan_cycles_invalid")
-    cycles = tuple(_parse_cycle(item) for item in raw_cycles)
-    _validate_cycles(cycles)
+    cycles = tuple(_parse_cycle(item, schema_version=schema_version) for item in raw_cycles)
+    _validate_cycles(cycles, schema_version=schema_version)
     return CompressedPlan(
         version=PLAN_VERSION,
         sha256=sha256,
         schedule_mode=SCHEDULE_MODE,
         decision_reference=DECISION_REFERENCE,
+        window_semantics="TRIGGER_START_ONLY",
         cycles=cycles,
     )
 
@@ -127,10 +140,13 @@ def resolve_declared_cycle(now: datetime, plan: CompressedPlan) -> CompressedCyc
     )
     if len(matches) != 1:
         raise RuntimeError(f"compressed_cycle_window_match_invalid:{len(matches)}")
-    return matches[0]
+    resolved = matches[0]
+    if resolved.activation == "PROVISIONAL_R1_GATED":
+        raise RuntimeError("compressed_cycle_not_active")
+    return resolved
 
 
-def _parse_cycle(value: Any) -> CompressedCycle:
+def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
     fields = {
         "cycle_id",
         "cycle_index",
@@ -141,7 +157,12 @@ def _parse_cycle(value: Any) -> CompressedCycle:
         "trigger_policy",
         "predecessor",
         "write_path",
+        "epoch_label",
+        "evaluation_role",
+        "execution_timeout_seconds",
     }
+    if schema_version == "2.3.0":
+        fields.update({"activation", "execution_profile"})
     if not isinstance(value, dict) or set(value) != fields:
         raise RuntimeError("compressed_cycle_shape_invalid")
     try:
@@ -150,12 +171,16 @@ def _parse_cycle(value: Any) -> CompressedCycle:
         raise RuntimeError("compressed_cycle_due_date_invalid") from exc
     index = value["cycle_index"]
     predicted = value["runs_predicted"]
+    timeout = value["execution_timeout_seconds"]
     if (
         isinstance(index, bool)
         or not isinstance(index, int)
         or isinstance(predicted, bool)
         or not isinstance(predicted, int)
         or predicted < 0
+        or isinstance(timeout, bool)
+        or not isinstance(timeout, int)
+        or timeout <= 0
     ):
         raise RuntimeError("compressed_cycle_count_invalid")
     return CompressedCycle(
@@ -168,6 +193,19 @@ def _parse_cycle(value: Any) -> CompressedCycle:
         trigger_policy=_text(value["trigger_policy"]),
         predecessor=_parse_predecessor(value["predecessor"]),
         write_path=_text(value["write_path"]),
+        epoch_label=_text(value["epoch_label"]),
+        evaluation_role=_text(value["evaluation_role"]),
+        execution_timeout_seconds=timeout,
+        activation=(
+            _text(value["activation"])
+            if schema_version == "2.3.0"
+            else "LEGACY_PLAN5"
+        ),
+        execution_profile=(
+            _text(value["execution_profile"])
+            if schema_version == "2.3.0"
+            else "CREATE_ONLY_V1"
+        ),
     )
 
 
@@ -176,7 +214,8 @@ def _parse_predecessor(value: Any) -> PredecessorBinding | None:
         return None
     fields = {
         "binding", "cycle_id", "plan_sha256", "collection_prefix",
-        "manifest_artifact_id",
+        "manifest_artifact_id", "manifest_content_hash",
+        "mode_receipt_artifact_id", "mode_receipt_content_hash",
     }
     if not isinstance(value, dict) or set(value) != fields:
         raise RuntimeError("compressed_predecessor_shape_invalid")
@@ -184,21 +223,37 @@ def _parse_predecessor(value: Any) -> PredecessorBinding | None:
     cycle_id = _text(value["cycle_id"])
     if binding == "CURRENT_PLAN":
         if any(value[field] is not None for field in (
-            "plan_sha256", "collection_prefix", "manifest_artifact_id"
+            "plan_sha256", "collection_prefix", "manifest_artifact_id",
+            "manifest_content_hash", "mode_receipt_artifact_id",
+            "mode_receipt_content_hash",
         )):
             raise RuntimeError("compressed_predecessor_current_binding_invalid")
-        return PredecessorBinding(binding, cycle_id, None, None, None)
+        return PredecessorBinding(
+            binding, cycle_id, None, None, None, None, None, None
+        )
     if binding != "EXTERNAL_PLAN":
         raise RuntimeError("compressed_predecessor_binding_invalid")
     plan_sha = _text(value["plan_sha256"])
     prefix = _text(value["collection_prefix"])
     manifest_id = _text(value["manifest_artifact_id"])
-    if not _SHA256.fullmatch(plan_sha):
+    manifest_hash = _text(value["manifest_content_hash"])
+    mode_id = _text(value["mode_receipt_artifact_id"])
+    mode_hash = _text(value["mode_receipt_content_hash"])
+    if (
+        not _SHA256.fullmatch(plan_sha)
+        or not _SHA256.fullmatch(manifest_hash)
+        or not _SHA256.fullmatch(mode_hash)
+    ):
         raise RuntimeError("compressed_predecessor_plan_hash_invalid")
-    return PredecessorBinding(binding, cycle_id, plan_sha, prefix, manifest_id)
+    return PredecessorBinding(
+        binding, cycle_id, plan_sha, prefix, manifest_id,
+        manifest_hash, mode_id, mode_hash,
+    )
 
 
-def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
+def _validate_cycles(
+    cycles: tuple[CompressedCycle, ...], *, schema_version: str
+) -> None:
     if not cycles:
         raise RuntimeError("compressed_plan_table_empty")
     if [item.cycle_id for item in cycles] != [
@@ -207,7 +262,7 @@ def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
         range(1, len(cycles) + 1)
     ):
         raise RuntimeError("compressed_plan_cycle_order_invalid")
-    if len({item.cohort_due_date for item in cycles}) != len(cycles):
+    if len(cycles) != 6 or len({item.cohort_due_date for item in cycles}) != len(cycles):
         raise RuntimeError("compressed_plan_due_date_collision")
     for position, item in enumerate(cycles):
         if item.window_end <= item.window_start:
@@ -223,12 +278,36 @@ def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
                 raise RuntimeError("compressed_predecessor_cycle_invalid")
         elif item.predecessor is not None:
             raise RuntimeError("compressed_c1_predecessor_forbidden")
-    if cycles[0].write_path != "EXTERNAL_IMMUTABLE":
+    if any(item.write_path != "EXTERNAL_IMMUTABLE" for item in cycles[:2]):
         raise RuntimeError("compressed_c1_execution_binding_invalid")
-    if any(item.write_path != "SERIAL_VERIFIED" for item in cycles[1:5]):
-        raise RuntimeError("compressed_serial_write_path_invalid")
-    if cycles[-1].write_path != "FIRESTORE_BATCH_V1":
+    if any(item.write_path != "FIRESTORE_BATCH_V1" for item in cycles[2:]):
         raise RuntimeError("compressed_c6_batch_gate_missing")
+    expected_roles = (
+        "IMMUTABLE_EXECUTED", "IMMUTABLE_EXECUTED",
+        "RAMP_FIRST_PASS", "RAMP_FIRST_PASS", "RAMP_FIRST_PASS",
+        "PORTFOLIO_REASSESSMENT",
+    )
+    if tuple(item.evaluation_role for item in cycles) != expected_roles:
+        raise RuntimeError("compressed_evaluation_role_invalid")
+    if schema_version == "2.3.0":
+        if tuple(item.execution_profile for item in cycles) != (
+            "CREATE_ONLY_V1",
+            "CREATE_ONLY_V1",
+            "FULL_AUDIT_V1",
+            "FULL_AUDIT_V1",
+            "FULL_AUDIT_V1",
+            "FULL_AUDIT_V1",
+        ):
+            raise RuntimeError("compressed_execution_profile_invalid")
+        if tuple(item.activation for item in cycles) != (
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "ACTIVE",
+            "PROVISIONAL_R1_GATED",
+            "PROVISIONAL_R1_GATED",
+            "PROVISIONAL_R1_GATED",
+        ):
+            raise RuntimeError("compressed_cycle_activation_invalid")
     c2_binding = cycles[1].predecessor
     if (
         c2_binding is None
@@ -238,11 +317,29 @@ def _validate_cycles(cycles: tuple[CompressedCycle, ...]) -> None:
         or c2_binding.manifest_artifact_id != PLAN3_C1_MANIFEST_ID
     ):
         raise RuntimeError("compressed_c2_external_predecessor_invalid")
+    if cycles[2].predecessor is None or cycles[2].predecessor.binding != "EXTERNAL_PLAN":
+        raise RuntimeError("compressed_c3_external_predecessor_invalid")
     if any(
         item.predecessor is None or item.predecessor.binding != "CURRENT_PLAN"
-        for item in cycles[2:]
+        for item in cycles[3:]
     ):
         raise RuntimeError("compressed_current_predecessor_invalid")
+
+    # PASS qualification is end-to-end write plus exact readback <=2 s/case.
+    # Freeze the worst-case review gaps, not merely nominal trigger spacing.
+    for current, successor in zip(cycles[2:5], cycles[3:6], strict=True):
+        latest_qualified = current.window_end + timedelta(
+            seconds=current.runs_predicted * 2
+        )
+        if successor.window_start - latest_qualified < timedelta(minutes=20):
+            raise RuntimeError("compressed_qualified_review_gap_invalid")
+    final_latest = cycles[5].window_end + timedelta(
+        seconds=cycles[5].runs_predicted * 2
+    )
+    if final_latest > cycles[5].window_start + timedelta(
+        seconds=cycles[5].execution_timeout_seconds
+    ):
+        raise RuntimeError("compressed_final_timeout_invalid")
 
 
 def verify_manifest_against_plan(
@@ -276,7 +373,7 @@ def verify_manifest_against_plan(
     ]
     if (
         manifest.schema_name != "CohortDayManifest"
-        or manifest.schema_version != "3.0.0"
+        or manifest.schema_version not in {"3.0.0", "3.1.0", "3.2.0"}
         or payload.plan_version != plan.version
         or payload.plan_sha256 != plan.sha256
         or payload.schedule_mode != plan.schedule_mode
@@ -286,6 +383,12 @@ def verify_manifest_against_plan(
         != expected_legacy_failure_receipt_id
     ):
         raise RuntimeError("compressed_manifest_plan_mismatch")
+    completed_at = datetime.fromisoformat(manifest.created_at.replace("Z", "+00:00"))
+    if not (
+        cycle.window_start <= completed_at
+        <= cycle.window_start + timedelta(seconds=cycle.execution_timeout_seconds)
+    ):
+        raise RuntimeError("compressed_manifest_completion_timeout")
     for row, expected_cycle in zip(
         compressed_rows, plan.cycles[: cycle.cycle_index], strict=True
     ):

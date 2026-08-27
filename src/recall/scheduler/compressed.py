@@ -1,18 +1,25 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
-from recall.contracts import DataMode, parse_artifact
+from recall.agents.full_audit import FullAuditCoordinator
+from recall.contracts import DataMode, ExecutionProfile, parse_artifact
 from recall.controller import Controller
 from recall.controller.hashes import scan_idempotency_key
+from recall.connectors.live import LiveSourceRecord
 from recall.ledger.port import LedgerPort
 from recall.ledger.producers import PRODUCER_REGISTRY
 
-from .compressed_cohort import all_compressed_cases, cases_for_cycle
-from .compressed_headroom import require_headroom_pass
+from .compressed_batch import BatchCaseResult, execute_verified_batch
+from .compressed_cohort import (
+    CompressedCohortCase,
+    cases_for_cycle,
+    portfolio_cases,
+)
+from .compressed_ramp_gate import require_ramp_gate_pass
 from .compressed_identity import (
     evidence_legacy_failure_receipt_id,
     manifest_artifact_id,
@@ -33,6 +40,7 @@ from .compressed_preparation import (
     CompressedPreparationBundle,
     verify_prepared_cycle,
 )
+from .full_audit_phase import FullAuditPhaseResult, execute_full_audit_phase
 from .config import BUDGET_SNAPSHOT
 
 
@@ -44,7 +52,7 @@ class CompressedCycleResult:
     reused_run_ids: tuple[str, ...]
     authoritative_run_ids: tuple[str, ...]
     manifest_artifact_id: str
-    data_mode_receipt_id: str
+    data_mode_receipt_id: str | None
 
 
 class CompressedCycleScheduler:
@@ -57,6 +65,8 @@ class CompressedCycleScheduler:
         bundle: CompressedPreparationBundle,
         source_commit: str,
         image_digest: str,
+        full_audit_coordinator: FullAuditCoordinator | None = None,
+        refetch_fetcher: Callable[[str], LiveSourceRecord] | None = None,
     ) -> None:
         self._ledger = ledger
         self._plan = plan
@@ -64,6 +74,8 @@ class CompressedCycleScheduler:
         self._bundle = bundle
         self._source_commit = source_commit
         self._image_digest = image_digest
+        self._full_audit = full_audit_coordinator
+        self._refetch_fetcher = refetch_fetcher
         self.controller = Controller(ledger)
 
     def trigger(
@@ -71,31 +83,27 @@ class CompressedCycleScheduler:
         *,
         now: datetime,
         previous_manifest: Mapping[str, object] | None,
-        headroom_receipt: Mapping[str, object] | None = None,
-        headroom_prior_ledgers: Mapping[str, LedgerPort] | None = None,
+        ramp_gate_receipt: Mapping[str, object] | None = None,
     ) -> CompressedCycleResult:
         resolved = resolve_declared_cycle(now, self._plan)
         if resolved != self._cycle:
             raise RuntimeError("compressed_cycle_resolution_mismatch")
         if self._cycle.write_path == "EXTERNAL_IMMUTABLE":
             raise RuntimeError("compressed_cycle_external_immutable")
-        if self._cycle.write_path == "FIRESTORE_BATCH_V1":
-            raise RuntimeError("compressed_batch_write_path_required")
         verify_prepared_cycle(
             self._ledger, self._bundle, self._plan, self._cycle
         )
-        if self._cycle.cycle_id == "c6":
-            if headroom_receipt is None or headroom_prior_ledgers is None:
-                raise RuntimeError("compressed_headroom_receipt_missing")
-            require_headroom_pass(
-                headroom_receipt,
+        if self._cycle.cycle_index >= 3:
+            if ramp_gate_receipt is None:
+                raise RuntimeError("compressed_ramp_gate_receipt_missing")
+            require_ramp_gate_pass(
+                ramp_gate_receipt,
                 plan=self._plan,
-                c6_cycle=self._cycle,
-                prior_ledgers=headroom_prior_ledgers,
-                c6_ledger=self._ledger,
+                target_cycle=self._cycle,
+                target_ledger=self._ledger,
             )
         selected = cases_for_cycle(self._cycle)
-        population = all_compressed_cases(self._plan.cycles)
+        population = portfolio_cases(self._plan.cycles)
         selected_ids = {item.case_id for item in selected}
         excluded = sorted(
             item.case_id for item in population if item.case_id not in selected_ids
@@ -106,66 +114,37 @@ class CompressedCycleScheduler:
             self._reconcile_existing_context(
                 existing,
                 previous_manifest=previous_manifest,
-                headroom_receipt=headroom_receipt,
+                ramp_gate_receipt=ramp_gate_receipt,
             )
-        created = []
-        reused = []
-        watch_records = []
-        run_records = []
-        for item in selected:
-            record = self._ledger.get_watch_case(item.case_id)
-            if record is None or record.next_scan_at != self._cycle.schedule_epoch:
-                raise RuntimeError("compressed_watch_case_not_due")
-            wire = self._ledger.get_artifact(record.artifact_id)
-            if wire is None:
-                raise RuntimeError("compressed_watch_case_artifact_missing")
-            watch = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-            receipt_id = str(watch.input_artifact_ids[0])
-            key = scan_idempotency_key(
-                watch_case_id=item.case_id,
-                source_cursors=dict(record.source_cursors),
-                schedule_epoch=self._cycle.schedule_epoch,
-                data_mode=DataMode.SYNTHETIC.value,
+        if self._cycle.write_path == "FIRESTORE_BATCH_V1":
+            batch = execute_verified_batch(
+                selected,
+                create_one=lambda item: self._create_case(item, now=now),
+                ledger=self._ledger,
+                started_at=now,
             )
-            expected_run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
-            existing_run = self._ledger.get_scan_run(expected_run_id)
-            if existing_run is not None:
-                existing_wire = self._ledger.get_artifact(
-                    str(existing_run.scan_run_artifact_id)
-                )
-                if existing_wire is None:
-                    raise RuntimeError("compressed_existing_scan_run_missing")
-                existing_artifact = parse_artifact(
-                    existing_wire, authorized_producers=PRODUCER_REGISTRY
-                )
-                if (
-                    existing_artifact.schema_name != "ScanRun"
-                    or existing_artifact.run_id != expected_run_id
-                    or existing_artifact.payload.scheduled_for
-                    != self._cycle.schedule_epoch
-                    or existing_artifact.payload.watch_case_id != item.case_id
-                ):
-                    raise RuntimeError("compressed_existing_scan_run_mismatch")
-                reused.append(existing_run.run_id)
-                watch_records.append(record)
-                run_records.append(existing_run)
-                continue
-            result = self.controller.create_run(
-                watch_case_id=item.case_id,
-                source_cursors=dict(record.source_cursors),
-                schedule_epoch=self._cycle.schedule_epoch,
-                data_mode=DataMode.SYNTHETIC,
-                privacy_receipt_id=receipt_id,
-                expected_watch_case_version=record.version,
-                triggered_at=now,
-                budget_snapshot=BUDGET_SNAPSHOT,
-                trace_id=trace_id(self._plan, self._cycle, item.case_id),
-                deadline_at=self._cycle.window_end.isoformat().replace("+00:00", "Z"),
-                now=now,
+            outcomes = batch.outcomes
+            write_metrics = batch.metrics()
+        elif self._cycle.write_path == "SERIAL_VERIFIED" and self._cycle.cycle_index < 3:
+            outcomes = tuple(self._create_case(item, now=now) for item in selected)
+            write_metrics = None
+        else:
+            raise RuntimeError("compressed_write_path_invalid")
+        created = [item.run_record.run_id for item in outcomes if item.created]
+        reused = [item.run_record.run_id for item in outcomes if not item.created]
+        watch_records = [item.watch_record for item in outcomes]
+        run_records = [item.run_record for item in outcomes]
+        agent_phase: FullAuditPhaseResult | None = None
+        if self._cycle.execution_profile == "FULL_AUDIT_V1":
+            if self._full_audit is None:
+                raise RuntimeError("full_audit_coordinator_required")
+            agent_phase = execute_full_audit_phase(
+                tuple(outcomes),
+                coordinator=self._full_audit,
+                bundle=self._bundle,
+                cycle=self._cycle,
+                refetch_fetcher=self._refetch_fetcher,
             )
-            (created if result.created else reused).append(result.record.run_id)
-            watch_records.append(record)
-            run_records.append(result.record)
         if existing is None:
             manifest = build_compressed_manifest(
                 plan=self._plan,
@@ -180,8 +159,19 @@ class CompressedCycleScheduler:
                 reused_run_ids=reused,
                 bundle=self._bundle,
                 previous_manifest=previous_manifest,
-                headroom_receipt=headroom_receipt,
-                executed_at=now,
+                ramp_gate_receipt=ramp_gate_receipt,
+                write_metrics=write_metrics,
+                agent_phase=agent_phase,
+                executed_at=(
+                    now
+                    if write_metrics is None
+                    else datetime.fromisoformat(
+                        str(write_metrics["completed_at"]).replace("Z", "+00:00")
+                    )
+                    + timedelta(
+                        milliseconds=(0 if agent_phase is None else agent_phase.elapsed_ms)
+                    )
+                ),
             )
             verify_manifest_against_plan(
                 parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY),
@@ -195,12 +185,30 @@ class CompressedCycleScheduler:
             manifest = existing
             parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
             if (
-                parsed.schema_version != "3.0.0"
+                parsed.schema_version
+                != (
+                    "3.2.0"
+                    if self._cycle.execution_profile == "FULL_AUDIT_V1"
+                    else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
+                )
                 or parsed.payload.cycle_id != self._cycle.cycle_id
                 or tuple(parsed.payload.delta["authoritative_run_ids"])
                 != tuple(sorted(item.run_id for item in run_records))
             ):
                 raise RuntimeError("compressed_manifest_reconciliation_failed")
+        parsed_manifest = parse_artifact(
+            manifest, authorized_producers=PRODUCER_REGISTRY
+        )
+        if parsed_manifest.status.value != "VALID":
+            return CompressedCycleResult(
+                cycle_id=self._cycle.cycle_id,
+                cohort_due_date=self._cycle.cohort_due_date.isoformat(),
+                newly_created_run_ids=tuple(sorted(created)),
+                reused_run_ids=tuple(sorted(reused)),
+                authoritative_run_ids=tuple(sorted(item.run_id for item in run_records)),
+                manifest_artifact_id=manifest_id,
+                data_mode_receipt_id=None,
+            )
         receipt_id = mode_receipt_artifact_id(self._plan, self._cycle)
         receipt = self._ledger.get_artifact(receipt_id)
         if receipt is None:
@@ -226,12 +234,103 @@ class CompressedCycleScheduler:
             data_mode_receipt_id=receipt_id,
         )
 
+    def _create_case(
+        self, item: CompressedCohortCase, *, now: datetime
+    ) -> BatchCaseResult:
+        record = self._ledger.get_watch_case(item.case_id)
+        if record is None or record.next_scan_at != self._cycle.schedule_epoch:
+            raise RuntimeError("compressed_watch_case_not_due")
+        wire = self._ledger.get_artifact(record.artifact_id)
+        if wire is None:
+            raise RuntimeError("compressed_watch_case_artifact_missing")
+        watch = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+        receipt_id = str(watch.input_artifact_ids[0])
+        key = scan_idempotency_key(
+            watch_case_id=item.case_id,
+            source_cursors=dict(record.source_cursors),
+            schedule_epoch=self._cycle.schedule_epoch,
+            data_mode=DataMode.SYNTHETIC.value,
+        )
+        expected_run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
+        existing_run = self._ledger.get_scan_run(expected_run_id)
+        if existing_run is not None:
+            existing_wire = self._ledger.get_artifact(
+                str(existing_run.scan_run_artifact_id)
+            )
+            if existing_wire is None:
+                raise RuntimeError("compressed_existing_scan_run_missing")
+            existing_artifact = parse_artifact(
+                existing_wire, authorized_producers=PRODUCER_REGISTRY
+            )
+            if (
+                existing_artifact.schema_name != "ScanRun"
+                or existing_artifact.run_id != expected_run_id
+                or existing_artifact.payload.scheduled_for
+                != self._cycle.schedule_epoch
+                or existing_artifact.payload.watch_case_id != item.case_id
+            ):
+                raise RuntimeError("compressed_existing_scan_run_mismatch")
+            return BatchCaseResult(
+                item,
+                record,
+                existing_run,
+                False,
+                existing_artifact.content_hash,
+                receipt_id,
+                self._cycle.schedule_epoch,
+                key,
+                trace_id(self._plan, self._cycle, item.case_id),
+                self._deadline(now),
+                BUDGET_SNAPSHOT,
+                self._cycle.execution_profile,
+            )
+        result = self.controller.create_run(
+            watch_case_id=item.case_id,
+            source_cursors=dict(record.source_cursors),
+            schedule_epoch=self._cycle.schedule_epoch,
+            data_mode=DataMode.SYNTHETIC,
+            privacy_receipt_id=receipt_id,
+            expected_watch_case_version=record.version,
+            triggered_at=now,
+            budget_snapshot=BUDGET_SNAPSHOT,
+            trace_id=trace_id(self._plan, self._cycle, item.case_id),
+            deadline_at=self._deadline(now),
+            now=now,
+            execution_profile=(
+                ExecutionProfile.FULL_AUDIT_V1
+                if self._cycle.execution_profile == "FULL_AUDIT_V1"
+                else None
+            ),
+        )
+        created_wire = self._ledger.get_artifact(
+            str(result.record.scan_run_artifact_id)
+        )
+        if created_wire is None:
+            raise RuntimeError("compressed_created_scan_run_missing")
+        created_artifact = parse_artifact(
+            created_wire, authorized_producers=PRODUCER_REGISTRY
+        )
+        return BatchCaseResult(
+            item,
+            record,
+            result.record,
+            result.created,
+            created_artifact.content_hash,
+            receipt_id,
+            self._cycle.schedule_epoch,
+            key,
+            trace_id(self._plan, self._cycle, item.case_id),
+            self._deadline(now),
+            BUDGET_SNAPSHOT,
+            self._cycle.execution_profile,
+        )
+
     def _reconcile_existing_context(
         self,
         manifest: Mapping[str, object],
         *,
         previous_manifest: Mapping[str, object] | None,
-        headroom_receipt: Mapping[str, object] | None,
+        ramp_gate_receipt: Mapping[str, object] | None,
     ) -> None:
         parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
         verify_manifest_against_plan(
@@ -246,18 +345,34 @@ class CompressedCycleScheduler:
             if previous_manifest is None
             else str(previous_manifest["artifact_id"])
         )
-        expected_headroom = (
+        expected_gate = (
             None
-            if headroom_receipt is None
-            else str(headroom_receipt["artifact_id"])
+            if ramp_gate_receipt is None
+            else str(ramp_gate_receipt["artifact_id"])
         )
         if (
-            parsed.schema_version != "3.0.0"
+            parsed.schema_version
+            != (
+                "3.2.0"
+                if self._cycle.execution_profile == "FULL_AUDIT_V1"
+                else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
+            )
             or parsed.payload.cycle_id != self._cycle.cycle_id
             or parsed.payload.plan_sha256 != self._plan.sha256
             or parsed.payload.source_commit != self._source_commit
             or parsed.payload.image_digest != self._image_digest
             or parsed.payload.previous_manifest_id != expected_previous
-            or parsed.payload.headroom_receipt_id != expected_headroom
+            or (
+                self._cycle.cycle_index >= 3
+                and parsed.payload.ramp_gate_receipt_id != expected_gate
+            )
         ):
             raise RuntimeError("compressed_existing_manifest_context_mismatch")
+
+    def _deadline(self, now: datetime) -> str:
+        from datetime import timedelta, timezone
+
+        return (
+            now.astimezone(timezone.utc)
+            + timedelta(seconds=self._cycle.execution_timeout_seconds)
+        ).isoformat().replace("+00:00", "Z")

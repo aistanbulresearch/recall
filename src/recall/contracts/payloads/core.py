@@ -38,6 +38,7 @@ from .receipts import (
     PrivacyReceiptPayload,
     RegistryResolutionPayload,
 )
+from .agent_execution import AgentExecutionReceiptPayload
 from .agentic import (
     DeploymentReceiptPayload,
     EvidenceDeltaPayload,
@@ -47,6 +48,8 @@ from .agentic import (
 )
 from .scheduler import CohortDayManifestPayload
 from .scheduler_v3 import CohortDayManifestV3Payload
+from .scheduler_v31 import CohortDayManifestV31Payload
+from .scheduler_v32 import CohortDayManifestV32Payload
 from .scheduler_legacy import CohortDayManifestV20Payload
 from .cohort_failure import CohortDayFailureReceiptPayload
 from .cohort_history import CohortHistoryReceiptPayload
@@ -144,11 +147,14 @@ Payload = (
     | ManagedPathReceiptPayload
     | CohortDayManifestPayload
     | CohortDayManifestV3Payload
+    | CohortDayManifestV31Payload
+    | CohortDayManifestV32Payload
     | CohortDayManifestV20Payload
     | CohortDayFailureReceiptPayload
     | CohortHistoryReceiptPayload
     | CohortHeadroomReceiptPayload
     | CompressedCycleFailureReceiptPayload
+    | AgentExecutionReceiptPayload
 )
 
 

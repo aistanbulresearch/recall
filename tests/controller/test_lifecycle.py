@@ -47,3 +47,12 @@ def test_unlisted_and_terminal_transitions_are_rejected(
 def test_event_codes_are_closed_enum_values() -> None:
     with pytest.raises(ValueError):
         ScanRunEventCode("free_form_event")
+
+
+def test_full_audit_transition_is_closed_and_always_enters_assessment() -> None:
+    assert (
+        transition_target(
+            ScanRunState.WATCHING, ScanRunEventCode.FULL_AUDIT_REQUIRED
+        )
+        is ScanRunState.ASSESSING
+    )

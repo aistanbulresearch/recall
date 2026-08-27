@@ -22,6 +22,7 @@ class FailureCode(StrEnum):
     SOURCE_SCHEMA_DRIFT = "source_schema_drift"
     CANDIDATE_DELTA_UNKNOWN = "candidate_delta_unknown"
     AGENT_SCHEMA_INVALID = "agent_schema_invalid"
+    AGENT_TIMEOUT = "agent_timeout"
     CITATION_MISMATCH = "citation_mismatch"
     COUNTER_EVIDENCE_INCOMPLETE = "counter_evidence_incomplete"
     AUDIT_INCOMPLETE = "audit_incomplete"
@@ -105,6 +106,7 @@ FAILURE_REGISTRY = MappingProxyType(
             ("candidate_delta_not_evaluated",),
         ),
         FailureCode.AGENT_SCHEMA_INVALID: ASSESSMENT_INVALID,
+        FailureCode.AGENT_TIMEOUT: None,
         FailureCode.CITATION_MISMATCH: FailureProjection(
             "all_material_claims_verified",
             FactState.FAIL,

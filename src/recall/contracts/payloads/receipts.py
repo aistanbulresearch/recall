@@ -8,9 +8,12 @@ from typing import Any
 from ..enums import (
     AuditStatus,
     CitationVerdict,
+    EndpointClass,
+    ExecutionLocus,
     FactState,
     PrivacyDecision,
     ResolutionMode,
+    TransportClass,
 )
 from ..errors import ContractError
 from ..validation import (
@@ -69,9 +72,14 @@ class PrivacyReceiptPayload:
     outbound: Mapping[str, object]
     payload_hash: str
     signature_ref: Mapping[str, str]
+    execution_locus: ExecutionLocus | None = None
+    transport_class: TransportClass | None = None
+    endpoint_class: EndpointClass | None = None
+    model_id: str | None = None
+    model_revision: str | None = None
 
     def to_wire(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "decision": self.decision.value,
             "detector_versions": dict(self.detector_versions),
             "identifier_classes_checked": list(self.identifier_classes_checked),
@@ -80,6 +88,17 @@ class PrivacyReceiptPayload:
             "payload_hash": self.payload_hash,
             "signature_ref": dict(self.signature_ref),
         }
+        if self.execution_locus is not None:
+            value.update(
+                {
+                    "execution_locus": self.execution_locus.value,
+                    "transport_class": self.transport_class.value,
+                    "endpoint_class": self.endpoint_class.value,
+                    "model_id": self.model_id,
+                    "model_revision": self.model_revision,
+                }
+            )
+        return value
 
 
 def parse_privacy_receipt_payload(
@@ -121,6 +140,37 @@ def parse_privacy_receipt_payload(
         outbound=outbound,
         payload_hash=payload_hash,
         signature_ref=signature_ref,
+    )
+
+
+def parse_privacy_receipt_v11_payload(
+    value: Mapping[str, Any],
+) -> PrivacyReceiptPayload:
+    parsed = parse_privacy_receipt_payload(value)
+    model_revision = non_empty_string(value["model_revision"], "model_revision")
+    if not model_revision.startswith("sha256:") or not SHA256.fullmatch(
+        model_revision.removeprefix("sha256:")
+    ):
+        raise ContractError("contract_hash_invalid", "model_revision")
+    return PrivacyReceiptPayload(
+        decision=parsed.decision,
+        detector_versions=parsed.detector_versions,
+        identifier_classes_checked=parsed.identifier_classes_checked,
+        detectors=parsed.detectors,
+        outbound=parsed.outbound,
+        payload_hash=parsed.payload_hash,
+        signature_ref=parsed.signature_ref,
+        execution_locus=enum_value(
+            ExecutionLocus, value["execution_locus"], "execution_locus"
+        ),
+        transport_class=enum_value(
+            TransportClass, value["transport_class"], "transport_class"
+        ),
+        endpoint_class=enum_value(
+            EndpointClass, value["endpoint_class"], "endpoint_class"
+        ),
+        model_id=non_empty_string(value["model_id"], "model_id"),
+        model_revision=model_revision,
     )
 
 

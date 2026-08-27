@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid5
@@ -14,14 +14,19 @@ from google.cloud.firestore_v1.base_client import BaseClient
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from recall.contracts import Artifact, ContractError, parse_artifact
-from recall.contracts.enums import ScanRunEventCode, ScanRunState
+from recall.contracts.enums import ExecutionProfile, ScanRunEventCode, ScanRunState
 from recall.contracts.payloads.lifecycle import ScanRunPayload, WatchCasePayload
-from recall.controller.lifecycle import require_transition
+from recall.controller.lifecycle import require_transition, transition_target
 
 from .admission import (
     PrivacyReceiptVerifier,
     validate_scan_run_admission,
     validate_watch_case_admission,
+)
+from .agent_step import (
+    validate_agent_step_artifacts,
+    validate_started_receipt_binding,
+    validate_tool_authorization_bindings,
 )
 from .firestore_terminal import FirestoreTerminalMixin
 from .models import (
@@ -117,6 +122,14 @@ class FirestoreLedger(FirestoreTerminalMixin):
         if name not in COLLECTION_NAMES:
             raise ValueError(f"unknown_collection:{name}")
         return self._client.collection(f"{self._prefix}{name}")
+
+    @property
+    def client(self) -> BaseClient:
+        return self._client
+
+    @property
+    def collection_prefix(self) -> str:
+        return self._prefix
 
     def append_artifact(self, value: Mapping[str, Any]) -> Artifact:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
@@ -408,6 +421,8 @@ class FirestoreLedger(FirestoreTerminalMixin):
                 raise ContractError(
                     "contract_enum_invalid", "scan_run_transition"
                 ) from exc
+            if closed_event is ScanRunEventCode.FULL_AUDIT_REQUIRED:
+                raise ContractError("full_audit_specialized_commit_required")
             require_transition(prior_state, closed_event, target_state)
             version = expected_version + 1
             updated = ScanRunRecord(
@@ -439,6 +454,152 @@ class FirestoreLedger(FirestoreTerminalMixin):
             return updated.to_wire()
 
         return ScanRunRecord.from_wire(apply_transition(transaction))
+
+    def commit_agent_step(
+        self,
+        run_id: str,
+        *,
+        expected_version: int,
+        lease_epoch: int,
+        event_code: ScanRunEventCode,
+        artifacts: Sequence[Mapping[str, Any]],
+        now: datetime,
+    ) -> ScanRunRecord:
+        parsed_artifacts = tuple(
+            parse_artifact(item, authorized_producers=PRODUCER_REGISTRY)
+            for item in artifacts
+        )
+        validate_agent_step_artifacts(run_id, event_code, parsed_artifacts)
+        run_reference = self._collection("scan_runs").document(run_id)
+        event_id = str(uuid5(UUID(run_id), f"scan-run-event:{expected_version + 1}"))
+        event_reference = self._collection("scan_run_events").document(event_id)
+        artifact_references = {
+            artifact.artifact_id: self._collection("artifacts").document(
+                artifact.artifact_id
+            )
+            for artifact in parsed_artifacts
+        }
+        terminal_receipt = next(
+            artifact
+            for artifact in parsed_artifacts
+            if artifact.schema_name == "AgentExecutionReceipt"
+        )
+        started_reference = self._collection("artifacts").document(
+            terminal_receipt.payload.started_receipt_id
+        )
+        authorization_references = {
+            record["authorization_receipt_id"]: self._collection(
+                "artifacts"
+            ).document(record["authorization_receipt_id"])
+            for record in terminal_receipt.payload.tool_records
+        }
+        transaction = self._client.transaction()
+
+        @firestore.transactional
+        def apply_agent_step(txn: Any) -> dict[str, object]:
+            run_snapshot = run_reference.get(transaction=txn)
+            if not run_snapshot.exists:
+                raise ContractError("stale_write_rejected", run_id)
+            current = ScanRunRecord.from_wire(run_snapshot.to_dict())
+            if (
+                current.version != expected_version
+                or current.lease_epoch != lease_epoch
+            ):
+                raise ContractError("stale_write_rejected", run_id)
+            if current.lease_expires_at is not None and now >= current.lease_expires_at:
+                raise ContractError("lease_expired", run_id)
+            if current.scan_run_artifact_id is None:
+                raise ContractError("ledger_integrity_failed", run_id)
+            scan_reference = self._collection("artifacts").document(
+                current.scan_run_artifact_id
+            )
+            scan_snapshot = scan_reference.get(transaction=txn)
+            if not scan_snapshot.exists:
+                raise ContractError("ledger_integrity_failed", run_id)
+            scan_artifact = parse_artifact(
+                scan_snapshot.to_dict(), authorized_producers=PRODUCER_REGISTRY
+            )
+            if (
+                scan_artifact.schema_version != "1.1.0"
+                or scan_artifact.payload.execution_profile
+                is not ExecutionProfile.FULL_AUDIT_V1
+            ):
+                raise ContractError("full_audit_profile_required", run_id)
+            started_snapshot = started_reference.get(transaction=txn)
+            if not started_snapshot.exists:
+                raise ContractError("ledger_integrity_failed", "started_receipt_id")
+            validate_started_receipt_binding(
+                terminal_receipt,
+                parse_artifact(
+                    started_snapshot.to_dict(),
+                    authorized_producers=PRODUCER_REGISTRY,
+                ),
+            )
+            authorization_receipts = []
+            for receipt_id, reference in authorization_references.items():
+                snapshot = reference.get(transaction=txn)
+                if not snapshot.exists:
+                    raise ContractError(
+                        "ledger_integrity_failed", "tool_authorization_binding"
+                    )
+                authorization_receipts.append(
+                    parse_artifact(
+                        snapshot.to_dict(), authorized_producers=PRODUCER_REGISTRY
+                    )
+                )
+            validate_tool_authorization_bindings(
+                terminal_receipt, authorization_receipts
+            )
+            existing_snapshots = {
+                artifact_id: reference.get(transaction=txn)
+                for artifact_id, reference in artifact_references.items()
+            }
+            for artifact in parsed_artifacts:
+                existing = existing_snapshots[artifact.artifact_id]
+                if (
+                    existing.exists
+                    and existing.to_dict()["content_hash"] != artifact.content_hash
+                ):
+                    raise ContractError(
+                        "artifact_integrity_failed", artifact.artifact_id
+                    )
+            target = transition_target(current.state, event_code)
+            version = expected_version + 1
+            updated = ScanRunRecord(
+                run_id=run_id,
+                state=target,
+                version=version,
+                lease_epoch=lease_epoch,
+                lease_expires_at=current.lease_expires_at,
+                updated_at=now,
+                scan_run_artifact_id=current.scan_run_artifact_id,
+                terminal_policy_decision_id=current.terminal_policy_decision_id,
+                failure_receipt_ids=current.failure_receipt_ids,
+                last_repeated_state_hash=current.last_repeated_state_hash,
+                repeated_state_count=current.repeated_state_count,
+            )
+            event = ScanRunEventRecord(
+                event_id=event_id,
+                run_id=run_id,
+                sequence=version,
+                from_state=current.state,
+                to_state=target,
+                event_code=event_code,
+                agent_id=None,
+                lease_epoch=lease_epoch,
+                created_at=now,
+            )
+            txn.set(run_reference, updated.to_wire())
+            txn.create(event_reference, event.to_wire())
+            for artifact in parsed_artifacts:
+                if not existing_snapshots[artifact.artifact_id].exists:
+                    txn.create(
+                        artifact_references[artifact.artifact_id],
+                        artifact.to_wire(),
+                    )
+            return updated.to_wire()
+
+        return ScanRunRecord.from_wire(apply_agent_step(transaction))
 
     def acquire_lease(
         self,

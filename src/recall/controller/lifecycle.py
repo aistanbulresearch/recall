@@ -31,6 +31,10 @@ _TRANSITIONS: dict[
     ): ScanRunState.ASSESSING,
     (
         ScanRunState.WATCHING,
+        ScanRunEventCode.FULL_AUDIT_REQUIRED,
+    ): ScanRunState.ASSESSING,
+    (
+        ScanRunState.WATCHING,
         ScanRunEventCode.PREREQUISITE_FAILED,
     ): ScanRunState.POLICY_EVALUATION,
     (

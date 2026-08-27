@@ -1,31 +1,26 @@
 from __future__ import annotations
 
 import hashlib
-import copy
+from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import timedelta
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 
 from recall.contracts import ContractError, content_hash, parse_artifact
-from recall.controller.hashes import scan_idempotency_key
+from recall.agents.full_audit import FullAuditCoordinator
+from recall.controller.tool_gateway_store import InMemoryGatewayInvocationStore
+from recall.ledger import COLLECTION_NAMES
 from recall.ledger.memory import InMemoryLedger
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed import CompressedCycleScheduler
-from recall.scheduler.compressed_headroom import (
-    evaluate_and_persist_headroom,
-    require_headroom_pass,
-)
-from recall.scheduler.compressed_identity import (
-    legacy_failure_receipt_id,
-    manifest_artifact_id,
-    mode_receipt_artifact_id,
-)
+from recall.scheduler.compressed_cohort import cases_for_cycle
 from recall.scheduler.compressed_plan import (
     PLAN3_SHA256,
+    PredecessorBinding,
     load_compressed_plan,
-    verify_manifest_against_plan,
 )
 from recall.scheduler.compressed_preparation import (
     DEFAULT_COMPRESSED_BUNDLE_PATH,
@@ -33,26 +28,28 @@ from recall.scheduler.compressed_preparation import (
     install_prepared_cycle,
     load_compressed_bundle,
 )
+from recall.scheduler.compressed_ramp_gate import (
+    evaluate_and_persist_ramp_gate,
+)
 from recall.scheduler.entrypoint import execute
-from recall.scheduler.config import BUDGET_SNAPSHOT
+from recall.scheduler.model_cost import (
+    DEFAULT_MODEL_COST_POLICY,
+    InMemoryModelCostLedger,
+)
+from tests.agents.full_audit_double import DeterministicFullAuditRunner
 
 
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE_DIGEST = "sha256:" + "a" * 64
-PROJECT_SHA = "b" * 64
 
 
-class _ScanRunReadbackOverride:
-    def __init__(self, ledger, delta: int) -> None:
-        self._ledger = ledger
-        self._delta = delta
-
-    def __getattr__(self, name):
-        return getattr(self._ledger, name)
-
-    def read_back_count(self, collection: str, *, run_id=None) -> int:
-        value = self._ledger.read_back_count(collection, run_id=run_id)
-        return value + self._delta if collection == "scan_runs" else value
+class _LiveMemoryLedger(InMemoryLedger):
+    def backend_metadata(self):
+        return {
+            "persistence_surface": "LIVE_FIRESTORE",
+            "project_sha256": "test-only",
+            "database": "(default)",
+        }
 
 
 def _loaded():
@@ -60,673 +57,406 @@ def _loaded():
     bundle_sha = hashlib.sha256(
         (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()
     ).hexdigest()
-    bundle = load_compressed_bundle(
+    bundle = load_compressed_bundle(ROOT, expected_sha256=bundle_sha, plan=plan)
+    return plan, _test_only_full_audit_receipts(bundle), bundle_sha
+
+
+def _test_only_full_audit_receipts(bundle):
+    """Unit-only receipts; production rows stay legacy and fail closed."""
+
+    cases = []
+    for item in bundle.cases:
+        if item.cycle_id in {"c3", "c4", "c5", "c6"}:
+            receipt = dict(item.privacy_receipt)
+            receipt["schema_version"] = "1.1.0"
+            gemma = dict(receipt["detectors"]["gemma"])
+            gemma.update({"invoked": True, "schema_valid": True})
+            receipt["detectors"] = {
+                **receipt["detectors"],
+                "gemma": gemma,
+            }
+            receipt.update(
+                {
+                    "execution_locus": "LAB_LOCAL",
+                    "transport_class": "LOCAL_PROCESS",
+                    "endpoint_class": "OLLAMA_LOCAL",
+                    "model_id": "gemma4:e4b-it-qat",
+                    "model_revision": "sha256:" + "a" * 64,
+                }
+            )
+            receipt["content_hash"] = content_hash(receipt)
+            item = replace(item, privacy_receipt=receipt)
+        cases.append(item)
+    return replace(
+        bundle,
+        cases=tuple(cases),
+        privacy_receipt_source_lock={
+            "source_sha256": "b" * 64,
+            "key_id": "test-only",
+            "algorithm": "HMAC-SHA256",
+            "key_fingerprint_sha256": "c" * 64,
+        },
+    )
+
+
+def _ledger(bundle, *, live=False):
+    cls = _LiveMemoryLedger if live else InMemoryLedger
+    return cls(privacy_receipt_verifier=CompressedPreparationVerifier(bundle))
+
+
+def _full_audit(ledger, *, now):
+    return FullAuditCoordinator(
+        ledger,
+        role_runner=DeterministicFullAuditRunner(now=now),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+
+def test_committed_legacy_privacy_rows_fail_closed_for_full_audit_cycle() -> None:
+    plan = load_compressed_plan(ROOT)
+    bundle_sha = hashlib.sha256(
+        (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()
+    ).hexdigest()
+    legacy = load_compressed_bundle(
         ROOT, expected_sha256=bundle_sha, plan=plan
     )
-    return plan, bundle, bundle_sha
+    ledger = _ledger(legacy, live=True)
+    before = {
+        collection: ledger.read_back_count(collection)
+        for collection in COLLECTION_NAMES
+    }
+
+    with pytest.raises(RuntimeError, match="full_audit_privacy_receipt_required"):
+        install_prepared_cycle(
+            ledger,
+            legacy,
+            plan,
+            plan.by_id("c3"),
+            now=plan.by_id("c3").window_start,
+        )
+    assert {
+        collection: ledger.read_back_count(collection)
+        for collection in COLLECTION_NAMES
+    } == before
 
 
-def _prepared(cycle_id: str):
-    plan, bundle, bundle_sha = _loaded()
-    if cycle_id == "c1":
-        cycles = list(plan.cycles)
-        cycles[0] = replace(cycles[0], write_path="SERIAL_VERIFIED")
-        plan = replace(plan, sha256=PLAN3_SHA256, cycles=tuple(cycles))
-    cycle = plan.by_id(cycle_id)
-    ledger = InMemoryLedger(
-        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+def _run_legacy_history():
+    plan, bundle, _sha = _loaded()
+    c1 = replace(plan.by_id("c1"), write_path="SERIAL_VERIFIED")
+    plan3 = replace(plan, sha256=PLAN3_SHA256, cycles=(c1, *plan.cycles[1:]))
+    l1 = _ledger(bundle)
+    install_prepared_cycle(l1, bundle, plan3, c1, now=c1.window_start)
+    r1 = CompressedCycleScheduler(
+        l1, plan=plan3, cycle=c1, bundle=bundle,
+        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
+    ).trigger(now=c1.window_start, previous_manifest=None)
+    m1 = l1.get_artifact(r1.manifest_artifact_id)
+    assert m1 is not None
+
+    c2 = replace(plan.by_id("c2"), write_path="SERIAL_VERIFIED")
+    plan2 = replace(plan, cycles=(plan.cycles[0], c2, *plan.cycles[2:]))
+    l2 = _ledger(bundle)
+    install_prepared_cycle(l2, bundle, plan2, c2, now=c2.window_start)
+    r2 = CompressedCycleScheduler(
+        l2, plan=plan2, cycle=c2, bundle=bundle,
+        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
+    ).trigger(now=c2.window_start, previous_manifest=m1)
+    m2 = l2.get_artifact(r2.manifest_artifact_id)
+    mode2 = l2.get_artifact(r2.data_mode_receipt_id)
+    assert m2 is not None and mode2 is not None
+    return plan, bundle, l2, m2, mode2
+
+
+def _bind_test_c2(plan, m2, mode2):
+    binding = PredecessorBinding(
+        "EXTERNAL_PLAN", "c2", plan.sha256, "test_plan5_c2_",
+        str(m2["artifact_id"]), str(m2["content_hash"]),
+        str(mode2["artifact_id"]), str(mode2["content_hash"]),
     )
-    install_prepared_cycle(
-        ledger, bundle, plan, cycle, now=cycle.window_start
+    c3 = replace(plan.by_id("c3"), predecessor=binding)
+    return replace(plan, cycles=(*plan.cycles[:2], c3, *plan.cycles[3:])), c3
+
+
+def _run_c3(*, live=True):
+    plan, bundle, predecessor, m2, mode2 = _run_legacy_history()
+    plan, c3 = _bind_test_c2(plan, m2, mode2)
+    target = _ledger(bundle, live=live)
+    install_prepared_cycle(target, bundle, plan, c3, now=c3.window_start)
+    gate = evaluate_and_persist_ramp_gate(
+        plan=plan, target_cycle=c3, predecessor_ledger=predecessor,
+        target_ledger=target, now=c3.window_start,
     )
-    return plan, bundle, bundle_sha, cycle, ledger
-
-
-def _run_cycle(cycle_id: str, previous=None):
-    plan, bundle, bundle_sha, cycle, ledger = _prepared(cycle_id)
     result = CompressedCycleScheduler(
-        ledger,
-        plan=plan,
-        cycle=cycle,
-        bundle=bundle,
-        source_commit=bundle.source_commit,
-        image_digest=IMAGE_DIGEST,
+        target, plan=plan, cycle=c3, bundle=bundle,
+        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
+        full_audit_coordinator=_full_audit(target, now=c3.window_start),
     ).trigger(
-        now=cycle.window_start,
-        previous_manifest=previous,
+        now=c3.window_start, previous_manifest=m2, ramp_gate_receipt=gate
     )
-    return plan, bundle, bundle_sha, cycle, ledger, result
+    return plan, bundle, c3, target, gate, result
 
 
-def _serial_c6_context(plan, cycle):
-    cycles = list(plan.cycles)
-    serial = replace(cycle, write_path="SERIAL_VERIFIED")
-    cycles[cycle.cycle_index - 1] = serial
-    return replace(plan, cycles=tuple(cycles)), serial
+def test_executed_c1_c2_are_immutable_before_ledger_construction() -> None:
+    plan, bundle, bundle_sha = _loaded()
+    calls = []
+
+    def factory(**kwargs):
+        calls.append(kwargs)
+        return _ledger(bundle)
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_external_immutable"):
+        execute(
+            [],
+            environment={
+                "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
+                "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
+                "RECALL_SOURCE_COMMIT": bundle.source_commit,
+                "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+                "RECALL_EXPECTED_PROJECT_SHA256": "b" * 64,
+            },
+            now_factory=lambda: plan.by_id("c2").window_start,
+            ledger_factory=factory,
+            repo_root=ROOT,
+        )
+    assert calls == []
 
 
-def test_c1_emits_v3_with_visible_failure_and_valid_recovery() -> None:
-    plan, _bundle, _sha, cycle, ledger, result = _run_cycle("c1")
+def test_c3_external_binding_denial_is_the_only_target_write() -> None:
+    plan, bundle, predecessor, _m2, _mode2 = _run_legacy_history()
+    target = _ledger(bundle, live=True)
+    c3 = plan.by_id("c3")
+    install_prepared_cycle(target, bundle, plan, c3, now=c3.window_start)
+    before = {name: target.read_back_count(name) for name in target.collection_names}
+    gate = evaluate_and_persist_ramp_gate(
+        plan=plan, target_cycle=c3, predecessor_ledger=predecessor,
+        target_ledger=target, now=c3.window_start,
+    )
+    after = {name: target.read_back_count(name) for name in target.collection_names}
+    parsed = parse_artifact(gate, authorized_producers=PRODUCER_REGISTRY)
+    assert parsed.payload.decision == "DENIED"
+    assert after["artifacts"] == before["artifacts"] + 1
+    assert after["scan_runs"] == before["scan_runs"] == 0
+    assert after["scan_run_events"] == before["scan_run_events"] == 0
+    assert after["review_tasks"] == before["review_tasks"] == 0
+    assert after["watch_cases"] == before["watch_cases"] == 20
+
+
+def test_ramp_gate_retry_with_new_clock_reuses_content_addressed_receipt() -> None:
+    plan, bundle, predecessor, _m2, _mode2 = _run_legacy_history()
+    target = _ledger(bundle, live=True)
+    c3 = plan.by_id("c3")
+    install_prepared_cycle(target, bundle, plan, c3, now=c3.window_start)
+    first = evaluate_and_persist_ramp_gate(
+        plan=plan,
+        target_cycle=c3,
+        predecessor_ledger=predecessor,
+        target_ledger=target,
+        now=c3.window_start,
+    )
+    count = target.read_back_count("artifacts")
+
+    second = evaluate_and_persist_ramp_gate(
+        plan=plan,
+        target_cycle=c3,
+        predecessor_ledger=predecessor,
+        target_ledger=target,
+        now=c3.window_start + timedelta(minutes=1),
+    )
+
+    assert second["artifact_id"] == first["artifact_id"]
+    assert second["content_hash"] == first["content_hash"]
+    assert target.read_back_count("artifacts") == count
+
+
+def test_r1_manifest_proves_epoch_parity_metrics_and_exact_counts() -> None:
+    _plan, _bundle, c3, ledger, gate, result = _run_c3()
+    gate_parsed = parse_artifact(gate, authorized_producers=PRODUCER_REGISTRY)
+    assert gate_parsed.payload.decision == "PASS"
     wire = ledger.get_artifact(result.manifest_artifact_id)
     assert wire is not None
     manifest = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-    assert manifest.schema_version == "3.0.0"
+    assert manifest.schema_version == "3.2.0"
     assert manifest.status.value == "VALID"
-    assert manifest.payload.cycle_id == "c1"
-    assert manifest.payload.plan_sha256 == plan.sha256
-    assert manifest.payload.schedule_mode == "COMPRESSED_MACHINE_TRIGGERED"
-    history = manifest.payload.execution_history
-    assert [item["sequence_index"] for item in history] == [1, 2, 3]
-    assert history[1]["execution_status"] == "INCOMPLETE"
-    assert history[1]["evidence_state"] == "OWNER_REPORTED"
-    assert history[1]["cohort_due_date"] == "2026-08-26"
-    assert history[1]["scheduled_for"] == "2026-08-26T16:00:00Z"
-    assert history[1]["trigger_code"] == "COHORT_DAY_MANAGED"
-    assert history[2]["cohort_due_date"] == "2026-08-26"
-    assert history[2]["scheduled_for"] == cycle.schedule_epoch
-    assert history[2]["trigger_code"] == "COHORT_COMPRESSED_MACHINE_TRIGGERED"
-    assert manifest.payload.cumulative["historical_incomplete_attempts"] == 1
-    assert manifest.payload.cumulative["distinct_execution_dates"] == 1
-    assert manifest.payload.delta["runs_predicted"] == 3
-    assert len(result.newly_created_run_ids) == cycle.runs_predicted
+    assert manifest.payload.epoch_label == "PLAN6_R1_20"
+    assert manifest.payload.agent_execution_summary["complete_runs"] == 20
+    assert manifest.payload.agent_execution_summary["concurrency"] == 4
+    assert len(manifest.payload.run_outcomes) == 20
+    assert manifest.payload.evaluation_role == "RAMP_FIRST_PASS"
+    assert manifest.payload.ramp_gate_receipt_id == gate["artifact_id"]
+    assert manifest.payload.parity["actual_newly_created_runs"] == 20
+    assert manifest.payload.parity["actual_reused_runs"] == 0
+    assert manifest.payload.parity["parity_match"] is True
+    metrics = manifest.payload.write_metrics
+    assert metrics["selected_case_count"] == 20
+    assert metrics["committed_case_documents"] == 60
+    assert metrics["ledger_operation_counts"]["create_run_transaction_calls"] == 20
+    assert metrics["total_elapsed_ms"] == metrics["worker_elapsed_ms"] + metrics["readback_elapsed_ms"]
+    assert len(result.newly_created_run_ids) == c3.runs_predicted
+    assert result.reused_run_ids == ()
+    assert result.data_mode_receipt_id is not None
 
 
-def test_v3_contract_rejects_removal_of_historical_failure() -> None:
-    _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle("c1")
-    wire = copy.deepcopy(ledger.get_artifact(result.manifest_artifact_id))
-    assert wire is not None
-    wire["execution_history"] = [
-        wire["execution_history"][0],
-        {**wire["execution_history"][2], "sequence_index": 2},
-    ]
-    wire["cumulative"]["historical_incomplete_attempts"] = 0
-    wire["content_hash"] = content_hash(wire)
-    with pytest.raises(ContractError, match="historical_failure"):
-        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-
-
-def test_v3_contract_rejects_envelope_time_outside_declared_cycle() -> None:
-    _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle("c1")
-    wire = copy.deepcopy(ledger.get_artifact(result.manifest_artifact_id))
-    assert wire is not None
-    wire["created_at"] = "2026-08-26T20:50:00Z"
-    wire["content_hash"] = content_hash(wire)
-    with pytest.raises(ContractError, match="execution_history.current"):
-        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-
-
-def test_v3_contract_rejects_relabelled_failure_and_cycle_window() -> None:
-    _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle("c1")
-    original = ledger.get_artifact(result.manifest_artifact_id)
-    assert original is not None
-    failure = copy.deepcopy(original)
-    failure["execution_history"][1]["scheduled_for"] = "2026-08-26T17:00:00Z"
-    failure["content_hash"] = content_hash(failure)
-    with pytest.raises(ContractError, match="historical_failure"):
-        parse_artifact(failure, authorized_producers=PRODUCER_REGISTRY)
-
-    window = copy.deepcopy(original)
-    window["scheduled_for"] = "2026-08-26T20:39:59Z"
-    window["window_start"] = "2026-08-26T20:39:59Z"
-    window["execution_history"][-1]["scheduled_for"] = "2026-08-26T20:39:59Z"
-    window["execution_history"][-1]["window_start"] = "2026-08-26T20:39:59Z"
-    window["content_hash"] = content_hash(window)
-    parsed = parse_artifact(window, authorized_producers=PRODUCER_REGISTRY)
-    with pytest.raises(RuntimeError, match="compressed_manifest_plan_mismatch"):
-        verify_manifest_against_plan(
-            parsed,
-            _plan,
-            expected_legacy_failure_receipt_id=legacy_failure_receipt_id(
-                _plan, _plan.by_id("c1")
-            ),
-        )
-
-
-def test_same_cycle_retry_reuses_runs_manifest_and_events() -> None:
-    plan, bundle, _sha, cycle, ledger, first = _run_cycle("c1")
-    first_wire = ledger.get_artifact(first.manifest_artifact_id)
-    before = (
-        ledger.read_back_count("scan_runs"),
-        ledger.read_back_count("scan_run_events"),
-        ledger.read_back_count("artifacts"),
-    )
+def test_same_epoch_reuses_but_new_epoch_has_distinct_run_identity() -> None:
+    plan, bundle, c3, ledger, gate, first = _run_c3()
+    previous = _run_legacy_history()[3]
     second = CompressedCycleScheduler(
-        ledger,
-        plan=plan,
-        cycle=cycle,
-        bundle=bundle,
-        source_commit=bundle.source_commit,
-        image_digest=IMAGE_DIGEST,
-    ).trigger(
-        now=datetime(2026, 8, 26, 20, 41, tzinfo=timezone.utc),
-        previous_manifest=None,
-    )
+        ledger, plan=plan, cycle=c3, bundle=bundle,
+        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
+        full_audit_coordinator=_full_audit(ledger, now=c3.window_start),
+    ).trigger(now=c3.window_start, previous_manifest=previous, ramp_gate_receipt=gate)
+    assert len(second.reused_run_ids) == 20
     assert second.newly_created_run_ids == ()
-    assert second.reused_run_ids == first.authoritative_run_ids
-    assert ledger.get_artifact(first.manifest_artifact_id) == first_wire
-    assert before == (
-        ledger.read_back_count("scan_runs"),
-        ledger.read_back_count("scan_run_events"),
-        ledger.read_back_count("artifacts"),
+    c6_ids = {item.case_id for item in cases_for_cycle(plan.by_id("c6"))}
+    overlap = next(item for item in cases_for_cycle(c3) if item.case_id in c6_ids)
+    from recall.controller.hashes import scan_idempotency_key
+    from recall.contracts import DataMode
+    key_r1 = scan_idempotency_key(
+        watch_case_id=overlap.case_id,
+        source_cursors={"synthetic-source": overlap.cursor},
+        schedule_epoch=c3.schedule_epoch,
+        data_mode=DataMode.SYNTHETIC.value,
     )
+    key_final = scan_idempotency_key(
+        watch_case_id=overlap.case_id,
+        source_cursors={"synthetic-source": overlap.cursor},
+        schedule_epoch=plan.by_id("c6").schedule_epoch,
+        data_mode=DataMode.SYNTHETIC.value,
+    )
+    assert key_r1 != key_final
+    assert set(first.newly_created_run_ids).isdisjoint(second.newly_created_run_ids)
 
 
-def test_in_window_late_trigger_is_the_real_admission_and_event_time() -> None:
-    plan, bundle, _sha, cycle, ledger = _prepared("c1")
-    invoked_at = datetime(2026, 8, 26, 20, 41, 7, tzinfo=timezone.utc)
-    result = CompressedCycleScheduler(
-        ledger,
-        plan=plan,
-        cycle=cycle,
-        bundle=bundle,
-        source_commit=bundle.source_commit,
-        image_digest=IMAGE_DIGEST,
-    ).trigger(now=invoked_at, previous_manifest=None)
-    expected = "2026-08-26T20:41:07Z"
-    for run_id in result.authoritative_run_ids:
-        record = ledger.get_scan_run(run_id)
-        assert record is not None
-        wire = ledger.get_artifact(str(record.scan_run_artifact_id))
-        assert wire is not None and wire["created_at"] == expected
-        events = ledger.list_scan_run_events(run_id)
-        assert len(events) == 1 and events[0].created_at == invoked_at
-
-
-def test_retry_rejects_changed_provenance_before_run_work() -> None:
-    plan, bundle, _sha, cycle, ledger, first = _run_cycle("c1")
-    before = {
-        name: ledger.read_back_count(name) for name in ledger.collection_names
-    }
-    with pytest.raises(
-        RuntimeError, match="compressed_existing_manifest_context_mismatch"
-    ):
+def test_r2_remains_provisional_even_after_r1_until_owner_rebinds_plan() -> None:
+    plan, bundle, _c3, prior, _gate, r1 = _run_c3()
+    previous = prior.get_artifact(r1.manifest_artifact_id)
+    assert previous is not None
+    c4 = plan.by_id("c4")
+    target = _ledger(bundle, live=True)
+    install_prepared_cycle(target, bundle, plan, c4, now=c4.window_start)
+    before = {name: target.read_back_count(name) for name in target.collection_names}
+    with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
         CompressedCycleScheduler(
-            ledger,
-            plan=plan,
-            cycle=cycle,
-            bundle=bundle,
-            source_commit="c" * 40,
-            image_digest=IMAGE_DIGEST,
-        ).trigger(now=cycle.window_start, previous_manifest=None)
-    assert ledger.get_artifact(first.manifest_artifact_id) is not None
-    assert before == {
-        name: ledger.read_back_count(name) for name in ledger.collection_names
-    }
+            target, plan=plan, cycle=c4, bundle=bundle,
+            source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
+            full_audit_coordinator=_full_audit(target, now=c4.window_start),
+        ).trigger(now=c4.window_start, previous_manifest=previous)
+    after = {name: target.read_back_count(name) for name in target.collection_names}
+    assert after == before
 
 
-def test_c2_same_execution_date_has_distinct_epoch_and_predecessor() -> None:
-    plan, _bundle, _sha, _c1, c1_ledger, c1_result = _run_cycle("c1")
-    c1_manifest = c1_ledger.get_artifact(c1_result.manifest_artifact_id)
-    assert c1_manifest is not None
-    _plan, _bundle, _sha, c2, c2_ledger, c2_result = _run_cycle(
-        "c2", c1_manifest
-    )
-    parsed = parse_artifact(
-        c2_ledger.get_artifact(c2_result.manifest_artifact_id),
-        authorized_producers=PRODUCER_REGISTRY,
-    )
-    assert parsed.payload.previous_manifest_id == c1_result.manifest_artifact_id
-    assert parsed.payload.execution_history[-1]["scheduled_for"] == c2.schedule_epoch
-    assert parsed.payload.cumulative["distinct_execution_dates"] == 1
-    assert parsed.payload.cumulative["logical_days_covered"] == 2
-    assert c2_result.manifest_artifact_id != c1_result.manifest_artifact_id
-
-
-def test_c2_contract_rejects_relabelled_inherited_c1_window() -> None:
-    _plan, _bundle, _sha, _c1, c1_ledger, c1_result = _run_cycle("c1")
-    c1_manifest = c1_ledger.get_artifact(c1_result.manifest_artifact_id)
-    assert c1_manifest is not None
-    _plan, _bundle, _sha, _c2, c2_ledger, c2_result = _run_cycle(
-        "c2", c1_manifest
-    )
-    wire = copy.deepcopy(c2_ledger.get_artifact(c2_result.manifest_artifact_id))
+def test_non_live_surface_emits_incomplete_manifest_and_no_mode_receipt() -> None:
+    _plan, _bundle, _c3, ledger, _gate, result = _run_c3(live=False)
+    wire = ledger.get_artifact(result.manifest_artifact_id)
     assert wire is not None
-    inherited = wire["execution_history"][2]
-    inherited["scheduled_for"] = "2026-08-26T20:39:59Z"
-    inherited["window_start"] = "2026-08-26T20:39:59Z"
-    wire["content_hash"] = content_hash(wire)
-    parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
-    with pytest.raises(
-        RuntimeError, match="compressed_manifest_plan_mismatch"
-    ):
-        verify_manifest_against_plan(
-            parsed,
-            _plan,
-            expected_legacy_failure_receipt_id=legacy_failure_receipt_id(
-                _plan, _plan.by_id("c1")
-            ),
-        )
+    manifest = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    assert manifest.status.value == "INCOMPLETE"
+    assert result.data_mode_receipt_id is None
 
 
-def test_epoch_only_and_day1_to_compressed_epoch_change_idempotency_key() -> None:
-    fields = {
-        "watch_case_id": "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
-        "source_cursors": {"synthetic-source": "same"},
-        "data_mode": "SYNTHETIC",
-    }
-    day1 = scan_idempotency_key(
-        **fields, schedule_epoch="2026-08-25T15:00:00Z"
-    )
-    compressed = scan_idempotency_key(
-        **fields, schedule_epoch="2026-08-26T20:40:00Z"
-    )
-    adjacent = scan_idempotency_key(
-        **fields, schedule_epoch="2026-08-26T21:10:00Z"
-    )
-    assert len({day1, compressed, adjacent}) == 3
-
-
-def test_admission_rejects_mismatched_epoch_without_writes() -> None:
-    plan, bundle, _sha, cycle, ledger = _prepared("c1")
-    case = next(item for item in bundle.cases if item.cycle_id == "c1")
-    before = (ledger.read_back_count("scan_runs"), ledger.read_back_count("scan_run_events"))
-    record = ledger.get_watch_case(case.case_id)
-    assert record is not None
-    watch = parse_artifact(
-        ledger.get_artifact(record.artifact_id), authorized_producers=PRODUCER_REGISTRY
-    )
-    with pytest.raises(ContractError, match="watch_case_not_due"):
-        CompressedCycleScheduler(
-            ledger,
-            plan=plan,
-            cycle=cycle,
-            bundle=bundle,
-            source_commit=bundle.source_commit,
-            image_digest=IMAGE_DIGEST,
-        ).controller.create_run(
-            watch_case_id=case.case_id,
-            source_cursors=dict(record.source_cursors),
-            schedule_epoch="2026-08-26T20:41:00Z",
-            data_mode=watch.data_mode,
-            privacy_receipt_id=watch.input_artifact_ids[0],
-            expected_watch_case_version=record.version,
-            triggered_at=cycle.window_start,
-            budget_snapshot=BUDGET_SNAPSHOT,
-            trace_id="00000000-0000-4000-8000-000000000001",
-            deadline_at="2026-08-26T20:49:59Z",
-            now=cycle.window_start,
-        )
-    assert before == (ledger.read_back_count("scan_runs"), ledger.read_back_count("scan_run_events"))
-
-
-def test_verify_prefix_reads_live_shape_and_writes_zero() -> None:
-    plan, bundle, bundle_sha, cycle, ledger = _prepared("c2")
-    before = {name: ledger.read_back_count(name) for name in ledger.collection_names}
-    calls = []
-
-    def factory(**kwargs):
-        calls.append(kwargs["collection_prefix"])
-        return ledger
-
-    result = execute(
-        ["--verify-prefix", "20260827"],
-        environment={
-            "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
-            "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
-            "RECALL_SOURCE_COMMIT": bundle.source_commit,
-            "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
-            "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
-        },
-        ledger_factory=factory,
-        repo_root=ROOT,
-    )
-    assert result["verified"] is True
-    assert result["writes"] == 0
-    assert result["plan_sha256"] == plan.sha256
-    assert calls == [f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c2_20260827_"]
-    assert before == {name: ledger.read_back_count(name) for name in ledger.collection_names}
-
-
-def test_entrypoint_resolves_cycle_from_clock_without_runtime_override() -> None:
-    _old, _old_bundle, _old_sha, _c1, c1_ledger, c1_result = _run_cycle("c1")
-    c1_manifest = c1_ledger.get_artifact(c1_result.manifest_artifact_id)
-    assert c1_manifest is not None
-    plan, bundle, bundle_sha, cycle, ledger = _prepared("c2")
-
-    def factory(**kwargs):
-        prefix = kwargs["collection_prefix"]
-        if prefix == f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c2_20260827_":
-            return ledger
-        if prefix == "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_":
-            return c1_ledger
-        raise AssertionError(prefix)
-
-    result = execute(
-        [],
-        environment={
-            "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
-            "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
-            "RECALL_SOURCE_COMMIT": bundle.source_commit,
-            "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
-            "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
-        },
-        now_factory=lambda: cycle.window_start,
-        ledger_factory=factory,
-        repo_root=ROOT,
-    )
-    assert result["cycle_id"] == "c2"
-    assert result["schedule_mode"] == "COMPRESSED_MACHINE_TRIGGERED"
-    assert result["plan_sha256"] == plan.sha256
-    assert len(result["newly_created_run_ids"]) == 2
-
-
-def test_plan4_c1_is_immutable_and_c6_batch_gate_precedes_writes() -> None:
+def test_cycle_scoped_preparation_identity_differs_for_reassessment() -> None:
     plan, bundle, _sha = _loaded()
-    for cycle_id, reason in (
-        ("c1", "compressed_cycle_external_immutable"),
-        ("c6", "compressed_batch_write_path_required"),
+    shared = set(item.case_id for item in cases_for_cycle(plan.by_id("c3"))) & set(
+        item.case_id for item in cases_for_cycle(plan.by_id("c6"))
+    )
+    case_id = next(iter(shared))
+    rows = [item for item in bundle.cases if item.case_id == case_id and item.cycle_id in {"c3", "c6"}]
+    assert len(rows) == 2
+    assert rows[0].watch_case["artifact_id"] != rows[1].watch_case["artifact_id"]
+    assert rows[0].watch_case["next_scan_at"] != rows[1].watch_case["next_scan_at"]
+
+
+def _v32_wire() -> dict[str, object]:
+    _plan, _bundle, _cycle, ledger, _gate, result = _run_c3()
+    wire = deepcopy(ledger.get_artifact(result.manifest_artifact_id))
+    assert wire is not None
+    outcomes = []
+    inputs = set(wire["input_artifact_ids"])
+    for case_id, run_id in zip(
+        wire["delta"]["selected_case_ids"],
+        wire["delta"]["authoritative_run_ids"],
+        strict=True,
     ):
-        cycle = plan.by_id(cycle_id)
-        ledger = InMemoryLedger(
-            privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+        citation_id = str(uuid5(NAMESPACE_URL, f"{run_id}:citation"))
+        policy_id = str(uuid5(NAMESPACE_URL, f"{run_id}:policy"))
+        receipt_ids = sorted(
+            [
+            str(uuid5(NAMESPACE_URL, f"{run_id}:agent:{index}"))
+            for index in range(6)
+            ]
         )
-        before = tuple(ledger.read_back_count(name) for name in ledger.collection_names)
-        with pytest.raises(RuntimeError, match=reason):
-            CompressedCycleScheduler(
-                ledger,
-                plan=plan,
-                cycle=cycle,
-                bundle=bundle,
-                source_commit=bundle.source_commit,
-                image_digest=IMAGE_DIGEST,
-            ).trigger(now=cycle.window_start, previous_manifest=None)
-        assert before == tuple(
-            ledger.read_back_count(name) for name in ledger.collection_names
+        inputs.update((citation_id, policy_id, *receipt_ids))
+        outcomes.append(
+            {
+                "case_id": case_id,
+                "run_id": run_id,
+                "epoch_label": "PLAN6_R1_20",
+                "terminal_state": "NO_ACTION",
+                "audit_status": "COMPLETE",
+                "citation_audit_receipt_id": citation_id,
+                "policy_decision_id": policy_id,
+                "policy_outcome": "NO_ACTION",
+                "policy_reason_codes": ["no_candidate_delta"],
+                "technical_failure_codes": [],
+                "failure_receipt_ids": [],
+                "agent_execution_receipt_ids": receipt_ids,
+                "elapsed_ms": 3000,
+            }
         )
-
-
-def test_entrypoint_c6_batch_gate_precedes_ledger_construction() -> None:
-    plan, bundle, bundle_sha = _loaded()
-    c6 = plan.by_id("c6")
-    calls = []
-
-    def factory(**kwargs):
-        calls.append(kwargs)
-        raise AssertionError("ledger construction is forbidden before batch support")
-
-    with pytest.raises(RuntimeError, match="compressed_batch_write_path_required"):
-        execute(
-            [],
-            environment={
-                "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
-                "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
-                "RECALL_SOURCE_COMMIT": bundle.source_commit,
-                "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
-                "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
-            },
-            now_factory=lambda: c6.window_start,
-            ledger_factory=factory,
-            repo_root=ROOT,
-        )
-    assert calls == []
-
-
-def test_entrypoint_rejects_premature_cycle_before_ledger_creation() -> None:
-    _plan, bundle, bundle_sha, cycle, _ledger = _prepared("c1")
-    calls = []
-
-    def factory(**kwargs):
-        calls.append(kwargs)
-        raise AssertionError("ledger must not be created outside a declared window")
-
-    with pytest.raises(
-        RuntimeError, match="compressed_cycle_window_match_invalid:0"
-    ):
-        execute(
-            [],
-            environment={
-                "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
-                "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
-                "RECALL_SOURCE_COMMIT": bundle.source_commit,
-                "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
-                "RECALL_EXPECTED_PROJECT_SHA256": PROJECT_SHA,
-            },
-            now_factory=lambda: datetime(
-                2026, 8, 26, 20, 39, 59, tzinfo=timezone.utc
-            ),
-            ledger_factory=factory,
-            repo_root=ROOT,
-        )
-    assert cycle.window_start.isoformat() == "2026-08-26T20:40:00+00:00"
-    assert calls == []
-
-
-def test_entrypoint_requires_explicit_scheduler_mode_before_ledger_creation() -> None:
-    calls = []
-
-    def factory(**kwargs):
-        calls.append(kwargs)
-        raise AssertionError("ledger must not be created without an explicit mode")
-
-    with pytest.raises(
-        RuntimeError,
-        match="cohort_required_environment_missing:RECALL_SCHEDULER_MODE",
-    ):
-        execute(
-            [],
-            environment={},
-            ledger_factory=factory,
-            repo_root=ROOT,
-        )
-    assert calls == []
-
-
-def test_headroom_denial_is_snapshot_addressed_and_zero_run_write() -> None:
-    plan, _bundle, _sha, c6, c6_ledger = _prepared("c6")
-    first = evaluate_and_persist_headroom(
-        plan=plan, c6_cycle=c6, prior_ledgers={}, c6_ledger=c6_ledger
+    wire["schema_version"] = "3.2.0"
+    wire["epoch_label"] = "PLAN6_R1_20"
+    wire["execution_history"][-1]["source_schema_version"] = (
+        "CohortDayManifest/3.2.0"
     )
-    with pytest.raises(RuntimeError, match="compressed_headroom_denied"):
-        require_headroom_pass(
-            first,
-            plan=plan,
-            c6_cycle=c6,
-            prior_ledgers={},
-            c6_ledger=c6_ledger,
-        )
-    count = c6_ledger.read_back_count("artifacts")
-    second = evaluate_and_persist_headroom(
-        plan=plan, c6_cycle=c6, prior_ledgers={}, c6_ledger=c6_ledger
-    )
-    assert second == first
-    assert c6_ledger.read_back_count("artifacts") == count
-    assert c6_ledger.read_back_count("scan_runs") == 0
-    assert c6_ledger.read_back_count("scan_run_events") == 0
-    assert c6_ledger.get_artifact(manifest_artifact_id(plan, c6)) is None
-    assert c6_ledger.get_artifact(mode_receipt_artifact_id(plan, c6)) is None
-
-
-def test_headroom_denied_then_changed_evidence_creates_distinct_pass_receipt() -> None:
-    plan, _bundle, _sha, c6, c6_ledger = _prepared("c6")
-    denied = evaluate_and_persist_headroom(
-        plan=plan, c6_cycle=c6, prior_ledgers={}, c6_ledger=c6_ledger
-    )
-    ledgers = {}
-    previous = None
-    for cycle_id in ("c1", "c2", "c3", "c4", "c5"):
-        _plan, _bundle, _sha, cycle, ledger, result = _run_cycle(
-            cycle_id, previous
-        )
-        previous = ledger.get_artifact(result.manifest_artifact_id)
-        assert previous is not None
-        ledgers[cycle_id] = ledger
-    passed = evaluate_and_persist_headroom(
-        plan=plan, c6_cycle=c6, prior_ledgers=ledgers, c6_ledger=c6_ledger
-    )
-    require_headroom_pass(
-        passed,
-        plan=plan,
-        c6_cycle=c6,
-        prior_ledgers=ledgers,
-        c6_ledger=c6_ledger,
-    )
-    assert passed["artifact_id"] != denied["artifact_id"]
-    assert c6_ledger.get_artifact(str(denied["artifact_id"])) == denied
-    assert c6_ledger.get_artifact(str(passed["artifact_id"])) == passed
-    parsed = parse_artifact(passed, authorized_producers=PRODUCER_REGISTRY)
-    assert parsed.payload.aggregate_runs_predicted == 11
-    assert parsed.payload.aggregate_runs_created == 11
-    assert parsed.payload.aggregate_run_events == 11
-
-
-def test_headroom_snapshot_id_changes_with_scan_run_readback() -> None:
-    plan, _bundle, _sha, c6, _prepared_c6 = _prepared("c6")
-    ledgers = {}
-    previous = None
-    for cycle_id in ("c1", "c2", "c3", "c4", "c5"):
-        _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle(
-            cycle_id, previous
-        )
-        previous = ledger.get_artifact(result.manifest_artifact_id)
-        assert previous is not None
-        ledgers[cycle_id] = ledger
-    exact = evaluate_and_persist_headroom(
-        plan=plan,
-        c6_cycle=c6,
-        prior_ledgers=ledgers,
-        c6_ledger=InMemoryLedger(),
-    )
-    drifted_ledgers = {
-        **ledgers,
-        "c1": _ScanRunReadbackOverride(ledgers["c1"], 1),
+    wire["input_artifact_ids"] = sorted(inputs)
+    wire["agent_execution_summary"] = {
+        "execution_profile": "FULL_AUDIT_V1",
+        "runtime_class": "IN_PROCESS_ADK_CLOUD_RUN",
+        "concurrency": 4,
+        "model_id": "gemini-3.7-flash",
+        "endpoint_class": "VERTEX_AI_GLOBAL",
+        "total_runs": 20,
+        "complete_runs": 20,
+        "incomplete_runs": 0,
+        "not_evaluated_runs": 0,
+        "halted_runs": 0,
+        "total_agent_invocations": 60,
+        "total_prompt_tokens": 6000,
+        "total_candidate_tokens": 1200,
+        "total_thoughts_tokens": 300,
+        "total_tokens": 7500,
+        "p50_latency_ms": 900,
+        "p95_latency_ms": 1500,
+        "http_429_count": 0,
+        "projected_cost_usd_micros": 9000,
+        "reserved_cost_usd_micros": 12000,
+        "pricing_policy_sha256": "f" * 64,
+        "actual_billed_cost_state": "NOT_VERIFIED",
     }
-    drifted = evaluate_and_persist_headroom(
-        plan=plan,
-        c6_cycle=c6,
-        prior_ledgers=drifted_ledgers,
-        c6_ledger=InMemoryLedger(),
-    )
-    assert exact["artifact_id"] != drifted["artifact_id"]
-    assert exact["input_snapshot_sha256"] != drifted["input_snapshot_sha256"]
-    assert exact["observed_cycles"][0]["scan_runs_readback"] == 3
-    assert drifted["observed_cycles"][0]["scan_runs_readback"] == 4
-    assert drifted["decision"] == "DENIED"
+    wire["run_outcomes"] = outcomes
+    wire["content_hash"] = content_hash(wire)
+    return wire
 
 
-def test_c4_mode_receipt_carries_transitive_replay_provenance() -> None:
-    previous = None
-    c4_ledger = None
-    c4_result = None
-    for cycle_id in ("c1", "c2", "c3", "c4"):
-        _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle(
-            cycle_id, previous
-        )
-        previous = ledger.get_artifact(result.manifest_artifact_id)
-        assert previous is not None
-        c4_ledger, c4_result = ledger, result
-    assert c4_ledger is not None and c4_result is not None
-    receipt = parse_artifact(
-        c4_ledger.get_artifact(c4_result.data_mode_receipt_id),
-        authorized_producers=PRODUCER_REGISTRY,
-    )
-    assert receipt.payload.declared_composition == "SYNTHETIC_WITH_CAPTURED_REPLAY"
-    assert receipt.payload.mode_set == ("CAPTURED_REPLAY", "SYNTHETIC")
+def test_v32_manifest_exposes_full_audit_outcomes_and_telemetry() -> None:
+    parsed = parse_artifact(_v32_wire(), authorized_producers=PRODUCER_REGISTRY)
+
+    assert parsed.schema_version == "3.2.0"
+    assert parsed.payload.agent_execution_summary["concurrency"] == 4
+    assert len(parsed.payload.run_outcomes) == 20
+    assert parsed.status.value == "VALID"
 
 
-def test_c6_requires_fresh_persisted_headroom_and_binds_manifest() -> None:
-    plan, bundle, _sha, c6, c6_ledger = _prepared("c6")
-    plan, c6 = _serial_c6_context(plan, c6)
-    ledgers = {}
-    previous = None
-    for cycle_id in ("c1", "c2", "c3", "c4", "c5"):
-        _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle(
-            cycle_id, previous
-        )
-        previous = ledger.get_artifact(result.manifest_artifact_id)
-        assert previous is not None
-        ledgers[cycle_id] = ledger
-    receipt = evaluate_and_persist_headroom(
-        plan=plan,
-        c6_cycle=c6,
-        prior_ledgers=ledgers,
-        c6_ledger=c6_ledger,
-    )
-    result = CompressedCycleScheduler(
-        c6_ledger,
-        plan=plan,
-        cycle=c6,
-        bundle=bundle,
-        source_commit=bundle.source_commit,
-        image_digest=IMAGE_DIGEST,
-    ).trigger(
-        now=c6.window_start,
-        previous_manifest=previous,
-        headroom_receipt=receipt,
-        headroom_prior_ledgers=ledgers,
-    )
-    manifest_wire = c6_ledger.get_artifact(result.manifest_artifact_id)
-    assert manifest_wire is not None
-    manifest = parse_artifact(
-        manifest_wire, authorized_producers=PRODUCER_REGISTRY
-    )
-    assert manifest.payload.headroom_receipt_id == receipt["artifact_id"]
-    assert receipt["artifact_id"] in manifest.input_artifact_ids
-    mode = parse_artifact(
-        c6_ledger.get_artifact(result.data_mode_receipt_id),
-        authorized_producers=PRODUCER_REGISTRY,
-    )
-    assert mode.payload.declared_composition == "SYNTHETIC_WITH_CAPTURED_REPLAY"
+def test_v32_manifest_cannot_hide_not_evaluated_audit_behind_valid_status() -> None:
+    wire = _v32_wire()
+    outcome = wire["run_outcomes"][0]
+    outcome["audit_status"] = "NOT_EVALUATED"
+    outcome["citation_audit_receipt_id"] = None
+    wire["agent_execution_summary"]["complete_runs"] = 19
+    wire["agent_execution_summary"]["not_evaluated_runs"] = 1
+    wire["status"] = "VALID"
+    wire["content_hash"] = content_hash(wire)
 
-    omitted = copy.deepcopy(manifest_wire)
-    omitted["headroom_receipt_id"] = None
-    omitted["content_hash"] = content_hash(omitted)
-    with pytest.raises(ContractError, match="headroom_receipt_id"):
-        parse_artifact(omitted, authorized_producers=PRODUCER_REGISTRY)
-
-
-def test_c6_rejects_unpersisted_and_stale_headroom_without_run_writes() -> None:
-    plan, bundle, _sha, c6, c6_ledger = _prepared("c6")
-    plan, c6 = _serial_c6_context(plan, c6)
-    ledgers = {}
-    previous = None
-    for cycle_id in ("c1", "c2", "c3", "c4", "c5"):
-        _plan, _bundle, _sha, _cycle, ledger, result = _run_cycle(
-            cycle_id, previous
-        )
-        previous = ledger.get_artifact(result.manifest_artifact_id)
-        assert previous is not None
-        ledgers[cycle_id] = ledger
-    detached = InMemoryLedger()
-    receipt = evaluate_and_persist_headroom(
-        plan=plan,
-        c6_cycle=c6,
-        prior_ledgers=ledgers,
-        c6_ledger=detached,
-    )
-    before = (
-        c6_ledger.read_back_count("scan_runs"),
-        c6_ledger.read_back_count("scan_run_events"),
-    )
-    scheduler = CompressedCycleScheduler(
-        c6_ledger,
-        plan=plan,
-        cycle=c6,
-        bundle=bundle,
-        source_commit=bundle.source_commit,
-        image_digest=IMAGE_DIGEST,
-    )
-    with pytest.raises(RuntimeError, match="not_persisted"):
-        scheduler.trigger(
-            now=c6.window_start,
-            previous_manifest=previous,
-            headroom_receipt=receipt,
-            headroom_prior_ledgers=ledgers,
-        )
-    assert before == (
-        c6_ledger.read_back_count("scan_runs"),
-        c6_ledger.read_back_count("scan_run_events"),
-    )
-
-    c6_ledger.append_artifact(receipt)
-    stale_ledgers = {**ledgers, "c1": InMemoryLedger()}
-    with pytest.raises(RuntimeError, match="stale_or_forged"):
-        scheduler.trigger(
-            now=c6.window_start,
-            previous_manifest=previous,
-            headroom_receipt=receipt,
-            headroom_prior_ledgers=stale_ledgers,
-        )
-    assert before == (
-        c6_ledger.read_back_count("scan_runs"),
-        c6_ledger.read_back_count("scan_run_events"),
-    )
+    with pytest.raises(ContractError, match="contract_value_invalid"):
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)

@@ -52,6 +52,17 @@ class LedgerPort(Protocol):
         next_lease_expires_at: datetime | None = None,
     ) -> ScanRunRecord: ...
 
+    def commit_agent_step(
+        self,
+        run_id: str,
+        *,
+        expected_version: int,
+        lease_epoch: int,
+        event_code: ScanRunEventCode,
+        artifacts: Sequence[Mapping[str, Any]],
+        now: datetime,
+    ) -> ScanRunRecord: ...
+
     def acquire_lease(
         self,
         run_id: str,

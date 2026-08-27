@@ -21,6 +21,8 @@ DEFAULT_COMPRESSED_BUNDLE_PATH = Path(
     "artifacts/evidence/cohort-compression/preparation-bundle-v2.json"
 )
 
+FULL_AUDIT_MODEL_ID = "gemma4:e4b-it-qat"
+
 
 @dataclass(frozen=True, slots=True)
 class CompressedPreparedCase:
@@ -42,6 +44,7 @@ class CompressedPreparationBundle:
     history_receipt: Mapping[str, object]
     legacy_failure_receipt: Mapping[str, object]
     bundle_sha256: str
+    privacy_receipt_source_lock: Mapping[str, str] | None = None
 
     @property
     def observations_by_vcv(self) -> Mapping[str, Mapping[str, object]]:
@@ -90,7 +93,7 @@ def load_compressed_bundle(
     if digest != expected_sha256:
         raise RuntimeError("compressed_preparation_bundle_hash_mismatch")
     value = json.loads(raw.decode("utf-8"))
-    if not isinstance(value, dict) or set(value) != {
+    base_fields = {
         "schema_version",
         "prepared_at",
         "source_commit",
@@ -99,9 +102,20 @@ def load_compressed_bundle(
         "cases",
         "replay_observations",
         "legacy_failure_receipt",
+    }
+    observed_fields = frozenset(value) if isinstance(value, dict) else frozenset()
+    if not isinstance(value, dict) or observed_fields not in {
+        frozenset(base_fields),
+        frozenset({*base_fields, "privacy_receipt_source_lock"}),
     }:
         raise RuntimeError("compressed_preparation_bundle_shape_invalid")
-    if value["schema_version"] != "2.0.0" or value["plan_sha256"] != plan.sha256:
+    schema_version = value["schema_version"]
+    has_source_lock = "privacy_receipt_source_lock" in value
+    if (
+        schema_version not in {"2.0.0", "2.1.0"}
+        or has_source_lock is not (schema_version == "2.1.0")
+        or value["plan_sha256"] != plan.sha256
+    ):
         raise RuntimeError("compressed_preparation_plan_mismatch")
     bundle = CompressedPreparationBundle(
         prepared_at=_timestamp(value["prepared_at"]),
@@ -115,6 +129,13 @@ def load_compressed_bundle(
         history_receipt=load_day1_history_receipt(root),
         legacy_failure_receipt=_parse_failure(value["legacy_failure_receipt"]),
         bundle_sha256=digest,
+        privacy_receipt_source_lock=(
+            None
+            if not has_source_lock
+            else _parse_privacy_source_lock(
+                value["privacy_receipt_source_lock"]
+            )
+        ),
     )
     _validate_bundle(bundle, plan)
     return bundle
@@ -128,8 +149,12 @@ def install_prepared_cycle(
     *,
     now: datetime,
 ) -> Mapping[str, int]:
-    expected = {item.case_id for item in cases_for_cycle(cycle)}
-    selected = tuple(item for item in bundle.cases if item.case_id in expected)
+    expected = {(item.case_id, item.cycle_id) for item in cases_for_cycle(cycle)}
+    selected = tuple(
+        item for item in bundle.cases
+        if (item.case_id, item.cycle_id) in expected
+    )
+    _prevalidate_selected(bundle, cycle, selected)
     history_created = _append_locked(ledger, bundle.history_receipt)
     failure_created = 0
     if cycle.cycle_id == "c1":
@@ -175,10 +200,12 @@ def verify_prepared_cycle(
             bundle.legacy_failure_receipt,
             "compressed_legacy_failure_receipt_missing",
         )
-    expected = {item.case_id for item in cases_for_cycle(cycle)}
-    selected = tuple(item for item in bundle.cases if item.case_id in expected)
-    if len(selected) != cycle.runs_predicted:
-        raise RuntimeError("compressed_preparation_case_set_mismatch")
+    expected = {(item.case_id, item.cycle_id) for item in cases_for_cycle(cycle)}
+    selected = tuple(
+        item for item in bundle.cases
+        if (item.case_id, item.cycle_id) in expected
+    )
+    _prevalidate_selected(bundle, cycle, selected)
     verifier = CompressedPreparationVerifier(bundle)
     for item in selected:
         record = ledger.get_watch_case(item.case_id)
@@ -194,12 +221,38 @@ def verify_prepared_cycle(
         receipt = ledger.get_artifact(str(item.privacy_receipt["artifact_id"]))
         if receipt is None or not verifier(receipt):
             raise RuntimeError("compressed_prepared_receipt_missing")
+        if cycle.execution_profile == "FULL_AUDIT_V1":
+            _require_full_audit_privacy_receipt(receipt)
+            if bundle.privacy_receipt_source_lock is None:
+                raise RuntimeError("full_audit_privacy_source_lock_required")
     for item in cases_for_cycle(cycle):
         if item.vcv is not None:
             observation = bundle.observations_by_vcv[item.vcv]
             _verify_locked(
                 ledger, observation, "compressed_prepared_anchor_missing"
             )
+
+
+def _prevalidate_selected(
+    bundle: CompressedPreparationBundle,
+    cycle: CompressedCycle,
+    selected: tuple[CompressedPreparedCase, ...],
+) -> None:
+    """Reject an invalid FULL_AUDIT bundle before the first ledger write."""
+
+    if len(selected) != cycle.runs_predicted:
+        raise RuntimeError("compressed_preparation_case_set_mismatch")
+    verifier = CompressedPreparationVerifier(bundle)
+    for item in selected:
+        if not verifier(item.privacy_receipt):
+            raise RuntimeError("compressed_preparation_receipt_lock_failed")
+        if cycle.execution_profile == "FULL_AUDIT_V1":
+            _require_full_audit_privacy_receipt(item.privacy_receipt)
+    if (
+        cycle.execution_profile == "FULL_AUDIT_V1"
+        and bundle.privacy_receipt_source_lock is None
+    ):
+        raise RuntimeError("full_audit_privacy_source_lock_required")
 
 
 def _append_locked(ledger: LedgerPort, value: Mapping[str, object]) -> int:
@@ -248,6 +301,26 @@ def _parse_case(value: Any) -> CompressedPreparedCase:
     )
 
 
+def _require_full_audit_privacy_receipt(
+    value: Mapping[str, object],
+) -> None:
+    parsed = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
+    gemma = parsed.payload.detectors["gemma"]
+    if (
+        parsed.schema_name != "PrivacyReceipt"
+        or parsed.schema_version != "1.1.0"
+        or parsed.payload.decision.value != "ACCEPTED"
+        or parsed.payload.execution_locus.value != "LAB_LOCAL"
+        or parsed.payload.transport_class.value != "LOCAL_PROCESS"
+        or parsed.payload.endpoint_class.value != "OLLAMA_LOCAL"
+        or parsed.payload.model_id != FULL_AUDIT_MODEL_ID
+        or not str(parsed.payload.model_revision).startswith("sha256:")
+        or gemma.get("invoked") is not True
+        or gemma.get("schema_valid") is not True
+    ):
+        raise RuntimeError("full_audit_privacy_receipt_required")
+
+
 def _parse_observation(value: Any) -> Mapping[str, object]:
     artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
     if artifact.schema_name != "EvidenceObservation" or artifact.data_mode.value != "CAPTURED_REPLAY":
@@ -260,6 +333,30 @@ def _parse_failure(value: Any) -> Mapping[str, object]:
     if artifact.schema_name != "CompressedCycleFailureReceipt":
         raise RuntimeError("compressed_failure_receipt_invalid")
     return artifact.to_wire()
+
+
+def _parse_privacy_source_lock(value: Any) -> Mapping[str, str]:
+    fields = {
+        "source_sha256",
+        "key_id",
+        "algorithm",
+        "key_fingerprint_sha256",
+    }
+    if not isinstance(value, Mapping) or set(value) != fields:
+        raise RuntimeError("privacy_receipt_source_lock_invalid")
+    if value["algorithm"] != "HMAC-SHA256":
+        raise RuntimeError("privacy_receipt_source_lock_invalid")
+    for field in ("source_sha256", "key_fingerprint_sha256"):
+        text = value[field]
+        if (
+            not isinstance(text, str)
+            or len(text) != 64
+            or any(item not in "0123456789abcdef" for item in text)
+        ):
+            raise RuntimeError("privacy_receipt_source_lock_invalid")
+    if not isinstance(value["key_id"], str) or not value["key_id"]:
+        raise RuntimeError("privacy_receipt_source_lock_invalid")
+    return {field: str(value[field]) for field in sorted(fields)}
 
 
 def _validate_bundle(bundle: CompressedPreparationBundle, plan: CompressedPlan) -> None:

@@ -20,6 +20,7 @@ from .lifecycle import (
     parse_review_task_payload,
     parse_scan_run_event_payload,
     parse_scan_run_payload,
+    parse_scan_run_v11_payload,
     parse_watch_case_payload,
 )
 from .evidence import (
@@ -36,6 +37,7 @@ from .receipts import (
     parse_assessment_receipt_payload,
     parse_citation_audit_payload,
     parse_privacy_receipt_payload,
+    parse_privacy_receipt_v11_payload,
     parse_registry_resolution_payload,
 )
 from .agentic import (
@@ -58,6 +60,14 @@ from .scheduler_v3 import (
     CohortDayManifestV3Payload,
     parse_cohort_day_manifest_v3_payload,
 )
+from .scheduler_v31 import (
+    CohortDayManifestV31Payload,
+    parse_cohort_day_manifest_v31_payload,
+)
+from .scheduler_v32 import (
+    CohortDayManifestV32Payload,
+    parse_cohort_day_manifest_v32_payload,
+)
 from .scheduler_legacy import (
     CohortDayManifestV20Payload,
     parse_cohort_day_manifest_v20_payload,
@@ -76,6 +86,14 @@ from .compressed_receipts import (
     parse_cohort_headroom_receipt_payload,
     parse_compressed_cycle_failure_receipt_payload,
 )
+from .compressed_ramp import (
+    CohortRampGateReceiptPayload,
+    parse_cohort_ramp_gate_receipt_payload,
+)
+from .agent_execution import (
+    AgentExecutionReceiptPayload,
+    parse_agent_execution_receipt_payload,
+)
 
 __all__ = [
     "DataModePayload",
@@ -84,6 +102,7 @@ __all__ = [
     "ToolAuthorizationPayload",
     "PolicyDecisionPayload",
     "ScanRunPayload",
+    "AgentExecutionReceiptPayload",
     "ReviewTaskPayload",
     "ScanRunEventPayload",
     "WatchCasePayload",
@@ -111,12 +130,14 @@ __all__ = [
     "parse_policy_decision_payload",
     "parse_policy_input_facts",
     "parse_scan_run_payload",
+    "parse_scan_run_v11_payload",
     "parse_review_task_payload",
     "parse_scan_run_event_payload",
     "parse_watch_case_payload",
     "parse_candidate_delta_payload",
     "parse_evidence_snapshot_payload",
     "parse_privacy_receipt_payload",
+    "parse_privacy_receipt_v11_payload",
     "parse_registry_resolution_payload",
     "parse_assessment_receipt_payload",
     "parse_citation_audit_payload",
@@ -127,9 +148,16 @@ __all__ = [
     "parse_routing_plan_payload",
     "parse_cohort_day_manifest_payload",
     "parse_cohort_day_manifest_v3_payload",
+    "CohortDayManifestV31Payload",
+    "CohortDayManifestV32Payload",
+    "parse_cohort_day_manifest_v31_payload",
+    "parse_cohort_day_manifest_v32_payload",
     "parse_cohort_day_manifest_v20_payload",
     "parse_cohort_day_failure_receipt_payload",
     "parse_cohort_history_receipt_payload",
     "parse_cohort_headroom_receipt_payload",
+    "CohortRampGateReceiptPayload",
+    "parse_cohort_ramp_gate_receipt_payload",
     "parse_compressed_cycle_failure_receipt_payload",
+    "parse_agent_execution_receipt_payload",
 ]

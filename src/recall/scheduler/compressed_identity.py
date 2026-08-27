@@ -22,6 +22,30 @@ def trace_id(plan: CompressedPlan, cycle: CompressedCycle, case_id: str) -> str:
     return str(uuid5(UUID(tick_run_id(plan, cycle)), f"trace:{case_id}"))
 
 
+def prepared_watch_artifact_id(
+    case_id: str, cycle: CompressedCycle
+) -> str:
+    return str(
+        uuid5(
+            UUID(case_id),
+            f"compressed-watch-case:{cycle.cycle_id}:{cycle.schedule_epoch}",
+        )
+    )
+
+
+def ramp_gate_receipt_id(
+    plan: CompressedPlan, cycle: CompressedCycle, snapshot_sha256: str
+) -> str:
+    if cycle.cycle_index < 3:
+        raise RuntimeError("compressed_ramp_gate_requires_runnable_cycle")
+    return str(
+        uuid5(
+            UUID(tick_run_id(plan, cycle)),
+            f"ramp-gate-v1:{snapshot_sha256}",
+        )
+    )
+
+
 def legacy_failure_receipt_id(plan: CompressedPlan, cycle: CompressedCycle) -> str:
     if cycle.cycle_id != "c1":
         raise RuntimeError("compressed_legacy_failure_only_c1")

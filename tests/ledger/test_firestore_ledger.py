@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
-from recall.contracts import ContractError, DataMode
+from recall.contracts import (
+    ContractError,
+    DataMode,
+    ExecutionProfile,
+    content_hash,
+)
 from recall.controller import Controller, ScanRunEventCode
 from recall.ledger import FirestoreLedger
 
 from .helpers import ARTIFACT_ID, RUN_ID, conflicting_receipt, tool_receipt
 from tests.admission import admit_watch_case, verify_test_receipt
+from tests.ledger.test_in_memory_ledger import _watcher_step_artifacts
 
 
 @pytest.fixture
@@ -240,6 +247,101 @@ def test_firestore_rejects_mismatched_transition_atomically(
     assert pointer_after is not None
     assert pointer_after.state is events[-1].to_state
     assert pointer_after.version == events[-1].sequence
+
+
+def test_firestore_agent_step_rejects_authorization_from_another_call_atomically(
+    firestore_ledger: FirestoreLedger,
+) -> None:
+    now = datetime(2026, 8, 27, 9, 0, tzinfo=UTC)
+    case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
+    controller = Controller(firestore_ledger)
+    admitted, receipt, _payload = admit_watch_case(
+        firestore_ledger,
+        controller,
+        case_id=case_id,
+        now=now,
+        next_scan_at="2026-08-27T09:00:00Z",
+        source_cursors={"synthetic": "causal-binding"},
+    )
+    created = controller.create_run(
+        watch_case_id=case_id,
+        source_cursors={"synthetic": "causal-binding"},
+        schedule_epoch="2026-08-27T09:00:00Z",
+        data_mode=DataMode.SYNTHETIC,
+        privacy_receipt_id=str(receipt["artifact_id"]),
+        expected_watch_case_version=admitted.record.version,
+        triggered_at=now,
+        budget_snapshot={
+            "delegation_depth": 0,
+            "specialist_invocations": 3,
+            "model_calls_per_role": 2,
+            "schema_repairs": 1,
+            "agent_retries": 1,
+            "connector_retries": 0,
+            "repeated_state_limit": 2,
+            "wall_time_seconds": 900,
+            "step_deadlines": {},
+            "token_ceilings": {},
+        },
+        trace_id="0a651403-8226-4072-9240-344542b0c5fd",
+        deadline_at="2026-08-27T09:15:00Z",
+        now=now,
+        execution_profile=ExecutionProfile.FULL_AUDIT_V1,
+    ).record
+    queued = controller.transition(
+        created.run_id,
+        expected_version=created.version,
+        lease_epoch=created.lease_epoch,
+        event_code=ScanRunEventCode.OUTBOX_PUBLISHED,
+        now=now + timedelta(seconds=1),
+    )
+    routing = controller.acquire_lease(
+        queued.run_id,
+        expected_version=queued.version,
+        new_epoch=1,
+        expires_at=now + timedelta(minutes=5),
+        now=now + timedelta(seconds=2),
+    )
+    watching = controller.transition(
+        routing.run_id,
+        expected_version=routing.version,
+        lease_epoch=routing.lease_epoch,
+        event_code=ScanRunEventCode.ROUTE_VALIDATED,
+        now=now + timedelta(seconds=3),
+    )
+    values = _watcher_step_artifacts(
+        watching.run_id, now + timedelta(seconds=4)
+    )
+    firestore_ledger.append_artifact(values[0])
+    other_call = deepcopy(values[1])
+    other_call["invocation_id"] = str(uuid4())
+    other_call["content_hash"] = content_hash(other_call)
+    firestore_ledger.append_artifact(other_call)
+    pointer_before = firestore_ledger.get_scan_run(watching.run_id)
+    events_before = firestore_ledger.read_back_count(
+        "scan_run_events", run_id=watching.run_id
+    )
+    artifacts_before = firestore_ledger.read_back_count(
+        "artifacts", run_id=watching.run_id
+    )
+
+    with pytest.raises(ContractError, match="tool_authorization_binding"):
+        firestore_ledger.commit_agent_step(
+            watching.run_id,
+            expected_version=watching.version,
+            lease_epoch=watching.lease_epoch,
+            event_code=ScanRunEventCode.FULL_AUDIT_REQUIRED,
+            artifacts=values[2:],
+            now=now + timedelta(seconds=4),
+        )
+
+    assert firestore_ledger.get_scan_run(watching.run_id) == pointer_before
+    assert firestore_ledger.read_back_count(
+        "scan_run_events", run_id=watching.run_id
+    ) == events_before
+    assert firestore_ledger.read_back_count(
+        "artifacts", run_id=watching.run_id
+    ) == artifacts_before
 
 
 def test_firestore_rejects_wrong_mode_admission_without_partial_write(

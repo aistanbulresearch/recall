@@ -16,7 +16,11 @@ from recall.scheduler.compressed_plan import (
     resolve_declared_cycle,
     PLAN3_SHA256,
 )
-from recall.scheduler.compressed_cohort import all_compressed_cases, cases_for_cycle
+from recall.scheduler.compressed_cohort import (
+    all_compressed_cases,
+    cases_for_cycle,
+    portfolio_cases,
+)
 from recall.scheduler.compressed_identity import (
     collection_prefix,
     manifest_artifact_id,
@@ -42,18 +46,18 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
     assert [(item.cycle_id, item.runs_predicted) for item in plan.cycles] == [
         ("c1", 3),
         ("c2", 2),
-        ("c3", 4),
-        ("c4", 1),
-        ("c5", 1),
-        ("c6", 450),
+        ("c3", 20),
+        ("c4", 80),
+        ("c5", 200),
+        ("c6", 456),
     ]
     assert [item.window_start.isoformat() for item in plan.cycles] == [
         "2026-08-26T20:40:00+00:00",
         "2026-08-26T22:30:00+00:00",
-        "2026-08-26T22:50:00+00:00",
-        "2026-08-26T23:10:00+00:00",
-        "2026-08-26T23:30:00+00:00",
         "2026-08-27T12:00:00+00:00",
+        "2026-08-28T09:00:00+00:00",
+        "2026-08-29T09:00:00+00:00",
+        "2026-08-30T09:00:00+00:00",
     ]
     assert all(
         current.window_start.timestamp() - prior.window_start.timestamp() >= 1200
@@ -68,11 +72,25 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
     assert evidence_manifest_artifact_id(plan, plan.by_id("c1")) == (
         "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
     )
-    assert plan.by_id("c6").write_path == "FIRESTORE_BATCH_V1"
+    assert all(item.write_path == "FIRESTORE_BATCH_V1" for item in plan.cycles[2:])
+    assert [item.execution_profile for item in plan.cycles] == [
+        "CREATE_ONLY_V1", "CREATE_ONLY_V1", "FULL_AUDIT_V1",
+        "FULL_AUDIT_V1", "FULL_AUDIT_V1", "FULL_AUDIT_V1",
+    ]
+    assert [item.activation for item in plan.cycles] == [
+        "IMMUTABLE_EXECUTED", "IMMUTABLE_EXECUTED", "ACTIVE",
+        "PROVISIONAL_R1_GATED", "PROVISIONAL_R1_GATED",
+        "PROVISIONAL_R1_GATED",
+    ]
     cases = all_compressed_cases(plan.cycles)
-    assert len(cases) == 462
+    assert len(cases) == 762
+    assert len({(item.case_id, item.cycle_id) for item in cases}) == 762
+    assert len(portfolio_cases(plan.cycles)) == 462
     assert sum(item.cycle_id == "historical-day1" for item in cases) == 1
-    assert len(cases_for_cycle(plan.by_id("c6"))) == 450
+    assert [len(cases_for_cycle(plan.by_id(item))) for item in ("c3", "c4", "c5", "c6")] == [20, 80, 200, 456]
+    assert set(item.case_id for item in cases_for_cycle(plan.by_id("c3"))).isdisjoint(
+        item.case_id for item in cases_for_cycle(plan.by_id("c4"))
+    )
     assert all(
         item.next_scan_at == plan.by_id(item.cycle_id).schedule_epoch
         for item in cases
@@ -90,10 +108,15 @@ def test_resolver_requires_exactly_one_declared_window() -> None:
             datetime(2026, 8, 26, 20, 55, tzinfo=timezone.utc), plan
         )
 
+    with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
+        resolve_declared_cycle(
+            datetime(2026, 8, 28, 9, 30, tzinfo=timezone.utc), plan
+        )
+
 
 def test_plan_rejects_overlap_and_short_gap() -> None:
     value = copy.deepcopy(_wire())
-    value["cycles"][2]["window_start"] = "2026-08-26T22:45:00Z"
+    value["cycles"][3]["window_start"] = "2026-08-27T09:10:00Z"
     with pytest.raises(RuntimeError, match="start_interval_invalid"):
         parse_compressed_plan(value, sha256="0" * 64)
 

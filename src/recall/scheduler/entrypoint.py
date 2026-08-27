@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from recall.ledger.firestore import FirestoreLedger
+from recall.agents.full_audit import FullAuditCoordinator
+from recall.agents.in_process_runtime import InProcessAdkRoleRunner
+from recall.connectors import PubMedConnector
 from recall.contracts import parse_artifact
+from recall.controller.tool_gateway_store import FirestoreGatewayInvocationStore
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.platform.redaction import redact_json
 
@@ -27,8 +31,9 @@ from .preparation import (
     load_preparation_bundle,
 )
 from .compressed import CompressedCycleScheduler
-from .compressed_cohort import all_compressed_cases, cases_for_cycle
-from .compressed_headroom import evaluate_and_persist_headroom
+from .compressed_batch import BATCH_MAX_WORKERS
+from .compressed_cohort import cases_for_cycle, portfolio_cases
+from .compressed_ramp_gate import evaluate_and_persist_ramp_gate
 from .compressed_identity import (
     collection_prefix as compressed_collection_prefix,
     evidence_collection_prefix,
@@ -40,6 +45,10 @@ from .compressed_preparation import (
     CompressedPreparationVerifier,
     load_compressed_bundle,
     verify_prepared_cycle,
+)
+from .model_cost import (
+    DEFAULT_MODEL_COST_POLICY,
+    FirestoreModelCostLedger,
 )
 
 
@@ -54,6 +63,7 @@ def execute(
     environment: Mapping[str, str],
     now_factory: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ledger_factory: LedgerFactory = FirestoreLedger.from_default_credentials,
+    full_audit_factory: Callable[[FirestoreLedger], FullAuditCoordinator] | None = None,
     repo_root: Path | None = None,
 ) -> dict[str, object]:
     scheduler_mode = _required(environment, "RECALL_SCHEDULER_MODE")
@@ -92,7 +102,7 @@ def execute(
         selected_ids = {item.case_id for item in selected_cases}
         excluded = sorted(
             item.case_id
-            for item in all_compressed_cases(plan.cycles)
+            for item in portfolio_cases(plan.cycles)
             if item.case_id not in selected_ids
         )
         return {
@@ -108,6 +118,26 @@ def execute(
             "preparation_bundle_sha256": bundle.bundle_sha256,
             "source_commit": source_commit,
             "image_digest": image_digest,
+            "write_path": cycle.write_path,
+            "epoch_label": cycle.epoch_label,
+            "evaluation_role": cycle.evaluation_role,
+            "execution_timeout_seconds": cycle.execution_timeout_seconds,
+            "activation": cycle.activation,
+            "execution_profile": cycle.execution_profile,
+            "parity_indicator_fields": [
+                "expected_newly_created_runs",
+                "actual_newly_created_runs",
+                "expected_reused_runs",
+                "actual_reused_runs",
+                "new_epoch_required",
+                "same_write_path_as_ramp",
+                "parity_match",
+            ],
+            "batch_max_workers": (
+                BATCH_MAX_WORKERS
+                if cycle.write_path == "FIRESTORE_BATCH_V1"
+                else 1
+            ),
         }
     project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
     verifier = CompressedPreparationVerifier(bundle)
@@ -148,8 +178,6 @@ def execute(
     cycle = resolve_declared_cycle(now, plan)
     if cycle.write_path == "EXTERNAL_IMMUTABLE":
         raise RuntimeError("compressed_cycle_external_immutable")
-    if cycle.write_path == "FIRESTORE_BATCH_V1":
-        raise RuntimeError("compressed_batch_write_path_required")
     ledger = ledger_factory(
         collection_prefix=compressed_collection_prefix(plan, cycle),
         privacy_receipt_verifier=verifier,
@@ -157,6 +185,22 @@ def execute(
         database="(default)",
         require_live=True,
     )
+    full_audit = None
+    refetch_backend = None
+    if cycle.execution_profile == "FULL_AUDIT_V1":
+        if not isinstance(ledger, FirestoreLedger):
+            if full_audit_factory is None:
+                raise RuntimeError("full_audit_factory_required")
+        full_audit = (
+            full_audit_factory(ledger)
+            if full_audit_factory is not None
+            else _build_full_audit_coordinator(ledger, plan_sha256=plan.sha256)
+        )
+        ncbi = PubMedConnector(
+            tool=_required(environment, "RECALL_NCBI_TOOL"),
+            email=_required(environment, "RECALL_NCBI_EMAIL"),
+        )
+        refetch_backend = ncbi.fetch
     previous = None
     prior_ledgers = {}
     for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
@@ -175,14 +219,14 @@ def execute(
         )
         if previous is None:
             raise RuntimeError("compressed_previous_manifest_missing")
-    headroom = None
-    if cycle.cycle_id == "c6":
-        headroom = evaluate_and_persist_headroom(
+    predecessor = plan.cycles[cycle.cycle_index - 2]
+    ramp_gate = evaluate_and_persist_ramp_gate(
             plan=plan,
-            c6_cycle=cycle,
-            prior_ledgers=prior_ledgers,
-            c6_ledger=ledger,
-        )
+            target_cycle=cycle,
+            predecessor_ledger=prior_ledgers[predecessor.cycle_id],
+            target_ledger=ledger,
+            now=now,
+    )
     result = CompressedCycleScheduler(
         ledger,
         plan=plan,
@@ -190,11 +234,12 @@ def execute(
         bundle=bundle,
         source_commit=source_commit,
         image_digest=image_digest,
+        full_audit_coordinator=full_audit,
+        refetch_fetcher=refetch_backend,
     ).trigger(
         now=now,
         previous_manifest=previous,
-        headroom_receipt=headroom,
-        headroom_prior_ledgers=prior_ledgers if cycle.cycle_id == "c6" else None,
+        ramp_gate_receipt=ramp_gate,
     )
     return {
         "mode": "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE",
@@ -205,17 +250,54 @@ def execute(
         "authoritative_run_ids": list(result.authoritative_run_ids),
         "manifest_artifact_id": result.manifest_artifact_id,
         "data_mode_receipt_id": result.data_mode_receipt_id,
+        "ramp_gate_receipt_id": str(ramp_gate["artifact_id"]),
         "collection_prefix": compressed_collection_prefix(plan, cycle),
         "plan_sha256": plan.sha256,
         "schedule_mode": plan.schedule_mode,
+        "write_path": cycle.write_path,
+        "epoch_label": cycle.epoch_label,
+        "evaluation_role": cycle.evaluation_role,
+        "execution_timeout_seconds": cycle.execution_timeout_seconds,
+        "activation": cycle.activation,
+        "execution_profile": cycle.execution_profile,
+        "batch_max_workers": (
+            BATCH_MAX_WORKERS
+            if cycle.write_path == "FIRESTORE_BATCH_V1"
+            else 1
+        ),
         "backend": dict(ledger.backend_metadata()),
         "claim_boundary": {
             "managed_tick": "EXECUTED",
             "managed_admission": "NOT_CLAIMED_LAB_LOCAL_PREPARATION",
             "cross_day_watch_case_continuity": "NOT_CLAIMED_DATE_ISOLATED",
-            "terminal_agent_execution": "NOT_RUN_NOT_CLAIMED",
+            "terminal_agent_execution": "IN_PROCESS_ADK_CLOUD_RUN",
+            "agent_engine_cohort_execution": "NOT_CLAIMED",
         },
     }
+
+
+def _build_full_audit_coordinator(
+    ledger: FirestoreLedger, *, plan_sha256: str
+) -> FullAuditCoordinator:
+    prefix = ledger.collection_prefix
+    return FullAuditCoordinator(
+        ledger,
+        role_runner=InProcessAdkRoleRunner(
+            max_request_bytes=(
+                DEFAULT_MODEL_COST_POLICY.max_request_bytes_per_turn
+            )
+        ),
+        invocation_store=FirestoreGatewayInvocationStore(
+            ledger.client,
+            collection_name=f"{prefix}tool_gateway_invocations",
+        ),
+        cost_ledger=FirestoreModelCostLedger(
+            ledger.client,
+            collection_name=f"recall_plan6_cost_{plan_sha256[:16]}",
+            hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
 
 
 def _execute_legacy(

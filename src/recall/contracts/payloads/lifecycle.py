@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from types import MappingProxyType
 from typing import Any
 
 from ..enums import (
+    ExecutionProfile,
     ReviewTaskState,
     ScanRunEventCode,
     ScanRunState,
@@ -91,9 +92,10 @@ class ScanRunPayload:
     trace_id: str
     terminal_policy_decision_id: str | None
     failure_receipt_ids: tuple[str, ...]
+    execution_profile: ExecutionProfile | None = None
 
     def to_wire(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "watch_case_id": self.watch_case_id,
             "state": self.state.value,
             "scheduled_for": self.scheduled_for,
@@ -106,6 +108,9 @@ class ScanRunPayload:
             "terminal_policy_decision_id": self.terminal_policy_decision_id,
             "failure_receipt_ids": list(self.failure_receipt_ids),
         }
+        if self.execution_profile is not None:
+            value["execution_profile"] = self.execution_profile.value
+        return value
 
 
 def parse_scan_run_payload(value: Mapping[str, Any]) -> ScanRunPayload:
@@ -141,6 +146,16 @@ def parse_scan_run_payload(value: Mapping[str, Any]) -> ScanRunPayload:
         trace_id=str(uuid_value(value["trace_id"], "trace_id")),
         terminal_policy_decision_id=terminal_id,
         failure_receipt_ids=failures,
+    )
+
+
+def parse_scan_run_v11_payload(value: Mapping[str, Any]) -> ScanRunPayload:
+    parsed = parse_scan_run_payload(value)
+    return replace(
+        parsed,
+        execution_profile=enum_value(
+            ExecutionProfile, value["execution_profile"], "execution_profile"
+        ),
     )
 
 

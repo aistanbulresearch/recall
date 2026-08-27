@@ -1,0 +1,288 @@
+from __future__ import annotations
+
+import asyncio
+from collections import deque
+from collections.abc import AsyncGenerator
+
+from google.adk.models import BaseLlm
+from google.adk.models._capabilities import LlmCapabilities
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
+from google.genai import types
+from pydantic import PrivateAttr
+import pytest
+
+from recall.agents.full_audit_models import RoleExecutionContext, RoleExecutionError
+from recall.agents.in_process_runtime import (
+    InProcessAdkRoleRunner,
+    RequestBoundLlm,
+    _effective_request_bytes,
+)
+from recall.contracts import AgentRole
+
+
+class ToolThenJsonLlm(BaseLlm):
+    _responses: deque[LlmResponse] = PrivateAttr()
+
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+        output = (
+            '{"effective_at":"2026-08-27T08:00:00Z",'
+            '"observation_ids":[],"coverage_status":"PASS",'
+            '"source_cursors":{"clinvar":"42"},'
+            '"normalized_facts":{"observation_count":1,"scope":"synthetic"},'
+            '"conflicts":[],"snapshot_hash":"' + "a" * 64 + '"}'
+        )
+        self._responses = deque(
+            (
+                LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[
+                            types.Part.from_function_call(
+                                name="evidence_connector",
+                                args={"stage": "prepared"},
+                            )
+                        ],
+                    ),
+                    partial=False,
+                ),
+                LlmResponse(
+                    content=types.Content(
+                        role="model", parts=[types.Part(text=output)]
+                    ),
+                    partial=False,
+                ),
+            )
+        )
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        yield self._responses.popleft()
+
+
+class RateLimitedLlm(BaseLlm):
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        raise RuntimeError("429 ResourceExhausted")
+        yield  # pragma: no cover - keeps the async-generator contract
+
+
+class ThreeTurnLlm(BaseLlm):
+    _calls: int = PrivateAttr(default=0)
+
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+
+    @property
+    def calls(self) -> int:
+        return self._calls
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        self._calls += 1
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_function_call(
+                        name="evidence_connector",
+                        args={"stage": "prepared"},
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
+class OversizedSecondTurnLlm(BaseLlm):
+    _calls: int = PrivateAttr(default=0)
+
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+
+    @property
+    def calls(self) -> int:
+        return self._calls
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        self._calls += 1
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_function_call(
+                        name="evidence_connector",
+                        args={"stage": "prepared"},
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
+def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry() -> None:
+    observed: list[tuple[str, str, str]] = []
+
+    def evidence_connector(stage, tool_context):
+        observed.append(
+            (stage, tool_context.invocation_id, tool_context.function_call_id)
+        )
+        return {"records": [{"source": "synthetic"}]}
+
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    result = asyncio.run(
+        InProcessAdkRoleRunner(model=ToolThenJsonLlm()).execute(
+            AgentRole.EVIDENCE_WATCHER,
+            "Call the evidence connector once and return strict JSON.",
+            {"evidence_connector": evidence_connector},
+            context,
+        )
+    )
+
+    assert len(observed) == 1
+    assert observed[0][0] == "prepared"
+    assert observed[0][1]
+    assert observed[0][2]
+    assert result.output.coverage_status == "PASS"
+    assert result.trace_id == context.trace_id
+    assert len(result.turns) == 2
+    assert result.turns[0].function_call_emitted is True
+    assert result.tool_call_ids == result.tool_response_ids
+
+
+def test_in_process_runner_preserves_rate_limit_telemetry_on_provider_error() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+
+    try:
+        asyncio.run(
+            InProcessAdkRoleRunner(model=RateLimitedLlm()).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call the evidence connector once.",
+                {"evidence_connector": lambda **_: {"records": []}},
+                context,
+            )
+        )
+    except RoleExecutionError as exc:
+        assert exc.code == "agent_provider_call_failed"
+        assert exc.http_429_count == 1
+    else:  # pragma: no cover - fail explicitly if ADK swallows the provider error
+        raise AssertionError("rate limit error was not propagated")
+
+
+def test_in_process_runner_refuses_third_provider_dispatch() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    model = ThreeTurnLlm()
+
+    with pytest.raises(RoleExecutionError, match="model_turn_budget_exceeded"):
+        asyncio.run(
+            InProcessAdkRoleRunner(model=model).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call twice.",
+                {"evidence_connector": lambda **_: {"records": []}},
+                context,
+            )
+        )
+
+    assert model.calls == 2
+
+
+def test_in_process_runner_refuses_oversized_second_request_before_dispatch() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    model = OversizedSecondTurnLlm()
+
+    with pytest.raises(RoleExecutionError, match="model_request_budget_exceeded"):
+        asyncio.run(
+            InProcessAdkRoleRunner(
+                model=model, max_request_bytes=16_384
+            ).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call the evidence connector once.",
+                {
+                    "evidence_connector": lambda **_: {
+                        "records": [{"oversized": "x" * 50_000}]
+                    }
+                },
+                context,
+            )
+        )
+
+    assert model.calls == 1
+
+
+def test_provider_bound_guard_sees_adk_label_added_after_callback() -> None:
+    request = LlmRequest(model="gemini-3.7-flash")
+    callback_visible_bytes = len(_effective_request_bytes(request))
+    request.config.labels = {"google-adk-agent-name": "evidence_watcher"}
+    assert len(_effective_request_bytes(request)) > callback_visible_bytes
+    model = OversizedSecondTurnLlm()
+    guarded = RequestBoundLlm(
+        model=model.model,
+        delegate=model,
+        max_request_bytes=callback_visible_bytes,
+    )
+
+    async def consume() -> None:
+        async for _ in guarded.generate_content_async(request):
+            pass
+
+    with pytest.raises(RoleExecutionError, match="model_request_budget_exceeded"):
+        asyncio.run(consume())
+
+    assert model.calls == 0
