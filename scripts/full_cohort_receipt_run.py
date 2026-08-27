@@ -78,11 +78,12 @@ POSTURES: dict[str, dict[str, str]] = {
 }
 
 # EndpointClass values registered in the shipped contract, last verified from
-# source at core 982f6e3a. The refusal below is the same fail-closed drill that
-# held the Cloud Run posture: when Codex lands OLLAMA_VERTEX_ENDPOINT, verify
-# from source and add it here; until then the cloud run refuses to start.
+# source at core abfdde1 (enums.py OLLAMA_VERTEX_ENDPOINT present; prep gate
+# accepts the LAB_LOCAL + PRIVATE_SERVICE + OLLAMA_VERTEX_ENDPOINT trio at
+# compressed_preparation.py accepted_paths). Refusal stays for any value not
+# in this source-verified set.
 REGISTERED_ENDPOINT_CLASSES = frozenset(
-    {"OLLAMA_LOCAL", "OLLAMA_CLOUD_RUN", "VERTEX_AI_GLOBAL"}
+    {"OLLAMA_LOCAL", "OLLAMA_CLOUD_RUN", "OLLAMA_VERTEX_ENDPOINT", "VERTEX_AI_GLOBAL"}
 )
 
 
