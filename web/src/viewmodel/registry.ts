@@ -408,6 +408,92 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     hideWhenMissing: true,
   },
   {
+    // 3.1.0: which epoch this evaluation belongs to. The owner's presentation
+    // rule rides here: which number measures what must be visible, and re-runs
+    // must never read as different cases.
+    fieldId: 'UI-COHORT-EPOCH-LABEL',
+    label: 'Epoch',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.epoch_label',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    fieldId: 'UI-COHORT-EVALUATION-ROLE',
+    label: 'Evaluation role',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.evaluation_role',
+    derivation: { kind: 'exact' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.1.0 parity block: every run newly created, zero reused, match flag.
+    fieldId: 'UI-COHORT-PARITY',
+    label: 'Run parity',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.parity',
+    derivation: {
+      kind: 'record',
+      valueProperty: 'parity_match',
+      properties: [
+        'expected_newly_created_runs',
+        'actual_newly_created_runs',
+        'expected_reused_runs',
+        'actual_reused_runs',
+        'parity_match',
+      ],
+    },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.2.0 agent-execution summary: the run counts a viewer needs to see the
+    // three-valued audit story (complete / incomplete / not evaluated).
+    fieldId: 'UI-COHORT-AGENT-SUMMARY',
+    label: 'Agent execution',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.agent_execution_summary',
+    derivation: {
+      kind: 'record',
+      valueProperty: 'total_runs',
+      properties: [
+        'execution_profile',
+        'model_id',
+        'total_runs',
+        'complete_runs',
+        'incomplete_runs',
+        'not_evaluated_runs',
+        'p50_latency_ms',
+        'p95_latency_ms',
+        'http_429_count',
+      ],
+    },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
+    // 3.2.0: one row per run with its own audit_status and epoch label.
+    fieldId: 'UI-COHORT-RUN-OUTCOMES',
+    label: 'Run outcomes',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.run_outcomes[*]',
+    derivation: { kind: 'list' },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
     // The manifest's own declared data mode, so a synthetic sentinel digest can
     // never read as a deployed one.
     fieldId: 'UI-COHORT-DATA-MODE',

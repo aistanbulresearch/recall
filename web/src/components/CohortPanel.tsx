@@ -98,6 +98,18 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         </p>
       ) : null}
 
+      {model['UI-COHORT-EPOCH-LABEL'].status === 'KNOWN' ? (
+        // Which epoch these numbers measure. A re-evaluated case is the same
+        // case in a new epoch, never a different case; the label is what keeps
+        // a viewer from misreading run totals as cohort growth.
+        <p className="cohort-epoch" data-field-id="UI-COHORT-EPOCH-LABEL">
+          Epoch <code>{String(model['UI-COHORT-EPOCH-LABEL'].value)}</code>
+          {model['UI-COHORT-EVALUATION-ROLE'].status === 'KNOWN' ? (
+            <> · {String(model['UI-COHORT-EVALUATION-ROLE'].value)}</>
+          ) : null}
+        </p>
+      ) : null}
+
       <div className="field-grid">
         <FieldValue field={model['UI-COHORT-DAY-INDEX']} />
         <FieldValue field={model['UI-COHORT-CYCLE-ID']} />
@@ -109,6 +121,14 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         <FieldValue field={model['UI-COHORT-RUNS-TOTAL']} />
         <FieldValue field={model['UI-COHORT-CYCLES-TOTAL']} />
         <FieldValue field={model['UI-COHORT-COMPRESSED-TOTAL']} />
+        <FieldValue
+          field={model['UI-COHORT-PARITY']}
+          hint="Every run newly created this epoch; reused runs are never counted as today's work."
+        />
+        <FieldValue
+          field={model['UI-COHORT-AGENT-SUMMARY']}
+          hint="Total runs; complete, incomplete and not-evaluated are separate counts, never collapsed."
+        />
       </div>
 
       {executions.some((entry) => rowStatus(entry) === 'INCOMPLETE') ? (
@@ -187,6 +207,28 @@ export function CohortPanel({ model }: { model: ViewModel }) {
                 </li>
               );
             })}
+          </ul>
+        </>
+      ) : null}
+
+      {model['UI-COHORT-RUN-OUTCOMES'].status === 'KNOWN' &&
+      model['UI-COHORT-RUN-OUTCOMES'].items.length > 0 ? (
+        <>
+          <h3>Run outcomes</h3>
+          <ul className="cohort-outcomes">
+            {objectItems<Record<string, unknown>>(model['UI-COHORT-RUN-OUTCOMES'].items).map(
+              (outcome, index) => (
+                <li
+                  key={String(outcome.run_id ?? index)}
+                  data-audit-status={String(outcome.audit_status ?? 'UNDECLARED')}
+                >
+                  <code>{String(outcome.case_id ?? 'UNDECLARED').slice(0, 8)}</code>
+                  <span className="outcome-state">{String(outcome.terminal_state ?? '?')}</span>
+                  <span className="outcome-audit">audit {String(outcome.audit_status ?? '?')}</span>
+                  <span className="outcome-epoch">{String(outcome.epoch_label ?? '?')}</span>
+                </li>
+              ),
+            )}
           </ul>
         </>
       ) : null}

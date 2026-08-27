@@ -105,7 +105,7 @@ worked.
 One `CohortDayManifest` per bundle. When more than one is present, every field
 below is refused on screen, because the builder resolves scalars from the first
 match and a stale day would otherwise display unmarked. Accepted schema
-versions mirror the producer's own map (2.0.0/2.1.0 legacy, 3.0.0 current). Counters
+versions mirror the producer's own map (2.0.0-3.1.0 legacy, 3.2.0 current). Counters
 are read from the manifest, never accumulated by the surface; day figures count
 by identity (id-list lengths), never `authoritative_run_ids`, which includes
 reused runs.
@@ -128,6 +128,11 @@ reused runs.
 | UI-COHORT-CYCLE-ID | Cycle | `CohortDayManifest $.cycle_id` | Exact compressed cycle id | `UNKNOWN` |
 | UI-COHORT-PLAN-SHA256 | Prediction plan | `CohortDayManifest $.plan_sha256` | Exact hash chaining every cycle's counters to the pre-committed plan | `UNKNOWN` |
 | UI-COHORT-COMPRESSED-TOTAL | Compressed cycles completed | `CohortDayManifest $.cumulative.compressed_cycles_completed` | Producer figure over declared compressed rows only; compared against panel derivation | `UNKNOWN` |
+| UI-COHORT-EPOCH-LABEL | Epoch | `CohortDayManifest $.epoch_label` | 3.1+ epoch of this evaluation; re-runs are the same case in a new epoch, never a different case | `UNKNOWN`; no label |
+| UI-COHORT-EVALUATION-ROLE | Evaluation role | `CohortDayManifest $.evaluation_role` | Exact enum | `UNKNOWN` |
+| UI-COHORT-PARITY | Run parity | `CohortDayManifest $.parity` | parity_match with expected/actual new and reused counts beside it; reused runs never count as today's work | `UNKNOWN` |
+| UI-COHORT-AGENT-SUMMARY | Agent execution | `CohortDayManifest $.agent_execution_summary` | total_runs with complete/incomplete/not_evaluated as separate counts, never collapsed | `UNKNOWN` |
+| UI-COHORT-RUN-OUTCOMES | Run outcomes | `CohortDayManifest $.run_outcomes[*]` | One row per run with its own three-valued audit_status and epoch label | `UNKNOWN` |
 | UI-COHORT-EXECUTIONS | Execution history | `CohortDayManifest $.execution_history[*]` | Elapsed-days sentence derived, withheld with a stated reason unless proven (distinct ordered dates, selection date equals execution date, selection evidence); 2.1.0 INCOMPLETE rows are named with their typed failure receipt, never folded into the span | `UNKNOWN` |
 
 The elapsed-days sentence never upgrades: several cycles on one calendar date
