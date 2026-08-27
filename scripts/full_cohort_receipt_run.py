@@ -1,4 +1,4 @@
-"""Full-cohort Gemma receipt run: 456 notes through the real local pipeline.
+"""Full-cohort Gemma receipt run: 462 notes through the real privacy pipeline.
 
 Input:  corpus/onboarding/notes.json (sha256 pinned below).
 Output: the LockedJsonPrivacyReceiptSource wire: {"schema_version":"1.0.0",
@@ -10,15 +10,17 @@ The locus declaration is EXPLICIT CONFIG, not inference, and this script is
 fail-closed on honesty: it refuses to start unless the declared posture
 matches how the transport is actually wired (a cloud base_url with a
 LOCAL_PROCESS declaration, or the reverse, is a refusal, not a warning).
-Both postures are contract-registered as of core 982f6e3a: the all-local
-trio and the cloud trio (LAB_LOCAL, PRIVATE_SERVICE, OLLAMA_CLOUD_RUN).
-The cloud run waits only on the deploy signal for its base_url.
+Both postures are contract-registered, last verified from source at core
+abfdde1: the all-local trio and the Vertex trio (LAB_LOCAL, PRIVATE_SERVICE,
+OLLAMA_VERTEX_ENDPOINT). The cloud base_url must be EXACTLY the approved
+rawPredict invoke URL (credential guard below).
 
 Usage:
   python scripts/full_cohort_receipt_run.py --posture local \
-      [--base-url http://127.0.0.1:11434] [--limit N] [--concurrency K]
+      --key-dir <outside-repo> [--base-url http://127.0.0.1:11434] \
+      [--limit N] [--concurrency K]
   python scripts/full_cohort_receipt_run.py --posture cloud \
-      --base-url https://<gpu-service>   # refuses until the contract accepts it
+      --key-dir <outside-repo> --base-url https://<vertex-rawpredict-url>
 """
 
 from __future__ import annotations
@@ -145,6 +147,88 @@ class _IdentityVault:
 def _fail(message: str) -> int:
     print(f"REFUSED: {message}")
     return 1
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def recover_interrupted_publish(out_dir: Path) -> str | None:
+    """Complete or refuse an interrupted publish; never guess.
+
+    The marker records the staged names, final names, and BOTH expected final
+    hashes, so every crash phase is provable:
+
+      (a) both staged files exist  -> crash before any replace: hash-verify the
+          staged pair against the marker, then complete both replaces.
+      (b) staged wire gone, staged manifest present -> crash between the two
+          replaces: complete the manifest replace ONLY if the final wire's
+          hash matches the marker; anything else is fail-loud.
+      (c) both staged gone -> publish may have finished just before the marker
+          unlink: clear the marker ONLY if final wire AND final manifest both
+          hash-match the marker; anything else is fail-loud.
+
+    The marker is never deleted without pair-proven consistency. Returns an
+    error string (caller fails loud) or None on success/no-marker.
+    """
+
+    marker_path = out_dir / "COMMIT_MARKER.json"
+    if not marker_path.exists():
+        return None
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        staged_wire = out_dir / str(marker["wire_staging"])
+        staged_manifest = out_dir / str(marker["manifest_staging"])
+        final_wire = out_dir / str(marker["wire_final"])
+        final_manifest = out_dir / str(marker["manifest_final"])
+        wire_sha = str(marker["wire_sha256"])
+        manifest_sha = str(marker["manifest_sha256"])
+
+        if staged_wire.exists() and staged_manifest.exists():
+            if _sha256_file(staged_wire) != wire_sha:
+                return "staged wire does not match the commit marker's hash"
+            if _sha256_file(staged_manifest) != manifest_sha:
+                return "staged manifest does not match the commit marker's hash"
+            staged_wire.replace(final_wire)
+            staged_manifest.replace(final_manifest)
+            print("recovered an interrupted publish (both files completed)")
+        elif not staged_wire.exists() and staged_manifest.exists():
+            # Crash between wire.replace and manifest.replace: the wire is
+            # final, the manifest is not. This was finding A's silent window.
+            if not final_wire.exists() or _sha256_file(final_wire) != wire_sha:
+                return (
+                    "staged wire gone but the final wire does not match the "
+                    "commit marker; wire and manifest cannot be proven paired"
+                )
+            if _sha256_file(staged_manifest) != manifest_sha:
+                return "staged manifest does not match the commit marker's hash"
+            staged_manifest.replace(final_manifest)
+            print("recovered an interrupted publish (manifest replace completed)")
+        elif not staged_wire.exists() and not staged_manifest.exists():
+            # Possibly a crash after both replaces, before the marker unlink.
+            # The marker may only be cleared when BOTH finals are proven.
+            if not final_wire.exists() or _sha256_file(final_wire) != wire_sha:
+                return (
+                    "staging files gone and the final wire does not match the "
+                    "commit marker; refusing to clear it"
+                )
+            if (
+                not final_manifest.exists()
+                or _sha256_file(final_manifest) != manifest_sha
+            ):
+                return (
+                    "staging files gone and the final manifest does not match "
+                    "the commit marker; refusing to clear it"
+                )
+            print("commit marker cleared (published pair hash-verified)")
+        else:
+            # staged wire present but staged manifest gone: no crash phase of
+            # the publish sequence produces this; something else moved files.
+            return "commit marker names an impossible staging state"
+    except (json.JSONDecodeError, KeyError, OSError) as error:
+        return f"commit marker unreadable: {error}"
+    marker_path.unlink(missing_ok=True)
+    return None
 
 
 def _load_notes() -> list[dict]:
@@ -322,6 +406,14 @@ def main() -> int:
     notes = _load_notes()
     if args.limit:
         notes = notes[: args.limit]
+    # THE selection of this invocation, captured before any mutation (resume
+    # filtering, cloud preflight pop). Everything downstream binds to this:
+    # the checkpoint context, entry validation, and the publish gate. Hashing
+    # the full corpus here was finding B of the external round: a limit-20
+    # checkpoint would resume into a limit-456 run without a mismatch, and
+    # out-of-selection receipts would publish.
+    selected_ids = sorted(entry["case_id"] for entry in notes)
+    selected_by_id = {entry["case_id"]: entry for entry in notes}
 
     # OS-level exclusive run lease: two concurrent processes on the same output
     # directory would each pay for the same model calls and interleave the
@@ -353,39 +445,27 @@ def main() -> int:
         json.dump({"pid": _os.getpid(), "run_id": run_id}, handle)
 
     # Crash recovery: a leftover commit marker means a previous run staged its
-    # pair but died mid-publish. Under the lease, complete the pair from the
-    # named staging files when they exist, otherwise clear the marker; either
-    # way the wire and the manifest can never disagree silently.
-    commit_marker_path = OUT_DIR / "COMMIT_MARKER.json"
-    if commit_marker_path.exists():
-        try:
-            marker = json.loads(commit_marker_path.read_text(encoding="utf-8"))
-            staged_wire = OUT_DIR / str(marker["wire_staging"])
-            staged_manifest = OUT_DIR / str(marker["manifest_staging"])
-            if staged_wire.exists() and staged_manifest.exists():
-                staged_wire.replace(OUT_DIR / str(marker["wire_final"]))
-                staged_manifest.replace(OUT_DIR / str(marker["manifest_final"]))
-                print("recovered an interrupted publish from its commit marker")
-            else:
-                print("stale commit marker cleared (staging files gone)")
-        except (json.JSONDecodeError, KeyError, OSError) as error:
-            return _fail(f"commit marker unreadable: {error}")
-        commit_marker_path.unlink(missing_ok=True)
+    # pair but died mid-publish. Phase-aware, hash-proven completion; any state
+    # the marker cannot prove refuses instead of clearing the marker.
+    recovery_error = recover_interrupted_publish(OUT_DIR)
+    if recovery_error is not None:
+        return _fail(recovery_error)
 
     # Append-only checkpoint: one JSONL line per finished case, header bound to
     # everything that makes receipts mixable-or-not. A crash at case 455 costs
     # one retry, not 455 paid calls; a resume against DIFFERENT notes, posture,
     # model or key refuses instead of silently mixing incompatible receipts.
     checkpoint_path = OUT_DIR / "checkpoint.jsonl"
-    # The selected case set, hashed into the checkpoint header: a resume whose
-    # note universe differs in ANY case id refuses before reading a single
-    # receipt line, independent of the notes-file hash.
-    case_set_hash = hashlib.sha256(
-        "\n".join(sorted(n["case_id"] for n in _load_notes())).encode("utf-8")
-    ).hexdigest()
+    # The SELECTED case set of this invocation, post-limit, hashed into the
+    # checkpoint header: a resume whose selection differs in any id or in
+    # count refuses before reading a single receipt line. Hashing the corpus
+    # instead of the selection was finding B: limit-20 and limit-456 hashed
+    # identically.
+    case_set_hash = hashlib.sha256("\n".join(selected_ids).encode("utf-8")).hexdigest()
     context = {
         "notes_sha256": NOTES_SHA256,
         "case_set_sha256": case_set_hash,
+        "selected_count": len(selected_ids),
         "posture": args.posture,
         "model_revision": MODEL_REVISION,
         "signer_fingerprint": fingerprint,
@@ -430,7 +510,11 @@ def main() -> int:
         # success, the exact locus of this run, and payload binding recomputed
         # from the notes. A checkpoint is input, and input gets the same
         # treatment as any other wire.
-        notes_by_id = {n["case_id"]: n for n in _load_notes()}
+        # Membership is judged against the SELECTION, not the corpus: a case
+        # that exists in the notes file but not in this invocation's selection
+        # is exactly the leak finding B named (an r1 checkpoint bleeding into
+        # the final), so it refuses.
+        notes_by_id = selected_by_id
         seen_ids: set[str] = set()
         for entry in parsed_entries:
             case_id = entry.get("case_id")
@@ -442,7 +526,9 @@ def main() -> int:
             seen_ids.add(case_id)
             note_entry = notes_by_id.get(case_id)
             if note_entry is None:
-                return _fail(f"checkpoint holds unknown case {case_id}")
+                return _fail(
+                    f"checkpoint holds case {case_id} outside this invocation's selection"
+                )
             valid, reasons = verify_privacy_receipt(dict(receipt), signer)
             gemma_block = receipt.get("detectors", {}).get("gemma", {})
             expected_payload = build_cloud_bound_payload(_lab_note(note_entry), case_id)
@@ -554,6 +640,19 @@ def main() -> int:
         )
         return 1
 
+    # Final publish gate: the published set must EQUAL the declared selection,
+    # sorted id against sorted id. Nothing extra, nothing missing; a package
+    # not bound to its declared scope is finding B's end state and never
+    # leaves this function.
+    published_ids = sorted(r["case_id"] for r in receipts)
+    if published_ids != selected_ids:
+        missing = sorted(set(selected_ids) - set(published_ids))
+        extra = sorted(set(published_ids) - set(selected_ids))
+        return _fail(
+            f"publish gate: receipt set != declared selection "
+            f"(missing={missing[:3]} extra={extra[:3]})"
+        )
+
     wire = {
         "schema_version": "1.0.0",
         "receipts": sorted(receipts, key=lambda r: r["case_id"]),
@@ -602,6 +701,14 @@ def main() -> int:
                 "wire_sha256": digest,
                 "manifest_staging": tmp_manifest.name,
                 "manifest_final": manifest_path.name,
+                # Both expected-final hashes, so recovery can PROVE which phase
+                # a crash happened in instead of guessing from which staging
+                # files remain. Finding A: without these, the wire-replaced /
+                # manifest-not-yet state read as "stale marker" and was
+                # cleared, silently leaving a new wire beside an old manifest.
+                "manifest_sha256": hashlib.sha256(
+                    tmp_manifest.read_bytes()
+                ).hexdigest(),
             },
             indent=1,
             sort_keys=True,

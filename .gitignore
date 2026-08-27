@@ -66,3 +66,4 @@ artifacts/raw/
 artifacts/evidence/full-cohort-receipts/run.lease
 artifacts/evidence/full-cohort-receipts/checkpoint.jsonl
 artifacts/evidence/full-cohort-receipts/*.tmp
+artifacts/evidence/full-cohort-receipts/COMMIT_MARKER.json
