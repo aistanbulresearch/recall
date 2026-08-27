@@ -66,6 +66,31 @@ MODEL_REVISION = "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588
 APPROVED_VERTEX_ENDPOINT_ID = "9183372353592098816"
 
 
+def _code_source() -> dict[str, object]:
+    """Which code produced this run, proven from the checkout itself.
+
+    The manifest must carry its own code provenance: a receipt set whose
+    producing commit is only in a chat message is not evidence. `dirty` is
+    reported honestly rather than refused, so an operator can see it, but a
+    clean integration-tree checkout is the expected shape.
+    """
+
+    import subprocess
+
+    def _git(*args: str) -> str:
+        completed = subprocess.run(
+            ["git", *args], capture_output=True, text=True, timeout=30, cwd=ROOT
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(f"code_source_unresolved: git {' '.join(args)}")
+        return completed.stdout.strip()
+
+    return {
+        "code_source_commit": _git("rev-parse", "HEAD"),
+        "code_source_dirty": bool(_git("status", "--porcelain", "--untracked-files=no")),
+    }
+
+
 def _gcloud_project() -> str:
     import subprocess
 
@@ -555,6 +580,7 @@ def main() -> int:
         "transport": transport.request_settings(),
         "concurrency": args.concurrency,
         "final_publish_run_id": run_id,
+        **_code_source(),
     }
     manifest_path = OUT_DIR / "RUN_MANIFEST.json"
     tmp_manifest = manifest_path.with_suffix(f".{run_id}.tmp")
