@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from recall.contracts import parse_artifact
+from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed_plan import (
     EXPECTED_PLAN_SHA256,
     PLAN_PATH,
@@ -96,6 +98,24 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         for item in cases
         if item.cycle_id != "historical-day1"
     )
+
+
+def test_executed_manifest_exports_match_external_plan_bindings() -> None:
+    plan = load_compressed_plan(ROOT)
+    for cycle_id, successor_id in (("c1", "c2"), ("c2", "c3")):
+        binding = plan.by_id(successor_id).predecessor
+        assert binding is not None
+        wire = json.loads(
+            (
+                ROOT
+                / "artifacts/evidence/cohort-compression/executed-manifests"
+                / f"{cycle_id}-manifest.json"
+            ).read_text(encoding="utf-8")
+        )
+        parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+        assert parsed.schema_name == "CohortDayManifest"
+        assert parsed.artifact_id == binding.manifest_artifact_id
+        assert parsed.content_hash == binding.manifest_content_hash
 
 
 def test_resolver_requires_exactly_one_declared_window() -> None:

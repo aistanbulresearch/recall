@@ -305,14 +305,24 @@ def _require_full_audit_privacy_receipt(
     value: Mapping[str, object],
 ) -> None:
     parsed = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
-    gemma = parsed.payload.detectors["gemma"]
     if (
         parsed.schema_name != "PrivacyReceipt"
         or parsed.schema_version != "1.1.0"
-        or parsed.payload.decision.value != "ACCEPTED"
-        or parsed.payload.execution_locus.value != "LAB_LOCAL"
-        or parsed.payload.transport_class.value != "LOCAL_PROCESS"
-        or parsed.payload.endpoint_class.value != "OLLAMA_LOCAL"
+    ):
+        raise RuntimeError("full_audit_privacy_receipt_required")
+    gemma = parsed.payload.detectors["gemma"]
+    declared_path = (
+        parsed.payload.execution_locus.value,
+        parsed.payload.transport_class.value,
+        parsed.payload.endpoint_class.value,
+    )
+    accepted_paths = {
+        ("LAB_LOCAL", "LOCAL_PROCESS", "OLLAMA_LOCAL"),
+        ("LAB_LOCAL", "PRIVATE_SERVICE", "OLLAMA_CLOUD_RUN"),
+    }
+    if (
+        parsed.payload.decision.value != "ACCEPTED"
+        or declared_path not in accepted_paths
         or parsed.payload.model_id != FULL_AUDIT_MODEL_ID
         or not str(parsed.payload.model_revision).startswith("sha256:")
         or gemma.get("invoked") is not True

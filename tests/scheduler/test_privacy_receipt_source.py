@@ -119,6 +119,36 @@ def test_external_receipt_source_is_exact_and_never_synthesizes_missing_rows(
         source.receipt_for(str(uuid4()), cloud)
 
 
+def test_external_receipt_source_accepts_declared_private_cloud_gemma_leg(
+    tmp_path,
+) -> None:
+    case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
+    cloud = {"case_token": case_id}
+    receipt = deepcopy(_receipt(case_id, cloud))
+    receipt.update(
+        {
+            "transport_class": "PRIVATE_SERVICE",
+            "endpoint_class": "OLLAMA_CLOUD_RUN",
+        }
+    )
+    body = {
+        key: item
+        for key, item in receipt.items()
+        if key not in {"content_hash", "signature_ref"}
+    }
+    receipt["signature_ref"] = SIGNER.signature_ref(signing_content_hash(body))
+    receipt["content_hash"] = artifact_content_hash(receipt)
+    path = tmp_path / "receipts.json"
+    path.write_text(
+        json.dumps({"schema_version": "1.0.0", "receipts": [receipt]}),
+        encoding="utf-8",
+    )
+
+    assert _source(path).receipt_for(case_id, cloud)["endpoint_class"] == (
+        "OLLAMA_CLOUD_RUN"
+    )
+
+
 def test_external_receipt_source_rejects_payload_or_case_set_drift(tmp_path) -> None:
     case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
     cloud = {"case_token": case_id}
@@ -167,6 +197,44 @@ def test_external_receipt_source_rejects_nonlocal_or_unlocked_model_rows(
     )
 
     with pytest.raises(RuntimeError, match="privacy_receipt_source_receipt_invalid"):
+        _source(path)
+
+
+@pytest.mark.parametrize(
+    ("transport_class", "endpoint_class"),
+    [
+        ("LOCAL_PROCESS", "OLLAMA_CLOUD_RUN"),
+        ("PRIVATE_SERVICE", "OLLAMA_LOCAL"),
+    ],
+)
+def test_external_receipt_source_rejects_mixed_locus_claims(
+    tmp_path, transport_class: str, endpoint_class: str
+) -> None:
+    case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
+    cloud = {"case_token": case_id}
+    receipt = deepcopy(_receipt(case_id, cloud))
+    receipt.update(
+        {
+            "transport_class": transport_class,
+            "endpoint_class": endpoint_class,
+        }
+    )
+    body = {
+        key: item
+        for key, item in receipt.items()
+        if key not in {"content_hash", "signature_ref"}
+    }
+    receipt["signature_ref"] = SIGNER.signature_ref(signing_content_hash(body))
+    receipt["content_hash"] = artifact_content_hash(receipt)
+    path = tmp_path / "receipts.json"
+    path.write_text(
+        json.dumps({"schema_version": "1.0.0", "receipts": [receipt]}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        RuntimeError, match="privacy_receipt_source_receipt_invalid"
+    ):
         _source(path)
 
 

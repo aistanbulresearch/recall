@@ -47,6 +47,7 @@ class TransportClass(StrEnum):
 
 class EndpointClass(StrEnum):
     OLLAMA_LOCAL = "OLLAMA_LOCAL"
+    OLLAMA_CLOUD_RUN = "OLLAMA_CLOUD_RUN"
     VERTEX_AI_GLOBAL = "VERTEX_AI_GLOBAL"
 
 
