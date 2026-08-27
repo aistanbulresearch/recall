@@ -44,7 +44,11 @@ from recall.privacy.gemma import (  # noqa: E402
     OllamaChatTransport,
 )
 from recall.privacy.minimizer import LabNote  # noqa: E402
-from recall.privacy.signing import LocalSigner, signer_fingerprint_sha256  # noqa: E402
+from recall.privacy.signing import (  # noqa: E402
+    LocalSigner,
+    load_signer,
+    signer_fingerprint_sha256,
+)
 
 NOTES_PATH = ROOT / "corpus" / "onboarding" / "notes.json"
 NOTES_SHA256 = "ec0fa8d4aa9182d6b93564b782209ef7bb441924eefe964b5d8f1385f435c73e"
@@ -136,15 +140,21 @@ def main() -> int:
     parser.add_argument(
         "--key-dir",
         type=Path,
-        default=None,
+        required=True,
         help=(
             "Directory to persist the signing key (privacy-signing-key.json, "
-            "the load_signer format). REQUIRED for a run whose receipts must "
-            "be verified downstream: the preparation loads this key to check "
-            "every HMAC, so a discarded key makes every receipt unverifiable. "
-            "Keep it OUTSIDE the repo; the manifest records the fingerprint "
-            "only, never the key."
+            "the load_signer format). MANDATORY: the preparation loads this "
+            "key to check every HMAC, so a discarded key makes all 456 "
+            "receipts unverifiable while looking signed. Outside the repo; a "
+            "fresh run refuses a directory that already holds a key, a resume "
+            "requires the existing key to match the checkpoint fingerprint. "
+            "The manifest records the fingerprint only, never the key."
         ),
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue from the checkpoint: skip receipted cases, retry failures.",
     )
     args = parser.parse_args()
 
@@ -179,26 +189,44 @@ def main() -> int:
         # server takes the chat route suffix.
         api_path="" if is_cloud_url else "/api/chat",
     )
-    # The key is generated AS TEXT (hex) because load_signer round-trips it
-    # through JSON as a utf-8 string; raw random bytes would not survive that
-    # round-trip and every downstream verification would fail on a key that
-    # looks persisted but is not the signing key.
-    signer = LocalSigner(
-        key_id="full-cohort-receipt-run-v1",
-        key=secrets.token_hex(32).encode("utf-8"),
-    )
-    if args.key_dir is not None:
-        if ROOT in args.key_dir.resolve().parents or args.key_dir.resolve() == ROOT:
-            return _fail("key-dir must be OUTSIDE the repository")
-        args.key_dir.mkdir(parents=True, exist_ok=True)
-        key_file = args.key_dir / "privacy-signing-key.json"
-        key_file.write_text(
-            json.dumps(
-                {"key_id": signer.key_id, "key": signer.key.decode("utf-8")}
-            ),
+    if ROOT in args.key_dir.resolve().parents or args.key_dir.resolve() == ROOT:
+        return _fail("key-dir must be OUTSIDE the repository")
+    args.key_dir.mkdir(parents=True, exist_ok=True)
+    key_file = args.key_dir / "privacy-signing-key.json"
+
+    if args.resume:
+        if not key_file.exists():
+            return _fail("resume requested but no key file in key-dir")
+        signer = load_signer(args.key_dir)
+    else:
+        if key_file.exists():
+            return _fail(
+                "key-dir already holds a key; a fresh run never overwrites one "
+                "(pass --resume to continue that run, or use a new directory)"
+            )
+        # Generated AS TEXT (hex): load_signer round-trips the key through JSON
+        # as a utf-8 string, and raw random bytes would not survive that — the
+        # persisted file would hold something that is not the signing key.
+        signer = LocalSigner(
+            key_id="full-cohort-receipt-run-v1",
+            key=secrets.token_hex(32).encode("utf-8"),
+        )
+        # Atomic persist, then PROVE the round-trip before any model request:
+        # reload from disk and require an identical signature on a probe
+        # message. A key that fails this check would produce 456 receipts that
+        # look signed and verify nowhere.
+        tmp = key_file.with_suffix(".tmp")
+        tmp.write_text(
+            json.dumps({"key_id": signer.key_id, "key": signer.key.decode("utf-8")}),
             encoding="utf-8",
         )
-        print(f"signing key persisted to {key_file} (fingerprint in manifest)")
+        tmp.replace(key_file)
+    reloaded = load_signer(args.key_dir)
+    probe = "recall/full-cohort-run/key-roundtrip-probe"
+    if reloaded.sign(probe) != signer.sign(probe) or reloaded.key_id != signer.key_id:
+        return _fail("persisted key failed the signature round-trip; refusing to run")
+    fingerprint = signer_fingerprint_sha256(signer)
+    print(f"signing key at {key_file}, round-trip verified, fingerprint {fingerprint[:16]}...")
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     # Preflight: a missing model fails every call identically; find that out in
@@ -218,10 +246,56 @@ def main() -> int:
     if args.limit:
         notes = notes[: args.limit]
 
+    # Append-only checkpoint: one JSONL line per finished case, header bound to
+    # everything that makes receipts mixable-or-not. A crash at case 455 costs
+    # one retry, not 455 paid calls; a resume against DIFFERENT notes, posture,
+    # model or key refuses instead of silently mixing incompatible receipts.
+    checkpoint_path = OUT_DIR / "checkpoint.jsonl"
+    context = {
+        "notes_sha256": NOTES_SHA256,
+        "posture": args.posture,
+        "model_revision": MODEL_REVISION,
+        "signer_fingerprint": fingerprint,
+        "key_id": signer.key_id,
+    }
+    done: dict[str, dict] = {}
+    if checkpoint_path.exists():
+        if not args.resume:
+            return _fail(
+                "a checkpoint exists; pass --resume to continue it or remove "
+                "the output directory to start over (never silently mixed)"
+            )
+        lines = checkpoint_path.read_text(encoding="utf-8").splitlines()
+        header = json.loads(lines[0])
+        if header != context:
+            return _fail(f"checkpoint context mismatch: {header} != {context}")
+        for line in lines[1:]:
+            entry = json.loads(line)
+            if "receipt" in entry:
+                done[entry["case_id"]] = entry["receipt"]
+        print(f"resume: {len(done)} receipted cases will be skipped")
+    else:
+        if args.resume:
+            return _fail("resume requested but no checkpoint exists")
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        checkpoint_path.write_text(
+            json.dumps(context, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+        )
+
+    import threading
+
+    checkpoint_lock = threading.Lock()
+
+    def checkpoint(entry: dict) -> None:
+        with checkpoint_lock:
+            with checkpoint_path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+
     held_out: list[str] = []
-    receipts: list[dict] = []
+    receipts: list[dict] = list(done.values())
     failures: list[dict] = []
     t0 = time.monotonic()
+    notes = [n for n in notes if n["case_id"] not in done]
 
     def run_one(entry: dict) -> tuple[str, dict | None, str | None]:
         try:
@@ -258,6 +332,7 @@ def main() -> int:
             return _fail(f"cloud preflight failed on first note {first_id}: {first_error}")
         if first_error is None:
             receipts.append(first_receipt)
+            checkpoint({"case_id": first_id, "receipt": first_receipt})
         else:
             held_out.append(first_id)
         notes = notes[1:]
@@ -269,8 +344,10 @@ def main() -> int:
                 held_out.append(case_id)
             elif error is not None:
                 failures.append({"case_id": case_id, "error": error})
+                checkpoint({"case_id": case_id, "error": error, "at": time.time()})
             else:
                 receipts.append(receipt)
+                checkpoint({"case_id": case_id, "receipt": receipt})
             done = len(receipts) + len(failures) + len(held_out)
             if done % 25 == 0:
                 elapsed = time.monotonic() - t0
@@ -281,14 +358,23 @@ def main() -> int:
 
     elapsed_minutes = (time.monotonic() - t0) / 60
     if failures:
-        print(f"RUN INCOMPLETE: {len(failures)} failures, first: {failures[:3]}")
+        # The checkpoint holds every paid receipt; the FINAL files are not
+        # touched, so no previous output can masquerade as this run's result.
+        print(
+            f"RUN INCOMPLETE: {len(failures)} failures (checkpointed; --resume "
+            f"retries them), first: {failures[:3]}"
+        )
         return 1
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    wire = {"schema_version": "1.0.0", "receipts": receipts}
+    wire = {
+        "schema_version": "1.0.0",
+        "receipts": sorted(receipts, key=lambda r: r["case_id"]),
+    }
     out_path = OUT_DIR / "privacy-receipts.json"
     payload = json.dumps(wire, ensure_ascii=False, sort_keys=True, indent=1) + "\n"
-    out_path.write_text(payload, encoding="utf-8", newline="\n")
+    tmp_out = out_path.with_suffix(".tmp")
+    tmp_out.write_text(payload, encoding="utf-8", newline="\n")
+    tmp_out.replace(out_path)
     digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
 
     manifest = {
@@ -303,13 +389,16 @@ def main() -> int:
         "receipt_count": len(receipts),
         "held_out_inherit_binding": sorted(held_out),
         "signer_key_id": signer.key_id,
-        "verifier_lock_fingerprint_sha256": signer_fingerprint_sha256(signer),
+        "verifier_lock_fingerprint_sha256": fingerprint,
         "transport": transport.request_settings(),
         "concurrency": args.concurrency,
     }
-    (OUT_DIR / "RUN_MANIFEST.json").write_text(
+    manifest_path = OUT_DIR / "RUN_MANIFEST.json"
+    tmp_manifest = manifest_path.with_suffix(".tmp")
+    tmp_manifest.write_text(
         json.dumps(manifest, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
     )
+    tmp_manifest.replace(manifest_path)
     print(
         f"DONE: {len(receipts)} receipts in {elapsed_minutes:.1f}min, "
         f"sha256 {digest}, held out {len(held_out)} (inherit_case_binding)"
