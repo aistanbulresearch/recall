@@ -319,6 +319,7 @@ def _require_full_audit_privacy_receipt(
     accepted_paths = {
         ("LAB_LOCAL", "LOCAL_PROCESS", "OLLAMA_LOCAL"),
         ("LAB_LOCAL", "PRIVATE_SERVICE", "OLLAMA_CLOUD_RUN"),
+        ("LAB_LOCAL", "PRIVATE_SERVICE", "OLLAMA_VERTEX_ENDPOINT"),
     }
     if (
         parsed.payload.decision.value != "ACCEPTED"

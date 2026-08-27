@@ -119,8 +119,11 @@ def test_external_receipt_source_is_exact_and_never_synthesizes_missing_rows(
         source.receipt_for(str(uuid4()), cloud)
 
 
-def test_external_receipt_source_accepts_declared_private_cloud_gemma_leg(
-    tmp_path,
+@pytest.mark.parametrize(
+    "endpoint_class", ["OLLAMA_CLOUD_RUN", "OLLAMA_VERTEX_ENDPOINT"]
+)
+def test_external_receipt_source_accepts_declared_private_gemma_service(
+    tmp_path, endpoint_class: str
 ) -> None:
     case_id = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
     cloud = {"case_token": case_id}
@@ -128,7 +131,7 @@ def test_external_receipt_source_accepts_declared_private_cloud_gemma_leg(
     receipt.update(
         {
             "transport_class": "PRIVATE_SERVICE",
-            "endpoint_class": "OLLAMA_CLOUD_RUN",
+            "endpoint_class": endpoint_class,
         }
     )
     body = {
@@ -145,7 +148,7 @@ def test_external_receipt_source_accepts_declared_private_cloud_gemma_leg(
     )
 
     assert _source(path).receipt_for(case_id, cloud)["endpoint_class"] == (
-        "OLLAMA_CLOUD_RUN"
+        endpoint_class
     )
 
 
@@ -204,6 +207,7 @@ def test_external_receipt_source_rejects_nonlocal_or_unlocked_model_rows(
     ("transport_class", "endpoint_class"),
     [
         ("LOCAL_PROCESS", "OLLAMA_CLOUD_RUN"),
+        ("LOCAL_PROCESS", "OLLAMA_VERTEX_ENDPOINT"),
         ("PRIVATE_SERVICE", "OLLAMA_LOCAL"),
     ],
 )
