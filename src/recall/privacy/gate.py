@@ -101,6 +101,7 @@ class PrivacyGate:
         vault: TokenVault | None = None,
         clock: Callable[[], datetime] | None = None,
         uuid_factory: Callable[[], str] | None = None,
+        execution_locus_block: dict[str, str] | None = None,
     ) -> None:
         self._signer = signer
         self._detector = detector or DeterministicDetector()
@@ -108,6 +109,10 @@ class PrivacyGate:
         self._scanner = scanner or OutboundScanner()
         self._adjudicator = adjudicator or SpanAdjudicator(safe_words=self._scanner.words)
         self._egress = resolve_profile(egress_profile)
+        # Threaded to the receipt builder untouched: 1.1 when present, 1.0
+        # when absent. The gate declares, it never infers, where its model
+        # leg ran; the run that wires the transport owns this truth.
+        self._execution_locus_block = execution_locus_block
         self._vault = vault or DerivedTokenVault(signer.key)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._uuid_factory = uuid_factory or (lambda: str(uuid.uuid4()))
@@ -162,6 +167,7 @@ class PrivacyGate:
 
         span_key = self._signer.span_key()
         receipt = build_privacy_receipt(
+            execution_locus_block=self._execution_locus_block,
             artifact_id=self._uuid_factory(),
             case_id=case_token,
             created_at=self._clock().strftime("%Y-%m-%dT%H:%M:%SZ"),
