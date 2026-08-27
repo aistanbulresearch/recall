@@ -201,6 +201,10 @@ class OllamaChatTransport:
     # provider is injected from outside; this module never mints credentials
     # and never logs what the provider returns.
     auth_header_provider: Callable[[], Mapping[str, str]] | None = None
+    # "/api/chat" for a direct Ollama server. Empty string for a managed
+    # frontend (Vertex rawPredict) whose base_url IS the full invoke URL and
+    # forwards the body to the container's chat route itself.
+    api_path: str = "/api/chat"
 
     def request_settings(self) -> dict[str, Any]:
         """Exactly what this transport sends, for the manifest.
@@ -211,7 +215,7 @@ class OllamaChatTransport:
 
         return {
             "server_kind": "ollama",
-            "endpoint": "/api/chat",
+            "endpoint": self.api_path or "rawPredict-passthrough",
             "options": dict(self.options),
             "keep_alive": self.keep_alive,
             "think": self.think,
@@ -237,7 +241,7 @@ class OllamaChatTransport:
         if self.auth_header_provider is not None:
             headers.update(self.auth_header_provider())
         request = urllib.request.Request(
-            url=f"{self.base_url.rstrip('/')}/api/chat",
+            url=f"{self.base_url.rstrip('/')}{self.api_path}",
             data=json.dumps(body).encode("utf-8"),
             headers=headers,
             method="POST",

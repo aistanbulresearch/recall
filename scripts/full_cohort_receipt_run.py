@@ -64,17 +64,26 @@ POSTURES: dict[str, dict[str, str]] = {
         "model_id": MODEL_ID,
         "model_revision": MODEL_REVISION,
     },
-    # The owner-decided cloud posture: gate local, model on the IAM-only GPU
-    # service. Registered at core 982f6e3a, where the prep gate accepts exactly
-    # this trio beside the all-local one.
+    # Vertex pivot (owner, 2026-08-27 13:05): same bit-identical image served
+    # from a Vertex endpoint. base_url is the FULL rawPredict URL (api_path
+    # empty; Vertex forwards the body to the container's chat route), auth is
+    # an ACCESS token.
     "cloud": {
         "execution_locus": "LAB_LOCAL",
         "transport_class": "PRIVATE_SERVICE",
-        "endpoint_class": "OLLAMA_CLOUD_RUN",
+        "endpoint_class": "OLLAMA_VERTEX_ENDPOINT",
         "model_id": MODEL_ID,
         "model_revision": MODEL_REVISION,
     },
 }
+
+# EndpointClass values registered in the shipped contract, last verified from
+# source at core 982f6e3a. The refusal below is the same fail-closed drill that
+# held the Cloud Run posture: when Codex lands OLLAMA_VERTEX_ENDPOINT, verify
+# from source and add it here; until then the cloud run refuses to start.
+REGISTERED_ENDPOINT_CLASSES = frozenset(
+    {"OLLAMA_LOCAL", "OLLAMA_CLOUD_RUN", "VERTEX_AI_GLOBAL"}
+)
 
 
 class _IdentityVault:
@@ -133,42 +142,46 @@ def main() -> int:
         return _fail("cloud posture declared but base_url is not https")
     if args.posture == "local" and is_cloud_url:
         return _fail("local posture declared but base_url is a cloud endpoint")
-    if locus["endpoint_class"] == "PENDING_CONTRACT_VALUE":
+    if locus["endpoint_class"] not in REGISTERED_ENDPOINT_CLASSES:
         return _fail(
-            "the contract at core 375f116 has no endpoint_class for "
-            "Ollama-on-Cloud-Run; running now would either lie in the "
-            "receipt or fail the preparation gate. Blocked on the contract fix."
+            f"endpoint_class {locus['endpoint_class']} is not registered in the "
+            "shipped contract (verified from source); running now would either "
+            "lie in the receipt or fail the preparation gate. Blocked on the "
+            "contract landing, then verify-and-add here."
         )
 
     auth_provider = None
     if is_cloud_url:
-        from gcloud_identity_provider import identity_token_header
+        from gcloud_identity_provider import access_token_header
 
-        auth_provider = identity_token_header
+        auth_provider = access_token_header
 
     transport = OllamaChatTransport(
         base_url=args.base_url,
         model_id=MODEL_ID,
         response_format="json",
         auth_header_provider=auth_provider,
+        # A Vertex rawPredict base_url IS the full invoke URL; a direct Ollama
+        # server takes the chat route suffix.
+        api_path="" if is_cloud_url else "/api/chat",
     )
     signer = LocalSigner(
         key_id="full-cohort-receipt-run-v1", key=secrets.token_bytes(32)
     )
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    # Preflight: the requested model must be served at the endpoint. A missing
-    # model fails every call identically; find that out in one request, not 456.
-    import urllib.request
+    # Preflight: a missing model fails every call identically; find that out in
+    # one request, not 456. A direct Ollama server exposes /api/tags; a managed
+    # rawPredict frontend does not, so there the first note runs SERIALLY as
+    # the preflight and the pool starts only after it succeeds.
+    if not is_cloud_url:
+        import urllib.request
 
-    tags_request = urllib.request.Request(f"{args.base_url.rstrip('/')}/api/tags")
-    if auth_provider is not None:
-        for key, value in auth_provider().items():
-            tags_request.add_header(key, value)
-    with urllib.request.urlopen(tags_request, timeout=15) as response:
-        served = [m["name"] for m in json.loads(response.read())["models"]]
-    if MODEL_ID not in served:
-        return _fail(f"model {MODEL_ID} not served at {args.base_url}; served: {served}")
+        tags_request = urllib.request.Request(f"{args.base_url.rstrip('/')}/api/tags")
+        with urllib.request.urlopen(tags_request, timeout=15) as response:
+            served = [m["name"] for m in json.loads(response.read())["models"]]
+        if MODEL_ID not in served:
+            return _fail(f"model {MODEL_ID} not served at {args.base_url}; served: {served}")
 
     notes = _load_notes()
     if args.limit:
@@ -207,6 +220,17 @@ def main() -> int:
         if gemma_block.get("invoked") is not True or gemma_block.get("schema_valid") is not True:
             return entry["case_id"], None, "gemma_leg_failed"
         return entry["case_id"], receipt, None
+
+    if is_cloud_url and notes:
+        first_id, first_receipt, first_error = run_one(notes[0])
+        if first_error not in (None, "inherit_case_binding"):
+            return _fail(f"cloud preflight failed on first note {first_id}: {first_error}")
+        if first_error is None:
+            receipts.append(first_receipt)
+        else:
+            held_out.append(first_id)
+        notes = notes[1:]
+        print(f"cloud preflight OK ({(time.monotonic() - t0)/60:.1f} min), pool starting")
 
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         for case_id, receipt, error in pool.map(run_one, notes):

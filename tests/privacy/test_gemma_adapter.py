@@ -172,3 +172,39 @@ def test_request_settings_reports_auth_as_flag_never_value() -> None:
     assert secret not in repr(settings)
     plain = OllamaChatTransport()
     assert plain.request_settings()["authenticated"] is False
+
+def test_api_path_empty_posts_to_base_url_as_is(monkeypatch) -> None:
+    """A Vertex rawPredict base_url IS the invoke URL; nothing is appended."""
+
+    import urllib.request
+
+    from recall.privacy.gemma import OllamaChatTransport
+
+    urls: list[str] = []
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b'{"message": {"content": "{}"}}'
+
+    def fake_urlopen(request, timeout):
+        urls.append(request.full_url)
+        return _Response()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    vertex = OllamaChatTransport(
+        base_url="https://region-aiplatform.googleapis.com/v1/projects/p/endpoints/e:rawPredict",
+        api_path="",
+    )
+    vertex("note", timeout_seconds=5.0)
+    local = OllamaChatTransport(base_url="http://127.0.0.1:11434")
+    local("note", timeout_seconds=5.0)
+    assert urls[0].endswith(":rawPredict")
+    assert "/api/chat" not in urls[0]
+    assert urls[1].endswith("/api/chat")
+
