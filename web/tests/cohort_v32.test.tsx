@@ -10,6 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { CohortPanel } from '../src/components/CohortPanel';
+import { operationSpan } from '../src/viewmodel/cohort';
 import { buildViewModel } from '../src/viewmodel/builder';
 import type { ArtifactBundle } from '../src/viewmodel/types';
 import example from './fixtures/cohort-day2-manifest.example.json';
@@ -140,3 +141,69 @@ describe('3.2 rendering', () => {
     expect(markup).toContain('reused runs are never counted');
   });
 });
+
+describe('3.3.0 declared deadline', () => {
+  const DEADLINE_POLICY = {
+    write_deadline: '2026-08-27T21:00:00Z',
+    write_completed_at: '2026-08-27T20:40:00Z',
+    agent_timeout_seconds: 600,
+    agent_deadline: '2026-08-27T22:00:00Z',
+    agent_completed_at: '2026-08-27T21:50:00Z',
+    execution_timeout_seconds: 3600,
+    authoritative_end_to_end_deadline: '2026-08-27T23:00:00Z',
+  };
+
+  it('accepts 3.3.0 and resolves the declared boundary', () => {
+    const { fields, rejected } = build([
+      v32Manifest({ schema_version: '3.3.0', deadline_policy: DEADLINE_POLICY }),
+    ]);
+    expect(rejected).toEqual([]);
+    expect(fields['UI-COHORT-DEADLINE-POLICY'].value).toBe('2026-08-27T23:00:00Z');
+  });
+
+  it('judges lateness against the DECLARED boundary, not the inferred window', () => {
+    // A cycle past its own window_end but inside the declared deadline: with
+    // the declaration the span holds; without it, the window stays
+    // authoritative and the same history withholds.
+    const lateRow = {
+      sequence_index: 3,
+      source_schema_version: 'CohortDayManifest/3.0.0',
+      cycle_id: 'c1',
+      cycle_index: 1,
+      cohort_due_date: '2026-08-27',
+      scheduled_for: '2026-08-27T20:00:00Z',
+      window_start: '2026-08-27T20:00:00Z',
+      window_end: '2026-08-27T21:00:00Z',
+      trigger_code: 'COHORT_COMPRESSED_MACHINE_TRIGGERED',
+      executed_at: '2026-08-27T22:30:00Z',
+      runs_created: 2,
+      runs_predicted: 2,
+      execution_status: 'COMPLETE',
+      failure_receipt_id: null,
+      evidence_state: 'LIVE_INFRASTRUCTURE_SYNTHETIC_DATA',
+      schedule_mode: 'COMPRESSED_MACHINE_TRIGGERED',
+    };
+    const history = [...example.execution_history, lateRow];
+
+    const withDeclaration = operationSpan(history, {
+      endToEndDeadline: '2026-08-27T23:00:00Z',
+    });
+    expect(withDeclaration.proven).toBe(true);
+
+    const withoutDeclaration = operationSpan(history);
+    expect(withoutDeclaration.proven).toBe(false);
+    expect(withoutDeclaration.withheldBecause).toBe(
+      'a compressed cycle ran outside its declared window',
+    );
+
+    const pastEverything = operationSpan(
+      [...example.execution_history, { ...lateRow, executed_at: '2026-08-27T23:30:00Z' }],
+      { endToEndDeadline: '2026-08-27T23:00:00Z' },
+    );
+    expect(pastEverything.proven).toBe(false);
+    expect(pastEverything.withheldBecause).toBe(
+      'a compressed cycle ran past the declared end-to-end deadline',
+    );
+  });
+});
+

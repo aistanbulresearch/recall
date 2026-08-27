@@ -64,7 +64,7 @@ export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
   // 3.1.0 adds the epoch/parity/write-metrics block, 3.2.0 the agent-execution
   // summary and per-run outcomes. Earlier versions stay as historical reads,
   // matching the producer's own map.
-  CohortDayManifest: ['2.0.0', '2.1.0', '3.0.0', '3.1.0', '3.2.0'],
+  CohortDayManifest: ['2.0.0', '2.1.0', '3.0.0', '3.1.0', '3.2.0', '3.3.0'],
   // Typed receipts a history row may reference; bundles carry them as inputs.
   CohortDayFailureReceipt: ['1.0.0'],
   CohortHistoryReceipt: ['1.0.0'],

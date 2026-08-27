@@ -408,6 +408,30 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     hideWhenMissing: true,
   },
   {
+    // 3.3.0: the declared timing contract. The value is the AUTHORITATIVE
+    // end-to-end deadline; the panel judges lateness against this declared
+    // boundary, never against a boundary it infers.
+    fieldId: 'UI-COHORT-DEADLINE-POLICY',
+    label: 'Declared deadline',
+    group: 'cohort',
+    artifactType: 'CohortDayManifest',
+    jsonPath: '$.deadline_policy',
+    derivation: {
+      kind: 'record',
+      valueProperty: 'authoritative_end_to_end_deadline',
+      properties: [
+        'write_deadline',
+        'write_completed_at',
+        'agent_deadline',
+        'agent_completed_at',
+        'authoritative_end_to_end_deadline',
+      ],
+    },
+    missingStatus: 'UNKNOWN',
+    goldenPath: false,
+    hideWhenMissing: true,
+  },
+  {
     // 3.1.0: which epoch this evaluation belongs to. The owner's presentation
     // rule rides here: which number measures what must be visible, and re-runs
     // must never read as different cases.

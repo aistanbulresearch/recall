@@ -128,6 +128,7 @@ reused runs.
 | UI-COHORT-CYCLE-ID | Cycle | `CohortDayManifest $.cycle_id` | Exact compressed cycle id | `UNKNOWN` |
 | UI-COHORT-PLAN-SHA256 | Prediction plan | `CohortDayManifest $.plan_sha256` | Exact hash chaining every cycle's counters to the pre-committed plan | `UNKNOWN` |
 | UI-COHORT-COMPRESSED-TOTAL | Compressed cycles completed | `CohortDayManifest $.cumulative.compressed_cycles_completed` | Producer figure over declared compressed rows only; compared against panel derivation | `UNKNOWN` |
+| UI-COHORT-DEADLINE-POLICY | Declared deadline | `CohortDayManifest $.deadline_policy` | Authoritative end-to-end deadline with write/agent milestones beside it; lateness judged against the declared boundary only | `UNKNOWN` |
 | UI-COHORT-EPOCH-LABEL | Epoch | `CohortDayManifest $.epoch_label` | 3.1+ epoch of this evaluation; re-runs are the same case in a new epoch, never a different case | `UNKNOWN`; no label |
 | UI-COHORT-EVALUATION-ROLE | Evaluation role | `CohortDayManifest $.evaluation_role` | Exact enum | `UNKNOWN` |
 | UI-COHORT-PARITY | Run parity | `CohortDayManifest $.parity` | parity_match with expected/actual new and reused counts beside it; reused runs never count as today's work | `UNKNOWN` |

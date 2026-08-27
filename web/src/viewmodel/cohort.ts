@@ -143,7 +143,20 @@ function plural(count: number, word: string): string {
  * Anything less falls back to counting cycles, which stays true however they
  * ran.
  */
-export function operationSpan(executions: readonly CohortExecution[]): OperationSpan {
+export interface SpanOptions {
+  /**
+   * 3.3.0: the manifest's declared authoritative end-to-end deadline. When
+   * present, a compressed cycle finishing past its own window_end but within
+   * this DECLARED boundary is not a withhold: the declaration, not an inferred
+   * window, is the timing contract. Absent, window_end stays authoritative.
+   */
+  endToEndDeadline?: string;
+}
+
+export function operationSpan(
+  executions: readonly CohortExecution[],
+  options: SpanOptions = {},
+): OperationSpan {
   const cycles = executions.length;
   const weak = (withheldBecause: string | null): OperationSpan => ({
     cycles,
@@ -200,8 +213,14 @@ export function operationSpan(executions: readonly CohortExecution[]): Operation
     }
     const start = Date.parse(String(row.window_start));
     const end = Date.parse(String(row.window_end));
-    if (Number.isNaN(start) || Number.isNaN(end) || executed < start || executed > end) {
-      return weak('a compressed cycle ran outside its declared window');
+    const declared = options.endToEndDeadline ? Date.parse(options.endToEndDeadline) : NaN;
+    const boundary = Number.isNaN(declared) ? end : Math.max(end, declared);
+    if (Number.isNaN(start) || Number.isNaN(end) || executed < start || executed > boundary) {
+      return weak(
+        Number.isNaN(declared)
+          ? 'a compressed cycle ran outside its declared window'
+          : 'a compressed cycle ran past the declared end-to-end deadline',
+      );
     }
     if (typeof row.trigger_code !== 'string' || row.trigger_code.length === 0) {
       return weak('a compressed cycle carries no trigger evidence');

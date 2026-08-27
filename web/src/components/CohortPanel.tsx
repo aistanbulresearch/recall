@@ -61,7 +61,13 @@ export function CohortPanel({ model }: { model: ViewModel }) {
   const cases = objectItems<CohortCase>(model['UI-COHORT-CASES'].items);
   const anchors = objectItems<VcvAnchor>(model['UI-COHORT-VCV-ANCHORS'].items);
   const executions = objectItems<CohortExecution>(model['UI-COHORT-EXECUTIONS'].items);
-  const span = operationSpan(executions);
+  const deadlineField = model['UI-COHORT-DEADLINE-POLICY'];
+  const span = operationSpan(executions, {
+    endToEndDeadline:
+      deadlineField.status === 'KNOWN' && typeof deadlineField.value === 'string'
+        ? deadlineField.value
+        : undefined,
+  });
   const orphans = unanchoredVcvs(cases, anchors);
 
   // Rebuilt from the fields rather than read as one object, so each number
@@ -121,6 +127,10 @@ export function CohortPanel({ model }: { model: ViewModel }) {
         <FieldValue field={model['UI-COHORT-RUNS-TOTAL']} />
         <FieldValue field={model['UI-COHORT-CYCLES-TOTAL']} />
         <FieldValue field={model['UI-COHORT-COMPRESSED-TOTAL']} />
+        <FieldValue
+          field={model['UI-COHORT-DEADLINE-POLICY']}
+          hint="The declared end-to-end boundary; lateness is judged against this, never inferred."
+        />
         <FieldValue
           field={model['UI-COHORT-PARITY']}
           hint="Every run newly created this epoch; reused runs are never counted as today's work."
