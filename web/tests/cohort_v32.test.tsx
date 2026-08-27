@@ -144,6 +144,9 @@ describe('3.2 rendering', () => {
 
 describe('3.3.0 declared deadline', () => {
   const DEADLINE_POLICY = {
+    trigger_started_at: '2026-08-27T20:00:00Z',
+    trigger_window_end: '2026-08-27T20:30:00Z',
+    write_timeout_seconds: 300,
     write_deadline: '2026-08-27T21:00:00Z',
     write_completed_at: '2026-08-27T20:40:00Z',
     agent_timeout_seconds: 600,
@@ -240,6 +243,9 @@ describe('adversarial regressions, closed', () => {
   });
 
   const VALID_POLICY = {
+    trigger_started_at: '2026-08-27T20:00:00Z',
+    trigger_window_end: '2026-08-27T20:30:00Z',
+    write_timeout_seconds: 300,
     write_deadline: '2026-08-27T21:00:00Z',
     write_completed_at: '2026-08-27T20:40:00Z',
     agent_timeout_seconds: 600,

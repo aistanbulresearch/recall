@@ -68,14 +68,24 @@ export function validDeadlinePolicy(value: unknown): boolean {
     return false;
   }
   const record = value as Record<string, unknown>;
+  // The ten 3.3.0 fields, read from _DEADLINE_FIELDS in scheduler_v33.py at
+  // core 115ac8e5. The first cut of this validator checked seven, from a
+  // truncated read of that set, and would have marked a VALID manifest
+  // INCOMPLETE: the auditor's count of ten was correct and mine was not.
   const timestampFields = [
+    'trigger_started_at',
+    'trigger_window_end',
     'write_deadline',
     'write_completed_at',
     'agent_deadline',
     'agent_completed_at',
     'authoritative_end_to_end_deadline',
   ];
-  const integerFields = ['agent_timeout_seconds', 'execution_timeout_seconds'];
+  const integerFields = [
+    'write_timeout_seconds',
+    'agent_timeout_seconds',
+    'execution_timeout_seconds',
+  ];
   const expected = new Set([...timestampFields, ...integerFields]);
   const keys = Object.keys(record);
   if (keys.length !== expected.size || keys.some((key) => !expected.has(key))) {
@@ -98,11 +108,14 @@ export function validDeadlinePolicy(value: unknown): boolean {
       return false;
     }
   }
+  // Chronology mirrors the contract's own deadline_qualified rule plus the
+  // trigger ordering: completions inside their deadlines, the agent completion
+  // inside the end-to-end boundary, the trigger before its window end.
   return (
+    parsed.trigger_started_at <= parsed.trigger_window_end &&
     parsed.write_completed_at <= parsed.write_deadline &&
     parsed.agent_completed_at <= parsed.agent_deadline &&
-    parsed.write_deadline <= parsed.authoritative_end_to_end_deadline &&
-    parsed.agent_deadline <= parsed.authoritative_end_to_end_deadline
+    parsed.agent_completed_at <= parsed.authoritative_end_to_end_deadline
   );
 }
 

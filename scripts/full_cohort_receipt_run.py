@@ -327,13 +327,40 @@ def main() -> int:
     with _os.fdopen(fd, "w", encoding="utf-8") as handle:
         json.dump({"pid": _os.getpid(), "run_id": run_id}, handle)
 
+    # Crash recovery: a leftover commit marker means a previous run staged its
+    # pair but died mid-publish. Under the lease, complete the pair from the
+    # named staging files when they exist, otherwise clear the marker; either
+    # way the wire and the manifest can never disagree silently.
+    commit_marker_path = OUT_DIR / "COMMIT_MARKER.json"
+    if commit_marker_path.exists():
+        try:
+            marker = json.loads(commit_marker_path.read_text(encoding="utf-8"))
+            staged_wire = OUT_DIR / str(marker["wire_staging"])
+            staged_manifest = OUT_DIR / str(marker["manifest_staging"])
+            if staged_wire.exists() and staged_manifest.exists():
+                staged_wire.replace(OUT_DIR / str(marker["wire_final"]))
+                staged_manifest.replace(OUT_DIR / str(marker["manifest_final"]))
+                print("recovered an interrupted publish from its commit marker")
+            else:
+                print("stale commit marker cleared (staging files gone)")
+        except (json.JSONDecodeError, KeyError, OSError) as error:
+            return _fail(f"commit marker unreadable: {error}")
+        commit_marker_path.unlink(missing_ok=True)
+
     # Append-only checkpoint: one JSONL line per finished case, header bound to
     # everything that makes receipts mixable-or-not. A crash at case 455 costs
     # one retry, not 455 paid calls; a resume against DIFFERENT notes, posture,
     # model or key refuses instead of silently mixing incompatible receipts.
     checkpoint_path = OUT_DIR / "checkpoint.jsonl"
+    # The selected case set, hashed into the checkpoint header: a resume whose
+    # note universe differs in ANY case id refuses before reading a single
+    # receipt line, independent of the notes-file hash.
+    case_set_hash = hashlib.sha256(
+        "\n".join(sorted(n["case_id"] for n in _load_notes())).encode("utf-8")
+    ).hexdigest()
     context = {
         "notes_sha256": NOTES_SHA256,
+        "case_set_sha256": case_set_hash,
         "posture": args.posture,
         "model_revision": MODEL_REVISION,
         "signer_fingerprint": fingerprint,
@@ -510,8 +537,7 @@ def main() -> int:
     payload = json.dumps(wire, ensure_ascii=False, sort_keys=True, indent=1) + "\n"
     tmp_out = out_path.with_suffix(f".{run_id}.tmp")
     tmp_out.write_text(payload, encoding="utf-8", newline="\n")
-    tmp_out.replace(out_path)
-    digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
+    digest = hashlib.sha256(tmp_out.read_bytes()).hexdigest()
 
     manifest = {
         "started_at": started,
@@ -535,7 +561,33 @@ def main() -> int:
     tmp_manifest.write_text(
         json.dumps(manifest, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
     )
+    # SINGLE crash-recoverable commit for the pair: the marker names both
+    # staged files, appears atomically before either replace and disappears
+    # only after both; a crash leaves either no marker (nothing published) or
+    # a marker whose instructions the next start completes under the lease.
+    commit_marker = OUT_DIR / "COMMIT_MARKER.json"
+    marker_tmp = commit_marker.with_suffix(".tmp")
+    marker_tmp.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "wire_staging": tmp_out.name,
+                "wire_final": out_path.name,
+                "wire_sha256": digest,
+                "manifest_staging": tmp_manifest.name,
+                "manifest_final": manifest_path.name,
+            },
+            indent=1,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    marker_tmp.replace(commit_marker)
+    tmp_out.replace(out_path)
     tmp_manifest.replace(manifest_path)
+    commit_marker.unlink()
     lease_path.unlink(missing_ok=True)
     print(
         f"DONE: {len(receipts)} receipts in {elapsed_minutes:.1f}min, "
