@@ -1,0 +1,9 @@
+{
+ "generator_module": "corpus/onboarding_notes.py",
+ "note_count": 456,
+ "notes_file": "corpus/onboarding/notes.json",
+ "notes_sha256": "ec0fa8d4aa9182d6b93564b782209ef7bb441924eefe964b5d8f1385f435c73e",
+ "notes_version": "onboarding-notes-v1",
+ "reuses_frozen_generator": "building blocks imported read-only; corpus/generator.py unmodified",
+ "seed": 20260827
+}
