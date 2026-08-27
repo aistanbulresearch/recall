@@ -53,6 +53,14 @@ class LocalSigner:
         return hmac.new(self.key, b"recall/privacy/span-hash/v1", hashlib.sha256).digest()
 
 
+def signer_fingerprint_sha256(signer: LocalSigner) -> str:
+    """Public verifier-lock fingerprint; never persist the signing key."""
+
+    return hashlib.sha256(
+        b"recall/privacy/verifier-lock/v1\x00" + signer.key
+    ).hexdigest()
+
+
 def load_signer(key_directory: Path | None = None) -> LocalSigner:
     """Load the local signing key from the environment or the ignored key file.
 
