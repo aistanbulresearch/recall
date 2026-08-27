@@ -31,7 +31,7 @@ class LabNote:
     region: str
     gene: str
     hgvs_c: str
-    hgvs_p: str
+    hgvs_p: str | None
     assembly: str
     data_mode: str = "SYNTHETIC"
 
@@ -43,11 +43,19 @@ class LabNote:
         unknown = sorted(set(payload) - known)
         if unknown:
             raise LabInputRejected(f"lab_input_unknown_field: {', '.join(unknown)}")
-        missing = [name for name in REQUIRED_FIELDS if not payload.get(name)]
+        missing = [
+            name
+            for name in REQUIRED_FIELDS
+            if name not in payload or (name != "hgvs_p" and not payload[name])
+        ]
         if missing:
             raise LabInputRejected(f"lab_input_required_field_missing: {', '.join(sorted(missing))}")
         for name in known:
-            if name in payload and not isinstance(payload[name], str):
+            if (
+                name in payload
+                and payload[name] is not None
+                and not isinstance(payload[name], str)
+            ):
                 raise LabInputRejected(f"lab_input_field_not_text: {name}")
         data_mode = payload.get("data_mode", "SYNTHETIC")
         if data_mode not in ALLOWED_DATA_MODES:
@@ -81,19 +89,23 @@ def build_cloud_bound_payload(
     Lane L2 owns the executable schema that parses it.
     """
 
+    variant = {
+        "gene": note.gene,
+        "hgvs_c": note.hgvs_c,
+        "assembly": note.assembly,
+    }
+    if note.hgvs_p is not None:
+        variant["hgvs_p"] = note.hgvs_p
     payload: dict[str, Any] = {
         "payload_kind": CLOUD_PAYLOAD_KIND,
-        "payload_version": CLOUD_PAYLOAD_VERSION,
+        "payload_version": (
+            CLOUD_PAYLOAD_VERSION if note.hgvs_p is not None else "1.1.0"
+        ),
         "case_token": case_token,
         "tenant_id": note.tenant_id,
         "region": note.region,
         "data_mode": note.data_mode,
-        "variant": {
-            "gene": note.gene,
-            "hgvs_c": note.hgvs_c,
-            "hgvs_p": note.hgvs_p,
-            "assembly": note.assembly,
-        },
+        "variant": variant,
     }
     if deidentified_summary is not None:
         payload["deidentified_summary"] = deidentified_summary
