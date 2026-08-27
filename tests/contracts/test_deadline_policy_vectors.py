@@ -57,6 +57,17 @@ def test_core_parser_matches_every_deadline_golden_vector() -> None:
     assert observed == expected
 
 
+def test_valid_vector_retains_sub_microsecond_cross_runtime_boundary() -> None:
+    fixture = json.loads((REPO_ROOT / VECTOR_PATH).read_text(encoding="utf-8"))
+    valid = next(
+        item
+        for item in fixture["vectors"]
+        if item["vector_id"] == "valid_c3_fractional_microseconds"
+    )
+    fraction = valid["deadline_policy"]["trigger_started_at"].split(".")[1][:-1]
+    assert len(fraction) == 7
+
+
 @pytest.mark.parametrize(
     "vector_id",
     [

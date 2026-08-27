@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -54,13 +54,19 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         ("c5", 200),
         ("c6", 456),
     ]
-    assert [item.window_start.isoformat() for item in plan.cycles] == [
+    assert [item.window_start.isoformat() for item in plan.cycles[:2]] == [
         "2026-08-26T20:40:00+00:00",
         "2026-08-26T22:30:00+00:00",
-        "2026-08-27T12:00:00+00:00",
-        "2026-08-28T09:00:00+00:00",
-        "2026-08-29T09:00:00+00:00",
-        "2026-08-30T09:00:00+00:00",
+    ]
+    assert [
+        current.window_start - prior.window_start
+        for prior, current in zip(plan.cycles[2:], plan.cycles[3:])
+    ] == [timedelta(hours=21), timedelta(days=1), timedelta(days=1)]
+    assert [item.window_end - item.window_start for item in plan.cycles[2:]] == [
+        timedelta(minutes=29, seconds=59),
+        timedelta(hours=1, minutes=59, seconds=59),
+        timedelta(hours=3, minutes=59, seconds=59),
+        timedelta(hours=7, minutes=59, seconds=59),
     ]
     assert all(
         current.window_start.timestamp() - prior.window_start.timestamp() >= 1200
@@ -156,8 +162,9 @@ def test_resolver_requires_exactly_one_declared_window() -> None:
         )
 
     with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
+        c4_inside_window = plan.by_id("c4").window_start + timedelta(minutes=30)
         resolve_declared_cycle(
-            datetime(2026, 8, 28, 9, 30, tzinfo=timezone.utc), plan
+            c4_inside_window, plan
         )
 
 

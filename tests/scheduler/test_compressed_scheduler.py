@@ -47,6 +47,11 @@ from recall.scheduler.model_cost import (
     InMemoryModelCostLedger,
 )
 from tests.agents.full_audit_double import DeterministicFullAuditRunner
+from tests.scheduler.compressed_bundle_fixture import (
+    load_rebound_test_bundle,
+    rebound_bundle_wire,
+    write_rebound_test_repo,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,10 +69,7 @@ class _LiveMemoryLedger(InMemoryLedger):
 
 def _loaded():
     plan = load_compressed_plan(ROOT)
-    bundle_sha = hashlib.sha256(
-        (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()
-    ).hexdigest()
-    bundle = load_compressed_bundle(ROOT, expected_sha256=bundle_sha, plan=plan)
+    bundle, bundle_sha = load_rebound_test_bundle(ROOT, plan)
     return plan, _test_only_full_audit_receipts(bundle), bundle_sha
 
 
@@ -124,9 +126,7 @@ def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
     history_target = tmp_path / DAY1_EVIDENCE_PATH
     history_target.parent.mkdir(parents=True)
     history_target.write_bytes((ROOT / DAY1_EVIDENCE_PATH).read_bytes())
-    wire = json.loads(
-        (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_text(encoding="utf-8")
-    )
+    wire = rebound_bundle_wire(ROOT, plan)
     wire.update(
         {
             "schema_version": "2.2.0",
@@ -176,14 +176,28 @@ def _full_audit(ledger, *, now):
     )
 
 
-def test_committed_legacy_privacy_rows_fail_closed_for_full_audit_cycle() -> None:
+def test_stale_committed_bundle_fails_before_ledger_construction() -> None:
     plan = load_compressed_plan(ROOT)
     bundle_sha = hashlib.sha256(
         (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()
     ).hexdigest()
-    legacy = load_compressed_bundle(
-        ROOT, expected_sha256=bundle_sha, plan=plan
-    )
+    ledger_constructions = 0
+
+    def construct_ledger() -> None:
+        nonlocal ledger_constructions
+        ledger_constructions += 1
+
+    with pytest.raises(RuntimeError, match="compressed_preparation_plan_mismatch"):
+        load_compressed_bundle(
+            ROOT, expected_sha256=bundle_sha, plan=plan
+        )
+        construct_ledger()
+    assert ledger_constructions == 0
+
+
+def test_legacy_privacy_rows_fail_closed_for_full_audit_without_writes() -> None:
+    plan = load_compressed_plan(ROOT)
+    legacy, _bundle_sha = load_rebound_test_bundle(ROOT, plan)
     ledger = _ledger(legacy, live=True)
     before = {
         collection: ledger.read_back_count(collection)
@@ -293,8 +307,11 @@ def _coherently_repartition_c3_deadlines(
     return mutated
 
 
-def test_executed_c1_c2_are_immutable_before_ledger_construction() -> None:
-    plan, bundle, bundle_sha = _loaded()
+def test_executed_c1_c2_are_immutable_before_ledger_construction(
+    tmp_path: Path,
+) -> None:
+    plan = load_compressed_plan(ROOT)
+    bundle, bundle_sha = write_rebound_test_repo(ROOT, plan, tmp_path)
     calls = []
 
     def factory(**kwargs):
@@ -313,7 +330,7 @@ def test_executed_c1_c2_are_immutable_before_ledger_construction() -> None:
             },
             now_factory=lambda: plan.by_id("c2").window_start,
             ledger_factory=factory,
-            repo_root=ROOT,
+                repo_root=tmp_path,
         )
     assert calls == []
 

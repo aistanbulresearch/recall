@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
@@ -17,11 +16,11 @@ from recall.scheduler.compressed_batch import (
 )
 from recall.scheduler.compressed_cohort import cases_for_cycle
 from recall.scheduler.compressed_plan import load_compressed_plan
-from recall.scheduler.compressed_preparation import (
-    DEFAULT_COMPRESSED_BUNDLE_PATH,
-    load_compressed_bundle,
-)
 from recall.scheduler.entrypoint import execute
+from tests.scheduler.compressed_bundle_fixture import (
+    load_rebound_test_bundle,
+    write_rebound_test_repo,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,8 +29,7 @@ IMAGE_DIGEST = "sha256:" + "a" * 64
 
 def _loaded():
     plan = load_compressed_plan(ROOT)
-    sha = hashlib.sha256((ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()).hexdigest()
-    bundle = load_compressed_bundle(ROOT, expected_sha256=sha, plan=plan)
+    bundle, sha = load_rebound_test_bundle(ROOT, plan)
     return plan, bundle, sha
 
 
@@ -123,8 +121,11 @@ def test_batch_metrics_are_additive_and_count_committed_case_documents() -> None
     assert counts["aggregate_count_reads"] == 2
 
 
-def test_preview_declares_ramp_and_final_without_constructing_ledger() -> None:
-    plan, bundle, bundle_sha = _loaded()
+def test_preview_declares_ramp_and_final_without_constructing_ledger(
+    tmp_path: Path,
+) -> None:
+    plan = load_compressed_plan(ROOT)
+    bundle, bundle_sha = write_rebound_test_repo(ROOT, plan, tmp_path)
 
     def forbidden(**_kwargs):
         raise AssertionError("preview_must_not_construct_ledger")
@@ -138,7 +139,7 @@ def test_preview_declares_ramp_and_final_without_constructing_ledger() -> None:
             "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
         },
         ledger_factory=forbidden,
-        repo_root=ROOT,
+        repo_root=tmp_path,
     )
     assert result["writes"] == 0
     assert result["cycle_id"] == "c6"

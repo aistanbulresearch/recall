@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from recall.scheduler.compressed_plan import PLAN_PATH
@@ -17,6 +18,14 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
     plan_document = json.loads(plan_bytes.decode("utf-8"))
     plan_sha256 = hashlib.sha256(plan_bytes).hexdigest()
     cycle = next(item for item in plan_document["cycles"] if item["cycle_id"] == "c3")
+    window_start = _timestamp(cycle["window_start"])
+    trigger_started = window_start + timedelta(microseconds=123_456)
+    write_completed = window_start + timedelta(minutes=5, microseconds=654_321)
+    agent_completed = window_start + timedelta(minutes=50, microseconds=999_999)
+    end_to_end = window_start + timedelta(
+        seconds=cycle["execution_timeout_seconds"]
+    )
+    shifted_start = window_start + timedelta(hours=2)
 
     context = {
         "plan_version": plan_document["plan_version"],
@@ -25,19 +34,33 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
         "window_start": cycle["window_start"],
         "window_end": cycle["window_end"],
         "scheduled_for": cycle["window_start"],
-        "created_at": "2026-08-27T12:50:00.999999Z",
+        "created_at": _wire_timestamp(agent_completed),
     }
     valid = {
-        "trigger_started_at": "2026-08-27T12:00:00.1234567Z",
+        "trigger_started_at": _wire_timestamp_with_extra_precision(
+            trigger_started
+        ),
         "trigger_window_end": cycle["window_end"],
         "write_timeout_seconds": cycle["write_timeout_seconds"],
-        "write_deadline": "2026-08-27T12:10:00.123456Z",
-        "write_completed_at": "2026-08-27T12:05:00.654321Z",
+        "write_deadline": _wire_timestamp(
+            min(
+                trigger_started
+                + timedelta(seconds=cycle["write_timeout_seconds"]),
+                end_to_end,
+            )
+        ),
+        "write_completed_at": _wire_timestamp(write_completed),
         "agent_timeout_seconds": cycle["agent_timeout_seconds"],
-        "agent_deadline": "2026-08-27T12:55:00.654321Z",
+        "agent_deadline": _wire_timestamp(
+            min(
+                write_completed
+                + timedelta(seconds=cycle["agent_timeout_seconds"]),
+                end_to_end,
+            )
+        ),
         "agent_completed_at": context["created_at"],
         "execution_timeout_seconds": cycle["execution_timeout_seconds"],
-        "authoritative_end_to_end_deadline": "2026-08-27T13:00:00Z",
+        "authoritative_end_to_end_deadline": _wire_timestamp(end_to_end),
     }
 
     vectors = [
@@ -71,39 +94,66 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
             valid,
             {
                 "write_timeout_seconds": 3599,
-                "write_deadline": "2026-08-27T12:59:59.123456Z",
+                "write_deadline": _wire_timestamp(
+                    trigger_started + timedelta(seconds=3599)
+                ),
                 "agent_timeout_seconds": 1,
-                "agent_deadline": "2026-08-27T12:05:01.654321Z",
+                "agent_deadline": _wire_timestamp(
+                    write_completed + timedelta(seconds=1)
+                ),
             },
         ),
         _mutation(
             "trigger_window_end_mismatch",
             context,
             valid,
-            {"trigger_window_end": "2026-08-27T12:29:58Z"},
+            {
+                "trigger_window_end": _wire_timestamp(
+                    _timestamp(cycle["window_end"]) - timedelta(seconds=1)
+                )
+            },
         ),
         _mutation(
             "write_deadline_mismatch",
             context,
             valid,
-            {"write_deadline": "2026-08-27T12:10:01.123456Z"},
+            {
+                "write_deadline": _wire_timestamp(
+                    trigger_started
+                    + timedelta(seconds=cycle["write_timeout_seconds"] + 1)
+                )
+            },
         ),
         _mutation(
             "agent_deadline_mismatch",
             context,
             valid,
-            {"agent_deadline": "2026-08-27T12:55:01.654321Z"},
+            {
+                "agent_deadline": _wire_timestamp(
+                    write_completed
+                    + timedelta(seconds=cycle["agent_timeout_seconds"] + 1)
+                )
+            },
         ),
         _mutation(
             "end_to_end_deadline_mismatch",
             context,
             valid,
-            {"authoritative_end_to_end_deadline": "2026-08-27T13:00:01Z"},
+            {
+                "authoritative_end_to_end_deadline": _wire_timestamp(
+                    end_to_end + timedelta(seconds=1)
+                )
+            },
         ),
         _vector(
             "created_at_mismatch",
             False,
-            {**context, "created_at": "2026-08-27T12:50:01Z"},
+            {
+                **context,
+                "created_at": _wire_timestamp(
+                    agent_completed + timedelta(seconds=1)
+                ),
+            },
             valid,
         ),
         _vector(
@@ -111,32 +161,63 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
             False,
             {
                 **context,
-                "window_start": "2026-08-27T14:00:00Z",
-                "window_end": "2026-08-27T14:29:59Z",
-                "scheduled_for": "2026-08-27T14:00:00Z",
-                "created_at": "2026-08-27T14:50:00.999999Z",
+                "window_start": _wire_timestamp(shifted_start),
+                "window_end": _wire_timestamp(
+                    _timestamp(cycle["window_end"]) + timedelta(hours=2)
+                ),
+                "scheduled_for": _wire_timestamp(shifted_start),
+                "created_at": _wire_timestamp(agent_completed + timedelta(hours=2)),
             },
             {
                 **valid,
-                "trigger_started_at": "2026-08-27T14:00:00.1234567Z",
-                "trigger_window_end": "2026-08-27T14:29:59Z",
-                "write_deadline": "2026-08-27T14:10:00.123456Z",
-                "write_completed_at": "2026-08-27T14:05:00.654321Z",
-                "agent_deadline": "2026-08-27T14:55:00.654321Z",
-                "agent_completed_at": "2026-08-27T14:50:00.999999Z",
-                "authoritative_end_to_end_deadline": "2026-08-27T15:00:00Z",
+                "trigger_started_at": _wire_timestamp_with_extra_precision(
+                    trigger_started + timedelta(hours=2)
+                ),
+                "trigger_window_end": _wire_timestamp(
+                    _timestamp(cycle["window_end"]) + timedelta(hours=2)
+                ),
+                "write_deadline": _wire_timestamp(
+                    _timestamp(valid["write_deadline"]) + timedelta(hours=2)
+                ),
+                "write_completed_at": _wire_timestamp(
+                    write_completed + timedelta(hours=2)
+                ),
+                "agent_deadline": _wire_timestamp(
+                    _timestamp(valid["agent_deadline"]) + timedelta(hours=2)
+                ),
+                "agent_completed_at": _wire_timestamp(
+                    agent_completed + timedelta(hours=2)
+                ),
+                "authoritative_end_to_end_deadline": _wire_timestamp(
+                    end_to_end + timedelta(hours=2)
+                ),
             },
         ),
         _vector(
             "window_end_plan_mismatch",
             False,
-            {**context, "window_end": "2026-08-27T12:30:00Z"},
-            {**valid, "trigger_window_end": "2026-08-27T12:30:00Z"},
+            {
+                **context,
+                "window_end": _wire_timestamp(
+                    _timestamp(cycle["window_end"]) + timedelta(seconds=1)
+                ),
+            },
+            {
+                **valid,
+                "trigger_window_end": _wire_timestamp(
+                    _timestamp(cycle["window_end"]) + timedelta(seconds=1)
+                ),
+            },
         ),
         _vector(
             "scheduled_for_plan_mismatch",
             False,
-            {**context, "scheduled_for": "2026-08-27T12:00:01Z"},
+            {
+                **context,
+                "scheduled_for": _wire_timestamp(
+                    window_start + timedelta(seconds=1)
+                ),
+            },
             valid,
         ),
         _vector(
@@ -186,3 +267,25 @@ def _mutation(
     changed = deepcopy(policy)
     changed.update(changes)
     return _vector(vector_id, False, context, changed)
+
+
+def _timestamp(value: object) -> datetime:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise ValueError("deadline_vector_timestamp_invalid")
+    parsed = datetime.fromisoformat(value[:-1] + "+00:00")
+    if parsed.tzinfo is None:
+        raise ValueError("deadline_vector_timestamp_invalid")
+    return parsed.astimezone(timezone.utc)
+
+
+def _wire_timestamp(value: datetime) -> str:
+    if value.tzinfo is None:
+        raise ValueError("deadline_vector_timestamp_invalid")
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _wire_timestamp_with_extra_precision(value: datetime) -> str:
+    rendered = _wire_timestamp(value)
+    if "." not in rendered:
+        raise ValueError("deadline_vector_fractional_timestamp_required")
+    return rendered[:-1] + "7Z"
