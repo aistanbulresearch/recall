@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -21,13 +22,29 @@ from recall.agents.schemas import (
     CitationAuditOutput,
     EvidenceSnapshotOutput,
 )
-from recall.contracts import AgentRole, ContractError, DataMode, ExecutionProfile
+from recall.contracts import (
+    AgentRole,
+    ContractError,
+    DataMode,
+    ExecutionProfile,
+    content_hash,
+    parse_artifact,
+)
 from recall.contracts.enums import ScanRunEventCode
 from recall.controller import Controller
 from recall.controller.tool_gateway_store import InMemoryGatewayInvocationStore
 from recall.ledger import InMemoryLedger
-from recall.scheduler.model_cost import DEFAULT_MODEL_COST_POLICY, InMemoryModelCostLedger
-from recall.scheduler.full_audit_phase import execute_full_audit_phase
+from recall.ledger.producers import PRODUCER_REGISTRY
+from recall.scheduler.model_cost import (
+    DEFAULT_MODEL_COST_POLICY,
+    InMemoryModelCostLedger,
+)
+from recall.scheduler.full_audit_phase import (
+    FullAuditCaseFailure,
+    FullAuditPhaseError,
+    execute_full_audit_phase,
+    persist_cohort_checkpoint,
+)
 from tests.admission import admit_watch_case, in_memory_ledger
 
 
@@ -205,7 +222,9 @@ def test_full_audit_executes_all_roles_and_commits_deterministic_policy() -> Non
     assert outcome.policy_outcome == "NO_ACTION"
     assert outcome.technical_failure_codes == ()
     artifacts = ledger.list_by_run(run_id)
-    assert sum(item["schema_name"] == "AgentExecutionReceipt" for item in artifacts) == 6
+    assert sum(
+        item["schema_name"] == "AgentExecutionReceipt" for item in artifacts
+    ) == 6
     assert sum(item["schema_name"] == "CitationAuditReceipt" for item in artifacts) == 1
     assert sum(item["schema_name"] == "PolicyDecision" for item in artifacts) == 1
 
@@ -289,6 +308,176 @@ def test_one_case_failure_halts_only_that_run_without_policy_decision() -> None:
     assert not any(
         item["schema_name"] == "PolicyDecision" for item in ledger.list_by_run(run_id)
     )
+
+
+def test_failed_agent_receipt_uses_authoritative_failure_time() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class BrokenRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt, tools, context
+            raise TimeoutError("synthetic delayed timeout")
+
+    failure_at = NOW + timedelta(seconds=5)
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=BrokenRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        clock=lambda: failure_at,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert failed["completed_at"] == "2026-08-27T08:00:05Z"
+    assert failed["latency_ms"] == 5000
+
+
+def test_expired_lease_without_takeover_cannot_be_halted_by_old_owner() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class BrokenRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt, tools, context
+            raise TimeoutError("failure after lease expiry")
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=BrokenRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        lease_duration_seconds=1,
+        clock=lambda: NOW + timedelta(seconds=1),
+    )
+
+    with pytest.raises(ContractError, match="lease_expired"):
+        asyncio.run(coordinator.execute_run(run_id, evidence=evidence, now=NOW))
+
+    current = ledger.get_scan_run(run_id)
+    assert current is not None and current.state.value == "WATCHING"
+    assert not any(
+        item["schema_name"] == "FailureReceipt"
+        or (
+            item["schema_name"] == "AgentExecutionReceipt"
+            and item["execution_status"] == "FAILED"
+        )
+        for item in ledger.list_by_run(run_id)
+    )
+
+
+def test_crash_after_terminal_commit_keeps_failed_agent_receipt_atomic() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class BrokenRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            if role is AgentRole.EVIDENCE_ASSESSOR:
+                raise TimeoutError("synthetic timeout")
+            return await super().execute(role, prompt, tools, context)
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=BrokenRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    commit_terminal = ledger.commit_terminal
+
+    def commit_then_crash(*args, **kwargs):
+        commit_terminal(*args, **kwargs)
+        raise KeyboardInterrupt("crash after terminal transaction")
+
+    ledger.commit_terminal = commit_then_crash  # type: ignore[method-assign]
+    with pytest.raises(KeyboardInterrupt, match="terminal transaction"):
+        asyncio.run(coordinator.execute_run(run_id, evidence=evidence, now=NOW))
+
+    current = ledger.get_scan_run(run_id)
+    assert current is not None and current.state.value == "HALTED"
+    artifacts = ledger.list_by_run(run_id)
+    assert any(item["schema_name"] == "FailureReceipt" for item in artifacts)
+    assert any(
+        item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+        for item in artifacts
+    )
+
+
+def test_authoritative_end_to_end_deadline_halts_before_model_invocation() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    runner = FakeRoleRunner()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(
+            run_id,
+            evidence=evidence,
+            now=datetime(2026, 8, 27, 8, 15, tzinfo=UTC),
+        )
+    )
+
+    assert runner.roles == []
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.audit_status == "NOT_EVALUATED"
+    assert outcome.policy_outcome is None
+    assert not any(
+        item["schema_name"] == "PolicyDecision"
+        for item in ledger.list_by_run(run_id)
+    )
+
+
+def test_role_timeout_is_capped_by_remaining_end_to_end_budget() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class SlowRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            await asyncio.sleep(2)
+            return await super().execute(role, prompt, tools, context)
+
+    runner = SlowRunner()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        role_timeout_seconds=300,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(
+            run_id,
+            evidence=evidence,
+            now=datetime(2026, 8, 27, 8, 14, 59, tzinfo=UTC),
+        )
+    )
+
+    assert runner.roles == []
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_outcome is None
+    failed = [
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    ]
+    assert [item["failure_code"] for item in failed] == ["agent_timeout"]
 
 
 def test_open_started_attempt_is_closed_and_role_resumes_once() -> None:
@@ -643,6 +832,95 @@ def test_routing_receipt_is_reused_byte_for_byte_after_expired_takeover() -> Non
     assert len(takeover_events) == 1
 
 
+def test_hard_crash_after_data_mode_append_resumes_byte_identically() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        lease_duration_seconds=60,
+    )
+    evaluate = coordinator._controller.evaluate_and_commit
+    crashed = False
+
+    def crash_once(*args, **kwargs):
+        nonlocal crashed
+        if not crashed:
+            crashed = True
+            raise KeyboardInterrupt("hard crash after data-mode append")
+        return evaluate(*args, **kwargs)
+
+    coordinator._controller.evaluate_and_commit = crash_once  # type: ignore[method-assign]
+    with pytest.raises(KeyboardInterrupt, match="hard crash"):
+        asyncio.run(coordinator.execute_run(run_id, evidence=evidence, now=NOW))
+    before = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "DataModeReceipt"
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(
+            run_id, evidence=evidence, now=NOW + timedelta(seconds=60)
+        )
+    )
+    receipts = [
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "DataModeReceipt"
+    ]
+
+    assert outcome.terminal_state == "NO_ACTION"
+    assert receipts == [before]
+
+
+def test_expired_old_worker_cannot_halt_new_lease_owner() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    controller = Controller(ledger)
+
+    class LeaseStealingRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            current = ledger.get_scan_run(run_id)
+            assert current is not None
+            controller.acquire_lease(
+                run_id,
+                expected_version=current.version,
+                new_epoch=current.lease_epoch + 1,
+                expires_at=NOW + timedelta(seconds=2),
+                now=NOW + timedelta(seconds=1),
+            )
+            raise TimeoutError("old worker failed after ownership changed")
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=LeaseStealingRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        lease_duration_seconds=1,
+        clock=lambda: NOW + timedelta(seconds=2),
+    )
+
+    with pytest.raises(ContractError, match="stale_write_rejected"):
+        asyncio.run(coordinator.execute_run(run_id, evidence=evidence, now=NOW))
+
+    current = ledger.get_scan_run(run_id)
+    assert current is not None
+    assert current.state.value == "WATCHING"
+    assert current.lease_epoch == 2
+    assert not any(
+        item["schema_name"] == "FailureReceipt"
+        for item in ledger.list_by_run(run_id)
+    )
+    assert not any(
+        item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+        for item in ledger.list_by_run(run_id)
+    )
+
+
 def test_queued_case_uses_semaphore_entry_clock_for_fresh_lease() -> None:
     class ClockCoordinator:
         cost_policy = DEFAULT_MODEL_COST_POLICY
@@ -696,6 +974,51 @@ def test_queued_case_uses_semaphore_entry_clock_for_fresh_lease() -> None:
     assert coordinator.observed == [entered_at]
 
 
+def test_queued_case_at_agent_deadline_invokes_no_model_role() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    runner = FakeRoleRunner()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    phase = execute_full_audit_phase(
+        (
+            SimpleNamespace(
+                case=SimpleNamespace(
+                    case_id=evidence.case_id,
+                    vcv=None,
+                    data_mode=DataMode.SYNTHETIC,
+                ),
+                run_record=SimpleNamespace(run_id=run_id, updated_at=NOW),
+                watch_record=SimpleNamespace(
+                    source_cursors=evidence.source_cursors
+                ),
+            ),
+        ),
+        coordinator=coordinator,
+        bundle=SimpleNamespace(
+            cases=(
+                SimpleNamespace(
+                    case_id=evidence.case_id,
+                    cycle_id="c3",
+                    cloud_bound_payload=evidence.cloud_bound_payload,
+                ),
+            ),
+            observations_by_vcv={},
+        ),
+        cycle=SimpleNamespace(cycle_id="c3"),
+        clock=lambda: NOW,
+        agent_deadline_at=NOW,
+    )
+
+    assert runner.roles == []
+    assert phase.outcomes[0].terminal_state == "HALTED"
+    assert phase.outcomes[0].audit_status == "NOT_EVALUATED"
+
+
 def test_cohort_waits_for_unrelated_cases_before_reporting_integrity_failure() -> None:
     class PartiallyBrokenCoordinator:
         cost_policy = DEFAULT_MODEL_COST_POLICY
@@ -744,7 +1067,10 @@ def test_cohort_waits_for_unrelated_cases_before_reporting_integrity_failure() -
             )
         )
 
-    with pytest.raises(RuntimeError, match="full_audit_case_failures:1"):
+    checkpoint_ledger = InMemoryLedger()
+    with pytest.raises(
+        RuntimeError, match="full_audit_checkpoint_outcome_unbound"
+    ):
         execute_full_audit_phase(
             tuple(cases),
             coordinator=coordinator,  # type: ignore[arg-type]
@@ -752,6 +1078,11 @@ def test_cohort_waits_for_unrelated_cases_before_reporting_integrity_failure() -
                 cases=tuple(prepared), observations_by_vcv={}
             ),
             cycle=SimpleNamespace(cycle_id="c3"),
+            checkpoint_ledger=checkpoint_ledger,
+            plan_sha256="a" * 64,
+            expected_manifest_id="00000000-0000-4000-8000-000000000101",
+            checkpoint_run_id="00000000-0000-4000-8000-000000000102",
+            clock=lambda: NOW,
         )
 
     assert set(coordinator.observed) == {
@@ -759,3 +1090,105 @@ def test_cohort_waits_for_unrelated_cases_before_reporting_integrity_failure() -
         "00000000-0000-4000-8000-000000000001",
         "00000000-0000-4000-8000-000000000002",
     }
+    assert not any(
+        item["schema_name"] == "CohortExecutionCheckpoint"
+        for item in checkpoint_ledger._artifacts.values()
+    )
+
+
+def test_checkpoint_binds_genuine_terminal_artifacts_and_reuses_exact_bytes() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failure = FullAuditCaseFailure(
+        "00000000-0000-4000-8000-000000000099",
+        "00000000-0000-4000-8000-000000000098",
+        "stale_write_rejected",
+    )
+    checkpoint = persist_cohort_checkpoint(
+        ledger=ledger,
+        plan_sha256="a" * 64,
+        cycle=SimpleNamespace(cycle_id="c3"),
+        expected_manifest_id="00000000-0000-4000-8000-000000000101",
+        checkpoint_run_id="00000000-0000-4000-8000-000000000102",
+        total_cases=2,
+        completed=(outcome,),
+        failures=(failure,),
+        detected_at=NOW,
+    )
+    parsed = parse_artifact(
+        checkpoint, authorized_producers=PRODUCER_REGISTRY
+    )
+    assert parsed.payload.policy_outcomes_synthesized is False
+    assert len(parsed.payload.completed_outcomes) == 1
+    assert len(parsed.payload.failed_cases) == 1
+    pointer = ledger.get_scan_run(run_id)
+    assert pointer is not None
+    assert str(pointer.scan_run_artifact_id) in checkpoint["input_artifact_ids"]
+
+    replay = persist_cohort_checkpoint(
+        ledger=ledger,
+        plan_sha256="a" * 64,
+        cycle=SimpleNamespace(cycle_id="c3"),
+        expected_manifest_id="00000000-0000-4000-8000-000000000101",
+        checkpoint_run_id="00000000-0000-4000-8000-000000000102",
+        total_cases=2,
+        completed=(outcome,),
+        failures=(failure,),
+        detected_at=NOW + timedelta(days=1),
+    )
+    assert replay == checkpoint
+
+    invalid = deepcopy(checkpoint)
+    invalid["completed_outcomes"][0]["terminal_state"] = "RUNNING"
+    invalid["content_hash"] = content_hash(invalid)
+    with pytest.raises(ContractError, match="contract_enum_invalid"):
+        parse_artifact(invalid, authorized_producers=PRODUCER_REGISTRY)
+
+    missing_scan_input = deepcopy(checkpoint)
+    missing_scan_input["input_artifact_ids"] = [
+        item
+        for item in missing_scan_input["input_artifact_ids"]
+        if item != str(pointer.scan_run_artifact_id)
+    ]
+    missing_scan_input["content_hash"] = content_hash(missing_scan_input)
+    ledger._artifacts[str(checkpoint["artifact_id"])] = missing_scan_input
+    with pytest.raises(
+        RuntimeError, match="full_audit_checkpoint_reconciliation_failed"
+    ):
+        persist_cohort_checkpoint(
+            ledger=ledger,
+            plan_sha256="a" * 64,
+            cycle=SimpleNamespace(cycle_id="c3"),
+            expected_manifest_id="00000000-0000-4000-8000-000000000101",
+            checkpoint_run_id="00000000-0000-4000-8000-000000000102",
+            total_cases=2,
+            completed=(outcome,),
+            failures=(failure,),
+            detected_at=NOW + timedelta(days=2),
+        )
+    ledger._artifacts[str(checkpoint["artifact_id"])] = checkpoint
+
+    ledger._artifacts.pop(outcome.policy_decision_id)
+    with pytest.raises(
+        RuntimeError, match="full_audit_checkpoint_outcome_unbound"
+    ):
+        persist_cohort_checkpoint(
+            ledger=ledger,
+            plan_sha256="a" * 64,
+            cycle=SimpleNamespace(cycle_id="c3"),
+            expected_manifest_id="00000000-0000-4000-8000-000000000101",
+            checkpoint_run_id="00000000-0000-4000-8000-000000000102",
+            total_cases=2,
+            completed=(outcome,),
+            failures=(failure,),
+            detected_at=NOW + timedelta(days=2),
+        )

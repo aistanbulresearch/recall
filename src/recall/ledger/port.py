@@ -92,6 +92,7 @@ class LedgerPort(Protocol):
         review_task: Mapping[str, Any] | None,
         watch_case_update: WatchCaseRecord | None,
         now: datetime,
+        terminal_artifacts: Sequence[Mapping[str, Any]] = (),
     ) -> tuple[ScanRunRecord, ReviewTaskRecord | None]: ...
 
     def list_review_tasks(self, run_id: str) -> Sequence[ReviewTaskRecord]: ...

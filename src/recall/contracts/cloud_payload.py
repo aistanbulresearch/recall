@@ -8,7 +8,7 @@ from typing import Any
 
 from .enums import DataMode
 from .errors import ContractError
-from .validation import enum_value, non_empty_string, require_exact_fields, uuid_value
+from .validation import enum_value, non_empty_string, uuid_value
 
 
 _VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
@@ -73,14 +73,25 @@ def parse_cloud_bound_payload(value: Mapping[str, Any]) -> CloudBoundPayload:
     if value["payload_kind"] != "recall.privacy.cloud_bound_payload":
         raise ContractError("contract_value_invalid", "payload_kind")
     version = non_empty_string(value["payload_version"], "payload_version")
-    if version != "1.0.0" or not _VERSION.fullmatch(version):
+    if version not in {"1.0.0", "1.1.0"} or not _VERSION.fullmatch(version):
         raise ContractError("contract_major_unsupported", "cloud_bound_payload")
     variant = value["variant"]
     if not isinstance(variant, Mapping):
         raise ContractError("contract_type_invalid", "variant")
-    require_exact_fields(
-        variant, frozenset({"gene", "hgvs_c", "hgvs_p", "assembly"}), "variant"
-    )
+    required_variant = {"gene", "hgvs_c", "assembly"}
+    allowed_variant = required_variant | {"hgvs_p"}
+    missing_variant = required_variant - set(variant)
+    unknown_variant = set(variant) - allowed_variant
+    if version == "1.0.0" and "hgvs_p" not in variant:
+        missing_variant.add("hgvs_p")
+    if missing_variant:
+        raise ContractError(
+            "contract_required_field_missing", f"variant:{sorted(missing_variant)}"
+        )
+    if unknown_variant:
+        raise ContractError(
+            "contract_unknown_field", f"variant:{sorted(unknown_variant)}"
+        )
     validators = {
         "gene": _GENE,
         "hgvs_c": _HGVS_C,
@@ -89,6 +100,8 @@ def parse_cloud_bound_payload(value: Mapping[str, Any]) -> CloudBoundPayload:
     }
     parsed_variant: dict[str, str] = {}
     for field, pattern in validators.items():
+        if field not in variant:
+            continue
         item = non_empty_string(variant[field], f"variant.{field}")
         if not pattern.fullmatch(item):
             raise ContractError("contract_value_invalid", f"variant.{field}")

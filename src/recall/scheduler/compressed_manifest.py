@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from recall.contracts import ArtifactStatus, DataMode, build_artifact, parse_artifact
 from recall.contracts.enums import FactState
@@ -41,9 +41,13 @@ def build_compressed_manifest(
     bundle: CompressedPreparationBundle,
     previous_manifest: Mapping[str, object] | None,
     ramp_gate_receipt: Mapping[str, object] | None,
+    headroom_receipt: Mapping[str, object] | None,
+    batch_execution_receipt: Mapping[str, object] | None,
+    write_measurement_status: str,
     write_metrics: Mapping[str, object] | None,
     agent_phase: FullAuditPhaseResult | None,
     executed_at: datetime,
+    trigger_started_at: datetime,
 ) -> dict[str, object]:
     authoritative = tuple(sorted(item.run_id for item in run_records))
     history = _prior_history(
@@ -53,7 +57,7 @@ def build_compressed_manifest(
         bundle=bundle,
     )
     schema_version = (
-        "3.2.0"
+        "3.3.0"
         if cycle.execution_profile == "FULL_AUDIT_V1"
         else ("3.0.0" if cycle.cycle_index < 3 else "3.1.0")
     )
@@ -80,7 +84,10 @@ def build_compressed_manifest(
             "executed_at": _timestamp(executed_at),
             "runs_created": len(authoritative),
             "runs_predicted": cycle.runs_predicted,
-            "execution_status": "COMPLETE" if agent_qualified else "INCOMPLETE",
+            # This history row records completed cohort admission and durable
+            # run creation. Agent qualification is represented natively by the
+            # v3.3 envelope status plus run_outcomes/failure receipt bindings.
+            "execution_status": "COMPLETE",
             "failure_receipt_id": None,
             "evidence_state": "LIVE_INFRASTRUCTURE_SYNTHETIC_DATA",
             "schedule_mode": plan.schedule_mode,
@@ -124,6 +131,10 @@ def build_compressed_manifest(
         inputs.add(previous_id)
     if ramp_gate_receipt is not None:
         inputs.add(str(ramp_gate_receipt["artifact_id"]))
+    if headroom_receipt is not None:
+        inputs.add(str(headroom_receipt["artifact_id"]))
+    if batch_execution_receipt is not None:
+        inputs.add(str(batch_execution_receipt["artifact_id"]))
     if agent_phase is not None:
         for outcome in agent_phase.outcomes:
             inputs.update(outcome.agent_execution_receipt_ids)
@@ -137,12 +148,33 @@ def build_compressed_manifest(
         len(newly_created_run_ids) == cycle.runs_predicted
         and len(reused_run_ids) == 0
     )
+    epoch_parity_match = len(authoritative) == cycle.runs_predicted
+    deadline_policy = _deadline_policy(
+        cycle=cycle,
+        trigger_started_at=trigger_started_at,
+        write_completed_at=(
+            trigger_started_at
+            if write_metrics is None
+            else datetime.fromisoformat(
+                str(write_metrics["completed_at"]).replace("Z", "+00:00")
+            )
+        ),
+        agent_completed_at=executed_at,
+    )
+    deadline_qualified = (
+        deadline_policy["trigger_started_at"] <= deadline_policy["trigger_window_end"]
+        and deadline_policy["write_completed_at"] <= deadline_policy["write_deadline"]
+        and deadline_policy["agent_completed_at"] <= deadline_policy["agent_deadline"]
+        and deadline_policy["agent_completed_at"]
+        <= deadline_policy["authoritative_end_to_end_deadline"]
+    )
     qualified = (predicted_match if cycle.cycle_index < 3 else (
-        predicted_match
-        and parity_match
+        epoch_parity_match
+        and write_measurement_status == "MEASURED"
         and write_metrics is not None
         and write_metrics["persistence_surface"] == "LIVE_FIRESTORE"
         and int(write_metrics["effective_write_millis_per_case"]) <= 2000
+        and deadline_qualified
     )) and agent_qualified
     payload = {
         "day_index": cycle.cycle_index + 1,
@@ -161,7 +193,11 @@ def build_compressed_manifest(
         "window_start": cycle.schedule_epoch,
         "window_end": _timestamp(cycle.window_end),
         "schedule_mode": plan.schedule_mode,
-        "headroom_receipt_id": None,
+        "headroom_receipt_id": (
+            None
+            if headroom_receipt is None
+            else str(headroom_receipt["artifact_id"])
+        ),
         "delta": {
             "selected_case_ids": sorted(item.case_id for item in selected_cases),
             "excluded_case_ids": sorted(excluded_case_ids),
@@ -177,12 +213,22 @@ def build_compressed_manifest(
         "execution_history": history,
     }
     if cycle.cycle_index >= 3:
-        assert ramp_gate_receipt is not None and write_metrics is not None
+        assert (
+            ramp_gate_receipt is not None
+            and write_metrics is not None
+            and batch_execution_receipt is not None
+        )
         payload.update(
             {
                 "epoch_label": cycle.epoch_label,
                 "evaluation_role": cycle.evaluation_role,
                 "ramp_gate_receipt_id": str(ramp_gate_receipt["artifact_id"]),
+                "cycle_attempt_id": tick_run_id(plan, cycle),
+                "batch_execution_receipt_id": str(
+                    batch_execution_receipt["artifact_id"]
+                ),
+                "write_measurement_status": write_measurement_status,
+                "deadline_policy": deadline_policy,
                 "write_metrics": dict(write_metrics),
                 "parity": {
                     "expected_newly_created_runs": cycle.runs_predicted,
@@ -192,9 +238,13 @@ def build_compressed_manifest(
                     "new_epoch_required": True,
                     "same_write_path_as_ramp": True,
                     "parity_match": parity_match,
+                    "epoch_parity_match": epoch_parity_match,
+                    "fresh_write_parity_match": parity_match,
                 },
             }
         )
+    if (cycle.cycle_id == "c6") is not (headroom_receipt is not None):
+        raise RuntimeError("compressed_headroom_manifest_binding_invalid")
     if agent_phase is not None:
         payload.update(
             {
@@ -307,7 +357,7 @@ def _prior_history(
     prior_cycle = plan.cycles[cycle.cycle_index - 2]
     prior_plan = evidence_plan(plan, prior_cycle)
     if (
-        parsed.schema_version not in {"3.0.0", "3.1.0", "3.2.0"}
+        parsed.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0"}
         or parsed.payload.cycle_id != prior_cycle.cycle_id
         or parsed.payload.plan_sha256 != prior_plan.sha256
         or parsed.artifact_id != evidence_manifest_artifact_id(plan, prior_cycle)
@@ -331,3 +381,33 @@ def _cumulative(history: Sequence[Mapping[str, object]]) -> dict[str, int]:
 
 def _timestamp(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _deadline_policy(
+    *,
+    cycle: CompressedCycle,
+    trigger_started_at: datetime,
+    write_completed_at: datetime,
+    agent_completed_at: datetime,
+) -> dict[str, str]:
+    end_to_end = cycle.end_to_end_deadline
+    write_deadline = min(
+        trigger_started_at + timedelta(seconds=cycle.write_timeout_seconds),
+        end_to_end,
+    )
+    agent_deadline = min(
+        write_completed_at + timedelta(seconds=cycle.agent_timeout_seconds),
+        end_to_end,
+    )
+    return {
+        "trigger_started_at": _timestamp(trigger_started_at),
+        "trigger_window_end": _timestamp(cycle.window_end),
+        "write_timeout_seconds": cycle.write_timeout_seconds,
+        "write_deadline": _timestamp(write_deadline),
+        "write_completed_at": _timestamp(write_completed_at),
+        "agent_timeout_seconds": cycle.agent_timeout_seconds,
+        "agent_deadline": _timestamp(agent_deadline),
+        "agent_completed_at": _timestamp(agent_completed_at),
+        "execution_timeout_seconds": cycle.execution_timeout_seconds,
+        "authoritative_end_to_end_deadline": _timestamp(end_to_end),
+    }

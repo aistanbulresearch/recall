@@ -5,7 +5,9 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from math import ceil
-from time import perf_counter
+from queue import Empty, Queue
+from threading import Event, Thread
+from time import monotonic
 from typing import TypeVar
 from uuid import UUID, uuid5
 
@@ -30,6 +32,10 @@ from .compressed_cohort import CompressedCohortCase
 BATCH_MAX_WORKERS = 32
 _T = TypeVar("_T")
 _R = TypeVar("_R")
+
+
+class WritePhaseDeadlineExceeded(RuntimeError):
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +69,9 @@ class BatchExecutionResult:
         created = sum(item.created for item in self.outcomes)
         return {
             "scope": "CASE_WRITE_AND_EXACT_READBACK",
-            "measurement_semantics": "LEDGER_METHOD_INVOCATIONS_AND_COMMITTED_CASE_DOCUMENTS",
+            "measurement_semantics": (
+                "LEDGER_METHOD_INVOCATIONS_AND_COMMITTED_CASE_DOCUMENTS"
+            ),
             "persistence_surface": self.persistence_surface,
             "batch_max_workers": min(BATCH_MAX_WORKERS, selected),
             "selected_case_count": selected,
@@ -96,23 +104,44 @@ def execute_verified_batch(
     create_one: Callable[[CompressedCohortCase], BatchCaseResult],
     ledger: LedgerPort,
     started_at: datetime,
+    clock: Callable[[], datetime] | None = None,
+    deadline_at: datetime | None = None,
 ) -> BatchExecutionResult:
-    started = started_at.astimezone(timezone.utc)
-    total_start = perf_counter()
-    worker_start = perf_counter()
+    started = (
+        started_at if clock is None else clock()
+    ).astimezone(timezone.utc)
+    if deadline_at is not None and started >= deadline_at:
+        raise WritePhaseDeadlineExceeded("compressed_write_phase_deadline_exceeded")
+
+    def before_deadline(operation: Callable[[_T], _R]) -> Callable[[_T], _R]:
+        def guarded(value: _T) -> _R:
+            if deadline_at is not None and clock is not None and clock() >= deadline_at:
+                raise WritePhaseDeadlineExceeded(
+                    "compressed_write_phase_deadline_exceeded"
+                )
+            return operation(value)
+
+        return guarded
+
     results = _joined_parallel(
         cases,
-        create_one,
+        before_deadline(create_one),
         failure_code="compressed_batch_worker_failed",
+        deadline_at=deadline_at,
+        clock=clock,
     )
-    worker_elapsed = ceil((perf_counter() - worker_start) * 1000)
+    worker_completed = started if clock is None else clock().astimezone(timezone.utc)
+    worker_elapsed = round((worker_completed - started).total_seconds() * 1000)
     ordered = tuple(sorted(results, key=lambda item: item.case.case_id))
-    readback_start = perf_counter()
     _joined_parallel(
         ordered,
-        lambda item: _verify_atomic_triple(ledger, item),
+        before_deadline(lambda item: _verify_atomic_triple(ledger, item)),
         failure_code="compressed_batch_readback_failed",
+        deadline_at=deadline_at,
+        clock=clock,
     )
+    if deadline_at is not None and clock is not None and clock() >= deadline_at:
+        raise WritePhaseDeadlineExceeded("compressed_write_phase_deadline_exceeded")
     expected_event_count = sum(
         len(ledger.list_scan_run_events(item.run_record.run_id))
         for item in ordered
@@ -122,14 +151,23 @@ def execute_verified_batch(
         or ledger.read_back_count("scan_run_events") != expected_event_count
     ):
         raise RuntimeError("compressed_batch_readback_count_mismatch")
-    readback_elapsed = ceil((perf_counter() - readback_start) * 1000)
-    total_elapsed = ceil((perf_counter() - total_start) * 1000)
-    # Preserve the exact additive contract despite timer-read rounding.
-    total_elapsed = worker_elapsed + readback_elapsed
+    completed = (
+        started
+        if clock is None
+        else clock().astimezone(timezone.utc)
+    )
+    if completed < started:
+        raise RuntimeError("compressed_batch_clock_regressed")
+    if deadline_at is not None and completed >= deadline_at:
+        raise WritePhaseDeadlineExceeded("compressed_write_phase_deadline_exceeded")
+    total_elapsed = round((completed - started).total_seconds() * 1000)
+    readback_elapsed = total_elapsed - worker_elapsed
+    if readback_elapsed < 0:
+        raise RuntimeError("compressed_batch_clock_regressed")
     return BatchExecutionResult(
         outcomes=ordered,
         started_at=_timestamp(started),
-        completed_at=_timestamp(started + timedelta(milliseconds=total_elapsed)),
+        completed_at=_timestamp(completed),
         worker_elapsed_ms=worker_elapsed,
         readback_elapsed_ms=readback_elapsed,
         total_elapsed_ms=total_elapsed,
@@ -144,9 +182,19 @@ def _joined_parallel(
     operation: Callable[[_T], _R],
     *,
     failure_code: str,
+    deadline_at: datetime | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> list[_R]:
     if not values:
         return []
+    if deadline_at is not None and clock is not None:
+        return _joined_parallel_until_deadline(
+            values,
+            operation,
+            failure_code=failure_code,
+            deadline_at=deadline_at,
+            clock=clock,
+        )
     completed: list[_R] = []
     failure: Exception | None = None
     workers = min(BATCH_MAX_WORKERS, len(values))
@@ -159,14 +207,96 @@ def _joined_parallel(
         )
         for future in as_completed(futures):
             try:
-                result = future.result()
-                if failure is None:
-                    completed.append(result)
-            except Exception as exc:  # join all workers before propagation
+                completed.append(future.result())
+            except Exception as exc:
                 if failure is None:
                     failure = exc
-                    for pending in futures:
-                        pending.cancel()
+    if failure is not None:
+        if isinstance(failure, WritePhaseDeadlineExceeded):
+            raise failure
+        raise RuntimeError(failure_code) from failure
+    return completed
+
+
+def _joined_parallel_until_deadline(
+    values: Sequence[_T],
+    operation: Callable[[_T], _R],
+    *,
+    failure_code: str,
+    deadline_at: datetime,
+    clock: Callable[[], datetime],
+) -> list[_R]:
+    """Run deadline-bound writes on daemon workers.
+
+    A stuck SDK/RPC cannot keep the Cloud Run Job process alive after the
+    scheduler has emitted its typed checkpoint. Any late durable write is
+    intentionally left without a manifest and is classified as recovered on
+    the same-attempt retry.
+    """
+
+    tasks: Queue[_T] = Queue()
+    results: Queue[tuple[bool, object]] = Queue()
+    cancelled = Event()
+    for value in values:
+        tasks.put(value)
+
+    def worker() -> None:
+        while not cancelled.is_set():
+            try:
+                value = tasks.get_nowait()
+            except Empty:
+                return
+            try:
+                if clock() >= deadline_at:
+                    raise WritePhaseDeadlineExceeded(
+                        "compressed_write_phase_deadline_exceeded"
+                    )
+                results.put((True, operation(value)))
+            except BaseException as exc:
+                results.put((False, exc))
+            finally:
+                tasks.task_done()
+
+    workers = tuple(
+        Thread(
+            target=worker,
+            name=f"recall-compressed-deadline-{index}",
+            daemon=True,
+        )
+        for index in range(min(BATCH_MAX_WORKERS, len(values)))
+    )
+    for thread in workers:
+        thread.start()
+
+    wall_deadline = monotonic() + max(
+        0.0, (deadline_at - clock()).total_seconds()
+    )
+    completed: list[_R] = []
+    failure: BaseException | None = None
+    received = 0
+    try:
+        while received < len(values):
+            remaining = wall_deadline - monotonic()
+            if remaining <= 0:
+                raise WritePhaseDeadlineExceeded(
+                    "compressed_write_phase_deadline_exceeded"
+                )
+            try:
+                succeeded, value = results.get(timeout=remaining)
+            except Empty as exc:
+                raise WritePhaseDeadlineExceeded(
+                    "compressed_write_phase_deadline_exceeded"
+                ) from exc
+            received += 1
+            if succeeded:
+                completed.append(value)  # type: ignore[arg-type]
+            elif isinstance(value, WritePhaseDeadlineExceeded):
+                raise value
+            elif failure is None:
+                assert isinstance(value, BaseException)
+                failure = value
+    finally:
+        cancelled.set()
     if failure is not None:
         raise RuntimeError(failure_code) from failure
     return completed
@@ -185,30 +315,6 @@ def _verify_atomic_triple(
     artifact = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     payload = artifact.payload
     events = ledger.list_scan_run_events(expected.run_id)
-    if not result.created:
-        if (
-            artifact.schema_name != "ScanRun"
-            or artifact.schema_version
-            != (
-                "1.1.0"
-                if result.execution_profile == "FULL_AUDIT_V1"
-                else "1.0.0"
-            )
-            or artifact.run_id != expected.run_id
-            or artifact.case_id != result.case.case_id
-            or artifact.content_hash != result.artifact_content_hash
-            or payload.idempotency_key != result.idempotency_key
-            or payload.scheduled_for != result.schedule_epoch
-            or not events
-            or events[0].from_state is not None
-            or events[0].to_state is not ScanRunState.CREATED
-            or events[0].event_code is not ScanRunEventCode.RUN_CREATED
-            or events[-1].to_state is not expected.state
-            or events[-1].sequence != expected.version
-            or len(events) != expected.version
-        ):
-            raise RuntimeError("compressed_batch_reused_run_mismatch")
-        return expected.run_id
     if (
         artifact.schema_name != "ScanRun"
         or artifact.schema_version
@@ -216,8 +322,6 @@ def _verify_atomic_triple(
         or artifact.run_id != expected.run_id
         or artifact.artifact_id != expected.scan_run_artifact_id
         or artifact.case_id != result.case.case_id
-        or artifact.created_at
-        != expected.updated_at.isoformat().replace("+00:00", "Z")
         or artifact.content_hash != result.artifact_content_hash
         or artifact.producer.component != "workflow-controller"
         or artifact.producer.version != "0.1.0"
@@ -244,9 +348,27 @@ def _verify_atomic_triple(
             and payload.execution_profile.value != "FULL_AUDIT_V1"
         )
     ):
-        raise RuntimeError("compressed_batch_run_artifact_mismatch")
-    if len(events) != 1:
-        raise RuntimeError("compressed_batch_event_count_mismatch")
+        raise RuntimeError(
+            "compressed_batch_run_artifact_mismatch"
+            if result.created
+            else "compressed_batch_reused_run_mismatch"
+        )
+    if (
+        not events
+        or events[0].from_state is not None
+        or events[0].to_state is not ScanRunState.CREATED
+        or events[0].event_code is not ScanRunEventCode.RUN_CREATED
+        or events[-1].to_state is not expected.state
+        or events[-1].sequence != expected.version
+        or len(events) != expected.version
+        or artifact.created_at
+        != events[0].created_at.isoformat().replace("+00:00", "Z")
+    ):
+        raise RuntimeError(
+            "compressed_batch_event_count_mismatch"
+            if result.created
+            else "compressed_batch_reused_run_mismatch"
+        )
     expected_event = ScanRunEventRecord(
         event_id=str(uuid5(UUID(expected.run_id), "scan-run-event:1")),
         run_id=expected.run_id,
@@ -256,10 +378,14 @@ def _verify_atomic_triple(
         event_code=ScanRunEventCode.RUN_CREATED,
         agent_id=None,
         lease_epoch=0,
-        created_at=expected.updated_at,
+        created_at=events[0].created_at,
     )
     if events[0] != expected_event:
         raise RuntimeError("compressed_batch_event_mismatch")
+    if result.created and (
+        len(events) != 1 or expected.state is not ScanRunState.CREATED
+    ):
+        raise RuntimeError("compressed_batch_fresh_run_not_created")
     return expected.run_id
 
 

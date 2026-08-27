@@ -74,6 +74,12 @@ PRODUCER_REGISTRY = ProducerRegistry(
         "CohortDayFailureReceipt": ProducerRule(
             "Cohort scheduler", frozenset({"cohort-scheduler"})
         ),
+        "CohortExecutionCheckpoint": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
+        "BatchExecutionReceipt": ProducerRule(
+            "Cohort scheduler", frozenset({"cohort-scheduler"})
+        ),
         "CohortHistoryReceipt": ProducerRule(
             "Cohort history loader", frozenset({"cohort-history-loader"})
         ),

@@ -22,6 +22,7 @@ from recall.scheduler.compressed_cohort import (
     all_compressed_cases,
     cases_for_cycle,
     portfolio_cases,
+    portfolio_case_vcv_bindings,
 )
 from recall.scheduler.compressed_identity import (
     collection_prefix,
@@ -98,6 +99,32 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         for item in cases
         if item.cycle_id != "historical-day1"
     )
+
+
+def test_external_note_universe_is_exactly_462_with_six_historical_additions() -> None:
+    plan = load_compressed_plan(ROOT)
+    bindings = portfolio_case_vcv_bindings(plan.cycles)
+    final_pool = {item.case_id for item in cases_for_cycle(plan.by_id("c6"))}
+    historical = set(bindings) - final_pool
+
+    assert len(bindings) == 462
+    assert historical == {
+        "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+        "b8390531-4c50-5f26-83da-0a1dadf07acf",
+        "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+        "420c82a9-c37d-5d40-826a-bda26184ae34",
+        "c4e45bde-971b-52ee-9ba3-f182432146fa",
+        "f453187b-b739-598d-a266-604dba66b6e5",
+    }
+    assert {case_id: bindings[case_id] for case_id in historical} == {
+        "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3": None,
+        "b8390531-4c50-5f26-83da-0a1dadf07acf": None,
+        "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4": None,
+        "420c82a9-c37d-5d40-826a-bda26184ae34": None,
+        "c4e45bde-971b-52ee-9ba3-f182432146fa": "VCV002895953.1",
+        "f453187b-b739-598d-a266-604dba66b6e5": "VCV002895953.4",
+    }
+    assert sum(vcv is not None for vcv in bindings.values()) == 5
 
 
 def test_executed_manifest_exports_match_external_plan_bindings() -> None:

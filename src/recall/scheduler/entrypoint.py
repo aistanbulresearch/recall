@@ -34,6 +34,7 @@ from .compressed import CompressedCycleScheduler
 from .compressed_batch import BATCH_MAX_WORKERS
 from .compressed_cohort import cases_for_cycle, portfolio_cases
 from .compressed_ramp_gate import evaluate_and_persist_ramp_gate
+from .compressed_headroom import evaluate_and_persist_headroom
 from .compressed_identity import (
     collection_prefix as compressed_collection_prefix,
     evidence_collection_prefix,
@@ -122,6 +123,11 @@ def execute(
             "epoch_label": cycle.epoch_label,
             "evaluation_role": cycle.evaluation_role,
             "execution_timeout_seconds": cycle.execution_timeout_seconds,
+            "write_timeout_seconds": cycle.write_timeout_seconds,
+            "agent_timeout_seconds": cycle.agent_timeout_seconds,
+            "authoritative_end_to_end_deadline": (
+                cycle.end_to_end_deadline.isoformat().replace("+00:00", "Z")
+            ),
             "activation": cycle.activation,
             "execution_profile": cycle.execution_profile,
             "parity_indicator_fields": [
@@ -132,6 +138,8 @@ def execute(
                 "new_epoch_required",
                 "same_write_path_as_ramp",
                 "parity_match",
+                "epoch_parity_match",
+                "fresh_write_parity_match",
             ],
             "batch_max_workers": (
                 BATCH_MAX_WORKERS
@@ -227,6 +235,14 @@ def execute(
             target_ledger=ledger,
             now=now,
     )
+    headroom = None
+    if cycle.cycle_id == "c6":
+        headroom = evaluate_and_persist_headroom(
+            plan=plan,
+            c6_cycle=cycle,
+            prior_ledgers=prior_ledgers,
+            c6_ledger=ledger,
+        )
     result = CompressedCycleScheduler(
         ledger,
         plan=plan,
@@ -236,10 +252,13 @@ def execute(
         image_digest=image_digest,
         full_audit_coordinator=full_audit,
         refetch_fetcher=refetch_backend,
+        clock=lambda: datetime.now(timezone.utc),
     ).trigger(
         now=now,
         previous_manifest=previous,
         ramp_gate_receipt=ramp_gate,
+        headroom_receipt=headroom,
+        prior_ledgers=prior_ledgers,
     )
     return {
         "mode": "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE",
@@ -251,6 +270,9 @@ def execute(
         "manifest_artifact_id": result.manifest_artifact_id,
         "data_mode_receipt_id": result.data_mode_receipt_id,
         "ramp_gate_receipt_id": str(ramp_gate["artifact_id"]),
+        "headroom_receipt_id": (
+            None if headroom is None else str(headroom["artifact_id"])
+        ),
         "collection_prefix": compressed_collection_prefix(plan, cycle),
         "plan_sha256": plan.sha256,
         "schedule_mode": plan.schedule_mode,
@@ -258,6 +280,11 @@ def execute(
         "epoch_label": cycle.epoch_label,
         "evaluation_role": cycle.evaluation_role,
         "execution_timeout_seconds": cycle.execution_timeout_seconds,
+        "write_timeout_seconds": cycle.write_timeout_seconds,
+        "agent_timeout_seconds": cycle.agent_timeout_seconds,
+        "authoritative_end_to_end_deadline": (
+            cycle.end_to_end_deadline.isoformat().replace("+00:00", "Z")
+        ),
         "activation": cycle.activation,
         "execution_profile": cycle.execution_profile,
         "batch_max_workers": (
@@ -297,6 +324,7 @@ def _build_full_audit_coordinator(
             hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
         ),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
+        clock=lambda: datetime.now(UTC),
     )
 
 

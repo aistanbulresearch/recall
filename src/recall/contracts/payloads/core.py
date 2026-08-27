@@ -50,8 +50,13 @@ from .scheduler import CohortDayManifestPayload
 from .scheduler_v3 import CohortDayManifestV3Payload
 from .scheduler_v31 import CohortDayManifestV31Payload
 from .scheduler_v32 import CohortDayManifestV32Payload
+from .scheduler_v33 import CohortDayManifestV33Payload
 from .scheduler_legacy import CohortDayManifestV20Payload
 from .cohort_failure import CohortDayFailureReceiptPayload
+from .cohort_checkpoint import (
+    BatchExecutionReceiptPayload,
+    CohortExecutionCheckpointPayload,
+)
 from .cohort_history import CohortHistoryReceiptPayload
 from .compressed_receipts import (
     CohortHeadroomReceiptPayload,
@@ -149,8 +154,11 @@ Payload = (
     | CohortDayManifestV3Payload
     | CohortDayManifestV31Payload
     | CohortDayManifestV32Payload
+    | CohortDayManifestV33Payload
     | CohortDayManifestV20Payload
     | CohortDayFailureReceiptPayload
+    | CohortExecutionCheckpointPayload
+    | BatchExecutionReceiptPayload
     | CohortHistoryReceiptPayload
     | CohortHeadroomReceiptPayload
     | CompressedCycleFailureReceiptPayload

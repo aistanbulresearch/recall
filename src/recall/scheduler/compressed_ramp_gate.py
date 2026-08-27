@@ -209,7 +209,7 @@ def _observe(
             created = len(parsed.payload.delta["newly_created_run_ids"])
             reused = len(parsed.payload.delta["reused_run_ids"])
             authoritative = len(parsed.payload.delta["authoritative_run_ids"])
-            if parsed.schema_version in {"3.1.0", "3.2.0"}:
+            if parsed.schema_version in {"3.1.0", "3.2.0", "3.3.0"}:
                 metrics = parsed.payload.write_metrics
                 documents = int(metrics["committed_case_documents"])
                 total_ms = int(metrics["total_elapsed_ms"])

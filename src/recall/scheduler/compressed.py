@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import NAMESPACE_URL, uuid5
 
 from recall.agents.full_audit import FullAuditCoordinator
@@ -13,17 +13,27 @@ from recall.connectors.live import LiveSourceRecord
 from recall.ledger.port import LedgerPort
 from recall.ledger.producers import PRODUCER_REGISTRY
 
-from .compressed_batch import BatchCaseResult, execute_verified_batch
+from .compressed_batch import (
+    BatchCaseResult,
+    WritePhaseDeadlineExceeded,
+    execute_verified_batch,
+)
+from .compressed_batch_receipt import (
+    persist_or_reconcile_batch_execution,
+    verify_batch_execution_binding,
+)
 from .compressed_cohort import (
     CompressedCohortCase,
     cases_for_cycle,
     portfolio_cases,
 )
 from .compressed_ramp_gate import require_ramp_gate_pass
+from .compressed_headroom import require_headroom_pass
 from .compressed_identity import (
     evidence_legacy_failure_receipt_id,
     manifest_artifact_id,
     mode_receipt_artifact_id,
+    tick_run_id,
     trace_id,
 )
 from .compressed_manifest import (
@@ -40,7 +50,12 @@ from .compressed_preparation import (
     CompressedPreparationBundle,
     verify_prepared_cycle,
 )
-from .full_audit_phase import FullAuditPhaseResult, execute_full_audit_phase
+from .full_audit_phase import (
+    FullAuditCaseFailure,
+    FullAuditPhaseResult,
+    execute_full_audit_phase,
+    persist_cohort_checkpoint,
+)
 from .config import BUDGET_SNAPSHOT
 
 
@@ -67,6 +82,7 @@ class CompressedCycleScheduler:
         image_digest: str,
         full_audit_coordinator: FullAuditCoordinator | None = None,
         refetch_fetcher: Callable[[str], LiveSourceRecord] | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._ledger = ledger
         self._plan = plan
@@ -76,6 +92,7 @@ class CompressedCycleScheduler:
         self._image_digest = image_digest
         self._full_audit = full_audit_coordinator
         self._refetch_fetcher = refetch_fetcher
+        self._clock = clock
         self.controller = Controller(ledger)
 
     def trigger(
@@ -84,8 +101,11 @@ class CompressedCycleScheduler:
         now: datetime,
         previous_manifest: Mapping[str, object] | None,
         ramp_gate_receipt: Mapping[str, object] | None = None,
+        headroom_receipt: Mapping[str, object] | None = None,
+        prior_ledgers: Mapping[str, LedgerPort] | None = None,
     ) -> CompressedCycleResult:
         resolved = resolve_declared_cycle(now, self._plan)
+        clock = self._clock or (lambda: now)
         if resolved != self._cycle:
             raise RuntimeError("compressed_cycle_resolution_mismatch")
         if self._cycle.write_path == "EXTERNAL_IMMUTABLE":
@@ -102,6 +122,16 @@ class CompressedCycleScheduler:
                 target_cycle=self._cycle,
                 target_ledger=self._ledger,
             )
+        if self._cycle.cycle_id == "c6":
+            if headroom_receipt is None:
+                raise RuntimeError("compressed_headroom_receipt_missing")
+            require_headroom_pass(
+                headroom_receipt,
+                plan=self._plan,
+                c6_cycle=self._cycle,
+                prior_ledgers={} if prior_ledgers is None else prior_ledgers,
+                c6_ledger=self._ledger,
+            )
         selected = cases_for_cycle(self._cycle)
         population = portfolio_cases(self._plan.cycles)
         selected_ids = {item.case_id for item in selected}
@@ -115,35 +145,114 @@ class CompressedCycleScheduler:
                 existing,
                 previous_manifest=previous_manifest,
                 ramp_gate_receipt=ramp_gate_receipt,
+                headroom_receipt=headroom_receipt,
             )
+        batch_execution = None
+        write_deadline_at = min(
+            now + timedelta(seconds=self._cycle.write_timeout_seconds),
+            self._cycle.end_to_end_deadline,
+        )
         if self._cycle.write_path == "FIRESTORE_BATCH_V1":
-            batch = execute_verified_batch(
-                selected,
-                create_one=lambda item: self._create_case(item, now=now),
-                ledger=self._ledger,
-                started_at=now,
-            )
+            try:
+                batch = execute_verified_batch(
+                    selected,
+                    create_one=lambda item: self._create_case(item, now=now),
+                    ledger=self._ledger,
+                    started_at=now,
+                    clock=clock,
+                    deadline_at=write_deadline_at,
+                )
+            except WritePhaseDeadlineExceeded as exc:
+                if str(exc) == "compressed_write_phase_deadline_exceeded":
+                    failures = tuple(
+                        FullAuditCaseFailure(
+                            item.case_id,
+                            self._expected_run_id(item),
+                            (
+                                "write_phase_deadline_exceeded_after_durable_create"
+                                if self._ledger.get_scan_run(
+                                    self._expected_run_id(item)
+                                ) is not None
+                                else "write_phase_deadline_exceeded_before_create"
+                            ),
+                        )
+                        for item in selected
+                    )
+                    checkpoint = persist_cohort_checkpoint(
+                        ledger=self._ledger,
+                        plan_sha256=self._plan.sha256,
+                        cycle=self._cycle,
+                        expected_manifest_id=manifest_id,
+                        checkpoint_run_id=tick_run_id(self._plan, self._cycle),
+                        total_cases=len(selected),
+                        completed=(),
+                        failures=failures,
+                        detected_at=clock(),
+                    )
+                    raise RuntimeError(
+                        f"compressed_write_phase_deadline_exceeded:{checkpoint['artifact_id']}"
+                    ) from exc
+                raise
             outcomes = batch.outcomes
-            write_metrics = batch.metrics()
-        elif self._cycle.write_path == "SERIAL_VERIFIED" and self._cycle.cycle_index < 3:
+            batch_execution = persist_or_reconcile_batch_execution(
+                ledger=self._ledger,
+                plan=self._plan,
+                cycle=self._cycle,
+                outcomes=outcomes,
+                write_metrics=batch.metrics(),
+            )
+            write_metrics = batch_execution.write_metrics
+        elif (
+            self._cycle.write_path == "SERIAL_VERIFIED"
+            and self._cycle.cycle_index < 3
+        ):
             outcomes = tuple(self._create_case(item, now=now) for item in selected)
             write_metrics = None
         else:
             raise RuntimeError("compressed_write_path_invalid")
         created = [item.run_record.run_id for item in outcomes if item.created]
         reused = [item.run_record.run_id for item in outcomes if not item.created]
+        manifest_created = created
+        manifest_reused = reused
+        if batch_execution is not None:
+            # The durable attempt receipt, not the current process invocation,
+            # owns manifest parity. A retry after that receipt was committed
+            # retains the original fresh-write proof while this invocation's
+            # result still truthfully reports that it reused existing runs.
+            manifest_created = list(
+                batch_execution.receipt["created_run_ids"]
+            )
+            manifest_reused = list(
+                batch_execution.receipt["recovered_current_epoch_run_ids"]
+            )
         watch_records = [item.watch_record for item in outcomes]
         run_records = [item.run_record for item in outcomes]
         agent_phase: FullAuditPhaseResult | None = None
         if self._cycle.execution_profile == "FULL_AUDIT_V1":
             if self._full_audit is None:
                 raise RuntimeError("full_audit_coordinator_required")
+            write_completed_at = datetime.fromisoformat(
+                str(write_metrics["completed_at"]).replace("Z", "+00:00")
+            )
+            agent_deadline_at = min(
+                write_completed_at
+                + timedelta(seconds=self._cycle.agent_timeout_seconds),
+                self._cycle.end_to_end_deadline,
+            )
             agent_phase = execute_full_audit_phase(
                 tuple(outcomes),
                 coordinator=self._full_audit,
                 bundle=self._bundle,
                 cycle=self._cycle,
                 refetch_fetcher=self._refetch_fetcher,
+                checkpoint_ledger=self._ledger,
+                plan_sha256=self._plan.sha256,
+                expected_manifest_id=manifest_artifact_id(
+                    self._plan, self._cycle
+                ),
+                checkpoint_run_id=tick_run_id(self._plan, self._cycle),
+                agent_deadline_at=agent_deadline_at,
+                clock=clock,
             )
         if existing is None:
             manifest = build_compressed_manifest(
@@ -155,23 +264,34 @@ class CompressedCycleScheduler:
                 excluded_case_ids=excluded,
                 watch_records=watch_records,
                 run_records=run_records,
-                newly_created_run_ids=created,
-                reused_run_ids=reused,
+                newly_created_run_ids=manifest_created,
+                reused_run_ids=manifest_reused,
                 bundle=self._bundle,
                 previous_manifest=previous_manifest,
                 ramp_gate_receipt=ramp_gate_receipt,
+                headroom_receipt=headroom_receipt,
+                batch_execution_receipt=(
+                    None if batch_execution is None else batch_execution.receipt
+                ),
+                write_measurement_status=(
+                    "NOT_APPLICABLE"
+                    if batch_execution is None
+                    else batch_execution.measurement_status
+                ),
                 write_metrics=write_metrics,
                 agent_phase=agent_phase,
                 executed_at=(
                     now
                     if write_metrics is None
                     else datetime.fromisoformat(
-                        str(write_metrics["completed_at"]).replace("Z", "+00:00")
-                    )
-                    + timedelta(
-                        milliseconds=(0 if agent_phase is None else agent_phase.elapsed_ms)
+                        str(
+                            write_metrics["completed_at"]
+                            if agent_phase is None
+                            else agent_phase.completed_at
+                        ).replace("Z", "+00:00")
                     )
                 ),
+                trigger_started_at=now,
             )
             verify_manifest_against_plan(
                 parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY),
@@ -187,7 +307,7 @@ class CompressedCycleScheduler:
             if (
                 parsed.schema_version
                 != (
-                    "3.2.0"
+                    "3.3.0"
                     if self._cycle.execution_profile == "FULL_AUDIT_V1"
                     else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
                 )
@@ -205,7 +325,9 @@ class CompressedCycleScheduler:
                 cohort_due_date=self._cycle.cohort_due_date.isoformat(),
                 newly_created_run_ids=tuple(sorted(created)),
                 reused_run_ids=tuple(sorted(reused)),
-                authoritative_run_ids=tuple(sorted(item.run_id for item in run_records)),
+                authoritative_run_ids=tuple(
+                    sorted(item.run_id for item in run_records)
+                ),
                 manifest_artifact_id=manifest_id,
                 data_mode_receipt_id=None,
             )
@@ -268,6 +390,7 @@ class CompressedCycleScheduler:
                 or existing_artifact.payload.scheduled_for
                 != self._cycle.schedule_epoch
                 or existing_artifact.payload.watch_case_id != item.case_id
+                or existing_artifact.payload.deadline_at != self._deadline(now)
             ):
                 raise RuntimeError("compressed_existing_scan_run_mismatch")
             return BatchCaseResult(
@@ -280,7 +403,7 @@ class CompressedCycleScheduler:
                 self._cycle.schedule_epoch,
                 key,
                 trace_id(self._plan, self._cycle, item.case_id),
-                self._deadline(now),
+                existing_artifact.payload.deadline_at,
                 BUDGET_SNAPSHOT,
                 self._cycle.execution_profile,
             )
@@ -325,12 +448,25 @@ class CompressedCycleScheduler:
             self._cycle.execution_profile,
         )
 
+    def _expected_run_id(self, item: CompressedCohortCase) -> str:
+        record = self._ledger.get_watch_case(item.case_id)
+        if record is None:
+            raise RuntimeError("compressed_watch_case_not_due")
+        key = scan_idempotency_key(
+            watch_case_id=item.case_id,
+            source_cursors=dict(record.source_cursors),
+            schedule_epoch=self._cycle.schedule_epoch,
+            data_mode=DataMode.SYNTHETIC.value,
+        )
+        return str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
+
     def _reconcile_existing_context(
         self,
         manifest: Mapping[str, object],
         *,
         previous_manifest: Mapping[str, object] | None,
         ramp_gate_receipt: Mapping[str, object] | None,
+        headroom_receipt: Mapping[str, object] | None,
     ) -> None:
         parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
         verify_manifest_against_plan(
@@ -350,10 +486,15 @@ class CompressedCycleScheduler:
             if ramp_gate_receipt is None
             else str(ramp_gate_receipt["artifact_id"])
         )
+        expected_headroom = (
+            None
+            if headroom_receipt is None
+            else str(headroom_receipt["artifact_id"])
+        )
         if (
             parsed.schema_version
             != (
-                "3.2.0"
+                "3.3.0"
                 if self._cycle.execution_profile == "FULL_AUDIT_V1"
                 else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
             )
@@ -366,13 +507,32 @@ class CompressedCycleScheduler:
                 self._cycle.cycle_index >= 3
                 and parsed.payload.ramp_gate_receipt_id != expected_gate
             )
+            or parsed.payload.headroom_receipt_id != expected_headroom
         ):
             raise RuntimeError("compressed_existing_manifest_context_mismatch")
+        if self._cycle.cycle_index >= 3:
+            verify_batch_execution_binding(
+                ledger=self._ledger,
+                plan=self._plan,
+                cycle=self._cycle,
+                receipt_id=str(parsed.payload.batch_execution_receipt_id),
+                expected_ordered_run_ids=tuple(
+                    parsed.payload.delta["authoritative_run_ids"]
+                ),
+                expected_created_run_ids=tuple(
+                    parsed.payload.delta["newly_created_run_ids"]
+                ),
+                expected_recovered_run_ids=tuple(
+                    parsed.payload.delta["reused_run_ids"]
+                ),
+                expected_measurement_status=str(
+                    parsed.payload.write_measurement_status
+                ),
+                expected_write_metrics=parsed.payload.write_metrics,
+            )
 
     def _deadline(self, now: datetime) -> str:
-        from datetime import timedelta, timezone
-
-        return (
-            now.astimezone(timezone.utc)
-            + timedelta(seconds=self._cycle.execution_timeout_seconds)
-        ).isoformat().replace("+00:00", "Z")
+        del now
+        return self._cycle.end_to_end_deadline.isoformat().replace(
+            "+00:00", "Z"
+        )

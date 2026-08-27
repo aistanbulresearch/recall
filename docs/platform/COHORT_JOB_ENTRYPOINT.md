@@ -44,8 +44,10 @@ Plan 4 declares c2's predecessor as the immutable plan-3 c1 prefix, plan hash,
 and manifest ID. L1 must not copy c1 into the plan-4 namespace. c3-c6 resolve
 their predecessor from the current plan namespace. Any missing or mismatched
 declared predecessor fails before current-cycle writes.
-The runtime clock must fall in exactly one window. Zero or multiple matches
-fail closed, and no runtime window override exists.
+The runtime clock must fall in exactly one trigger-start window. Zero or
+multiple matches fail closed, and no runtime window override exists. The plan
+also declares separate write and agent phase budgets plus one authoritative
+end-to-end timeout; completion authority is not inferred from `window_end`.
 
 c1-c5 have committed predictions 3/2/4/1/1. c6 has 450 prepared onboarding
 cases, but L1 must not create its trigger until the exact c1-c5 manifests and
@@ -77,12 +79,14 @@ preparation read-back.
 
 ## Manifest and UI compatibility gate
 
-Compressed execution emits `CohortDayManifest 3.0.0`; it does not relax or
-rewrite historical 2.1.0. The compressed contract adds cycle identity/index,
-plan version/hash, logical cohort due date, declared window, actual execution
-time, `schedule_mode`, and `headroom_receipt_id`. Historical rows retain their
-own `trigger_code` and `scheduled_for` and are validated under the rules of the
-version that produced each row.
+FULL_AUDIT compressed execution emits `CohortDayManifest 3.3.0`; it does not
+relax or rewrite historical versions. In addition to cycle and execution
+evidence, the contract binds the durable batch-attempt receipt, exact recovery
+parity, and separate trigger/write/agent/end-to-end timestamps. Historical rows
+retain their own `trigger_code`, `scheduled_for`, and source schema and are
+validated under the rules of the version that produced each row. The UI must
+evaluate completion against
+`$.deadline_policy.authoritative_end_to_end_deadline`, not `window_end`.
 
 L3 must acknowledge compatibility against exact product commit
 `2d8bebbe97794865f77f037dea518a39e8f75e38` before L1 executes the compressed

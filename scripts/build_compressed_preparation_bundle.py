@@ -25,7 +25,10 @@ from recall.privacy.receipt import verify_privacy_receipt  # noqa: E402
 from recall.privacy.signing import LocalSigner, load_signer  # noqa: E402
 from recall.policy import POLICY_VERSION  # noqa: E402
 from recall.scheduler.cohort import REPLAY_ANCHORS, RIGHTS_NOTE  # noqa: E402
-from recall.scheduler.compressed_cohort import all_compressed_cases  # noqa: E402
+from recall.scheduler.compressed_cohort import (  # noqa: E402
+    all_compressed_cases,
+    portfolio_case_vcv_bindings,
+)
 from recall.scheduler.compressed_identity import (  # noqa: E402
     evidence_legacy_failure_receipt_id,
     prepared_watch_artifact_id,
@@ -40,6 +43,9 @@ from recall.scheduler.compressed_preparation import (  # noqa: E402
 from recall.scheduler.manifest import COHORT_ID  # noqa: E402
 from recall.scheduler.privacy_receipt_source import (  # noqa: E402
     LockedJsonPrivacyReceiptSource,
+)
+from recall.scheduler.privacy_note_source import (  # noqa: E402
+    LockedJsonLabNoteSource,
 )
 
 
@@ -59,6 +65,8 @@ def main() -> int:
     parser.add_argument("--privacy-receipts-sha256")
     parser.add_argument("--privacy-key-fingerprint-sha256")
     parser.add_argument("--privacy-key-directory", type=Path)
+    parser.add_argument("--lab-notes", type=Path)
+    parser.add_argument("--lab-notes-sha256")
     args = parser.parse_args()
     target = ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH
     if target.exists() and not args.replace_existing:
@@ -69,17 +77,22 @@ def main() -> int:
     plan = load_compressed_plan(ROOT)
     prepared_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     if args.privacy_receipts is None:
+        if args.lab_notes is not None or args.lab_notes_sha256 is not None:
+            raise RuntimeError("lab_note_source_unpaired")
         signer = LocalSigner(
             key_id="compressed-cohort-preparation-ephemeral",
             key=secrets.token_bytes(32),
         )
         receipt_source = None
+        note_source = None
     else:
         if (
             args.privacy_receipts_sha256 is None
             or args.privacy_key_fingerprint_sha256 is None
+            or args.lab_notes is None
+            or args.lab_notes_sha256 is None
         ):
-            raise RuntimeError("privacy_receipt_source_lock_required")
+            raise RuntimeError("full_audit_input_source_locks_required")
         signer = load_signer(args.privacy_key_directory)
         receipt_source = LockedJsonPrivacyReceiptSource(
             args.privacy_receipts,
@@ -89,17 +102,28 @@ def main() -> int:
                 args.privacy_key_fingerprint_sha256
             ),
         )
+        note_source = LockedJsonLabNoteSource(
+            args.lab_notes,
+            expected_sha256=args.lab_notes_sha256,
+        )
     all_cases = all_compressed_cases(plan.cycles)
     if (
         any(item.execution_profile == "FULL_AUDIT_V1" for item in plan.cycles)
         and receipt_source is None
     ):
         raise RuntimeError("full_audit_privacy_receipt_source_required")
-    if receipt_source is not None:
-        receipt_source.assert_exact_case_set({item.case_id for item in all_cases})
+    expected_bindings = portfolio_case_vcv_bindings(plan.cycles)
+    if receipt_source is not None and note_source is not None:
+        receipt_source.assert_exact_case_set(set(expected_bindings))
+        note_source.assert_exact_case_bindings(expected_bindings)
     cases = []
     for item in all_cases:
-        cloud = build_cloud_bound_payload(_lab_note(item.case_id), item.case_id)
+        note = (
+            _lab_note(item.case_id)
+            if note_source is None
+            else note_source.note_for(item.case_id)
+        )
+        cloud = build_cloud_bound_payload(note, item.case_id)
         if receipt_source is None:
             ledger = InMemoryLedger(
                 privacy_receipt_verifier=lambda value: verify_privacy_receipt(
@@ -114,7 +138,7 @@ def main() -> int:
                     uuid5(UUID(item.case_id), "compressed-privacy-receipt-v2")
                 ),
             )
-            result = gate.process(_lab_note(item.case_id))
+            result = gate.process(note)
             if not result.accepted or result.cloud_bound_payload != cloud:
                 raise RuntimeError("compressed_local_privacy_preparation_failed")
             receipt = result.receipt
@@ -164,7 +188,7 @@ def main() -> int:
             }
         )
     bundle = {
-        "schema_version": "2.0.0" if receipt_source is None else "2.1.0",
+        "schema_version": "2.0.0" if receipt_source is None else "2.2.0",
         "prepared_at": prepared_at,
         "source_commit": source_commit,
         "plan_sha256": plan.sha256,
@@ -177,6 +201,7 @@ def main() -> int:
         bundle["privacy_receipt_source_lock"] = dict(
             receipt_source.source_lock
         )
+        bundle["lab_note_source_lock"] = dict(note_source.source_lock)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         json.dumps(bundle, indent=2, sort_keys=True) + "\n",
@@ -196,6 +221,11 @@ def main() -> int:
                     "LEGACY_SYNTHETIC_LOCAL_GATE"
                     if receipt_source is None
                     else "EXTERNAL_LOCKED_GEMMA_RECEIPTS"
+                ),
+                "lab_note_source": (
+                    "LEGACY_FIXED_STUB"
+                    if note_source is None
+                    else "EXTERNAL_LOCKED_PER_CASE_NOTES"
                 ),
             },
             sort_keys=True,

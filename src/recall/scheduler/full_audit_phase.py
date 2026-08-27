@@ -1,18 +1,30 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from math import ceil
 from statistics import median
 from time import monotonic
+from uuid import NAMESPACE_URL, uuid5
 
 from recall.agents.full_audit import FullAuditCoordinator, FullAuditRunOutcome
 from recall.agents.full_audit_models import PreparedRunEvidence, TurnTelemetry
 from recall.connectors.live import LiveSourceRecord
-from recall.contracts import DataMode
+from recall.contracts import (
+    ArtifactStatus,
+    ContractError,
+    DataMode,
+    build_artifact,
+    canonical_json_bytes,
+    parse_artifact,
+)
+from recall.ledger.port import LedgerPort
+from recall.ledger.producers import PRODUCER_REGISTRY
 from .compressed_batch import BatchCaseResult
+from .cohort import COHORT_ID
 from .compressed_plan import CompressedCycle
 from .compressed_preparation import CompressedPreparationBundle
 
@@ -25,6 +37,30 @@ class FullAuditPhaseResult:
     outcomes: tuple[FullAuditRunOutcome, ...]
     summary: dict[str, object]
     elapsed_ms: int
+    started_at: str
+    completed_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class FullAuditCaseFailure:
+    case_id: str
+    run_id: str
+    error_code: str
+
+
+class FullAuditPhaseError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        completed_outcomes: tuple[FullAuditRunOutcome, ...],
+        failures: tuple[FullAuditCaseFailure, ...],
+        checkpoint_artifact_id: str,
+    ) -> None:
+        super().__init__(message)
+        self.completed_outcomes = completed_outcomes
+        self.failures = failures
+        self.checkpoint_artifact_id = checkpoint_artifact_id
 
 
 def execute_full_audit_phase(
@@ -36,6 +72,11 @@ def execute_full_audit_phase(
     concurrency: int = FULL_AUDIT_CONCURRENCY,
     refetch_fetcher: Callable[[str], LiveSourceRecord] | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    checkpoint_ledger: LedgerPort | None = None,
+    plan_sha256: str | None = None,
+    expected_manifest_id: str | None = None,
+    checkpoint_run_id: str | None = None,
+    agent_deadline_at: datetime | None = None,
 ) -> FullAuditPhaseResult:
     if not 1 <= concurrency <= FULL_AUDIT_CONCURRENCY:
         raise ValueError("full_audit_concurrency_invalid")
@@ -69,34 +110,305 @@ def execute_full_audit_phase(
             )
             async with semaphore:
                 entered_at = max(item.run_record.updated_at, clock())
+                arguments = {
+                    "evidence": evidence,
+                    "now": entered_at,
+                }
+                if agent_deadline_at is not None:
+                    arguments["deadline_at"] = agent_deadline_at
                 return await coordinator.execute_run(
                     item.run_record.run_id,
-                    evidence=evidence,
-                    now=entered_at,
+                    **arguments,
                 )
 
         gathered = await asyncio.gather(
             *(execute(item) for item in batch_outcomes),
             return_exceptions=True,
         )
-        failures = tuple(item for item in gathered if isinstance(item, BaseException))
+        values = tuple(
+            sorted(
+                (
+                    item
+                    for item in gathered
+                    if isinstance(item, FullAuditRunOutcome)
+                ),
+                key=lambda item: item.case_id,
+            )
+        )
+        failures = tuple(
+            sorted(
+                (
+                    FullAuditCaseFailure(
+                        batch.case.case_id,
+                        batch.run_record.run_id,
+                        (
+                            result.code
+                            if isinstance(result, ContractError)
+                            else type(result).__name__
+                        ),
+                    )
+                    for batch, result in zip(
+                        batch_outcomes, gathered, strict=True
+                    )
+                    if isinstance(result, BaseException)
+                ),
+                key=lambda item: item.case_id,
+            )
+        )
         if failures:
-            # All independent cases were allowed to finish before the cohort
-            # fails loudly. Integrity/CAS failures are never converted into a
-            # fabricated per-case terminal state.
-            raise RuntimeError(
-                f"full_audit_case_failures:{len(failures)}"
-            ) from failures[0]
-        values = tuple(item for item in gathered if isinstance(item, FullAuditRunOutcome))
+            if (
+                checkpoint_ledger is None
+                or plan_sha256 is None
+                or expected_manifest_id is None
+                or checkpoint_run_id is None
+            ):
+                raise RuntimeError("full_audit_checkpoint_configuration_missing")
+            checkpoint = persist_cohort_checkpoint(
+                ledger=checkpoint_ledger,
+                plan_sha256=plan_sha256,
+                cycle=cycle,
+                expected_manifest_id=expected_manifest_id,
+                checkpoint_run_id=checkpoint_run_id,
+                total_cases=len(batch_outcomes),
+                completed=values,
+                failures=failures,
+                detected_at=clock(),
+            )
+            first = next(
+                item for item in gathered if isinstance(item, BaseException)
+            )
+            raise FullAuditPhaseError(
+                f"full_audit_case_failures:{len(failures)}",
+                completed_outcomes=values,
+                failures=failures,
+                checkpoint_artifact_id=str(checkpoint["artifact_id"]),
+            ) from first
         return tuple(sorted(values, key=lambda item: item.case_id))
 
+    phase_started_at = clock().astimezone(UTC)
     started = monotonic()
     outcomes = asyncio.run(run_all())
+    phase_completed_at = clock().astimezone(UTC)
     return FullAuditPhaseResult(
         outcomes=outcomes,
         summary=_summary(outcomes, coordinator=coordinator, concurrency=concurrency),
         elapsed_ms=ceil((monotonic() - started) * 1000),
+        started_at=phase_started_at.isoformat().replace("+00:00", "Z"),
+        completed_at=phase_completed_at.isoformat().replace("+00:00", "Z"),
     )
+
+
+def persist_cohort_checkpoint(
+    *,
+    ledger: LedgerPort,
+    plan_sha256: str,
+    cycle: CompressedCycle,
+    expected_manifest_id: str,
+    checkpoint_run_id: str,
+    total_cases: int,
+    completed: tuple[FullAuditRunOutcome, ...],
+    failures: tuple[FullAuditCaseFailure, ...],
+    detected_at: datetime,
+) -> Mapping[str, object]:
+    for item in completed:
+        _verify_checkpoint_outcome(ledger, item)
+    completed_rows = [
+        {
+            "case_id": item.case_id,
+            "run_id": item.run_id,
+            "terminal_state": item.terminal_state,
+            "audit_status": item.audit_status,
+            "citation_audit_receipt_id": item.citation_audit_receipt_id,
+            "policy_decision_id": item.policy_decision_id,
+            "failure_receipt_ids": list(item.failure_receipt_ids),
+            "agent_execution_receipt_ids": list(
+                item.agent_execution_receipt_ids
+            ),
+        }
+        for item in completed
+    ]
+    failed_rows = [
+        {
+            "case_id": item.case_id,
+            "run_id": item.run_id,
+            "error_code": item.error_code,
+        }
+        for item in failures
+    ]
+    inputs = set()
+    for item in completed:
+        pointer = ledger.get_scan_run(item.run_id)
+        if pointer is None or pointer.scan_run_artifact_id is None:
+            raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+        inputs.add(str(pointer.scan_run_artifact_id))
+        inputs.update(item.failure_receipt_ids)
+        inputs.update(item.agent_execution_receipt_ids)
+        if item.citation_audit_receipt_id is not None:
+            inputs.add(item.citation_audit_receipt_id)
+        if item.policy_decision_id is not None:
+            inputs.add(item.policy_decision_id)
+    for item in failures:
+        run = ledger.get_scan_run(item.run_id)
+        if run is not None and run.scan_run_artifact_id is not None:
+            inputs.add(str(run.scan_run_artifact_id))
+    snapshot = {
+        "plan_sha256": plan_sha256,
+        "cycle_id": cycle.cycle_id,
+        "expected_manifest_id": expected_manifest_id,
+        "completed_outcomes": completed_rows,
+        "failed_cases": failed_rows,
+    }
+    snapshot_sha = hashlib.sha256(canonical_json_bytes(snapshot)).hexdigest()
+    artifact_id = str(
+        uuid5(
+            NAMESPACE_URL,
+            f"{checkpoint_run_id}:cohort-execution-checkpoint:{snapshot_sha}",
+        )
+    )
+    payload = {
+        **snapshot,
+        "checkpoint_status": "INCOMPLETE",
+        "total_cases": total_cases,
+        "policy_outcomes_synthesized": False,
+    }
+    existing = ledger.get_artifact(artifact_id)
+    if existing is not None:
+        parsed = parse_artifact(existing, authorized_producers=PRODUCER_REGISTRY)
+        if (
+            parsed.schema_name != "CohortExecutionCheckpoint"
+            or parsed.payload.to_wire() != payload
+            or parsed.input_artifact_ids != tuple(sorted(inputs))
+        ):
+            raise RuntimeError("full_audit_checkpoint_reconciliation_failed")
+        return existing
+    timestamp = detected_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    wire = build_artifact(
+        schema_name="CohortExecutionCheckpoint",
+        schema_version="1.0.0",
+        artifact_id=artifact_id,
+        case_id=COHORT_ID,
+        run_id=checkpoint_run_id,
+        producer={
+            "component": "managed-cohort-scheduler",
+            "version": "1.0.0",
+            "identity": "cohort-scheduler",
+        },
+        created_at=timestamp,
+        input_artifact_ids=tuple(sorted(inputs)),
+        data_mode=DataMode.SYNTHETIC,
+        status=ArtifactStatus.INCOMPLETE,
+        payload=payload,
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    ledger.append_artifact(wire)
+    persisted = ledger.get_artifact(str(wire["artifact_id"]))
+    if persisted != wire:
+        raise RuntimeError("full_audit_checkpoint_readback_failed")
+    return wire
+
+
+def _verify_checkpoint_outcome(
+    ledger: LedgerPort, outcome: FullAuditRunOutcome
+) -> None:
+    pointer = ledger.get_scan_run(outcome.run_id)
+    artifacts = tuple(
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+        for wire in ledger.list_by_run(outcome.run_id)
+    )
+    by_id = {item.artifact_id: item for item in artifacts}
+    scan = (
+        None
+        if pointer is None or pointer.scan_run_artifact_id is None
+        else by_id.get(str(pointer.scan_run_artifact_id))
+    )
+    if (
+        pointer is None
+        or pointer.state.value != outcome.terminal_state
+        or scan is None
+        or scan.schema_name != "ScanRun"
+        or scan.case_id != outcome.case_id
+        or scan.run_id != outcome.run_id
+        or pointer.terminal_policy_decision_id != outcome.policy_decision_id
+        or tuple(sorted(pointer.failure_receipt_ids))
+        != tuple(sorted(outcome.failure_receipt_ids))
+    ):
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+
+    referenced_ids = set(outcome.failure_receipt_ids)
+    referenced_ids.update(outcome.agent_execution_receipt_ids)
+    if outcome.citation_audit_receipt_id is not None:
+        referenced_ids.add(outcome.citation_audit_receipt_id)
+    if outcome.policy_decision_id is not None:
+        referenced_ids.add(outcome.policy_decision_id)
+    if any(
+        artifact_id not in by_id
+        or by_id[artifact_id].case_id != outcome.case_id
+        or by_id[artifact_id].run_id != outcome.run_id
+        for artifact_id in referenced_ids
+    ):
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+
+    failures = tuple(by_id[item] for item in outcome.failure_receipt_ids)
+    if (
+        any(item.schema_name != "FailureReceipt" for item in failures)
+        or tuple(sorted(item.payload.failure_code for item in failures))
+        != tuple(sorted(outcome.technical_failure_codes))
+    ):
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    if outcome.terminal_state == "HALTED":
+        if outcome.policy_decision_id is not None or not failures:
+            raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    else:
+        policy = by_id.get(str(outcome.policy_decision_id))
+        if (
+            policy is None
+            or policy.schema_name != "PolicyDecision"
+            or policy.payload.outcome.value != outcome.terminal_state
+            or policy.payload.outcome.value != outcome.policy_outcome
+            or tuple(policy.payload.reason_codes) != outcome.policy_reason_codes
+        ):
+            raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+
+    if outcome.audit_status == "NOT_EVALUATED":
+        if outcome.citation_audit_receipt_id is not None:
+            raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    else:
+        audit = by_id.get(str(outcome.citation_audit_receipt_id))
+        if (
+            audit is None
+            or audit.schema_name != "CitationAuditReceipt"
+            or audit.payload.audit_status.value != outcome.audit_status
+        ):
+            raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+
+    execution = tuple(by_id[item] for item in outcome.agent_execution_receipt_ids)
+    if any(item.schema_name != "AgentExecutionReceipt" for item in execution):
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    starts = {
+        item.artifact_id: item
+        for item in execution
+        if item.payload.execution_status.value == "STARTED"
+    }
+    terminals = tuple(
+        item
+        for item in execution
+        if item.payload.execution_status.value != "STARTED"
+    )
+    if any(
+        item.payload.started_receipt_id not in starts
+        or starts[item.payload.started_receipt_id].payload.agent_role
+        is not item.payload.agent_role
+        or starts[item.payload.started_receipt_id].payload.attempt
+        != item.payload.attempt
+        for item in terminals
+    ):
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    if starts and set(starts) != {
+        item.payload.started_receipt_id for item in terminals
+    }:
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
+    if outcome.audit_status != "NOT_EVALUATED" and not terminals:
+        raise RuntimeError("full_audit_checkpoint_outcome_unbound")
 
 
 def outcome_to_wire(

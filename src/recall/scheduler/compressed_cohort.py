@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
 from uuid import NAMESPACE_URL, uuid5
 
 from recall.contracts import DataMode
@@ -96,6 +98,20 @@ def portfolio_cases(
     if len(values) != 462 or len({item.case_id for item in values}) != 462:
         raise RuntimeError("compressed_portfolio_identity_invalid")
     return tuple(sorted(values, key=lambda item: item.case_id))
+
+
+def portfolio_case_vcv_bindings(
+    cycles: tuple[CompressedCycle, ...],
+) -> Mapping[str, str | None]:
+    """Unique case-to-VCV contract consumed by external note production."""
+
+    values = {
+        item.case_id: item.vcv
+        for item in portfolio_cases(cycles)
+    }
+    if len(values) != 462:
+        raise RuntimeError("compressed_portfolio_identity_invalid")
+    return MappingProxyType(dict(sorted(values.items())))
 
 
 def _bind_existing(

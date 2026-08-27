@@ -98,8 +98,6 @@ def parse_cohort_day_manifest_v31_payload(
     legacy["created_at"] = legacy["window_start"]
     legacy["status"] = "VALID"
     legacy["delta"] = {**legacy["delta"], "prediction_match": True}
-    if legacy["cycle_id"] == "c6":
-        legacy["headroom_receipt_id"] = gate_id
     base = parse_cohort_day_manifest_v3_payload(legacy)
 
     current = value["execution_history"][-1]

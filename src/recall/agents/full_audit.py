@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from time import monotonic
@@ -24,6 +24,7 @@ from recall.contracts.enums import (
 from recall.controller import Controller
 from recall.controller.tool_gateway_store import GatewayInvocationStore
 from recall.ledger.port import LedgerPort
+from recall.ledger.models import ScanRunRecord
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.model_cost import (
     CostSnapshot,
@@ -77,6 +78,7 @@ class FullAuditCoordinator:
         cost_policy: ModelCostPolicy,
         role_timeout_seconds: int = 120,
         lease_duration_seconds: int = 900,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         if role_timeout_seconds < 1 or lease_duration_seconds < 1:
             raise ValueError("full_audit_timeout_invalid")
@@ -87,10 +89,16 @@ class FullAuditCoordinator:
         self._cost_policy = cost_policy
         self._role_timeout = role_timeout_seconds
         self._lease_duration = lease_duration_seconds
+        self._clock = clock
         self._controller = Controller(ledger)
 
     async def execute_run(
-        self, run_id: str, *, evidence: PreparedRunEvidence, now: datetime
+        self,
+        run_id: str,
+        *,
+        evidence: PreparedRunEvidence,
+        now: datetime,
+        deadline_at: datetime | None = None,
     ) -> FullAuditRunOutcome:
         started_clock = monotonic()
         all_turns: list[TurnTelemetry] = []
@@ -98,8 +106,20 @@ class FullAuditCoordinator:
         active_role: AgentRole | None = None
         active_started: Mapping[str, object] | None = None
         active_attempt = 0
+        current: ScanRunRecord | None = None
         try:
             current = self._prepare_run(run_id, evidence=evidence, now=now)
+            scan = self._scan_artifact(current)
+            scan_deadline_at = datetime.fromisoformat(
+                str(scan["deadline_at"]).replace("Z", "+00:00")
+            )
+            deadline_at = (
+                scan_deadline_at
+                if deadline_at is None
+                else min(scan_deadline_at, deadline_at)
+            )
+            if now >= deadline_at:
+                raise RuntimeError("agent_execution_deadline_exceeded")
             if current.state in {
                 ScanRunState.NO_ACTION,
                 ScanRunState.ABSTAIN,
@@ -113,7 +133,6 @@ class FullAuditCoordinator:
                     turns=(),
                     http_429_count=0,
                 )
-            scan = self._scan_artifact(current)
             trace_id = str(scan["trace_id"])
             if current.state is ScanRunState.WATCHING:
                 active_role = AgentRole.EVIDENCE_WATCHER
@@ -124,6 +143,7 @@ class FullAuditCoordinator:
                     input_artifact_ids=(),
                     trace_id=trace_id,
                     now=now,
+                    deadline_at=deadline_at,
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -167,6 +187,7 @@ class FullAuditCoordinator:
                     input_artifact_ids=input_ids,
                     trace_id=trace_id,
                     now=current.updated_at,
+                    deadline_at=deadline_at,
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -212,6 +233,7 @@ class FullAuditCoordinator:
                     input_artifact_ids=input_ids,
                     trace_id=trace_id,
                     now=current.updated_at,
+                    deadline_at=deadline_at,
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -277,6 +299,9 @@ class FullAuditCoordinator:
             if isinstance(exc, RoleExecutionError):
                 all_turns.extend(exc.turns)
                 http_429_count += exc.http_429_count
+            failure_now = now if self._clock is None else self._clock()
+            if failure_now.tzinfo is None:
+                raise ValueError("full_audit_clock_timezone_required") from exc
             return self._halt(
                 run_id,
                 evidence=evidence,
@@ -284,10 +309,11 @@ class FullAuditCoordinator:
                 active_role=active_role,
                 active_attempt=active_attempt,
                 active_started=active_started,
-                now=now,
+                now=failure_now.astimezone(UTC),
                 elapsed_ms=round((monotonic() - started_clock) * 1000),
                 turns=tuple(all_turns),
                 http_429_count=http_429_count,
+                ownership=current,
             )
 
     def cost_snapshot(self) -> CostSnapshot:
@@ -369,6 +395,7 @@ class FullAuditCoordinator:
         input_artifact_ids: tuple[str, ...],
         trace_id: str,
         now: datetime,
+        deadline_at: datetime,
     ) -> tuple[int, Mapping[str, object], RoleRunResult]:
         abandoned = self._open_started_receipt(run_id, role)
         if abandoned is not None:
@@ -438,10 +465,13 @@ class FullAuditCoordinator:
                 tool_record_sink=tool_records.append,
             ),
         )
+        remaining_seconds = (deadline_at - now).total_seconds()
+        if remaining_seconds <= 0:
+            raise RoleExecutionError("agent_execution_deadline_exceeded")
         try:
             result = await asyncio.wait_for(
                 self._runner.execute(role, prompt, tools, context),
-                timeout=self._role_timeout,
+                timeout=min(self._role_timeout, remaining_seconds),
             )
         except RoleExecutionError as exc:
             raise RoleExecutionError(
@@ -490,8 +520,17 @@ class FullAuditCoordinator:
         elapsed_ms: int,
         turns: tuple[TurnTelemetry, ...],
         http_429_count: int,
+        ownership: ScanRunRecord | None,
     ) -> FullAuditRunOutcome:
-        current = self._required_run(run_id)
+        if ownership is None:
+            raise error
+        current = ownership
+        observed = self._required_run(run_id)
+        if (
+            observed.version != current.version
+            or observed.lease_epoch != current.lease_epoch
+        ):
+            raise ContractError("stale_write_rejected", run_id) from error
         now = max(now, current.updated_at)
         if active_role is not None and active_started is None:
             active_started = self._open_started_receipt(run_id, active_role)
@@ -504,6 +543,7 @@ class FullAuditCoordinator:
         # controller failure because the required FULL_AUDIT_V1 step did not finish.
         terminal_failure_code = self._terminal_failure_code(error)
         scan = self._scan_artifact(current)
+        failed_agent_receipt = None
         if active_role is not None and active_started is not None:
             started_at = datetime.fromisoformat(
                 str(active_started["started_at"]).replace("Z", "+00:00")
@@ -515,7 +555,7 @@ class FullAuditCoordinator:
             active_tool_records = (
                 error.tool_records if isinstance(error, RoleExecutionError) else ()
             )
-            failed = build_failed_receipt(
+            failed_agent_receipt = build_failed_receipt(
                 case_id=evidence.case_id, run_id=run_id, role=active_role,
                 attempt=active_attempt, started_receipt_id=str(active_started["artifact_id"]),
                 trace_id=str(scan["trace_id"]),
@@ -526,7 +566,6 @@ class FullAuditCoordinator:
                 http_429_count=active_429_count,
                 tool_records=active_tool_records,
             )
-            self._ledger.append_artifact(failed)
         failure = build_artifact(
             schema_name="FailureReceipt", schema_version="1.0.0",
             artifact_id=str(uuid5(UUID(run_id), f"failure:{terminal_failure_code}")),
@@ -562,6 +601,9 @@ class FullAuditCoordinator:
                 lease_epoch=current.lease_epoch, target_state="HALTED",
                 event_code=ScanRunEventCode.TECHNICAL_HALTED,
                 policy_decision=None, failure_receipt=failure, review_task=None,
+                terminal_artifacts=(
+                    () if failed_agent_receipt is None else (failed_agent_receipt,)
+                ),
                 watch_case_update=case_update, now=now,
             )
         return self._outcome(
@@ -572,7 +614,11 @@ class FullAuditCoordinator:
     def _append_data_mode_receipt(
         self, run_id: str, *, evidence: PreparedRunEvidence, now: datetime
     ) -> None:
-        artifacts = self._ledger.list_by_run(run_id)
+        artifacts = tuple(
+            item
+            for item in self._ledger.list_by_run(run_id)
+            if item["schema_name"] != "DataModeReceipt"
+        )
         subjects = sorted(str(item["artifact_id"]) for item in artifacts)
         modes = sorted({str(item["data_mode"]) for item in artifacts})
         composition = {
@@ -581,12 +627,19 @@ class FullAuditCoordinator:
         }.get(tuple(modes))
         if composition is None:
             raise ContractError("data_mode_conflict")
+        receipt_id = str(uuid5(UUID(run_id), "data-mode"))
+        existing = self._ledger.get_artifact(receipt_id)
+        created_at = (
+            now.astimezone(UTC).isoformat().replace("+00:00", "Z")
+            if existing is None
+            else str(existing["created_at"])
+        )
         wire = build_artifact(
             schema_name="DataModeReceipt", schema_version="2.0.0",
-            artifact_id=str(uuid5(UUID(run_id), "data-mode")),
+            artifact_id=receipt_id,
             case_id=evidence.case_id, run_id=run_id,
             producer={"component": "controller-mode-gate", "version": "2.0.0", "identity": "controller-mode-gate"},
-            created_at=now.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+            created_at=created_at,
             input_artifact_ids=tuple(subjects), data_mode=evidence.data_mode,
             status=ArtifactStatus.VALID,
             payload={
@@ -595,6 +648,8 @@ class FullAuditCoordinator:
                 "propagation_status": "PASS", "reason_codes": [],
             }, authorized_producers=PRODUCER_REGISTRY,
         )
+        if existing is not None and existing != wire:
+            raise ContractError("data_mode_receipt_reconciliation_failed")
         self._ledger.append_artifact(wire)
 
     def _outcome(

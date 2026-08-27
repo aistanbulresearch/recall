@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
 from typing import Any
@@ -30,10 +31,12 @@ class InMemoryTerminalMixin:
         review_task: Mapping[str, Any] | None,
         watch_case_update: WatchCaseRecord | None,
         now: datetime,
+        terminal_artifacts: Sequence[Mapping[str, Any]] = (),
     ) -> tuple[ScanRunRecord, ReviewTaskRecord | None]:
         policy = self._parse_optional(policy_decision)
         failure = self._parse_optional(failure_receipt)
         task = self._parse_optional(review_task)
+        extras = tuple(self._parse_optional(item) for item in terminal_artifacts)
         target = ScanRunState(target_state)
         closed_event = ScanRunEventCode(event_code)
         if target is ScanRunState.HALTED:
@@ -50,6 +53,16 @@ class InMemoryTerminalMixin:
                 raise ContractError("contract_value_invalid", "ReviewTask.presence")
         if task is not None and not isinstance(task.payload, ReviewTaskPayload):
             raise ContractError("contract_schema_invalid", "ReviewTask")
+        for artifact in extras:
+            if (
+                artifact is None
+                or artifact.schema_name != "AgentExecutionReceipt"
+                or artifact.run_id != run_id
+                or artifact.payload.execution_status.value != "FAILED"
+            ):
+                raise ContractError(
+                    "contract_terminal_authority_invalid", "terminal_artifacts"
+                )
 
         with self._lock:
             current = self._scan_runs.get(run_id)
@@ -68,7 +81,7 @@ class InMemoryTerminalMixin:
             if current.lease_expires_at is not None and now >= current.lease_expires_at:
                 raise ContractError("lease_expired", run_id)
             self._validate_watch_case_update(watch_case_update)
-            for artifact in (policy, failure, task):
+            for artifact in (policy, failure, task, *extras):
                 if artifact is None:
                     continue
                 existing = self._artifacts.get(artifact.artifact_id)
@@ -79,9 +92,22 @@ class InMemoryTerminalMixin:
                     raise ContractError(
                         "artifact_integrity_failed", artifact.artifact_id
                     )
-            for wire in (policy_decision, failure_receipt, review_task):
-                if wire is not None:
-                    self.append_artifact(wire)
+            artifacts_and_wires = tuple(
+                (artifact, wire)
+                for artifact, wire in (
+                    (policy, policy_decision),
+                    (failure, failure_receipt),
+                    (task, review_task),
+                    *zip(extras, terminal_artifacts, strict=True),
+                )
+                if artifact is not None and wire is not None
+            )
+            # All validation is complete. Store the terminal artifacts directly
+            # under the same lock as the pointer/event mutation so a failed
+            # AgentExecutionReceipt can never be separated from HALTED.
+            for artifact, wire in artifacts_and_wires:
+                if artifact.artifact_id not in self._artifacts:
+                    self._artifacts[artifact.artifact_id] = deepcopy(dict(wire))
             task_record = self._store_review_task(task, run_id, now)
             version = current.version + 1
             updated = replace(

@@ -196,6 +196,24 @@ def test_structured_only_cloud_bound_payload_parses_strictly() -> None:
     assert parsed.to_wire() == _cloud_payload()
 
 
+def test_cloud_bound_payload_v11_omits_unavailable_protein_consequence() -> None:
+    payload = _cloud_payload()
+    payload["payload_version"] = "1.1.0"
+    payload["variant"].pop("hgvs_p")
+
+    parsed = parse_cloud_bound_payload(payload)
+
+    assert parsed.to_wire() == payload
+
+
+def test_cloud_bound_payload_v10_still_requires_protein_consequence() -> None:
+    payload = _cloud_payload()
+    payload["variant"].pop("hgvs_p")
+
+    with pytest.raises(ContractError, match="contract_required_field_missing"):
+        parse_cloud_bound_payload(payload)
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected"),
     [

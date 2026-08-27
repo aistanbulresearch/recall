@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
+from time import monotonic
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +12,7 @@ import pytest
 from recall.scheduler.compressed_batch import (
     BATCH_MAX_WORKERS,
     BatchExecutionResult,
+    WritePhaseDeadlineExceeded,
     _joined_parallel,
 )
 from recall.scheduler.compressed_cohort import cases_for_cycle
@@ -57,6 +60,44 @@ def test_parallel_failure_joins_all_started_workers_before_raising() -> None:
         _joined_parallel(tuple(range(64)), operation, failure_code="batch_failed")
     assert active == 0
     assert completed >= 1
+
+
+def test_parallel_deadline_returns_without_waiting_for_hung_backend() -> None:
+    release = Event()
+
+    def operation(_value: int) -> int:
+        release.wait(timeout=2)
+        return 1
+
+    started = monotonic()
+    try:
+        with pytest.raises(
+            WritePhaseDeadlineExceeded,
+            match="compressed_write_phase_deadline_exceeded",
+        ):
+            _joined_parallel(
+                (1,),
+                operation,
+                failure_code="must_not_wrap",
+                deadline_at=datetime.now(UTC) + timedelta(milliseconds=50),
+                clock=lambda: datetime.now(UTC),
+            )
+        assert monotonic() - started < 1
+    finally:
+        release.set()
+
+
+def test_worker_deadline_exception_is_not_wrapped_as_generic_batch_failure() -> None:
+    def operation(_value: int) -> int:
+        raise WritePhaseDeadlineExceeded(
+            "compressed_write_phase_deadline_exceeded"
+        )
+
+    with pytest.raises(
+        WritePhaseDeadlineExceeded,
+        match="compressed_write_phase_deadline_exceeded",
+    ):
+        _joined_parallel((1,), operation, failure_code="must_not_wrap")
 
 
 def test_batch_metrics_are_additive_and_count_committed_case_documents() -> None:
@@ -109,6 +150,13 @@ def test_preview_declares_ramp_and_final_without_constructing_ledger() -> None:
     assert result["execution_profile"] == "FULL_AUDIT_V1"
     assert result["evaluation_role"] == "PORTFOLIO_REASSESSMENT"
     assert "actual_reused_runs" in result["parity_indicator_fields"]
+    assert "epoch_parity_match" in result["parity_indicator_fields"]
+    assert "fresh_write_parity_match" in result["parity_indicator_fields"]
+    assert result["write_timeout_seconds"] == plan.by_id("c6").write_timeout_seconds
+    assert result["agent_timeout_seconds"] == plan.by_id("c6").agent_timeout_seconds
+    assert result["authoritative_end_to_end_deadline"] == (
+        plan.by_id("c6").end_to_end_deadline.isoformat().replace("+00:00", "Z")
+    )
     assert len(result["selected_case_ids"]) == 456
     assert len(result["excluded_case_ids"]) == 6
     assert result["plan_sha256"] == plan.sha256

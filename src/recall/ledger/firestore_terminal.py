@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid5
@@ -32,6 +32,7 @@ class FirestoreTerminalMixin:
         review_task: Mapping[str, Any] | None,
         watch_case_update: WatchCaseRecord | None,
         now: datetime,
+        terminal_artifacts: Sequence[Mapping[str, Any]] = (),
     ) -> tuple[ScanRunRecord, ReviewTaskRecord | None]:
         policy = (
             None
@@ -52,6 +53,10 @@ class FirestoreTerminalMixin:
             if review_task is None
             else parse_artifact(review_task, authorized_producers=PRODUCER_REGISTRY)
         )
+        extras = tuple(
+            parse_artifact(item, authorized_producers=PRODUCER_REGISTRY)
+            for item in terminal_artifacts
+        )
         target = ScanRunState(target_state)
         closed_event = ScanRunEventCode(event_code)
         if target is ScanRunState.HALTED:
@@ -68,6 +73,15 @@ class FirestoreTerminalMixin:
                 raise ContractError("contract_value_invalid", "ReviewTask.presence")
         if task is not None and not isinstance(task.payload, ReviewTaskPayload):
             raise ContractError("contract_schema_invalid", "ReviewTask")
+        for artifact in extras:
+            if (
+                artifact.schema_name != "AgentExecutionReceipt"
+                or artifact.run_id != run_id
+                or artifact.payload.execution_status.value != "FAILED"
+            ):
+                raise ContractError(
+                    "contract_terminal_authority_invalid", "terminal_artifacts"
+                )
 
         run_reference = self._collection("scan_runs").document(run_id)
         event_id = str(uuid5(UUID(run_id), f"scan-run-event:{expected_version + 1}"))
@@ -116,6 +130,7 @@ class FirestoreTerminalMixin:
                 (policy, policy_decision),
                 (failure, failure_receipt),
                 (task, review_task),
+                *zip(extras, terminal_artifacts, strict=True),
             ):
                 if artifact is not None and wire is not None:
                     reference = self._collection("artifacts").document(

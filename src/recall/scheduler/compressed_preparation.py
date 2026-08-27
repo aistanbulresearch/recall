@@ -45,6 +45,7 @@ class CompressedPreparationBundle:
     legacy_failure_receipt: Mapping[str, object]
     bundle_sha256: str
     privacy_receipt_source_lock: Mapping[str, str] | None = None
+    lab_note_source_lock: Mapping[str, str] | None = None
 
     @property
     def observations_by_vcv(self) -> Mapping[str, Mapping[str, object]]:
@@ -107,13 +108,22 @@ def load_compressed_bundle(
     if not isinstance(value, dict) or observed_fields not in {
         frozenset(base_fields),
         frozenset({*base_fields, "privacy_receipt_source_lock"}),
+        frozenset(
+            {
+                *base_fields,
+                "privacy_receipt_source_lock",
+                "lab_note_source_lock",
+            }
+        ),
     }:
         raise RuntimeError("compressed_preparation_bundle_shape_invalid")
     schema_version = value["schema_version"]
     has_source_lock = "privacy_receipt_source_lock" in value
+    has_note_lock = "lab_note_source_lock" in value
     if (
-        schema_version not in {"2.0.0", "2.1.0"}
-        or has_source_lock is not (schema_version == "2.1.0")
+        schema_version not in {"2.0.0", "2.1.0", "2.2.0"}
+        or has_source_lock is not (schema_version in {"2.1.0", "2.2.0"})
+        or has_note_lock is not (schema_version == "2.2.0")
         or value["plan_sha256"] != plan.sha256
     ):
         raise RuntimeError("compressed_preparation_plan_mismatch")
@@ -135,6 +145,11 @@ def load_compressed_bundle(
             else _parse_privacy_source_lock(
                 value["privacy_receipt_source_lock"]
             )
+        ),
+        lab_note_source_lock=(
+            None
+            if not has_note_lock
+            else _parse_lab_note_source_lock(value["lab_note_source_lock"])
         ),
     )
     _validate_bundle(bundle, plan)
@@ -225,6 +240,8 @@ def verify_prepared_cycle(
             _require_full_audit_privacy_receipt(receipt)
             if bundle.privacy_receipt_source_lock is None:
                 raise RuntimeError("full_audit_privacy_source_lock_required")
+            if bundle.lab_note_source_lock is None:
+                raise RuntimeError("full_audit_lab_note_source_lock_required")
     for item in cases_for_cycle(cycle):
         if item.vcv is not None:
             observation = bundle.observations_by_vcv[item.vcv]
@@ -250,9 +267,12 @@ def _prevalidate_selected(
             _require_full_audit_privacy_receipt(item.privacy_receipt)
     if (
         cycle.execution_profile == "FULL_AUDIT_V1"
-        and bundle.privacy_receipt_source_lock is None
+        and (
+            bundle.privacy_receipt_source_lock is None
+            or bundle.lab_note_source_lock is None
+        )
     ):
-        raise RuntimeError("full_audit_privacy_source_lock_required")
+        raise RuntimeError("full_audit_input_source_locks_required")
 
 
 def _append_locked(ledger: LedgerPort, value: Mapping[str, object]) -> int:
@@ -367,6 +387,24 @@ def _parse_privacy_source_lock(value: Any) -> Mapping[str, str]:
             raise RuntimeError("privacy_receipt_source_lock_invalid")
     if not isinstance(value["key_id"], str) or not value["key_id"]:
         raise RuntimeError("privacy_receipt_source_lock_invalid")
+    return {field: str(value[field]) for field in sorted(fields)}
+
+
+def _parse_lab_note_source_lock(value: Any) -> Mapping[str, str]:
+    fields = {"source_sha256", "schema_version", "notes_version"}
+    if not isinstance(value, Mapping) or set(value) != fields:
+        raise RuntimeError("lab_note_source_lock_invalid")
+    if value["schema_version"] != "1.1.0":
+        raise RuntimeError("lab_note_source_lock_invalid")
+    source_sha = value["source_sha256"]
+    if (
+        not isinstance(source_sha, str)
+        or len(source_sha) != 64
+        or any(item not in "0123456789abcdef" for item in source_sha)
+        or not isinstance(value["notes_version"], str)
+        or not value["notes_version"]
+    ):
+        raise RuntimeError("lab_note_source_lock_invalid")
     return {field: str(value[field]) for field in sorted(fields)}
 
 

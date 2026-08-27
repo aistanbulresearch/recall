@@ -88,7 +88,9 @@ def parse_cohort_day_manifest_v32_payload(
     history = [dict(item) for item in value["execution_history"]]
     if history[-1]["source_schema_version"] != "CohortDayManifest/3.2.0":
         raise ContractError("contract_value_invalid", "execution_history.current")
-    history[-1]["source_schema_version"] = "CohortDayManifest/3.1.0"
+    for row in history:
+        if row["source_schema_version"] == "CohortDayManifest/3.2.0":
+            row["source_schema_version"] = "CohortDayManifest/3.1.0"
     history[-1]["executed_at"] = value["write_metrics"]["completed_at"]
     legacy["execution_history"] = history
     # V3.1 completion measures only the batched write/readback phase. V3.2's

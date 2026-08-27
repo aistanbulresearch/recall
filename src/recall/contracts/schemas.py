@@ -28,8 +28,11 @@ from .payloads import (
     parse_cohort_day_manifest_v3_payload,
     parse_cohort_day_manifest_v31_payload,
     parse_cohort_day_manifest_v32_payload,
+    parse_cohort_day_manifest_v33_payload,
     parse_cohort_day_manifest_v20_payload,
     parse_cohort_day_failure_receipt_payload,
+    parse_cohort_execution_checkpoint_payload,
+    parse_batch_execution_receipt_payload,
     parse_cohort_history_receipt_payload,
     parse_cohort_headroom_receipt_payload,
     parse_compressed_cycle_failure_receipt_payload,
@@ -74,6 +77,14 @@ _COHORT_MANIFEST_V31_FIELDS = _COHORT_MANIFEST_V3_FIELDS | frozenset(
 )
 _COHORT_MANIFEST_V32_FIELDS = _COHORT_MANIFEST_V31_FIELDS | frozenset(
     {"agent_execution_summary", "run_outcomes"}
+)
+_COHORT_MANIFEST_V33_FIELDS = _COHORT_MANIFEST_V32_FIELDS | frozenset(
+    {
+        "cycle_attempt_id",
+        "batch_execution_receipt_id",
+        "write_measurement_status",
+        "deadline_policy",
+    }
 )
 
 
@@ -120,6 +131,11 @@ LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
         parse_cohort_day_manifest_v31_payload,
         True,
     ),
+    ("CohortDayManifest", "3.2.0"): (
+        _COHORT_MANIFEST_V32_FIELDS,
+        parse_cohort_day_manifest_v32_payload,
+        True,
+    ),
 }
 
 
@@ -153,9 +169,9 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "CohortDayManifest": (
-        "3.2.0",
-        _COHORT_MANIFEST_V32_FIELDS,
-        parse_cohort_day_manifest_v32_payload,
+        "3.3.0",
+        _COHORT_MANIFEST_V33_FIELDS,
+        parse_cohort_day_manifest_v33_payload,
         True,
     ),
     "CompressedCycleFailureReceipt": (
@@ -225,6 +241,41 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
             }
         ),
         parse_cohort_day_failure_receipt_payload,
+        True,
+    ),
+    "CohortExecutionCheckpoint": (
+        "1.0.0",
+        frozenset(
+            {
+                "plan_sha256",
+                "cycle_id",
+                "expected_manifest_id",
+                "checkpoint_status",
+                "total_cases",
+                "completed_outcomes",
+                "failed_cases",
+                "policy_outcomes_synthesized",
+            }
+        ),
+        parse_cohort_execution_checkpoint_payload,
+        True,
+    ),
+    "BatchExecutionReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "plan_sha256",
+                "cycle_id",
+                "cycle_attempt_id",
+                "ordered_run_ids",
+                "scan_run_artifact_ids",
+                "created_run_ids",
+                "recovered_current_epoch_run_ids",
+                "measurement_status",
+                "write_metrics",
+            }
+        ),
+        parse_batch_execution_receipt_payload,
         True,
     ),
     "RoutingPlan": (

@@ -13,7 +13,7 @@ PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
 )
 EXPECTED_PLAN_SHA256 = (
-    "7d585c432fa85c4e32a7aec018b060ba38d1589b9ca9f2009dded10a09ca4e27"
+    "d5b3979b352bf5ec1fff8ce55f96e3af7ba304b6901bab0e44a1eaba45afc96d"
 )
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
@@ -51,12 +51,18 @@ class CompressedCycle:
     epoch_label: str
     evaluation_role: str
     execution_timeout_seconds: int
+    write_timeout_seconds: int
+    agent_timeout_seconds: int
     activation: str
     execution_profile: str
 
     @property
     def schedule_epoch(self) -> str:
         return _timestamp(self.window_start)
+
+    @property
+    def end_to_end_deadline(self) -> datetime:
+        return self.window_start + timedelta(seconds=self.execution_timeout_seconds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +117,7 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
         raise RuntimeError("compressed_plan_shape_invalid")
     schema_version = value["schema_version"]
     if (
-        schema_version not in {"2.2.0", "2.3.0"}
+        schema_version not in {"2.2.0", "2.3.0", "2.4.0"}
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
@@ -161,8 +167,10 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
         "evaluation_role",
         "execution_timeout_seconds",
     }
-    if schema_version == "2.3.0":
+    if schema_version in {"2.3.0", "2.4.0"}:
         fields.update({"activation", "execution_profile"})
+    if schema_version == "2.4.0":
+        fields.update({"write_timeout_seconds", "agent_timeout_seconds"})
     if not isinstance(value, dict) or set(value) != fields:
         raise RuntimeError("compressed_cycle_shape_invalid")
     try:
@@ -172,6 +180,16 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
     index = value["cycle_index"]
     predicted = value["runs_predicted"]
     timeout = value["execution_timeout_seconds"]
+    write_timeout = (
+        value["write_timeout_seconds"]
+        if schema_version == "2.4.0"
+        else timeout
+    )
+    agent_timeout = (
+        value["agent_timeout_seconds"]
+        if schema_version == "2.4.0"
+        else 0
+    )
     if (
         isinstance(index, bool)
         or not isinstance(index, int)
@@ -181,6 +199,13 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
         or isinstance(timeout, bool)
         or not isinstance(timeout, int)
         or timeout <= 0
+        or isinstance(write_timeout, bool)
+        or not isinstance(write_timeout, int)
+        or write_timeout <= 0
+        or isinstance(agent_timeout, bool)
+        or not isinstance(agent_timeout, int)
+        or agent_timeout < 0
+        or write_timeout + agent_timeout > timeout
     ):
         raise RuntimeError("compressed_cycle_count_invalid")
     return CompressedCycle(
@@ -196,14 +221,16 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
         epoch_label=_text(value["epoch_label"]),
         evaluation_role=_text(value["evaluation_role"]),
         execution_timeout_seconds=timeout,
+        write_timeout_seconds=write_timeout,
+        agent_timeout_seconds=agent_timeout,
         activation=(
             _text(value["activation"])
-            if schema_version == "2.3.0"
+            if schema_version in {"2.3.0", "2.4.0"}
             else "LEGACY_PLAN5"
         ),
         execution_profile=(
             _text(value["execution_profile"])
-            if schema_version == "2.3.0"
+            if schema_version in {"2.3.0", "2.4.0"}
             else "CREATE_ONLY_V1"
         ),
     )
@@ -289,7 +316,7 @@ def _validate_cycles(
     )
     if tuple(item.evaluation_role for item in cycles) != expected_roles:
         raise RuntimeError("compressed_evaluation_role_invalid")
-    if schema_version == "2.3.0":
+    if schema_version in {"2.3.0", "2.4.0"}:
         if tuple(item.execution_profile for item in cycles) != (
             "CREATE_ONLY_V1",
             "CREATE_ONLY_V1",
@@ -308,6 +335,11 @@ def _validate_cycles(
             "PROVISIONAL_R1_GATED",
         ):
             raise RuntimeError("compressed_cycle_activation_invalid")
+    if schema_version == "2.4.0":
+        if any(item.agent_timeout_seconds != 0 for item in cycles[:2]) or any(
+            item.agent_timeout_seconds <= 0 for item in cycles[2:]
+        ):
+            raise RuntimeError("compressed_phase_timeout_invalid")
     c2_binding = cycles[1].predecessor
     if (
         c2_binding is None
@@ -373,7 +405,7 @@ def verify_manifest_against_plan(
     ]
     if (
         manifest.schema_name != "CohortDayManifest"
-        or manifest.schema_version not in {"3.0.0", "3.1.0", "3.2.0"}
+        or manifest.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0"}
         or payload.plan_version != plan.version
         or payload.plan_sha256 != plan.sha256
         or payload.schedule_mode != plan.schedule_mode
@@ -384,9 +416,12 @@ def verify_manifest_against_plan(
     ):
         raise RuntimeError("compressed_manifest_plan_mismatch")
     completed_at = datetime.fromisoformat(manifest.created_at.replace("Z", "+00:00"))
-    if not (
-        cycle.window_start <= completed_at
-        <= cycle.window_start + timedelta(seconds=cycle.execution_timeout_seconds)
+    end_to_end_deadline = cycle.window_start + timedelta(
+        seconds=cycle.execution_timeout_seconds
+    )
+    if completed_at < cycle.window_start or (
+        completed_at > end_to_end_deadline
+        and manifest.status.value != "INCOMPLETE"
     ):
         raise RuntimeError("compressed_manifest_completion_timeout")
     for row, expected_cycle in zip(
