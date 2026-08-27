@@ -21,6 +21,7 @@ import {
   scheduleModeCopy,
 } from '../src/viewmodel/cohort';
 import type { ArtifactBundle } from '../src/viewmodel/types';
+import realC1 from './fixtures/c1-manifest.real.json';
 
 /** The exact day-1 row the contract pins, verbatim from _legacy_prefix_is_exact. */
 const DAY1_ROW = {
@@ -279,5 +280,38 @@ describe('v3 totals agreement mirrors the shipped derivation', () => {
     });
     expect(check.agrees).toBe(false);
     expect(check.disagreements.join(' ')).toContain('compressed cycles completed');
+  });
+});
+
+describe('the REAL c1 manifest, byte-verified against the producer export', () => {
+  // artifacts/evidence/cohort-compression/executed-manifests/c1-manifest.json
+  // at core 982f6e3a, blob 655201f1. The first live 3.0.0 artifact: this is
+  // the producer-verification the lane-authored fixture above cannot give.
+  it('is accepted and resolves every 3.0.0 field', () => {
+    const { fields, rejected } = buildViewModel({
+      bundle_id: 'real-c1',
+      bundle_kind: 'DEMO',
+      bundle_version: '1.0.0',
+      provenance: {},
+      artifacts: [realC1],
+    } as unknown as ArtifactBundle);
+    expect(rejected).toEqual([]);
+    expect(fields['UI-COHORT-CYCLE-ID'].value).toBe('c1');
+    expect(fields['UI-COHORT-SCHEDULE-MODE'].value).toBe(COMPRESSED_SCHEDULE_MODE);
+    expect(fields['UI-COHORT-COMPRESSED-TOTAL'].value).toBe(1);
+  });
+
+  it('its live history proves the span with every row class named', () => {
+    const span = operationSpan(realC1.execution_history);
+    expect(span.proven).toBe(true);
+    expect(span.sentence).toContain('1 completed day');
+    expect(span.sentence).toContain('1 cycle in the declared machine-triggered compressed session');
+    expect(span.sentence).toContain('1 incomplete attempt');
+  });
+
+  it('its totals agree with its own history under the v3 derivation', () => {
+    const check = historyAgreement(realC1.execution_history, realC1.cumulative);
+    expect(check.checked).toBe(true);
+    expect(check.agrees).toBe(true);
   });
 });

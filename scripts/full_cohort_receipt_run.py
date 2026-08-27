@@ -10,11 +10,9 @@ The locus declaration is EXPLICIT CONFIG, not inference, and this script is
 fail-closed on honesty: it refuses to start unless the declared posture
 matches how the transport is actually wired (a cloud base_url with a
 LOCAL_PROCESS declaration, or the reverse, is a refusal, not a warning).
-As shipped at core 375f116 the preparation gate accepts only the all-local
-trio (LAB_LOCAL, LOCAL_PROCESS, OLLAMA_LOCAL); the honest cloud posture
-(PRIVATE_SERVICE transport) is blocked there until the contract adds the
-cloud endpoint value. This script therefore runs today only in the local
-posture; the cloud posture is wired and waits on the contract fix.
+Both postures are contract-registered as of core 982f6e3a: the all-local
+trio and the cloud trio (LAB_LOCAL, PRIVATE_SERVICE, OLLAMA_CLOUD_RUN).
+The cloud run waits only on the deploy signal for its base_url.
 
 Usage:
   python scripts/full_cohort_receipt_run.py --posture local \
@@ -67,14 +65,12 @@ POSTURES: dict[str, dict[str, str]] = {
         "model_revision": MODEL_REVISION,
     },
     # The owner-decided cloud posture: gate local, model on the IAM-only GPU
-    # service. endpoint_class has NO registered value for Ollama-on-Cloud-Run
-    # at core 375f116, so this posture cannot yet produce a receipt the prep
-    # gate accepts; the placeholder below guarantees a loud contract error
-    # rather than a quiet lie if someone forces it through.
+    # service. Registered at core 982f6e3a, where the prep gate accepts exactly
+    # this trio beside the all-local one.
     "cloud": {
         "execution_locus": "LAB_LOCAL",
         "transport_class": "PRIVATE_SERVICE",
-        "endpoint_class": "PENDING_CONTRACT_VALUE",
+        "endpoint_class": "OLLAMA_CLOUD_RUN",
         "model_id": MODEL_ID,
         "model_revision": MODEL_REVISION,
     },
