@@ -52,7 +52,7 @@
       "execution_timeout_seconds": 7200, "write_timeout_seconds": 1200, "agent_timeout_seconds": 6000,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c3", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 80, "trigger_policy": "R1_TELEMETRY_OWNER_COST_AND_RAMP_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-29T04:59:59Z", "window_start": "2026-08-29T03:00:00Z"
+      "window_end": "2026-08-28T10:59:59Z", "window_start": "2026-08-28T09:00:00Z"
     },
     {
       "cohort_due_date": "2026-08-30", "cycle_id": "c5", "cycle_index": 5,
@@ -61,7 +61,7 @@
       "execution_timeout_seconds": 14400, "write_timeout_seconds": 1800, "agent_timeout_seconds": 12600,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c4", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 200, "trigger_policy": "R2_TELEMETRY_AND_RAMP_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-30T06:59:59Z", "window_start": "2026-08-30T03:00:00Z"
+      "window_end": "2026-08-28T15:59:59Z", "window_start": "2026-08-28T12:00:00Z"
     },
     {
       "cohort_due_date": "2026-08-31", "cycle_id": "c6", "cycle_index": 6,
@@ -70,7 +70,7 @@
       "execution_timeout_seconds": 32400, "write_timeout_seconds": 1800, "agent_timeout_seconds": 30600,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c5", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 456, "trigger_policy": "OWNER_COST_APPROVAL_AND_R3_TELEMETRY_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-31T10:59:59Z", "window_start": "2026-08-31T03:00:00Z"
+      "window_end": "2026-08-29T00:59:59Z", "window_start": "2026-08-28T17:00:00Z"
     }
   ]
 }

@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import Sequence
 
-from recall.scheduler.compressed_plan import PLAN_PATH
+from recall.scheduler.compressed_plan import PLAN_PATH, parse_compressed_plan
 from recall.testing.deadline_policy_vectors import (
     VECTOR_PATH,
     render_deadline_policy_vectors,
@@ -32,7 +33,9 @@ WEB_PIN_PATH = Path("web/src/viewmodel/deadline_policy.ts")
 class PlanRegenerationResult:
     old_plan_sha256: str
     new_plan_sha256: str
-    anchor_utc: str
+    mode: str
+    anchor_utc: str | None
+    applied_windows: tuple[tuple[str, str, str], ...]
     shifted_cycle_ids: tuple[str, ...]
     core_pin_paths: tuple[str, ...]
     web_pin_path: str
@@ -44,7 +47,16 @@ class PlanRegenerationResult:
         return {
             "old_plan_sha256": self.old_plan_sha256,
             "new_plan_sha256": self.new_plan_sha256,
+            "mode": self.mode,
             "anchor_utc": self.anchor_utc,
+            "applied_windows": [
+                {
+                    "cycle_id": cycle_id,
+                    "window_start": window_start,
+                    "window_end": window_end,
+                }
+                for cycle_id, window_start, window_end in self.applied_windows
+            ],
             "shifted_cycle_ids": list(self.shifted_cycle_ids),
             "core_pin_paths": list(self.core_pin_paths),
             "web_pin_path": self.web_pin_path,
@@ -63,19 +75,36 @@ def regenerate_compressed_plan(
     core_root: Path,
     web_root: Path,
     *,
-    anchor: str,
+    anchor: str | None = None,
+    windows: Sequence[tuple[str, str, str]] | None = None,
 ) -> PlanRegenerationResult:
     """Shift c3-c6, refresh every executable SHA pin, and rebuild vectors."""
 
     core_root = core_root.resolve()
     web_root = web_root.resolve()
-    anchor_utc = _parse_anchor(anchor)
+    if (anchor is None) == (windows is None):
+        raise RuntimeError("compressed_plan_regeneration_mode_invalid")
     plan_path = core_root / PLAN_PATH
     old_plan_bytes = plan_path.read_bytes()
     old_plan_sha = hashlib.sha256(old_plan_bytes).hexdigest()
     old_plan = json.loads(old_plan_bytes.decode("utf-8"))
-    new_plan_bytes, new_plan = _shift_plan(old_plan_bytes, anchor_utc)
+    if anchor is not None:
+        anchor_utc = _parse_anchor(anchor)
+        mode = "ANCHOR_SHIFT"
+        new_plan_bytes, new_plan = _shift_plan(old_plan_bytes, anchor_utc)
+    else:
+        anchor_utc = None
+        mode = "EXPLICIT_WINDOWS"
+        explicit_windows = _parse_explicit_windows(windows or ())
+        new_plan_bytes, new_plan = _replace_plan_windows(
+            old_plan_bytes,
+            explicit_windows,
+            require_common_delta=False,
+        )
     new_plan_sha = hashlib.sha256(new_plan_bytes).hexdigest()
+    # Validate the complete candidate with the same production invariants used
+    # by the runtime before either checkout receives a write.
+    parse_compressed_plan(new_plan, sha256=new_plan_sha)
 
     expected_old_paths = {
         *(path.as_posix() for path in CORE_PIN_COUNTS),
@@ -107,7 +136,11 @@ def regenerate_compressed_plan(
         web_pin.read_bytes(), old_plan_sha, new_plan_sha, count=1
     )
 
-    _assert_values_only(old_plan, new_plan)
+    _assert_values_only(
+        old_plan,
+        new_plan,
+        require_common_delta=mode == "ANCHOR_SHIFT",
+    )
     with TemporaryDirectory(prefix="recall-plan-vectors-") as raw_temp:
         vector_root = Path(raw_temp)
         vector_plan = vector_root / PLAN_PATH
@@ -161,8 +194,27 @@ def regenerate_compressed_plan(
     return PlanRegenerationResult(
         old_plan_sha256=old_plan_sha,
         new_plan_sha256=new_plan_sha,
-        anchor_utc=_wire_timestamp(anchor_utc),
-        shifted_cycle_ids=RUNNABLE_CYCLE_IDS,
+        mode=mode,
+        anchor_utc=(
+            _wire_timestamp(anchor_utc) if anchor_utc is not None else None
+        ),
+        applied_windows=tuple(
+            (
+                cycle_id,
+                str(_cycle_map(new_plan)[cycle_id]["window_start"]),
+                str(_cycle_map(new_plan)[cycle_id]["window_end"]),
+            )
+            for cycle_id in RUNNABLE_CYCLE_IDS
+        ),
+        shifted_cycle_ids=tuple(
+            cycle_id
+            for cycle_id in RUNNABLE_CYCLE_IDS
+            if any(
+                _cycle_map(old_plan)[cycle_id][field]
+                != _cycle_map(new_plan)[cycle_id][field]
+                for field in ("window_start", "window_end")
+            )
+        ),
         core_pin_paths=tuple(path.as_posix() for path in CORE_PIN_COUNTS),
         web_pin_path=WEB_PIN_PATH.as_posix(),
         core_vector_path=VECTOR_PATH.as_posix(),
@@ -176,13 +228,36 @@ def _shift_plan(raw: bytes, anchor: datetime) -> tuple[bytes, dict[str, object]]
     cycles = _cycle_map(before)
     old_anchor = _timestamp(cycles["c3"]["window_start"])
     delta = anchor - old_anchor
+    windows = {
+        cycle_id: (
+            _wire_timestamp(
+                _timestamp(cycles[cycle_id]["window_start"]) + delta
+            ),
+            _wire_timestamp(
+                _timestamp(cycles[cycle_id]["window_end"]) + delta
+            ),
+        )
+        for cycle_id in RUNNABLE_CYCLE_IDS
+    }
+    return _replace_plan_windows(raw, windows, require_common_delta=True)
+
+
+def _replace_plan_windows(
+    raw: bytes,
+    windows: dict[str, tuple[str, str]],
+    *,
+    require_common_delta: bool,
+) -> tuple[bytes, dict[str, object]]:
+    before = json.loads(raw.decode("utf-8"))
+    cycles = _cycle_map(before)
     text = raw.decode("utf-8")
     replacements: list[tuple[str, str]] = []
     for cycle_id in RUNNABLE_CYCLE_IDS:
         cycle = cycles[cycle_id]
-        for field in ("window_start", "window_end"):
+        for field, new_value in zip(
+            ("window_start", "window_end"), windows[cycle_id], strict=True
+        ):
             old_value = cycle[field]
-            new_value = _wire_timestamp(_timestamp(old_value) + delta)
             needle = f'"{field}": "{old_value}"'
             replacement = f'"{field}": "{new_value}"'
             if text.count(needle) != 1:
@@ -195,12 +270,19 @@ def _shift_plan(raw: bytes, anchor: datetime) -> tuple[bytes, dict[str, object]]
     for placeholder, replacement in replacements:
         text = text.replace(placeholder, replacement, 1)
     after = json.loads(text)
-    _assert_values_only(before, after)
+    _assert_values_only(
+        before,
+        after,
+        require_common_delta=require_common_delta,
+    )
     return text.encode("utf-8"), after
 
 
 def _assert_values_only(
-    before: dict[str, object], after: dict[str, object]
+    before: dict[str, object],
+    after: dict[str, object],
+    *,
+    require_common_delta: bool,
 ) -> None:
     before_cycles = _cycle_map(before)
     after_cycles = _cycle_map(after)
@@ -229,13 +311,33 @@ def _assert_values_only(
         if start_delta != end_delta:
             raise RuntimeError(f"compressed_plan_duration_changed:{cycle_id}")
         deltas.add(start_delta)
-    if len(deltas) != 1:
+    if require_common_delta and len(deltas) != 1:
         raise RuntimeError("compressed_plan_relative_windows_changed")
 
     before_without_cycles = {key: value for key, value in before.items() if key != "cycles"}
     after_without_cycles = {key: value for key, value in after.items() if key != "cycles"}
     if before_without_cycles != after_without_cycles:
         raise RuntimeError("compressed_plan_non_cycle_field_changed")
+
+
+def _parse_explicit_windows(
+    values: Sequence[tuple[str, str, str]],
+) -> dict[str, tuple[str, str]]:
+    result: dict[str, tuple[str, str]] = {}
+    for cycle_id, raw_start, raw_end in values:
+        if cycle_id not in RUNNABLE_CYCLE_IDS or cycle_id in result:
+            raise RuntimeError(
+                f"compressed_plan_explicit_cycle_invalid:{cycle_id}"
+            )
+        start = _parse_canonical_utc(raw_start)
+        end = _parse_canonical_utc(raw_end)
+        result[cycle_id] = (
+            _wire_timestamp(start),
+            _wire_timestamp(end),
+        )
+    if set(result) != set(RUNNABLE_CYCLE_IDS):
+        raise RuntimeError("compressed_plan_explicit_cycle_set_invalid")
+    return result
 
 
 def _cycle_map(value: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -325,6 +427,21 @@ def _parse_anchor(value: str) -> datetime:
         raise RuntimeError("compressed_plan_anchor_invalid") from exc
     if parsed.tzinfo is None or parsed.microsecond:
         raise RuntimeError("compressed_plan_anchor_invalid")
+    return parsed.astimezone(timezone.utc)
+
+
+def _parse_canonical_utc(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise RuntimeError("compressed_plan_explicit_timestamp_invalid") from exc
+    if (
+        not value.endswith("Z")
+        or parsed.tzinfo is None
+        or parsed.microsecond
+        or _wire_timestamp(parsed) != value
+    ):
+        raise RuntimeError("compressed_plan_explicit_timestamp_invalid")
     return parsed.astimezone(timezone.utc)
 
 

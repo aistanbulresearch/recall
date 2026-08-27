@@ -59,9 +59,18 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         "2026-08-26T22:30:00+00:00",
     ]
     assert [
-        current.window_start - prior.window_start
-        for prior, current in zip(plan.cycles[2:], plan.cycles[3:])
-    ] == [timedelta(hours=21), timedelta(days=1), timedelta(days=1)]
+        (
+            item.cycle_id,
+            item.window_start.isoformat(),
+            item.window_end.isoformat(),
+        )
+        for item in plan.cycles[2:]
+    ] == [
+        ("c3", "2026-08-28T06:00:00+00:00", "2026-08-28T06:29:59+00:00"),
+        ("c4", "2026-08-28T09:00:00+00:00", "2026-08-28T10:59:59+00:00"),
+        ("c5", "2026-08-28T12:00:00+00:00", "2026-08-28T15:59:59+00:00"),
+        ("c6", "2026-08-28T17:00:00+00:00", "2026-08-29T00:59:59+00:00"),
+    ]
     assert [item.window_end - item.window_start for item in plan.cycles[2:]] == [
         timedelta(minutes=29, seconds=59),
         timedelta(hours=1, minutes=59, seconds=59),
