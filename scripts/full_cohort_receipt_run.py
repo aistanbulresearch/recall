@@ -133,6 +133,19 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=None, help="smoke: first N notes")
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
+    parser.add_argument(
+        "--key-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Directory to persist the signing key (privacy-signing-key.json, "
+            "the load_signer format). REQUIRED for a run whose receipts must "
+            "be verified downstream: the preparation loads this key to check "
+            "every HMAC, so a discarded key makes every receipt unverifiable. "
+            "Keep it OUTSIDE the repo; the manifest records the fingerprint "
+            "only, never the key."
+        ),
+    )
     args = parser.parse_args()
 
     locus = dict(POSTURES[args.posture])
@@ -166,9 +179,26 @@ def main() -> int:
         # server takes the chat route suffix.
         api_path="" if is_cloud_url else "/api/chat",
     )
+    # The key is generated AS TEXT (hex) because load_signer round-trips it
+    # through JSON as a utf-8 string; raw random bytes would not survive that
+    # round-trip and every downstream verification would fail on a key that
+    # looks persisted but is not the signing key.
     signer = LocalSigner(
-        key_id="full-cohort-receipt-run-v1", key=secrets.token_bytes(32)
+        key_id="full-cohort-receipt-run-v1",
+        key=secrets.token_hex(32).encode("utf-8"),
     )
+    if args.key_dir is not None:
+        if ROOT in args.key_dir.resolve().parents or args.key_dir.resolve() == ROOT:
+            return _fail("key-dir must be OUTSIDE the repository")
+        args.key_dir.mkdir(parents=True, exist_ok=True)
+        key_file = args.key_dir / "privacy-signing-key.json"
+        key_file.write_text(
+            json.dumps(
+                {"key_id": signer.key_id, "key": signer.key.decode("utf-8")}
+            ),
+            encoding="utf-8",
+        )
+        print(f"signing key persisted to {key_file} (fingerprint in manifest)")
     started = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     # Preflight: a missing model fails every call identically; find that out in
