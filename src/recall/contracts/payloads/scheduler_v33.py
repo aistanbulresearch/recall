@@ -238,6 +238,7 @@ def _parse_deadline(value: Mapping[str, Any]) -> dict[str, object]:
         e2e,
     )
     agent_completed = _datetime(parsed["agent_completed_at"])
+    require_deadline_completion_binding(value["created_at"], parsed)
     if (
         not start <= trigger <= window_end
         or not trigger <= write_completed <= agent_completed
@@ -245,10 +246,19 @@ def _parse_deadline(value: Mapping[str, Any]) -> dict[str, object]:
         or _datetime(parsed["write_deadline"]) != expected_write
         or _datetime(parsed["agent_deadline"]) != expected_agent
         or _datetime(parsed["authoritative_end_to_end_deadline"]) != e2e
-        or value["created_at"] != parsed["agent_completed_at"]
     ):
         raise ContractError("contract_value_invalid", "deadline_policy")
     return parsed
+
+
+def require_deadline_completion_binding(
+    created_at: object,
+    deadline_policy: Mapping[str, object],
+) -> None:
+    """Require the artifact timestamp to name the observed agent completion."""
+
+    if created_at != deadline_policy.get("agent_completed_at"):
+        raise ContractError("contract_value_invalid", "deadline_policy")
 
 
 def _legacy_v32_status(value: Mapping[str, Any]) -> str:

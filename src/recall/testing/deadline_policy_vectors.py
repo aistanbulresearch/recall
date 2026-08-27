@@ -68,24 +68,16 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
         _vector(
             "legacy_20_00_plus_3600_to_23_00",
             False,
+            context,
             {
-                **context,
-                "window_start": "2026-08-27T20:00:00Z",
-                "window_end": "2026-08-27T20:30:00Z",
-                "scheduled_for": "2026-08-27T20:00:00Z",
-                "created_at": "2026-08-27T21:50:00Z",
-            },
-            {
-                "trigger_started_at": "2026-08-27T20:00:00Z",
-                "trigger_window_end": "2026-08-27T20:30:00Z",
-                "write_timeout_seconds": 300,
-                "write_deadline": "2026-08-27T21:00:00Z",
-                "write_completed_at": "2026-08-27T20:40:00Z",
-                "agent_timeout_seconds": 600,
-                "agent_deadline": "2026-08-27T22:00:00Z",
-                "agent_completed_at": "2026-08-27T21:50:00Z",
-                "execution_timeout_seconds": 3600,
-                "authoritative_end_to_end_deadline": "2026-08-27T23:00:00Z",
+                **valid,
+                # Historical regression shape: a one-hour execution budget
+                # was incorrectly presented as a three-hour boundary. All
+                # context and phase budgets are the approved c3 values so this
+                # field is the vector's sole defect.
+                "authoritative_end_to_end_deadline": _wire_timestamp(
+                    window_start + timedelta(hours=3)
+                ),
             },
         ),
         _mutation(
@@ -143,6 +135,14 @@ def build_deadline_policy_vectors(repo_root: Path) -> dict[str, object]:
                 "authoritative_end_to_end_deadline": _wire_timestamp(
                     end_to_end + timedelta(seconds=1)
                 )
+            },
+        ),
+        _mutation(
+            "plan_valid_authoritative_deadline_only_mismatch",
+            context,
+            valid,
+            {
+                "authoritative_end_to_end_deadline": cycle["window_end"],
             },
         ),
         _vector(

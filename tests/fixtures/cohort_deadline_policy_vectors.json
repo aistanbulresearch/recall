@@ -39,22 +39,22 @@
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
         "plan_sha256": "971cd1c6805ccb1758ee3994dcba9b1d458d106df43ae213dfc966ebc369b980",
         "cycle_id": "c3",
-        "window_start": "2026-08-27T20:00:00Z",
-        "window_end": "2026-08-27T20:30:00Z",
-        "scheduled_for": "2026-08-27T20:00:00Z",
-        "created_at": "2026-08-27T21:50:00Z"
+        "window_start": "2026-08-28T06:00:00Z",
+        "window_end": "2026-08-28T06:29:59Z",
+        "scheduled_for": "2026-08-28T06:00:00Z",
+        "created_at": "2026-08-28T06:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-27T20:00:00Z",
-        "trigger_window_end": "2026-08-27T20:30:00Z",
-        "write_timeout_seconds": 300,
-        "write_deadline": "2026-08-27T21:00:00Z",
-        "write_completed_at": "2026-08-27T20:40:00Z",
-        "agent_timeout_seconds": 600,
-        "agent_deadline": "2026-08-27T22:00:00Z",
-        "agent_completed_at": "2026-08-27T21:50:00Z",
+        "trigger_started_at": "2026-08-28T06:00:00.1234567Z",
+        "trigger_window_end": "2026-08-28T06:29:59Z",
+        "write_timeout_seconds": 600,
+        "write_deadline": "2026-08-28T06:10:00.123456Z",
+        "write_completed_at": "2026-08-28T06:05:00.654321Z",
+        "agent_timeout_seconds": 3000,
+        "agent_deadline": "2026-08-28T06:55:00.654321Z",
+        "agent_completed_at": "2026-08-28T06:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-27T23:00:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-28T09:00:00Z"
       }
     },
     {
@@ -180,6 +180,31 @@
         "agent_completed_at": "2026-08-28T06:50:00.999999Z",
         "execution_timeout_seconds": 3600,
         "authoritative_end_to_end_deadline": "2026-08-28T07:00:01Z"
+      }
+    },
+    {
+      "vector_id": "plan_valid_authoritative_deadline_only_mismatch",
+      "expected": "REJECT",
+      "manifest_context": {
+        "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
+        "plan_sha256": "971cd1c6805ccb1758ee3994dcba9b1d458d106df43ae213dfc966ebc369b980",
+        "cycle_id": "c3",
+        "window_start": "2026-08-28T06:00:00Z",
+        "window_end": "2026-08-28T06:29:59Z",
+        "scheduled_for": "2026-08-28T06:00:00Z",
+        "created_at": "2026-08-28T06:50:00.999999Z"
+      },
+      "deadline_policy": {
+        "trigger_started_at": "2026-08-28T06:00:00.1234567Z",
+        "trigger_window_end": "2026-08-28T06:29:59Z",
+        "write_timeout_seconds": 600,
+        "write_deadline": "2026-08-28T06:10:00.123456Z",
+        "write_completed_at": "2026-08-28T06:05:00.654321Z",
+        "agent_timeout_seconds": 3000,
+        "agent_deadline": "2026-08-28T06:55:00.654321Z",
+        "agent_completed_at": "2026-08-28T06:50:00.999999Z",
+        "execution_timeout_seconds": 3600,
+        "authoritative_end_to_end_deadline": "2026-08-28T06:29:59Z"
       }
     },
     {

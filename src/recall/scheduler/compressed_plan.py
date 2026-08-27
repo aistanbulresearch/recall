@@ -8,6 +8,11 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from recall.contracts.errors import ContractError
+from recall.contracts.payloads.scheduler_v33 import (
+    require_deadline_completion_binding,
+)
+
 
 PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
@@ -421,6 +426,15 @@ def verify_manifest_against_plan(
         raise RuntimeError("compressed_manifest_plan_mismatch")
     if manifest.schema_version == "3.3.0":
         _verify_deadline_policy_against_cycle(payload.deadline_policy, cycle)
+        try:
+            require_deadline_completion_binding(
+                manifest.created_at,
+                payload.deadline_policy,
+            )
+        except ContractError as exc:
+            raise ManifestDeadlinePlanMismatch(
+                "compressed_manifest_deadline_plan_mismatch"
+            ) from exc
     completed_at = datetime.fromisoformat(manifest.created_at.replace("Z", "+00:00"))
     end_to_end_deadline = cycle.window_start + timedelta(
         seconds=cycle.execution_timeout_seconds

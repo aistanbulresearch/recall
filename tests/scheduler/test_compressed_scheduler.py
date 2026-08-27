@@ -16,19 +16,15 @@ from recall.contracts import AgentRole, ContractError, content_hash, parse_artif
 from recall.agents.full_audit import FullAuditCoordinator
 from recall.controller.tool_gateway_store import InMemoryGatewayInvocationStore
 from recall.ledger import COLLECTION_NAMES
-from recall.ledger.memory import InMemoryLedger
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed import CompressedCycleScheduler
 from recall.scheduler.compressed_cohort import cases_for_cycle
 from recall.scheduler.compressed_identity import evidence_legacy_failure_receipt_id
 from recall.scheduler.compressed_plan import (
-    PLAN3_SHA256,
-    PredecessorBinding,
     load_compressed_plan,
 )
 from recall.scheduler.compressed_preparation import (
     DEFAULT_COMPRESSED_BUNDLE_PATH,
-    CompressedPreparationVerifier,
     install_prepared_cycle,
     load_compressed_bundle,
 )
@@ -52,73 +48,18 @@ from tests.scheduler.compressed_bundle_fixture import (
     rebound_bundle_wire,
     write_rebound_test_repo,
 )
+from tests.support.compressed_v33_manifest import (
+    IMAGE_DIGEST,
+    bind_test_c2 as _bind_test_c2,
+    load_plan_bundle as _loaded,
+    make_full_audit as _full_audit,
+    make_ledger as _ledger,
+    run_c3 as _run_c3,
+    run_legacy_history as _run_legacy_history,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
-IMAGE_DIGEST = "sha256:" + "a" * 64
-
-
-class _LiveMemoryLedger(InMemoryLedger):
-    def backend_metadata(self):
-        return {
-            "persistence_surface": "LIVE_FIRESTORE",
-            "project_sha256": "test-only",
-            "database": "(default)",
-        }
-
-
-def _loaded():
-    plan = load_compressed_plan(ROOT)
-    bundle, bundle_sha = load_rebound_test_bundle(ROOT, plan)
-    return plan, _test_only_full_audit_receipts(bundle), bundle_sha
-
-
-def _test_only_full_audit_receipts(bundle):
-    """Unit-only receipts; production rows stay legacy and fail closed."""
-
-    cases = []
-    for item in bundle.cases:
-        if item.cycle_id in {"c3", "c4", "c5", "c6"}:
-            receipt = dict(item.privacy_receipt)
-            receipt["schema_version"] = "1.1.0"
-            gemma = dict(receipt["detectors"]["gemma"])
-            gemma.update({"invoked": True, "schema_valid": True})
-            receipt["detectors"] = {
-                **receipt["detectors"],
-                "gemma": gemma,
-            }
-            receipt.update(
-                {
-                    "execution_locus": "LAB_LOCAL",
-                    "transport_class": "LOCAL_PROCESS",
-                    "endpoint_class": "OLLAMA_LOCAL",
-                    "model_id": "gemma4:e4b-it-qat",
-                    "model_revision": "sha256:" + "a" * 64,
-                }
-            )
-            receipt["content_hash"] = content_hash(receipt)
-            item = replace(item, privacy_receipt=receipt)
-        cases.append(item)
-    return replace(
-        bundle,
-        cases=tuple(cases),
-        privacy_receipt_source_lock={
-            "source_sha256": "b" * 64,
-            "key_id": "test-only",
-            "algorithm": "HMAC-SHA256",
-            "key_fingerprint_sha256": "c" * 64,
-        },
-        lab_note_source_lock={
-            "source_sha256": "d" * 64,
-            "schema_version": "1.1.0",
-            "notes_version": "test-only",
-        },
-    )
-
-
-def _ledger(bundle, *, live=False):
-    cls = _LiveMemoryLedger if live else InMemoryLedger
-    return cls(privacy_receipt_verifier=CompressedPreparationVerifier(bundle))
 
 
 def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
@@ -166,16 +107,6 @@ def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
         )
 
 
-def _full_audit(ledger, *, now):
-    return FullAuditCoordinator(
-        ledger,
-        role_runner=DeterministicFullAuditRunner(now=now),
-        invocation_store=InMemoryGatewayInvocationStore(),
-        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
-        cost_policy=DEFAULT_MODEL_COST_POLICY,
-    )
-
-
 def test_stale_committed_bundle_fails_before_ledger_construction() -> None:
     plan = load_compressed_plan(ROOT)
     bundle_sha = hashlib.sha256(
@@ -216,62 +147,6 @@ def test_legacy_privacy_rows_fail_closed_for_full_audit_without_writes() -> None
         collection: ledger.read_back_count(collection)
         for collection in COLLECTION_NAMES
     } == before
-
-
-def _run_legacy_history():
-    plan, bundle, _sha = _loaded()
-    c1 = replace(plan.by_id("c1"), write_path="SERIAL_VERIFIED")
-    plan3 = replace(plan, sha256=PLAN3_SHA256, cycles=(c1, *plan.cycles[1:]))
-    l1 = _ledger(bundle)
-    install_prepared_cycle(l1, bundle, plan3, c1, now=c1.window_start)
-    r1 = CompressedCycleScheduler(
-        l1, plan=plan3, cycle=c1, bundle=bundle,
-        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
-    ).trigger(now=c1.window_start, previous_manifest=None)
-    m1 = l1.get_artifact(r1.manifest_artifact_id)
-    assert m1 is not None
-
-    c2 = replace(plan.by_id("c2"), write_path="SERIAL_VERIFIED")
-    plan2 = replace(plan, cycles=(plan.cycles[0], c2, *plan.cycles[2:]))
-    l2 = _ledger(bundle)
-    install_prepared_cycle(l2, bundle, plan2, c2, now=c2.window_start)
-    r2 = CompressedCycleScheduler(
-        l2, plan=plan2, cycle=c2, bundle=bundle,
-        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
-    ).trigger(now=c2.window_start, previous_manifest=m1)
-    m2 = l2.get_artifact(r2.manifest_artifact_id)
-    mode2 = l2.get_artifact(r2.data_mode_receipt_id)
-    assert m2 is not None and mode2 is not None
-    return plan, bundle, l2, m2, mode2
-
-
-def _bind_test_c2(plan, m2, mode2):
-    binding = PredecessorBinding(
-        "EXTERNAL_PLAN", "c2", plan.sha256, "test_plan5_c2_",
-        str(m2["artifact_id"]), str(m2["content_hash"]),
-        str(mode2["artifact_id"]), str(mode2["content_hash"]),
-    )
-    c3 = replace(plan.by_id("c3"), predecessor=binding)
-    return replace(plan, cycles=(*plan.cycles[:2], c3, *plan.cycles[3:])), c3
-
-
-def _run_c3(*, live=True):
-    plan, bundle, predecessor, m2, mode2 = _run_legacy_history()
-    plan, c3 = _bind_test_c2(plan, m2, mode2)
-    target = _ledger(bundle, live=live)
-    install_prepared_cycle(target, bundle, plan, c3, now=c3.window_start)
-    gate = evaluate_and_persist_ramp_gate(
-        plan=plan, target_cycle=c3, predecessor_ledger=predecessor,
-        target_ledger=target, now=c3.window_start,
-    )
-    result = CompressedCycleScheduler(
-        target, plan=plan, cycle=c3, bundle=bundle,
-        source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
-        full_audit_coordinator=_full_audit(target, now=c3.window_start),
-    ).trigger(
-        now=c3.window_start, previous_manifest=m2, ramp_gate_receipt=gate
-    )
-    return plan, bundle, c3, target, gate, result
 
 
 def _coherently_repartition_c3_deadlines(
