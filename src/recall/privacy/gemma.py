@@ -176,6 +176,13 @@ OLLAMA_DEFAULT_OPTIONS: dict[str, Any] = {
 OLLAMA_DEFAULT_KEEP_ALIVE = "30m"
 
 
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Raises on every redirect; used whenever a request carries credentials."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        raise TransportUnavailable(f"redirect refused on authenticated request: {code}")
+
+
 @dataclass
 class OllamaChatTransport:
     """Client for a laboratory-local Ollama server.
@@ -238,7 +245,8 @@ class OllamaChatTransport:
         if self.response_format:
             body["format"] = self.response_format
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        if self.auth_header_provider is not None:
+        authenticated = self.auth_header_provider is not None
+        if authenticated:
             headers.update(self.auth_header_provider())
         request = urllib.request.Request(
             url=f"{self.base_url.rstrip('/')}{self.api_path}",
@@ -247,7 +255,15 @@ class OllamaChatTransport:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            if authenticated:
+                # A redirect would re-send the Authorization header to whatever
+                # location the server names, so an authenticated request never
+                # follows one: any 3xx is a hard transport failure.
+                opener = urllib.request.build_opener(_RefuseRedirects)
+                context_manager = opener.open(request, timeout=timeout_seconds)
+            else:
+                context_manager = urllib.request.urlopen(request, timeout=timeout_seconds)
+            with context_manager as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except TimeoutError as error:  # pragma: no cover - environment dependent
             raise TransportTimeout(str(error)) from error

@@ -207,3 +207,76 @@ describe('3.3.0 declared deadline', () => {
   });
 });
 
+describe('adversarial regressions, closed', () => {
+  it('(d) an earlier declaration TIGHTENS the window; late-but-in-window withholds', () => {
+    // Run finishes inside its own window but past the declared deadline: the
+    // Math.max regression read this as on time; the declaration is the
+    // boundary in both directions.
+    const row = {
+      sequence_index: 3,
+      source_schema_version: 'CohortDayManifest/3.0.0',
+      cycle_id: 'c1',
+      cycle_index: 1,
+      cohort_due_date: '2026-08-27',
+      scheduled_for: '2026-08-27T20:00:00Z',
+      window_start: '2026-08-27T20:00:00Z',
+      window_end: '2026-08-27T23:00:00Z',
+      trigger_code: 'COHORT_COMPRESSED_MACHINE_TRIGGERED',
+      executed_at: '2026-08-27T22:30:00Z',
+      runs_created: 2,
+      runs_predicted: 2,
+      execution_status: 'COMPLETE',
+      failure_receipt_id: null,
+      evidence_state: 'LIVE_INFRASTRUCTURE_SYNTHETIC_DATA',
+      schedule_mode: 'COMPRESSED_MACHINE_TRIGGERED',
+    };
+    const span = operationSpan([...example.execution_history, row], {
+      endToEndDeadline: '2026-08-27T21:00:00Z',
+    });
+    expect(span.proven).toBe(false);
+    expect(span.withheldBecause).toBe(
+      'a compressed cycle ran past the declared end-to-end deadline',
+    );
+  });
+
+  const VALID_POLICY = {
+    write_deadline: '2026-08-27T21:00:00Z',
+    write_completed_at: '2026-08-27T20:40:00Z',
+    agent_timeout_seconds: 600,
+    agent_deadline: '2026-08-27T22:00:00Z',
+    agent_completed_at: '2026-08-27T21:50:00Z',
+    execution_timeout_seconds: 3600,
+    authoritative_end_to_end_deadline: '2026-08-27T23:00:00Z',
+  };
+
+  it('(e) malformed deadline blocks become INCOMPLETE, never KNOWN', () => {
+    const missingField = { ...VALID_POLICY } as Record<string, unknown>;
+    delete missingField.write_deadline;
+    const extraField = { ...VALID_POLICY, surprise: 1 };
+    const badType = { ...VALID_POLICY, agent_timeout_seconds: 'soon' };
+    const badChronology = {
+      ...VALID_POLICY,
+      authoritative_end_to_end_deadline: '2026-08-27T20:00:00Z',
+    };
+    const notUtc = { ...VALID_POLICY, write_deadline: '2026-08-27T21:00:00' };
+    for (const [label, policy] of Object.entries({
+      missingField,
+      extraField,
+      badType,
+      badChronology,
+      notUtc,
+    })) {
+      const { fields } = build([
+        v32Manifest({ schema_version: '3.3.0', deadline_policy: policy }),
+      ]);
+      expect(fields['UI-COHORT-DEADLINE-POLICY'].status, label).toBe('INCOMPLETE');
+      expect(fields['UI-COHORT-DEADLINE-POLICY'].value, label).toBeNull();
+    }
+    // And the valid block still resolves.
+    const { fields } = build([
+      v32Manifest({ schema_version: '3.3.0', deadline_policy: VALID_POLICY }),
+    ]);
+    expect(fields['UI-COHORT-DEADLINE-POLICY'].status).toBe('KNOWN');
+  });
+});
+

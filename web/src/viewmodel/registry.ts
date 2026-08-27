@@ -43,11 +43,67 @@ export interface FieldSpec {
   /** Registry rule: hide the panel rather than fabricate a pass. */
   hideWhenMissing?: boolean;
   /**
+   * Full-shape validation applied BEFORE derivation. A malformed source value
+   * becomes INCOMPLETE, never KNOWN: the web surface must not accept what the
+   * core parser would reject.
+   */
+  validate?: (value: unknown) => boolean;
+  /**
    * An empty collection may render as zero only when this guard path resolves.
    * The contract states that an empty backlog is meaningful only after a
    * verified transition explicitly cleared it; missing is not zero.
    */
   zeroRequiresGuard?: string;
+}
+
+/**
+ * Mirror of the 3.3.0 deadline_policy contract: exactly these fields, UTC-Z
+ * timestamps that parse, integer timeouts, and chronology that holds
+ * (completions inside their deadlines, both deadlines inside the end-to-end
+ * boundary). Anything else is INCOMPLETE on the surface, exactly as it is a
+ * rejection in the core parser.
+ */
+export function validDeadlinePolicy(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  const timestampFields = [
+    'write_deadline',
+    'write_completed_at',
+    'agent_deadline',
+    'agent_completed_at',
+    'authoritative_end_to_end_deadline',
+  ];
+  const integerFields = ['agent_timeout_seconds', 'execution_timeout_seconds'];
+  const expected = new Set([...timestampFields, ...integerFields]);
+  const keys = Object.keys(record);
+  if (keys.length !== expected.size || keys.some((key) => !expected.has(key))) {
+    return false;
+  }
+  const parsed: Record<string, number> = {};
+  for (const field of timestampFields) {
+    const raw = record[field];
+    if (typeof raw !== 'string' || !raw.endsWith('Z')) {
+      return false;
+    }
+    const ms = Date.parse(raw);
+    if (Number.isNaN(ms)) {
+      return false;
+    }
+    parsed[field] = ms;
+  }
+  for (const field of integerFields) {
+    if (typeof record[field] !== 'number' || !Number.isInteger(record[field])) {
+      return false;
+    }
+  }
+  return (
+    parsed.write_completed_at <= parsed.write_deadline &&
+    parsed.agent_completed_at <= parsed.agent_deadline &&
+    parsed.write_deadline <= parsed.authoritative_end_to_end_deadline &&
+    parsed.agent_deadline <= parsed.authoritative_end_to_end_deadline
+  );
 }
 
 export const FIELD_SPECS: readonly FieldSpec[] = [
@@ -416,6 +472,7 @@ export const FIELD_SPECS: readonly FieldSpec[] = [
     group: 'cohort',
     artifactType: 'CohortDayManifest',
     jsonPath: '$.deadline_policy',
+    validate: validDeadlinePolicy,
     derivation: {
       kind: 'record',
       valueProperty: 'authoritative_end_to_end_deadline',

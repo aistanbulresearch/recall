@@ -44,6 +44,9 @@ from recall.privacy.gemma import (  # noqa: E402
     OllamaChatTransport,
 )
 from recall.privacy.minimizer import LabNote  # noqa: E402
+from recall.privacy.receipt import verify_privacy_receipt  # noqa: E402
+from recall.privacy.signing import content_hash  # noqa: E402
+from recall.privacy.minimizer import build_cloud_bound_payload  # noqa: E402
 from recall.privacy.signing import (  # noqa: E402
     LocalSigner,
     load_signer,
@@ -58,6 +61,24 @@ OUT_DIR = ROOT / "artifacts" / "evidence" / "full-cohort-receipts"
 # P1 evidence identity block; the prep gate rejects any other id.
 MODEL_ID = "gemma4:e4b-it-qat"
 MODEL_REVISION = "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d"
+# The one Vertex endpoint approved to receive the access token (L1 deploy,
+# 2026-08-27). A different endpoint id is a refusal, not a parameter.
+APPROVED_VERTEX_ENDPOINT_ID = "9183372353592098816"
+
+
+def _gcloud_project() -> str:
+    import subprocess
+
+    from gcloud_identity_provider import _gcloud_executable
+
+    completed = subprocess.run(
+        [_gcloud_executable(), "config", "get-value", "project"],
+        capture_output=True, text=True, timeout=30,
+    )
+    project = completed.stdout.strip()
+    if completed.returncode != 0 or not project:
+        raise RuntimeError("gcloud_project_unresolved")
+    return project
 
 POSTURES: dict[str, dict[str, str]] = {
     # How the model leg actually runs today: Ollama as a local process.
@@ -158,6 +179,40 @@ def main() -> int:
     locus = dict(POSTURES[args.posture])
     is_cloud_url = args.base_url.startswith("https://")
 
+    if args.posture == "cloud":
+        # CREDENTIAL GUARD. The access token goes wherever base_url points, so
+        # "starts with https" is not a check, it is an invitation: any https
+        # host would receive the token. The URL must be EXACTLY the approved
+        # Vertex rawPredict invoke URL for this project and endpoint; userinfo,
+        # query, fragment, port and any other host, region, project, endpoint
+        # or path are refusals, before any token is minted.
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(args.base_url)
+        expected_host = "us-central1-aiplatform.googleapis.com"
+        project = _gcloud_project()
+        expected_path = (
+            f"/v1/projects/{project}/locations/us-central1/endpoints/"
+            f"{APPROVED_VERTEX_ENDPOINT_ID}:rawPredict"
+        )
+        problems = []
+        if parts.scheme != "https":
+            problems.append("scheme is not https")
+        if parts.hostname != expected_host:
+            problems.append(f"host is not {expected_host}")
+        if parts.port is not None:
+            problems.append("explicit port is not allowed")
+        if parts.username is not None or parts.password is not None:
+            problems.append("userinfo is not allowed")
+        if parts.query or parts.fragment:
+            problems.append("query/fragment are not allowed")
+        if parts.path != expected_path:
+            problems.append("path is not the approved rawPredict invoke path")
+        if problems:
+            return _fail(
+                "base_url failed the credential guard: " + "; ".join(problems)
+            )
+
     # Honesty gate: the declaration must match the wiring, both directions.
     if args.posture == "cloud" and not is_cloud_url:
         return _fail("cloud posture declared but base_url is not https")
@@ -243,6 +298,35 @@ def main() -> int:
     if args.limit:
         notes = notes[: args.limit]
 
+    # OS-level exclusive run lease: two concurrent processes on the same output
+    # directory would each pay for the same model calls and interleave the
+    # checkpoint. The lease file is created with O_EXCL; a leftover lease from
+    # a crashed run (its PID no longer alive) is taken over, a live one refuses.
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    lease_path = OUT_DIR / "run.lease"
+    import os as _os
+
+    def _pid_alive(pid: int) -> bool:
+        try:
+            _os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
+
+    if lease_path.exists():
+        try:
+            lease = json.loads(lease_path.read_text(encoding="utf-8"))
+            holder = int(lease.get("pid", -1))
+        except (ValueError, json.JSONDecodeError):
+            holder = -1
+        if holder > 0 and _pid_alive(holder):
+            return _fail(f"another run holds the lease (pid {holder}); refusing to duplicate paid calls")
+        lease_path.unlink()
+    run_id = secrets.token_hex(8)
+    fd = _os.open(str(lease_path), _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY)
+    with _os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump({"pid": _os.getpid(), "run_id": run_id}, handle)
+
     # Append-only checkpoint: one JSONL line per finished case, header bound to
     # everything that makes receipts mixable-or-not. A crash at case 455 costs
     # one retry, not 455 paid calls; a resume against DIFFERENT notes, posture,
@@ -263,18 +347,73 @@ def main() -> int:
                 "the output directory to start over (never silently mixed)"
             )
         lines = checkpoint_path.read_text(encoding="utf-8").splitlines()
-        header = json.loads(lines[0])
+        try:
+            header = json.loads(lines[0])
+        except (json.JSONDecodeError, IndexError):
+            return _fail("checkpoint header unreadable; not recoverable")
         if header != context:
             return _fail(f"checkpoint context mismatch: {header} != {context}")
-        for line in lines[1:]:
-            entry = json.loads(line)
-            if "receipt" in entry:
-                done[entry["case_id"]] = entry["receipt"]
-        print(f"resume: {len(done)} receipted cases will be skipped")
+        # Torn-tail tolerance: a crash mid-append can leave EXACTLY ONE partial
+        # final line. That one is dropped and the file atomically rewritten
+        # without it; any other malformed line is corruption and refuses.
+        parsed_entries: list[dict] = []
+        torn = False
+        for index, line in enumerate(lines[1:], start=2):
+            try:
+                parsed_entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                if index == len(lines):
+                    torn = True
+                else:
+                    return _fail(f"checkpoint line {index} malformed mid-file; not a torn tail")
+        if torn:
+            repaired = "\n".join(lines[:-1]) + "\n"
+            tmp = checkpoint_path.with_suffix(".repair")
+            tmp.write_text(repaired, encoding="utf-8", newline="\n")
+            tmp.replace(checkpoint_path)
+            print("torn checkpoint tail dropped (one partial final line), file rewritten")
+
+        # Every resumed receipt is VERIFIED, never trusted: signature against
+        # the persisted signer, case identity, accepted decision, gemma leg
+        # success, the exact locus of this run, and payload binding recomputed
+        # from the notes. A checkpoint is input, and input gets the same
+        # treatment as any other wire.
+        notes_by_id = {n["case_id"]: n for n in _load_notes()}
+        seen_ids: set[str] = set()
+        for entry in parsed_entries:
+            case_id = entry.get("case_id")
+            if "receipt" not in entry:
+                continue
+            receipt = entry["receipt"]
+            if case_id in seen_ids:
+                return _fail(f"checkpoint holds duplicate case {case_id}")
+            seen_ids.add(case_id)
+            note_entry = notes_by_id.get(case_id)
+            if note_entry is None:
+                return _fail(f"checkpoint holds unknown case {case_id}")
+            valid, reasons = verify_privacy_receipt(dict(receipt), signer)
+            gemma_block = receipt.get("detectors", {}).get("gemma", {})
+            expected_payload = build_cloud_bound_payload(_lab_note(note_entry), case_id)
+            payload_hash = content_hash(expected_payload)
+            if (
+                not valid
+                or receipt.get("case_id") != case_id
+                or receipt.get("schema_version") != "1.1.0"
+                or receipt.get("decision") != "ACCEPTED"
+                or gemma_block.get("invoked") is not True
+                or gemma_block.get("schema_valid") is not True
+                or any(receipt.get(f) != locus[f] for f in locus)
+                or receipt.get("payload_hash") != payload_hash
+            ):
+                return _fail(
+                    f"checkpoint receipt for {case_id} failed verification "
+                    f"(signature_ok={valid} reasons={reasons}); refusing to resume over it"
+                )
+            done[case_id] = receipt
+        print(f"resume: {len(done)} receipted cases verified and skipped")
     else:
         if args.resume:
             return _fail("resume requested but no checkpoint exists")
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
         checkpoint_path.write_text(
             json.dumps(context, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
         )
@@ -369,7 +508,7 @@ def main() -> int:
     }
     out_path = OUT_DIR / "privacy-receipts.json"
     payload = json.dumps(wire, ensure_ascii=False, sort_keys=True, indent=1) + "\n"
-    tmp_out = out_path.with_suffix(".tmp")
+    tmp_out = out_path.with_suffix(f".{run_id}.tmp")
     tmp_out.write_text(payload, encoding="utf-8", newline="\n")
     tmp_out.replace(out_path)
     digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
@@ -389,13 +528,15 @@ def main() -> int:
         "verifier_lock_fingerprint_sha256": fingerprint,
         "transport": transport.request_settings(),
         "concurrency": args.concurrency,
+        "final_publish_run_id": run_id,
     }
     manifest_path = OUT_DIR / "RUN_MANIFEST.json"
-    tmp_manifest = manifest_path.with_suffix(".tmp")
+    tmp_manifest = manifest_path.with_suffix(f".{run_id}.tmp")
     tmp_manifest.write_text(
         json.dumps(manifest, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
     )
     tmp_manifest.replace(manifest_path)
+    lease_path.unlink(missing_ok=True)
     print(
         f"DONE: {len(receipts)} receipts in {elapsed_minutes:.1f}min, "
         f"sha256 {digest}, held out {len(held_out)} (inherit_case_binding)"

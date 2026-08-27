@@ -214,7 +214,11 @@ export function operationSpan(
     const start = Date.parse(String(row.window_start));
     const end = Date.parse(String(row.window_end));
     const declared = options.endToEndDeadline ? Date.parse(options.endToEndDeadline) : NaN;
-    const boundary = Number.isNaN(declared) ? end : Math.max(end, declared);
+    // When a valid declaration exists it IS the boundary, in both directions:
+    // an earlier declaration tightens the window, a later one extends it.
+    // Math.max here would let a run finishing after the declared deadline but
+    // before window_end read as on time, which is the opposite of a contract.
+    const boundary = Number.isNaN(declared) ? end : declared;
     if (Number.isNaN(start) || Number.isNaN(end) || executed < start || executed > boundary) {
       return weak(
         Number.isNaN(declared)

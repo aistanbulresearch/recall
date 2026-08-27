@@ -208,6 +208,11 @@ function buildField(
   if (!resolved.found || resolved.value === null) {
     return missingField(spec, derivedAt);
   }
+  if (spec.validate && !spec.validate(resolved.value)) {
+    // Present but malformed: INCOMPLETE, never KNOWN. The surface must not
+    // accept what the core parser would reject.
+    return { ...missingField(spec, derivedAt), status: 'INCOMPLETE', hidden: false };
+  }
 
   const base: ViewField = {
     ...missingField(spec, derivedAt),

@@ -143,11 +143,14 @@ def test_auth_header_provider_is_called_per_request(monkeypatch) -> None:
         def read(self):
             return b'{"message": {"content": "{}"}}'
 
-    def fake_urlopen(request, timeout):
-        seen.append(request.get_header("Authorization"))
-        return _Response()
+    class _Opener:
+        def open(self, request, timeout):
+            seen.append(request.get_header("Authorization"))
+            return _Response()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    # Authenticated requests go through a redirect-refusing opener, never bare
+    # urlopen; the test patches the opener factory accordingly.
+    monkeypatch.setattr(urllib.request, "build_opener", lambda *handlers: _Opener())
     transport = OllamaChatTransport(
         base_url="https://gpu.internal.example",
         model_id="gemma-test",
@@ -207,4 +210,15 @@ def test_api_path_empty_posts_to_base_url_as_is(monkeypatch) -> None:
     assert urls[0].endswith(":rawPredict")
     assert "/api/chat" not in urls[0]
     assert urls[1].endswith("/api/chat")
+
+def test_authenticated_requests_refuse_redirects() -> None:
+    """A redirect would re-send the bearer to whatever host the server names."""
+
+    import pytest
+
+    from recall.privacy.gemma import TransportUnavailable, _RefuseRedirects
+
+    handler = _RefuseRedirects()
+    with pytest.raises(TransportUnavailable, match="redirect refused"):
+        handler.redirect_request(None, None, 302, "Found", {}, "https://elsewhere/x")
 
