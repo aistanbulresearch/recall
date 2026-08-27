@@ -25,6 +25,10 @@ PLAN3_C1_MANIFEST_ID = "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
+class ManifestDeadlinePlanMismatch(RuntimeError):
+    """Manifest phase budgets disagree with its immutable resolved cycle."""
+
+
 @dataclass(frozen=True, slots=True)
 class PredecessorBinding:
     binding: str
@@ -415,6 +419,8 @@ def verify_manifest_against_plan(
         != expected_legacy_failure_receipt_id
     ):
         raise RuntimeError("compressed_manifest_plan_mismatch")
+    if manifest.schema_version == "3.3.0":
+        _verify_deadline_policy_against_cycle(payload.deadline_policy, cycle)
     completed_at = datetime.fromisoformat(manifest.created_at.replace("Z", "+00:00"))
     end_to_end_deadline = cycle.window_start + timedelta(
         seconds=cycle.execution_timeout_seconds
@@ -449,6 +455,49 @@ def verify_manifest_against_plan(
         )
         if observed != locked:
             raise RuntimeError("compressed_manifest_history_plan_mismatch")
+
+
+def _verify_deadline_policy_against_cycle(
+    deadline: Any,
+    cycle: CompressedCycle,
+) -> None:
+    trigger_started_at = _parse_timestamp(deadline["trigger_started_at"])
+    write_completed_at = _parse_timestamp(deadline["write_completed_at"])
+    end_to_end_deadline = cycle.end_to_end_deadline
+    expected = (
+        cycle.execution_timeout_seconds,
+        cycle.write_timeout_seconds,
+        cycle.agent_timeout_seconds,
+        _timestamp(cycle.window_end),
+        _timestamp(
+            min(
+                trigger_started_at
+                + timedelta(seconds=cycle.write_timeout_seconds),
+                end_to_end_deadline,
+            )
+        ),
+        _timestamp(
+            min(
+                write_completed_at
+                + timedelta(seconds=cycle.agent_timeout_seconds),
+                end_to_end_deadline,
+            )
+        ),
+        _timestamp(end_to_end_deadline),
+    )
+    observed = (
+        deadline["execution_timeout_seconds"],
+        deadline["write_timeout_seconds"],
+        deadline["agent_timeout_seconds"],
+        deadline["trigger_window_end"],
+        deadline["write_deadline"],
+        deadline["agent_deadline"],
+        deadline["authoritative_end_to_end_deadline"],
+    )
+    if observed != expected:
+        raise ManifestDeadlinePlanMismatch(
+            "compressed_manifest_deadline_plan_mismatch"
+        )
 
 
 def _parse_timestamp(value: Any) -> datetime:

@@ -6,6 +6,7 @@ from typing import Any
 
 from recall.contracts import (
     ArtifactStatus,
+    ContractError,
     DataMode,
     build_artifact,
     canonical_json_bytes,
@@ -28,6 +29,7 @@ from .compressed_identity import (
 from .compressed_plan import (
     CompressedCycle,
     CompressedPlan,
+    ManifestDeadlinePlanMismatch,
     verify_manifest_against_plan,
 )
 from .compressed_batch_receipt import verify_batch_execution_binding
@@ -196,6 +198,16 @@ def _build_headroom_receipt(
                         reasons.append("batch_receipt_missing_or_unbound")
                 if status != "VALID" or not parsed.payload.delta["prediction_match"]:
                     reasons.append("manifest_not_valid")
+            except ContractError as exc:
+                if (
+                    exc.code == "contract_value_invalid"
+                    and exc.detail == "deadline_policy.plan_binding"
+                ):
+                    reasons.append("manifest_deadline_plan_mismatch")
+                else:
+                    reasons.append("manifest_parse_failed")
+            except ManifestDeadlinePlanMismatch:
+                reasons.append("manifest_deadline_plan_mismatch")
             except Exception:
                 reasons.append("manifest_parse_failed")
             mode_id = evidence_mode_receipt_artifact_id(plan, cycle)

@@ -4,8 +4,9 @@ import hashlib
 import json
 from copy import deepcopy
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
@@ -19,6 +20,7 @@ from recall.ledger.memory import InMemoryLedger
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed import CompressedCycleScheduler
 from recall.scheduler.compressed_cohort import cases_for_cycle
+from recall.scheduler.compressed_identity import evidence_legacy_failure_receipt_id
 from recall.scheduler.compressed_plan import (
     PLAN3_SHA256,
     PredecessorBinding,
@@ -33,7 +35,11 @@ from recall.scheduler.compressed_preparation import (
 from recall.scheduler.compressed_ramp_gate import (
     evaluate_and_persist_ramp_gate,
 )
-from recall.scheduler.compressed_headroom import _build_headroom_receipt
+from recall.scheduler.compressed_headroom import (
+    _build_headroom_receipt,
+    evaluate_and_persist_headroom,
+)
+from recall.scheduler.compressed_plan import verify_manifest_against_plan
 from recall.scheduler.entrypoint import execute
 from recall.scheduler.history import DAY1_EVIDENCE_PATH
 from recall.scheduler.model_cost import (
@@ -252,6 +258,39 @@ def _run_c3(*, live=True):
         now=c3.window_start, previous_manifest=m2, ramp_gate_receipt=gate
     )
     return plan, bundle, c3, target, gate, result
+
+
+def _coherently_repartition_c3_deadlines(
+    wire: dict[str, object],
+) -> dict[str, object]:
+    mutated = deepcopy(wire)
+    deadline = mutated["deadline_policy"]
+    assert isinstance(deadline, dict)
+    trigger = datetime.fromisoformat(
+        str(deadline["trigger_started_at"]).replace("Z", "+00:00")
+    )
+    write_completed = datetime.fromisoformat(
+        str(deadline["write_completed_at"]).replace("Z", "+00:00")
+    )
+    end_to_end = datetime.fromisoformat(
+        str(deadline["authoritative_end_to_end_deadline"]).replace(
+            "Z", "+00:00"
+        )
+    )
+    deadline.update(
+        {
+            "write_timeout_seconds": 3599,
+            "write_deadline": min(
+                trigger + timedelta(seconds=3599), end_to_end
+            ).isoformat().replace("+00:00", "Z"),
+            "agent_timeout_seconds": 1,
+            "agent_deadline": min(
+                write_completed + timedelta(seconds=1), end_to_end
+            ).isoformat().replace("+00:00", "Z"),
+        }
+    )
+    mutated["content_hash"] = content_hash(mutated)
+    return mutated
 
 
 def test_executed_c1_c2_are_immutable_before_ledger_construction() -> None:
@@ -630,6 +669,37 @@ def test_c6_headroom_denies_illegal_event_code_and_missing_batch_receipt() -> No
     assert parsed.payload.decision == "DENIED"
 
 
+def test_c6_headroom_denies_coherent_deadline_repartition_without_c6_writes() -> None:
+    plan, bundle, _c3, ledger, _gate, result = _run_c3()
+    manifest = ledger.get_artifact(result.manifest_artifact_id)
+    assert manifest is not None
+    ledger._artifacts[result.manifest_artifact_id] = (
+        _coherently_repartition_c3_deadlines(manifest)
+    )
+    c6_ledger = _ledger(bundle, live=True)
+
+    receipt = evaluate_and_persist_headroom(
+        plan=plan,
+        c6_cycle=plan.by_id("c6"),
+        prior_ledgers={"c3": ledger},
+        c6_ledger=c6_ledger,
+    )
+    parsed = parse_artifact(receipt, authorized_producers=PRODUCER_REGISTRY)
+    c3_row = next(
+        item
+        for item in parsed.payload.observed_cycles
+        if item["cycle_id"] == "c3"
+    )
+
+    assert "manifest_deadline_plan_mismatch" in c3_row["reason_codes"]
+    assert parsed.payload.decision == "DENIED"
+    assert c6_ledger.read_back_count("artifacts") == 1
+    assert c6_ledger.read_back_count("scan_runs") == 0
+    assert c6_ledger.read_back_count("scan_run_events") == 0
+    assert c6_ledger.read_back_count("review_tasks") == 0
+    assert c6_ledger.read_back_count("watch_cases") == 0
+
+
 def test_existing_manifest_requires_its_durable_batch_receipt_before_retry() -> None:
     plan, bundle, c3, ledger, gate, result = _run_c3()
     manifest = parse_artifact(
@@ -868,6 +938,58 @@ def test_agent_deadline_overrun_persists_parseable_incomplete_manifest(
         completed_after_deadline.isoformat().replace("+00:00", "Z")
     )
     assert result.data_mode_receipt_id is None
+
+
+def test_v33_parser_rejects_coherent_deadline_repartition() -> None:
+    _plan, _bundle, _c3, ledger, _gate, result = _run_c3()
+    wire = ledger.get_artifact(result.manifest_artifact_id)
+    assert wire is not None
+    mutated = _coherently_repartition_c3_deadlines(wire)
+
+    with pytest.raises(
+        ContractError, match="contract_value_invalid:deadline_policy.plan_binding"
+    ):
+        parse_artifact(mutated, authorized_producers=PRODUCER_REGISTRY)
+
+
+def test_v33_parser_rejects_unknown_plan_phase_binding() -> None:
+    _plan, _bundle, _c3, ledger, _gate, result = _run_c3()
+    wire = deepcopy(ledger.get_artifact(result.manifest_artifact_id))
+    assert wire is not None
+    wire["plan_sha256"] = "f" * 64
+    wire["content_hash"] = content_hash(wire)
+
+    with pytest.raises(
+        ContractError, match="contract_value_invalid:deadline_policy.plan_binding"
+    ):
+        parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+
+
+def test_plan_verifier_rejects_coherent_deadline_repartition() -> None:
+    plan, _bundle, c3, ledger, _gate, result = _run_c3()
+    wire = ledger.get_artifact(result.manifest_artifact_id)
+    assert wire is not None
+    parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    mutated_wire = _coherently_repartition_c3_deadlines(wire)
+    mutated_deadline = MappingProxyType(
+        dict(mutated_wire["deadline_policy"])
+    )
+    mutated_payload = replace(
+        parsed.payload,
+        deadline_policy=mutated_deadline,
+    )
+    bypassed_parser = replace(parsed, payload=mutated_payload)
+
+    with pytest.raises(
+        RuntimeError, match="compressed_manifest_deadline_plan_mismatch"
+    ):
+        verify_manifest_against_plan(
+            bypassed_parser,
+            plan,
+            expected_legacy_failure_receipt_id=(
+                evidence_legacy_failure_receipt_id(plan)
+            ),
+        )
 
 
 def test_v33_manifest_rejects_unbound_authoritative_deadline() -> None:

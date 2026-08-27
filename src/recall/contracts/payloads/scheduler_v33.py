@@ -29,6 +29,31 @@ _DEADLINE_FIELDS = frozenset(
     }
 )
 
+_APPROVED_PHASE_BUDGETS = MappingProxyType(
+    {
+        (
+            "COMPRESSED_PREDICTION_PLAN_V2",
+            "d5b3979b352bf5ec1fff8ce55f96e3af7ba304b6901bab0e44a1eaba45afc96d",
+            "c3",
+        ): (3600, 600, 3000),
+        (
+            "COMPRESSED_PREDICTION_PLAN_V2",
+            "d5b3979b352bf5ec1fff8ce55f96e3af7ba304b6901bab0e44a1eaba45afc96d",
+            "c4",
+        ): (7200, 1200, 6000),
+        (
+            "COMPRESSED_PREDICTION_PLAN_V2",
+            "d5b3979b352bf5ec1fff8ce55f96e3af7ba304b6901bab0e44a1eaba45afc96d",
+            "c5",
+        ): (14400, 1800, 12600),
+        (
+            "COMPRESSED_PREDICTION_PLAN_V2",
+            "d5b3979b352bf5ec1fff8ce55f96e3af7ba304b6901bab0e44a1eaba45afc96d",
+            "c6",
+        ): (32400, 1800, 30600),
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CohortDayManifestV33Payload:
@@ -186,6 +211,20 @@ def _parse_deadline(value: Mapping[str, Any]) -> dict[str, object]:
         "execution_timeout_seconds",
     ):
         parsed[field] = _integer(raw[field], field)
+    binding = (
+        value["plan_version"],
+        value["plan_sha256"],
+        value["cycle_id"],
+    )
+    observed_budget = (
+        parsed["execution_timeout_seconds"],
+        parsed["write_timeout_seconds"],
+        parsed["agent_timeout_seconds"],
+    )
+    if _APPROVED_PHASE_BUDGETS.get(binding) != observed_budget:
+        raise ContractError(
+            "contract_value_invalid", "deadline_policy.plan_binding"
+        )
     start = _datetime(value["window_start"])
     window_end = _datetime(value["window_end"])
     trigger = _datetime(parsed["trigger_started_at"])
