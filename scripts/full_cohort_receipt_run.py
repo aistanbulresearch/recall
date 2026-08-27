@@ -51,7 +51,7 @@ from recall.privacy.signing import (  # noqa: E402
 )
 
 NOTES_PATH = ROOT / "corpus" / "onboarding" / "notes.json"
-NOTES_SHA256 = "ec0fa8d4aa9182d6b93564b782209ef7bb441924eefe964b5d8f1385f435c73e"
+NOTES_SHA256 = "ce71a0b7b50601148c49b65457bc603efca929b3569ed37179902424c8d36af6"
 OUT_DIR = ROOT / "artifacts" / "evidence" / "full-cohort-receipts"
 
 # Pinned to core's FULL_AUDIT_MODEL_ID (compressed_preparation.py:24) and the
@@ -110,13 +110,10 @@ def _load_notes() -> list[dict]:
 
 
 def _lab_note(entry: dict) -> LabNote:
+    # Since portfolio-notes-v2 every row, anchored included, carries a RESOLVED
+    # variant (anchored ones from the hash-verified replay manifest, re-checked
+    # by the consuming loader), so no case is held out any more.
     s = entry["structured"]
-    if s.get("inherit_case_binding"):
-        # The three VCV-anchored cases resolve their variant from the case
-        # binding on the consuming side; the receipt run must not invent one.
-        # Until the consuming-side resolution lands, these cases are held out
-        # and reported, never silently defaulted.
-        raise KeyError("inherit_case_binding")
     return LabNote(
         case_key=entry["case_id"],
         note_text=entry["note_text"],

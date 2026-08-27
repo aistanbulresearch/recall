@@ -1,9 +1,11 @@
 {
+ "bindings_provenance": "portfolio_case_vcv_bindings + replay_variant_bindings, run from core",
  "generator_module": "corpus/onboarding_notes.py",
- "note_count": 456,
+ "note_count": 462,
  "notes_file": "corpus/onboarding/notes.json",
- "notes_sha256": "ec0fa8d4aa9182d6b93564b782209ef7bb441924eefe964b5d8f1385f435c73e",
- "notes_version": "onboarding-notes-v1",
+ "notes_sha256": "ce71a0b7b50601148c49b65457bc603efca929b3569ed37179902424c8d36af6",
+ "notes_version": "portfolio-notes-v2",
  "reuses_frozen_generator": "building blocks imported read-only; corpus/generator.py unmodified",
+ "schema_version": "1.1.0",
  "seed": 20260827
 }
