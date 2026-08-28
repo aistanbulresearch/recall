@@ -43,6 +43,95 @@ def _wire() -> dict[str, object]:
     return json.loads((ROOT / PLAN_PATH).read_text(encoding="utf-8"))
 
 
+def _wire_for_schema(schema_version: str) -> dict[str, object]:
+    value = copy.deepcopy(_wire())
+    value["schema_version"] = schema_version
+    if schema_version == "2.3.0":
+        for cycle in value["cycles"]:
+            cycle.pop("write_timeout_seconds")
+            cycle.pop("agent_timeout_seconds")
+    return value
+
+
+@pytest.mark.parametrize("active_count", [1, 2, 3, 4])
+def test_schema_250_accepts_ordered_active_prefix(active_count: int) -> None:
+    value = _wire_for_schema("2.5.0")
+    for index, cycle in enumerate(value["cycles"][2:]):
+        cycle["activation"] = (
+            "ACTIVE" if index < active_count else "PROVISIONAL_R1_GATED"
+        )
+
+    plan = parse_compressed_plan(value, sha256="0" * 64)
+
+    assert [item.activation for item in plan.cycles[2:]] == [
+        "ACTIVE" if index < active_count else "PROVISIONAL_R1_GATED"
+        for index in range(4)
+    ]
+
+
+@pytest.mark.parametrize(
+    "activations",
+    [
+        ["PROVISIONAL_R1_GATED"] * 4,
+        ["PROVISIONAL_R1_GATED", "ACTIVE", "ACTIVE", "ACTIVE"],
+        ["ACTIVE", "PROVISIONAL_R1_GATED", "ACTIVE", "PROVISIONAL_R1_GATED"],
+        ["ACTIVE", "UNKNOWN", "PROVISIONAL_R1_GATED", "PROVISIONAL_R1_GATED"],
+    ],
+)
+def test_schema_250_rejects_invalid_activation_order(
+    activations: list[str],
+) -> None:
+    value = _wire_for_schema("2.5.0")
+    for cycle, activation in zip(value["cycles"][2:], activations, strict=True):
+        cycle["activation"] = activation
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_activation_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_250_requires_immutable_executed_prefix() -> None:
+    value = _wire_for_schema("2.5.0")
+    value["cycles"][1]["activation"] = "ACTIVE"
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_activation_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+@pytest.mark.parametrize("schema_version", ["2.3.0", "2.4.0"])
+def test_legacy_activation_contract_is_unchanged(schema_version: str) -> None:
+    value = _wire_for_schema(schema_version)
+    parse_compressed_plan(value, sha256="0" * 64)
+    for cycle in value["cycles"][2:]:
+        cycle["activation"] = "ACTIVE"
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_activation_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_250_preserves_phase_timeout_validation() -> None:
+    value = _wire_for_schema("2.5.0")
+    value["cycles"][2]["agent_timeout_seconds"] = 0
+
+    with pytest.raises(RuntimeError, match="compressed_phase_timeout_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_250_requires_phase_timeout_fields() -> None:
+    value = _wire_for_schema("2.5.0")
+    value["cycles"][2].pop("write_timeout_seconds")
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_shape_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_250_preserves_execution_profile_validation() -> None:
+    value = _wire_for_schema("2.5.0")
+    value["cycles"][2]["execution_profile"] = "CREATE_ONLY_V1"
+
+    with pytest.raises(RuntimeError, match="compressed_execution_profile_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
 def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
     plan = load_compressed_plan(ROOT)
     assert plan.sha256 == EXPECTED_PLAN_SHA256

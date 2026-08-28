@@ -28,6 +28,8 @@ PLAN3_SHA256 = "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4
 PLAN3_C1_PREFIX = "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_"
 PLAN3_C1_MANIFEST_ID = "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_ACTIVATION_SCHEMAS = {"2.3.0", "2.4.0", "2.5.0"}
+_PHASE_TIMEOUT_SCHEMAS = {"2.4.0", "2.5.0"}
 
 
 class ManifestDeadlinePlanMismatch(RuntimeError):
@@ -126,7 +128,7 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
         raise RuntimeError("compressed_plan_shape_invalid")
     schema_version = value["schema_version"]
     if (
-        schema_version not in {"2.2.0", "2.3.0", "2.4.0"}
+        schema_version not in {"2.2.0", "2.3.0", "2.4.0", "2.5.0"}
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
@@ -176,9 +178,9 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
         "evaluation_role",
         "execution_timeout_seconds",
     }
-    if schema_version in {"2.3.0", "2.4.0"}:
+    if schema_version in _ACTIVATION_SCHEMAS:
         fields.update({"activation", "execution_profile"})
-    if schema_version == "2.4.0":
+    if schema_version in _PHASE_TIMEOUT_SCHEMAS:
         fields.update({"write_timeout_seconds", "agent_timeout_seconds"})
     if not isinstance(value, dict) or set(value) != fields:
         raise RuntimeError("compressed_cycle_shape_invalid")
@@ -191,12 +193,12 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
     timeout = value["execution_timeout_seconds"]
     write_timeout = (
         value["write_timeout_seconds"]
-        if schema_version == "2.4.0"
+        if schema_version in _PHASE_TIMEOUT_SCHEMAS
         else timeout
     )
     agent_timeout = (
         value["agent_timeout_seconds"]
-        if schema_version == "2.4.0"
+        if schema_version in _PHASE_TIMEOUT_SCHEMAS
         else 0
     )
     if (
@@ -234,12 +236,12 @@ def _parse_cycle(value: Any, *, schema_version: str) -> CompressedCycle:
         agent_timeout_seconds=agent_timeout,
         activation=(
             _text(value["activation"])
-            if schema_version in {"2.3.0", "2.4.0"}
+            if schema_version in _ACTIVATION_SCHEMAS
             else "LEGACY_PLAN5"
         ),
         execution_profile=(
             _text(value["execution_profile"])
-            if schema_version in {"2.3.0", "2.4.0"}
+            if schema_version in _ACTIVATION_SCHEMAS
             else "CREATE_ONLY_V1"
         ),
     )
@@ -325,7 +327,7 @@ def _validate_cycles(
     )
     if tuple(item.evaluation_role for item in cycles) != expected_roles:
         raise RuntimeError("compressed_evaluation_role_invalid")
-    if schema_version in {"2.3.0", "2.4.0"}:
+    if schema_version in _ACTIVATION_SCHEMAS:
         if tuple(item.execution_profile for item in cycles) != (
             "CREATE_ONLY_V1",
             "CREATE_ONLY_V1",
@@ -335,6 +337,7 @@ def _validate_cycles(
             "FULL_AUDIT_V1",
         ):
             raise RuntimeError("compressed_execution_profile_invalid")
+    if schema_version in {"2.3.0", "2.4.0"}:
         if tuple(item.activation for item in cycles) != (
             "IMMUTABLE_EXECUTED",
             "IMMUTABLE_EXECUTED",
@@ -344,7 +347,26 @@ def _validate_cycles(
             "PROVISIONAL_R1_GATED",
         ):
             raise RuntimeError("compressed_cycle_activation_invalid")
-    if schema_version == "2.4.0":
+    elif schema_version == "2.5.0":
+        activations = tuple(item.activation for item in cycles)
+        active_tail = activations[2:]
+        first_provisional = (
+            active_tail.index("PROVISIONAL_R1_GATED")
+            if "PROVISIONAL_R1_GATED" in active_tail
+            else len(active_tail)
+        )
+        if (
+            activations[:2] != ("IMMUTABLE_EXECUTED", "IMMUTABLE_EXECUTED")
+            or not active_tail
+            or active_tail[0] != "ACTIVE"
+            or any(
+                activation not in {"ACTIVE", "PROVISIONAL_R1_GATED"}
+                for activation in active_tail
+            )
+            or "ACTIVE" in active_tail[first_provisional + 1 :]
+        ):
+            raise RuntimeError("compressed_cycle_activation_invalid")
+    if schema_version in _PHASE_TIMEOUT_SCHEMAS:
         if any(item.agent_timeout_seconds != 0 for item in cycles[:2]) or any(
             item.agent_timeout_seconds <= 0 for item in cycles[2:]
         ):
