@@ -29,7 +29,7 @@ from .compressed_plan import CompressedCycle
 from .compressed_preparation import CompressedPreparationBundle
 
 
-FULL_AUDIT_CONCURRENCY = 4
+FULL_AUDIT_CONCURRENCY = 2
 
 
 @dataclass(frozen=True, slots=True)

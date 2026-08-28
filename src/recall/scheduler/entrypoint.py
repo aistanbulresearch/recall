@@ -12,6 +12,7 @@ from typing import Any
 from recall.ledger.firestore import FirestoreLedger
 from recall.agents.full_audit import FullAuditCoordinator
 from recall.agents.in_process_runtime import InProcessAdkRoleRunner
+from recall.agents.provider_pacing import provider_rpm_from_environment
 from recall.connectors import PubMedConnector
 from recall.contracts import parse_artifact
 from recall.controller.tool_gateway_store import FirestoreGatewayInvocationStore
@@ -78,6 +79,7 @@ def execute(
         )
     if scheduler_mode != "COMPRESSED_V3":
         raise RuntimeError("cohort_scheduler_mode_invalid")
+    provider_rpm = provider_rpm_from_environment(environment)
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-date")
     parser.add_argument("--verify-prefix")
@@ -202,7 +204,11 @@ def execute(
         full_audit = (
             full_audit_factory(ledger)
             if full_audit_factory is not None
-            else _build_full_audit_coordinator(ledger, plan_sha256=plan.sha256)
+            else _build_full_audit_coordinator(
+                ledger,
+                plan_sha256=plan.sha256,
+                provider_rpm=provider_rpm,
+            )
         )
         ncbi = PubMedConnector(
             tool=_required(environment, "RECALL_NCBI_TOOL"),
@@ -304,7 +310,7 @@ def execute(
 
 
 def _build_full_audit_coordinator(
-    ledger: FirestoreLedger, *, plan_sha256: str
+    ledger: FirestoreLedger, *, plan_sha256: str, provider_rpm: int
 ) -> FullAuditCoordinator:
     prefix = ledger.collection_prefix
     return FullAuditCoordinator(
@@ -312,7 +318,8 @@ def _build_full_audit_coordinator(
         role_runner=InProcessAdkRoleRunner(
             max_request_bytes=(
                 DEFAULT_MODEL_COST_POLICY.max_request_bytes_per_turn
-            )
+            ),
+            provider_rpm=provider_rpm,
         ),
         invocation_store=FirestoreGatewayInvocationStore(
             ledger.client,

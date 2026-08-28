@@ -18,6 +18,7 @@ from recall.agents.in_process_runtime import (
     RequestBoundLlm,
     _effective_request_bytes,
 )
+from recall.agents.provider_pacing import ProviderRateLimiter
 from recall.contracts import AgentRole
 
 
@@ -149,6 +150,20 @@ class OversizedSecondTurnLlm(BaseLlm):
         )
 
 
+async def _no_sleep(_seconds: float) -> None:
+    return None
+
+
+def _runner(model: BaseLlm, **kwargs) -> InProcessAdkRoleRunner:
+    return InProcessAdkRoleRunner(
+        model=model,
+        provider_clock=lambda: 0.0,
+        provider_sleeper=_no_sleep,
+        backoff_sleeper=_no_sleep,
+        **kwargs,
+    )
+
+
 def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry() -> None:
     observed: list[tuple[str, str, str]] = []
 
@@ -166,8 +181,9 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
         input_artifact_ids=(),
         trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
     )
+    runner = _runner(ToolThenJsonLlm())
     result = asyncio.run(
-        InProcessAdkRoleRunner(model=ToolThenJsonLlm()).execute(
+        runner.execute(
             AgentRole.EVIDENCE_WATCHER,
             "Call the evidence connector once and return strict JSON.",
             {"evidence_connector": evidence_connector},
@@ -182,6 +198,7 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
     assert result.output.coverage_status == "PASS"
     assert result.trace_id == context.trace_id
     assert len(result.turns) == 2
+    assert runner.provider_limiter.dispatch_count == 2
     assert result.turns[0].function_call_emitted is True
     assert result.tool_call_ids == result.tool_response_ids
 
@@ -198,7 +215,7 @@ def test_in_process_runner_preserves_rate_limit_telemetry_on_provider_error() ->
 
     try:
         asyncio.run(
-            InProcessAdkRoleRunner(model=RateLimitedLlm()).execute(
+            _runner(RateLimitedLlm()).execute(
                 AgentRole.EVIDENCE_WATCHER,
                 "Call the evidence connector once.",
                 {"evidence_connector": lambda **_: {"records": []}},
@@ -207,7 +224,7 @@ def test_in_process_runner_preserves_rate_limit_telemetry_on_provider_error() ->
         )
     except RoleExecutionError as exc:
         assert exc.code == "agent_provider_call_failed"
-        assert exc.http_429_count == 1
+        assert exc.http_429_count == 4
     else:  # pragma: no cover - fail explicitly if ADK swallows the provider error
         raise AssertionError("rate limit error was not propagated")
 
@@ -225,7 +242,7 @@ def test_in_process_runner_refuses_third_provider_dispatch() -> None:
 
     with pytest.raises(RoleExecutionError, match="model_turn_budget_exceeded"):
         asyncio.run(
-            InProcessAdkRoleRunner(model=model).execute(
+            _runner(model).execute(
                 AgentRole.EVIDENCE_WATCHER,
                 "Call twice.",
                 {"evidence_connector": lambda **_: {"records": []}},
@@ -249,9 +266,7 @@ def test_in_process_runner_refuses_oversized_second_request_before_dispatch() ->
 
     with pytest.raises(RoleExecutionError, match="model_request_budget_exceeded"):
         asyncio.run(
-            InProcessAdkRoleRunner(
-                model=model, max_request_bytes=16_384
-            ).execute(
+            _runner(model, max_request_bytes=16_384).execute(
                 AgentRole.EVIDENCE_WATCHER,
                 "Call the evidence connector once.",
                 {
@@ -276,6 +291,10 @@ def test_provider_bound_guard_sees_adk_label_added_after_callback() -> None:
         model=model.model,
         delegate=model,
         max_request_bytes=callback_visible_bytes,
+        provider_limiter=ProviderRateLimiter(
+            60, clock=lambda: 0.0, sleeper=_no_sleep
+        ),
+        backoff_sleeper=_no_sleep,
     )
 
     async def consume() -> None:
@@ -286,3 +305,47 @@ def test_provider_bound_guard_sees_adk_label_added_after_callback() -> None:
         asyncio.run(consume())
 
     assert model.calls == 0
+
+
+def test_runner_cancellation_after_429_preserves_count_as_agent_timeout() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    async def cancel_during_backoff() -> RoleExecutionError:
+        backoff_entered = asyncio.Event()
+
+        async def blocking_backoff(_seconds: float) -> None:
+            backoff_entered.set()
+            await asyncio.Event().wait()
+
+        runner = InProcessAdkRoleRunner(
+            model=RateLimitedLlm(),
+            provider_rpm=60,
+            provider_sleeper=_no_sleep,
+            backoff_sleeper=blocking_backoff,
+        )
+        task = asyncio.create_task(
+            runner.execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call once.",
+                {"evidence_connector": lambda **_: {"records": []}},
+                context,
+            )
+        )
+        await asyncio.wait_for(backoff_entered.wait(), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except RoleExecutionError as exc:
+            return exc
+        raise AssertionError("cancelled runner did not preserve a typed failure")
+
+    captured = asyncio.run(cancel_during_backoff())
+
+    assert captured.code == "agent_timeout"
+    assert captured.http_429_count == 1

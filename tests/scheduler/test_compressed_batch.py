@@ -163,6 +163,32 @@ def test_preview_declares_ramp_and_final_without_constructing_ledger(
     assert result["plan_sha256"] == plan.sha256
 
 
+@pytest.mark.parametrize(
+    "value", ["", " 6", "+6", "6.0", "06", "0", "61", "rpm6"]
+)
+def test_invalid_provider_rpm_fails_before_ledger_construction(
+    value: str,
+) -> None:
+    calls = 0
+
+    def forbidden(**_kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("provider_config_must_precede_ledger")
+
+    with pytest.raises(RuntimeError, match="provider_rpm_invalid"):
+        execute(
+            [],
+            environment={
+                "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
+                "RECALL_PROVIDER_RPM": value,
+            },
+            ledger_factory=forbidden,
+        )
+
+    assert calls == 0
+
+
 def test_ramp_subsets_and_final_use_identical_write_path() -> None:
     plan, _bundle, _sha = _loaded()
     ramp_sets = [

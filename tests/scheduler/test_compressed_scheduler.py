@@ -268,7 +268,7 @@ def test_r1_manifest_proves_epoch_parity_metrics_and_exact_counts() -> None:
     assert manifest.status.value == "VALID"
     assert manifest.payload.epoch_label == "PLAN6_R1_20"
     assert manifest.payload.agent_execution_summary["complete_runs"] == 20
-    assert manifest.payload.agent_execution_summary["concurrency"] == 4
+    assert manifest.payload.agent_execution_summary["concurrency"] == 2
     assert len(manifest.payload.run_outcomes) == 20
     assert manifest.payload.evaluation_role == "RAMP_FIRST_PASS"
     assert manifest.payload.ramp_gate_receipt_id == gate["artifact_id"]

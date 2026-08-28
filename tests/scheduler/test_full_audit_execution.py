@@ -602,7 +602,7 @@ def test_cas_loser_never_converts_the_winning_step_to_halted() -> None:
     )
 
 
-def test_cohort_phase_enforces_concurrency_four_and_preserves_case_binding() -> None:
+def test_cohort_phase_enforces_concurrency_two_and_preserves_case_binding() -> None:
     class MeasuringCoordinator:
         cost_policy = DEFAULT_MODEL_COST_POLICY
 
@@ -673,10 +673,10 @@ def test_cohort_phase_enforces_concurrency_four_and_preserves_case_binding() -> 
         cycle=SimpleNamespace(cycle_id="c3"),
     )
 
-    assert coordinator.max_active == 4
+    assert coordinator.max_active == 2
     assert len(phase.outcomes) == 7
     assert phase.summary["complete_runs"] == 7
-    assert phase.summary["concurrency"] == 4
+    assert phase.summary["concurrency"] == 2
 
 
 def test_cohort_phase_derives_replay_mode_from_production_shaped_case() -> None:

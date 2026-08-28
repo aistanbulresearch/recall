@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
-from collections.abc import AsyncGenerator, Callable, Mapping
+from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from time import monotonic
 from typing import Any
 
+from google.api_core.exceptions import ResourceExhausted, TooManyRequests
 from google.adk.runners import InMemoryRunner
 from google.adk.tools import ToolContext
 from google.adk.models import BaseLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, PrivateAttr
 
 from recall.contracts import AgentRole, ContractError
 
@@ -24,18 +26,34 @@ from .full_audit_models import (
     TurnTelemetry,
 )
 from .local_tools import LocalToolCallContext
+from .provider_pacing import DEFAULT_PROVIDER_RPM, ProviderRateLimiter
 
 
 class InProcessAdkRoleRunner:
     """Runs one bounded role invocation inside the scheduler Cloud Run Job."""
 
     def __init__(
-        self, *, model: str | Any = MODEL_ID, max_request_bytes: int = 16_384
+        self,
+        *,
+        model: str | Any = MODEL_ID,
+        max_request_bytes: int = 16_384,
+        provider_rpm: int = DEFAULT_PROVIDER_RPM,
+        provider_clock: Callable[[], float] = monotonic,
+        provider_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        backoff_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         if max_request_bytes < 1:
             raise ValueError("model_request_budget_invalid")
         self._model = model
         self._max_request_bytes = max_request_bytes
+        self._provider_limiter = ProviderRateLimiter(
+            provider_rpm, clock=provider_clock, sleeper=provider_sleeper
+        )
+        self._backoff_sleeper = backoff_sleeper
+
+    @property
+    def provider_limiter(self) -> ProviderRateLimiter:
+        return self._provider_limiter
 
     async def execute(
         self,
@@ -101,6 +119,8 @@ class InProcessAdkRoleRunner:
             model=bundle.agent.canonical_model.model,
             delegate=bundle.agent.canonical_model,
             max_request_bytes=self._max_request_bytes,
+            provider_limiter=self._provider_limiter,
+            backoff_sleeper=self._backoff_sleeper,
         )
         agent = bundle.agent.model_copy(
             update={
@@ -110,25 +130,41 @@ class InProcessAdkRoleRunner:
             }
         )
         runner = InMemoryRunner(agent=agent)
+        provider_count_absorbed = False
+
+        def absorb_provider_429_count() -> None:
+            nonlocal http_429_count, provider_count_absorbed
+            if not provider_count_absorbed:
+                http_429_count += request_bound_model.http_429_count
+                provider_count_absorbed = True
+
         try:
             events = await runner.run_debug(prompt, quiet=True)
+        except asyncio.CancelledError as exc:
+            absorb_provider_429_count()
+            raise RoleExecutionError(
+                "agent_timeout",
+                turns=tuple(turns),
+                http_429_count=http_429_count,
+            ) from exc
         except RoleExecutionError as exc:
-            if exc.code == "model_request_budget_exceeded" and not exc.turns:
-                raise RoleExecutionError(
-                    exc.code,
-                    turns=tuple(turns),
-                    http_429_count=http_429_count,
-                ) from exc
-            raise
+            absorb_provider_429_count()
+            raise RoleExecutionError(
+                exc.code,
+                turns=exc.turns or tuple(turns),
+                http_429_count=max(http_429_count, exc.http_429_count),
+                tool_records=exc.tool_records,
+            ) from exc
         except Exception as exc:  # noqa: BLE001 - retain failed-provider telemetry
-            message = f"{type(exc).__name__}:{exc}"
-            if "429" in message or "ResourceExhausted" in message:
+            absorb_provider_429_count()
+            if _is_rate_limit_error(exc):
                 http_429_count = max(1, http_429_count)
             raise RoleExecutionError(
                 "agent_provider_call_failed",
                 turns=tuple(turns),
                 http_429_count=http_429_count,
             ) from exc
+        absorb_provider_429_count()
         output = _parse_last_output(events, OUTPUT_SCHEMAS[role])
         calls, responses = _tool_event_ids(events)
         return RoleRunResult(
@@ -274,6 +310,14 @@ class RequestBoundLlm(BaseLlm):
 
     delegate: BaseLlm
     max_request_bytes: int
+    provider_limiter: ProviderRateLimiter
+    backoff_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep
+    max_429_retries: int = 3
+    _http_429_count: int = PrivateAttr(default=0)
+
+    @property
+    def http_429_count(self) -> int:
+        return self._http_429_count
 
     @property
     def capabilities(self):
@@ -284,7 +328,63 @@ class RequestBoundLlm(BaseLlm):
     ) -> AsyncGenerator[LlmResponse, None]:
         if len(_effective_request_bytes(llm_request)) > self.max_request_bytes:
             raise RoleExecutionError("model_request_budget_exceeded")
-        async for response in self.delegate.generate_content_async(
-            llm_request, stream
-        ):
-            yield response
+        if stream:
+            raise RoleExecutionError("provider_streaming_retry_unsupported")
+        for attempt in range(self.max_429_retries + 1):
+            await self.provider_limiter.acquire()
+            responses: list[LlmResponse] = []
+            try:
+                async for response in self.delegate.generate_content_async(
+                    llm_request, False
+                ):
+                    responses.append(response)
+            except Exception as exc:  # noqa: BLE001 - classify provider failure
+                if not _is_rate_limit_error(exc):
+                    raise
+                self._http_429_count += 1
+                if attempt >= self.max_429_retries:
+                    raise
+                await self.backoff_sleeper(float(2**attempt))
+                continue
+            if any(_is_rate_limit_response(response) for response in responses):
+                self._http_429_count += 1
+                if attempt >= self.max_429_retries:
+                    raise RoleExecutionError(
+                        "agent_provider_call_failed",
+                        http_429_count=self._http_429_count,
+                    )
+                await self.backoff_sleeper(float(2**attempt))
+                continue
+            for response in responses:
+                yield response
+            return
+
+
+def _is_rate_limit_response(response: LlmResponse) -> bool:
+    error_code = str(getattr(response, "error_code", "") or "").upper()
+    error_message = str(getattr(response, "error_message", "") or "").upper()
+    return error_code in {"429", "RESOURCE_EXHAUSTED"} or (
+        "429" in error_message or "RESOURCE_EXHAUSTED" in error_message
+    )
+
+
+def _is_rate_limit_error(error: BaseException) -> bool:
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, (ResourceExhausted, TooManyRequests)):
+            return True
+        response = getattr(current, "response", None)
+        if getattr(response, "status_code", None) == 429:
+            return True
+        code = getattr(current, "code", None)
+        code = code() if callable(code) else code
+        code_name = str(getattr(code, "name", code) or "").upper()
+        if code == 429 or code_name in {"429", "RESOURCE_EXHAUSTED"}:
+            return True
+        message = f"{type(current).__name__}:{current}".upper()
+        if "429" in message or "RESOURCEEXHAUSTED" in message:
+            return True
+        current = current.__cause__ or current.__context__
+    return False
