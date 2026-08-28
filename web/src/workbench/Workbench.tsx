@@ -23,6 +23,7 @@ import { buildViewModel } from '../viewmodel/builder';
 import type { ArtifactBundle } from '../viewmodel/types';
 
 import { EvidenceStrip, StripProvider } from './strip';
+import { Walkthrough } from './views/Walkthrough';
 import { Worklist } from './views/Worklist';
 import { CaseRecord } from './views/CaseRecord';
 import { HeroCase } from './views/HeroCase';
@@ -63,7 +64,8 @@ function parseRoute(hash: string): string[] {
 }
 
 const NAV = [
-  { path: '', label: 'Worklist' },
+  { path: '', label: 'Walkthrough' },
+  { path: 'worklist', label: 'Worklist' },
   { path: 'cohort', label: 'Cohort ledger' },
   { path: 'privacy', label: 'Privacy desk' },
   { path: 'dossier', label: 'Evidence dossier' },
@@ -101,11 +103,13 @@ export function Workbench() {
     view = <PrivacyDesk />;
   } else if (head === 'dossier') {
     view = <Dossier scenarios={SCENARIOS} models={models} />;
-  } else {
+  } else if (head === 'worklist') {
     view = <Worklist scenarios={SCENARIOS} models={models} />;
+  } else {
+    view = <Walkthrough />;
   }
 
-  const activeNav = head === 'case' ? '' : head;
+  const activeNav = head === 'case' ? 'worklist' : head;
 
   return (
     <StripProvider>

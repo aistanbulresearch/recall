@@ -15,6 +15,7 @@
 import gemmaRunManifest from '../data/gemma-run-manifest.json';
 import historicalCase from '../data/historical-case.json';
 import p1Report from '../data/p1-privacy-report.json';
+import walkthroughCase from '../data/walkthrough-case.json';
 
 import type { StripEntry } from './strip';
 
@@ -29,7 +30,7 @@ function read(source: Json, path: string): unknown {
     if (cursor === null || typeof cursor !== 'object') {
       return null;
     }
-    cursor = (cursor as Json)[part];
+    cursor = Array.isArray(cursor) ? cursor[Number(part)] : (cursor as Json)[part];
   }
   return cursor ?? null;
 }
@@ -123,4 +124,32 @@ export const P1_FIELDS: Record<string, StripEntry> = Object.fromEntries(
   ).map(([key, label, path]) => [key, entry(P1_FILE, p1, key, label, path)]),
 );
 
-export { gemmaRunManifest, historicalCase, p1Report };
+const WT_FILE = 'data/walkthrough-case.json';
+
+/**
+ * Walkthrough demo case. The patient block is SYNTHETIC and says so in the
+ * file itself; the capture hashes are sha256 of committed source bytes under
+ * artifacts/evidence/rcl-205/ and are reproducible from those files.
+ */
+export const WALKTHROUGH_FIELDS: Record<string, StripEntry> = Object.fromEntries(
+  (
+    [
+      ['EV-WT-PATIENT', 'Patient (synthetic)', '$.patient.name'],
+      ['EV-WT-MRN', 'Record number (synthetic)', '$.patient.mrn'],
+      ['EV-WT-BORN', 'Born (synthetic)', '$.patient.born'],
+      ['EV-WT-FIRST-VISIT', 'First visit (synthetic)', '$.patient.first_visit'],
+      ['EV-WT-ENCOUNTER-DATE', 'Result encounter (synthetic)', '$.encounter.date'],
+      ['EV-WT-RESULT-GENE', 'Gene', '$.encounter.result.gene'],
+      ['EV-WT-RESULT-VARIANT', 'Variant', '$.encounter.result.variant'],
+      ['EV-WT-RESULT-THEN', 'Interpretation at the time', '$.encounter.result.interpretation_at_the_time'],
+      ['EV-WT-RESULT-BASIS', 'Interpretation basis', '$.encounter.result.interpretation_basis'],
+      ['EV-WT-V4-CAPTURE', 'ClinVar v4 capture sha256', '$.encounter.result.capture.sha256'],
+      ['EV-WT-GEO-CAPTURE', 'GEO capture sha256', '$.world_evidence.0.capture.sha256'],
+      ['EV-WT-SGE-CAPTURE', 'SGE results capture sha256', '$.world_evidence.0.results_capture.sha256'],
+      ['EV-WT-PAPER-CAPTURE', 'PubMed capture sha256', '$.world_evidence.1.capture.sha256'],
+      ['EV-WT-V5-CAPTURE', 'ClinVar v5 capture sha256', '$.world_evidence.2.capture.sha256'],
+    ] as const
+  ).map(([key, label, path]) => [key, entry(WT_FILE, walkthroughCase as unknown as Json, key, label, path)]),
+);
+
+export { gemmaRunManifest, historicalCase, p1Report, walkthroughCase };

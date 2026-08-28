@@ -80,7 +80,7 @@ export function CaseRecord({
 
   return (
     <section className="case-record">
-      <a className="crumb" href="#/">
+      <a className="crumb" href="#/worklist">
         ← Worklist
       </a>
       <header className="view-head">
