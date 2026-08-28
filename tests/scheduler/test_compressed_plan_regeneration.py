@@ -22,10 +22,10 @@ from recall.testing.deadline_policy_vectors import VECTOR_PATH
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPLICIT_WINDOWS = (
-    ("c3", "2026-08-28T09:00:00Z", "2026-08-28T09:29:59Z"),
-    ("c4", "2026-08-28T10:00:00Z", "2026-08-28T11:59:59Z"),
-    ("c5", "2026-08-28T12:23:00Z", "2026-08-28T16:22:59Z"),
-    ("c6", "2026-08-28T16:50:00Z", "2026-08-29T00:49:59Z"),
+    ("c3", "2026-08-28T18:50:00Z", "2026-08-28T19:19:59Z"),
+    ("c4", "2026-08-28T19:41:00Z", "2026-08-28T21:40:59Z"),
+    ("c5", "2026-08-28T22:04:00Z", "2026-08-29T02:03:59Z"),
+    ("c6", "2026-08-29T02:31:00Z", "2026-08-29T10:30:59Z"),
 )
 
 
@@ -105,7 +105,7 @@ def test_regeneration_reports_only_windows_that_actually_changed(
     web = tmp_path / "web"
     _seed_repositories(core, web)
     c4_only = EXPLICIT_WINDOWS[:1] + (
-        ("c4", "2026-08-28T09:59:00Z", "2026-08-28T11:58:59Z"),
+        ("c4", "2026-08-28T19:40:40Z", "2026-08-28T21:40:39Z"),
     ) + EXPLICIT_WINDOWS[2:]
 
     result = regenerate_compressed_plan(core, web, windows=c4_only)
