@@ -1,0 +1,75 @@
+# Build and push the managed cohort day-N job image.
+#
+# Run from the repository root so the hash-verified assets resolve at the exact
+# repository-relative paths the entrypoint reads:
+#
+#   python infra/scripts/build_cohort_image.py submit \
+#     --source-commit=<exact-commit> --source-tree=<exact-tree>
+#
+# Tagged by commit rather than latest, so a deployed job names the source it was
+# built from and a rollback is a tag change rather than a rebuild. The gateway
+# image uses the same convention for the same reason.
+steps:
+  - id: source-contract
+    name: python:3.12-slim
+    entrypoint: python
+    env:
+      - PYTHONDONTWRITEBYTECODE=1
+    args:
+      - infra/scripts/build_cohort_image.py
+      - verify-values
+      - --source-commit=${_SOURCE_COMMIT}
+      - --source-tree=${_SOURCE_TREE}
+      - --tag=${_TAG}
+      - --context-manifest-sha256=${_CONTEXT_MANIFEST_SHA256}
+  - id: context-contract
+    name: python:3.12-slim
+    entrypoint: python
+    env:
+      - PYTHONDONTWRITEBYTECODE=1
+    waitFor:
+      - source-contract
+    args:
+      - infra/scripts/build_cohort_image.py
+      - verify-context
+      - --root=.
+      - --manifest=infra/cohort-job/build_context_manifest.json
+      - --source-commit=${_SOURCE_COMMIT}
+      - --source-tree=${_SOURCE_TREE}
+      - --context-manifest-sha256=${_CONTEXT_MANIFEST_SHA256}
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    waitFor:
+      - context-contract
+    args:
+      - build
+      - --file=infra/cohort-job/Dockerfile
+      - --build-arg=RECALL_SOURCE_COMMIT=${_SOURCE_COMMIT}
+      - --build-arg=RECALL_SOURCE_TREE=${_SOURCE_TREE}
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-cohort-job:${_TAG}
+      - .
+  - id: runtime-contract
+    name: gcr.io/cloud-builders/docker
+    waitFor:
+      - build
+    args:
+      - run
+      - --rm
+      - --entrypoint=/app/.venv/bin/python
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-cohort-job:${_TAG}
+      - /app/infra/cohort-job/runtime_contract.py
+      - --expect-source-commit=${_SOURCE_COMMIT}
+      - --expect-source-tree=${_SOURCE_TREE}
+substitutions:
+  _REGION: us-central1
+  _REPO: recall-images
+  _TAG: SET_EXACT_SOURCE_COMMIT
+  _SOURCE_COMMIT: SET_EXACT_SOURCE_COMMIT
+  _SOURCE_TREE: SET_EXACT_SOURCE_TREE
+  _CONTEXT_MANIFEST_SHA256: SET_EXACT_CONTEXT_MANIFEST_SHA256
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/recall-cohort-job:${_TAG}
+
+options:
+  logging: CLOUD_LOGGING_ONLY

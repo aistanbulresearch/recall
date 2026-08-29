@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from recall.contracts.errors import ContractError
 from recall.contracts.payloads.scheduler_v33 import (
@@ -17,9 +18,13 @@ from recall.contracts.payloads.scheduler_v33 import (
 PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
 )
-EXPECTED_PLAN_SHA256 = (
+PLAN9_HISTORICAL_SHA256 = (
     "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791"
 )
+FINAL_ONLY_PLAN_SHA256 = (
+    "8cb69fbd44403e299ccdc00a9a0c5fe3b18e70f5d7aa43c0d5d2ee48d7e424d7"
+)
+EXPECTED_PLAN_SHA256 = FINAL_ONLY_PLAN_SHA256
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
 SCHEDULE_MODE = "COMPRESSED_MACHINE_TRIGGERED"
@@ -29,9 +34,15 @@ PLAN3_C1_PREFIX = "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_"
 PLAN3_C1_MANIFEST_ID = "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
 PLAN9_RETRY_EPOCH_LABEL = "PLAN6_RAMP_FIRST_PASS_RETRY"
 PLAN9_C4_EPOCH_LABEL = "PLAN6_R2_80_ACTIVE"
+PLAN10_C5_EPOCH_LABEL = "PLAN6_R3_200_ACTIVE"
+PLAN10_C6_EPOCH_LABEL = "PLAN6_FINAL_456_REASSESSMENT_ACTIVE"
+PLAN10_C6_PHASE_TIMEOUTS = (28_800, 1_800, 27_000)
+PLAN10_C6_WINDOW_DURATION = timedelta(hours=7, minutes=43, seconds=59)
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_ACTIVATION_SCHEMAS = {"2.3.0", "2.4.0", "2.5.0", "2.6.0"}
-_PHASE_TIMEOUT_SCHEMAS = {"2.4.0", "2.5.0", "2.6.0"}
+_ACTIVATION_SCHEMAS = {
+    "2.3.0", "2.4.0", "2.5.0", "2.6.0", "2.7.0", "2.8.0",
+}
+_PHASE_TIMEOUT_SCHEMAS = {"2.4.0", "2.5.0", "2.6.0", "2.7.0", "2.8.0"}
 
 
 class ManifestDeadlinePlanMismatch(RuntimeError):
@@ -48,6 +59,37 @@ class PredecessorBinding:
     manifest_content_hash: str | None
     mode_receipt_artifact_id: str | None
     mode_receipt_content_hash: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoricalEvidenceBinding:
+    cycle_id: str
+    evidence_role: str
+    execution_status: str
+    plan_sha256: str
+    collection_prefix: str
+    manifest_artifact_id: str
+    manifest_content_hash: str
+    mode_receipt_artifact_id: str | None
+    mode_receipt_content_hash: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RetiredCycle:
+    cycle_id: str
+    state: str
+    execution_status: str
+    runs_created: int
+
+
+@dataclass(frozen=True, slots=True)
+class PlanSupersession:
+    mode: str
+    superseded_plan_sha256: str
+    owner_decision: str
+    reason_code: str
+    historical_evidence: tuple[HistoricalEvidenceBinding, ...]
+    retired_cycles: tuple[RetiredCycle, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,12 +122,14 @@ class CompressedCycle:
 
 @dataclass(frozen=True, slots=True)
 class CompressedPlan:
+    schema_version: str
     version: str
     sha256: str
     schedule_mode: str
     decision_reference: str
     window_semantics: str
     cycles: tuple[CompressedCycle, ...]
+    supersession: PlanSupersession | None = None
 
     def by_id(self, cycle_id: str) -> CompressedCycle:
         matches = tuple(item for item in self.cycles if item.cycle_id == cycle_id)
@@ -119,18 +163,26 @@ def load_compressed_plan(repo_root: Path) -> CompressedPlan:
 
 
 def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
-    if not isinstance(value, dict) or set(value) != {
+    if not isinstance(value, dict):
+        raise RuntimeError("compressed_plan_shape_invalid")
+    schema_version = value.get("schema_version")
+    expected_fields = {
         "schema_version",
         "plan_version",
         "decision_reference",
         "schedule_mode",
         "cycles",
         "window_semantics",
-    }:
+    }
+    if schema_version == "2.8.0":
+        expected_fields.add("supersession")
+    if set(value) != expected_fields:
         raise RuntimeError("compressed_plan_shape_invalid")
-    schema_version = value["schema_version"]
     if (
-        schema_version not in {"2.2.0", "2.3.0", "2.4.0", "2.5.0", "2.6.0"}
+        schema_version
+        not in {
+            "2.2.0", "2.3.0", "2.4.0", "2.5.0", "2.6.0", "2.7.0", "2.8.0",
+        }
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
@@ -141,26 +193,46 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
     if not isinstance(raw_cycles, list):
         raise RuntimeError("compressed_plan_cycles_invalid")
     cycles = tuple(_parse_cycle(item, schema_version=schema_version) for item in raw_cycles)
-    _validate_cycles(cycles, schema_version=schema_version)
+    supersession = (
+        _parse_supersession(value["supersession"])
+        if schema_version == "2.8.0"
+        else None
+    )
+    _validate_cycles(
+        cycles,
+        schema_version=schema_version,
+        supersession=supersession,
+    )
     return CompressedPlan(
+        schema_version=schema_version,
         version=PLAN_VERSION,
         sha256=sha256,
         schedule_mode=SCHEDULE_MODE,
         decision_reference=DECISION_REFERENCE,
         window_semantics="TRIGGER_START_ONLY",
         cycles=cycles,
+        supersession=supersession,
     )
 
 
 def resolve_declared_cycle(now: datetime, plan: CompressedPlan) -> CompressedCycle:
     utc = _aware_utc(now)
     matches = tuple(
-        item for item in plan.cycles if item.window_start <= utc <= item.window_end
+        item
+        for item in plan.cycles
+        if item.window_start <= utc <= item.window_end
+        and (plan.schema_version != "2.8.0" or item.activation == "ACTIVE")
     )
     if len(matches) != 1:
         raise RuntimeError(f"compressed_cycle_window_match_invalid:{len(matches)}")
     resolved = matches[0]
-    if resolved.activation == "PROVISIONAL_R1_GATED":
+    if (
+        resolved.activation == "PROVISIONAL_R1_GATED"
+        or (
+            plan.schema_version in {"2.7.0", "2.8.0"}
+            and resolved.activation != "ACTIVE"
+        )
+    ):
         raise RuntimeError("compressed_cycle_not_active")
     return resolved
 
@@ -291,8 +363,112 @@ def _parse_predecessor(value: Any) -> PredecessorBinding | None:
     )
 
 
+def _parse_supersession(value: Any) -> PlanSupersession:
+    fields = {
+        "mode", "superseded_plan_sha256", "owner_decision", "reason_code",
+        "historical_evidence", "retired_cycles",
+    }
+    if not isinstance(value, dict) or set(value) != fields:
+        raise RuntimeError("compressed_final_only_supersession_shape_invalid")
+    if (
+        value["mode"] != "FINAL_ONLY_TIMEBOX"
+        or value["superseded_plan_sha256"] != PLAN9_HISTORICAL_SHA256
+        or value["owner_decision"]
+        != "RETIRE_RAMP_DUE_TIMEBOX_AND_AUTHORIZE_FINAL_456"
+        or value["reason_code"] != "RAMP_TIMEBOX_EXHAUSTED"
+    ):
+        raise RuntimeError("compressed_final_only_supersession_invalid")
+    raw_evidence = value["historical_evidence"]
+    raw_retired = value["retired_cycles"]
+    if not isinstance(raw_evidence, list) or not isinstance(raw_retired, list):
+        raise RuntimeError("compressed_final_only_supersession_shape_invalid")
+    evidence = tuple(_parse_historical_evidence(item) for item in raw_evidence)
+    retired = tuple(_parse_retired_cycle(item) for item in raw_retired)
+    if (
+        [(item.cycle_id, item.evidence_role, item.execution_status) for item in evidence[:2]]
+        != [
+            ("c1", "IMMUTABLE_EXECUTED", "COMPLETE"),
+            ("c2", "IMMUTABLE_EXECUTED", "COMPLETE"),
+        ]
+        or len(evidence) < 3
+        or any(
+            item.cycle_id != "c3"
+            or item.evidence_role != "HISTORICAL_ATTEMPT"
+            or item.execution_status != "INCOMPLETE"
+            for item in evidence[2:]
+        )
+    ):
+        raise RuntimeError("compressed_final_only_history_invalid")
+    if [(item.cycle_id, item.state, item.execution_status, item.runs_created) for item in retired] != [
+        ("c4", "RETIRED_TIMEBOX", "NOT_EXECUTED", 0),
+        ("c5", "RETIRED_TIMEBOX", "NOT_EXECUTED", 0),
+    ]:
+        raise RuntimeError("compressed_final_only_retirement_invalid")
+    return PlanSupersession(
+        mode=value["mode"],
+        superseded_plan_sha256=value["superseded_plan_sha256"],
+        owner_decision=value["owner_decision"],
+        reason_code=value["reason_code"],
+        historical_evidence=evidence,
+        retired_cycles=retired,
+    )
+
+
+def _parse_historical_evidence(value: Any) -> HistoricalEvidenceBinding:
+    fields = {
+        "cycle_id", "evidence_role", "execution_status", "plan_sha256",
+        "collection_prefix", "manifest_artifact_id", "manifest_content_hash",
+        "mode_receipt_artifact_id", "mode_receipt_content_hash",
+    }
+    if not isinstance(value, dict) or set(value) != fields:
+        raise RuntimeError("compressed_final_only_evidence_shape_invalid")
+    manifest_hash = value["manifest_content_hash"]
+    mode_id = value["mode_receipt_artifact_id"]
+    mode_hash = value["mode_receipt_content_hash"]
+    if (
+        not _SHA256.fullmatch(str(value["plan_sha256"]))
+        or not _SHA256.fullmatch(str(manifest_hash))
+        or not _canonical_uuid(value["manifest_artifact_id"])
+        or (mode_id is None) is not (mode_hash is None)
+        or (
+            mode_id is not None
+            and (
+                not _canonical_uuid(mode_id)
+                or not _SHA256.fullmatch(str(mode_hash))
+            )
+        )
+    ):
+        raise RuntimeError("compressed_final_only_evidence_hash_invalid")
+    return HistoricalEvidenceBinding(
+        cycle_id=_text(value["cycle_id"]),
+        evidence_role=_text(value["evidence_role"]),
+        execution_status=_text(value["execution_status"]),
+        plan_sha256=str(value["plan_sha256"]),
+        collection_prefix=_text(value["collection_prefix"]),
+        manifest_artifact_id=str(value["manifest_artifact_id"]),
+        manifest_content_hash=str(manifest_hash),
+        mode_receipt_artifact_id=None if mode_id is None else str(mode_id),
+        mode_receipt_content_hash=None if mode_hash is None else str(mode_hash),
+    )
+
+
+def _parse_retired_cycle(value: Any) -> RetiredCycle:
+    fields = {"cycle_id", "state", "execution_status", "runs_created"}
+    if not isinstance(value, dict) or set(value) != fields:
+        raise RuntimeError("compressed_final_only_retirement_invalid")
+    return RetiredCycle(
+        cycle_id=_text(value["cycle_id"]),
+        state=_text(value["state"]),
+        execution_status=_text(value["execution_status"]),
+        runs_created=value["runs_created"],
+    )
+
+
 def _validate_cycles(
-    cycles: tuple[CompressedCycle, ...], *, schema_version: str
+    cycles: tuple[CompressedCycle, ...],
+    *,
+    schema_version: str,
+    supersession: PlanSupersession | None,
 ) -> None:
     if not cycles:
         raise RuntimeError("compressed_plan_table_empty")
@@ -309,12 +485,16 @@ def _validate_cycles(
             raise RuntimeError("compressed_cycle_window_invalid")
         if position:
             previous = cycles[position - 1]
-            if item.window_start - previous.window_start < timedelta(minutes=20):
-                raise RuntimeError("compressed_cycle_start_interval_invalid")
-            if item.window_start <= previous.window_end:
-                raise RuntimeError("compressed_cycle_window_overlap")
+            if schema_version != "2.8.0":
+                if item.window_start - previous.window_start < timedelta(minutes=20):
+                    raise RuntimeError("compressed_cycle_start_interval_invalid")
+                if item.window_start <= previous.window_end:
+                    raise RuntimeError("compressed_cycle_window_overlap")
             binding = item.predecessor
-            if binding is None or binding.cycle_id != previous.cycle_id:
+            if schema_version == "2.8.0" and position >= 3:
+                if binding is not None:
+                    raise RuntimeError("compressed_final_only_predecessor_forbidden")
+            elif binding is None or binding.cycle_id != previous.cycle_id:
                 raise RuntimeError("compressed_predecessor_cycle_invalid")
         elif item.predecessor is not None:
             raise RuntimeError("compressed_c1_predecessor_forbidden")
@@ -378,6 +558,28 @@ def _validate_cycles(
             "PROVISIONAL_R1_GATED",
         ):
             raise RuntimeError("compressed_cycle_activation_invalid")
+    elif schema_version == "2.7.0":
+        if tuple(item.activation for item in cycles) != (
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "ACTIVE",
+            "ACTIVE",
+        ):
+            raise RuntimeError("compressed_cycle_activation_invalid")
+    elif schema_version == "2.8.0":
+        if tuple(item.activation for item in cycles) != (
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "HISTORICAL_ATTEMPTS_PRESERVED",
+            "RETIRED_TIMEBOX",
+            "RETIRED_TIMEBOX",
+            "ACTIVE",
+        ):
+            raise RuntimeError("compressed_cycle_activation_invalid")
+        if supersession is None:
+            raise RuntimeError("compressed_final_only_supersession_invalid")
     if schema_version in _PHASE_TIMEOUT_SCHEMAS:
         if any(item.agent_timeout_seconds != 0 for item in cycles[:2]) or any(
             item.agent_timeout_seconds <= 0 for item in cycles[2:]
@@ -394,14 +596,51 @@ def _validate_cycles(
         raise RuntimeError("compressed_c2_external_predecessor_invalid")
     if cycles[2].predecessor is None or cycles[2].predecessor.binding != "EXTERNAL_PLAN":
         raise RuntimeError("compressed_c3_external_predecessor_invalid")
-    if schema_version == "2.6.0":
+    if schema_version in {"2.6.0", "2.7.0", "2.8.0"}:
         if cycles[2].epoch_label != PLAN9_RETRY_EPOCH_LABEL:
             raise RuntimeError("compressed_retry_epoch_invalid")
         if cycles[3].epoch_label != PLAN9_C4_EPOCH_LABEL:
             raise RuntimeError("compressed_active_epoch_invalid")
     elif cycles[2].epoch_label == PLAN9_RETRY_EPOCH_LABEL:
         raise RuntimeError("compressed_retry_schema_invalid")
-    if any(
+    if schema_version == "2.7.0":
+        _require_plan10_external_predecessor(cycles[3], cycles[2])
+        _require_plan10_external_predecessor(cycles[4], cycles[3])
+        if cycles[4].epoch_label != PLAN10_C5_EPOCH_LABEL:
+            raise RuntimeError("compressed_plan10_c5_epoch_invalid")
+        if cycles[5].epoch_label != PLAN10_C6_EPOCH_LABEL:
+            raise RuntimeError("compressed_plan10_c6_epoch_invalid")
+        c6_predecessor = cycles[5].predecessor
+        if (
+            c6_predecessor is None
+            or c6_predecessor.binding != "CURRENT_PLAN"
+            or c6_predecessor.cycle_id != "c5"
+        ):
+            raise RuntimeError("compressed_plan10_c6_predecessor_invalid")
+        c6 = cycles[5]
+        if (
+            c6.execution_timeout_seconds,
+            c6.write_timeout_seconds,
+            c6.agent_timeout_seconds,
+        ) != PLAN10_C6_PHASE_TIMEOUTS:
+            raise RuntimeError("compressed_plan10_c6_phase_timeout_invalid")
+        if c6.window_end - c6.window_start != PLAN10_C6_WINDOW_DURATION:
+            raise RuntimeError("compressed_plan10_c6_window_duration_invalid")
+    elif schema_version == "2.8.0":
+        c6 = cycles[5]
+        if c6.epoch_label != PLAN10_C6_EPOCH_LABEL:
+            raise RuntimeError("compressed_final_only_epoch_invalid")
+        if (
+            c6.execution_timeout_seconds,
+            c6.write_timeout_seconds,
+            c6.agent_timeout_seconds,
+        ) != PLAN10_C6_PHASE_TIMEOUTS:
+            raise RuntimeError("compressed_plan10_c6_phase_timeout_invalid")
+        if c6.window_end - c6.window_start != PLAN10_C6_WINDOW_DURATION:
+            raise RuntimeError("compressed_plan10_c6_window_duration_invalid")
+        if c6.runs_predicted != 456 or c6.execution_profile != "FULL_AUDIT_V1":
+            raise RuntimeError("compressed_final_only_scope_invalid")
+    elif any(
         item.predecessor is None or item.predecessor.binding != "CURRENT_PLAN"
         for item in cycles[3:]
     ):
@@ -410,6 +649,8 @@ def _validate_cycles(
     # PASS qualification is end-to-end write plus exact readback <=2 s/case.
     # Freeze the worst-case review gaps, not merely nominal trigger spacing.
     for current, successor in zip(cycles[2:5], cycles[3:6], strict=True):
+        if schema_version == "2.8.0":
+            break
         latest_qualified = current.window_end + timedelta(
             seconds=current.runs_predicted * 2
         )
@@ -422,6 +663,37 @@ def _validate_cycles(
         seconds=cycles[5].execution_timeout_seconds
     ):
         raise RuntimeError("compressed_final_timeout_invalid")
+
+
+def _require_plan10_external_predecessor(
+    successor: CompressedCycle,
+    predecessor: CompressedCycle,
+) -> None:
+    binding = successor.predecessor
+    error = f"compressed_plan10_{successor.cycle_id}_predecessor_invalid"
+    expected_prefix = (
+        f"dev_recall_m2_compressed_p{PLAN9_HISTORICAL_SHA256[:12]}_"
+        f"{predecessor.cycle_id}_{predecessor.cohort_due_date:%Y%m%d}_"
+    )
+    if (
+        binding is None
+        or binding.binding != "EXTERNAL_PLAN"
+        or binding.cycle_id != predecessor.cycle_id
+        or binding.plan_sha256 != PLAN9_HISTORICAL_SHA256
+        or binding.collection_prefix != expected_prefix
+        or not _canonical_uuid(binding.manifest_artifact_id)
+        or not _canonical_uuid(binding.mode_receipt_artifact_id)
+    ):
+        raise RuntimeError(error)
+
+
+def _canonical_uuid(value: str | None) -> bool:
+    if value is None:
+        return False
+    try:
+        return str(UUID(value)) == value
+    except ValueError:
+        return False
 
 
 def verify_manifest_against_plan(
@@ -455,7 +727,8 @@ def verify_manifest_against_plan(
     ]
     if (
         manifest.schema_name != "CohortDayManifest"
-        or manifest.schema_version not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0"}
+        or manifest.schema_version
+        not in {"3.0.0", "3.1.0", "3.2.0", "3.3.0", "3.4.0"}
         or payload.plan_version != plan.version
         or payload.plan_sha256 != plan.sha256
         or payload.schedule_mode != plan.schedule_mode
@@ -465,7 +738,7 @@ def verify_manifest_against_plan(
         != expected_legacy_failure_receipt_id
     ):
         raise RuntimeError("compressed_manifest_plan_mismatch")
-    if manifest.schema_version == "3.3.0":
+    if manifest.schema_version in {"3.3.0", "3.4.0"}:
         _verify_deadline_policy_against_cycle(payload.deadline_policy, cycle)
         try:
             require_deadline_completion_binding(
@@ -485,6 +758,9 @@ def verify_manifest_against_plan(
         and manifest.status.value != "INCOMPLETE"
     ):
         raise RuntimeError("compressed_manifest_completion_timeout")
+    if manifest.schema_version == "3.4.0":
+        _verify_final_only_manifest_against_plan(manifest, plan)
+        return
     for row, expected_cycle in zip(
         compressed_rows, plan.cycles[: cycle.cycle_index], strict=True
     ):
@@ -510,6 +786,147 @@ def verify_manifest_against_plan(
         )
         if observed != locked:
             raise RuntimeError("compressed_manifest_history_plan_mismatch")
+
+
+def _verify_final_only_manifest_against_plan(
+    manifest: Any,
+    plan: CompressedPlan,
+) -> None:
+    if plan.schema_version != "2.8.0" or plan.supersession is None:
+        raise RuntimeError("compressed_final_only_manifest_plan_mismatch")
+    payload = manifest.payload
+    supersession = payload.final_only_supersession
+    observed_history = tuple(
+        (
+            item["cycle_id"],
+            item["evidence_role"],
+            item["execution_status"],
+            item["plan_sha256"],
+            item["collection_prefix"],
+            item["manifest_artifact_id"],
+            item["manifest_content_hash"],
+            item["mode_receipt_artifact_id"],
+            item["mode_receipt_content_hash"],
+        )
+        for item in supersession["historical_evidence"]
+    )
+    expected_history = tuple(
+        (
+            item.cycle_id,
+            item.evidence_role,
+            item.execution_status,
+            item.plan_sha256,
+            item.collection_prefix,
+            item.manifest_artifact_id,
+            item.manifest_content_hash,
+            item.mode_receipt_artifact_id,
+            item.mode_receipt_content_hash,
+        )
+        for item in plan.supersession.historical_evidence
+    )
+    observed_retired = tuple(
+        (
+            item["cycle_id"],
+            item["state"],
+            item["execution_status"],
+            item["runs_created"],
+        )
+        for item in supersession["retired_cycles"]
+    )
+    expected_retired = tuple(
+        (item.cycle_id, item.state, item.execution_status, item.runs_created)
+        for item in plan.supersession.retired_cycles
+    )
+    expected_ids = tuple(
+        artifact_id
+        for item in plan.supersession.historical_evidence
+        for artifact_id in (
+            item.manifest_artifact_id,
+            item.mode_receipt_artifact_id,
+        )
+        if artifact_id is not None
+    )
+    current_status = (
+        "COMPLETE" if manifest.status.value == "VALID" else "INCOMPLETE"
+    )
+    expected_rows = []
+    for cycle_id in ("c4", "c5"):
+        cycle = plan.by_id(cycle_id)
+        expected_rows.append(
+            (
+                cycle.cycle_id,
+                cycle.cycle_index,
+                cycle.cohort_due_date.isoformat(),
+                0,
+                0,
+                cycle.schedule_epoch,
+                _timestamp(cycle.window_end),
+                cycle.schedule_epoch,
+                TRIGGER_CODE,
+                "OwnerSupersession/1.0.0",
+                "RETIRED_TIMEBOX",
+                None,
+                "OWNER_DECISION",
+                None,
+                plan.schedule_mode,
+            )
+        )
+    c6 = plan.by_id("c6")
+    expected_rows.append(
+        (
+            c6.cycle_id,
+            c6.cycle_index,
+            c6.cohort_due_date.isoformat(),
+            len(payload.delta["authoritative_run_ids"]),
+            c6.runs_predicted,
+            c6.schedule_epoch,
+            _timestamp(c6.window_end),
+            c6.schedule_epoch,
+            TRIGGER_CODE,
+            "CohortDayManifest/3.4.0",
+            current_status,
+            manifest.created_at,
+            "LIVE_INFRASTRUCTURE_SYNTHETIC_DATA",
+            None,
+            plan.schedule_mode,
+        )
+    )
+    observed_rows = [
+        (
+            row["cycle_id"],
+            row["cycle_index"],
+            row["cohort_due_date"],
+            row["runs_created"],
+            row["runs_predicted"],
+            row["window_start"],
+            row["window_end"],
+            row["scheduled_for"],
+            row["trigger_code"],
+            row["source_schema_version"],
+            row["execution_status"],
+            row["executed_at"],
+            row["evidence_state"],
+            row["failure_receipt_id"],
+            row["schedule_mode"],
+        )
+        for row in payload.execution_history[-3:]
+    ]
+    if (
+        supersession["mode"] != plan.supersession.mode
+        or supersession["superseded_plan_sha256"]
+        != plan.supersession.superseded_plan_sha256
+        or supersession["owner_decision"] != plan.supersession.owner_decision
+        or supersession["reason_code"] != plan.supersession.reason_code
+        or observed_history != expected_history
+        or observed_retired != expected_retired
+        or tuple(supersession["verified_artifact_ids"]) != expected_ids
+        or observed_rows != expected_rows
+        or not set(expected_ids).issubset(set(manifest.input_artifact_ids))
+        or payload.previous_manifest_id is not None
+        or payload.ramp_gate_receipt_id is not None
+        or payload.headroom_receipt_id is not None
+    ):
+        raise RuntimeError("compressed_final_only_manifest_plan_mismatch")
 
 
 def _verify_deadline_policy_against_cycle(

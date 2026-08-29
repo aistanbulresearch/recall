@@ -61,28 +61,13 @@ from tests.support.compressed_v33_manifest import (
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
+def test_bundle_v23_requires_both_external_source_locks(tmp_path) -> None:
     plan = load_compressed_plan(ROOT)
     history_target = tmp_path / DAY1_EVIDENCE_PATH
     history_target.parent.mkdir(parents=True)
     history_target.write_bytes((ROOT / DAY1_EVIDENCE_PATH).read_bytes())
     wire = rebound_bundle_wire(ROOT, plan)
-    wire.update(
-        {
-            "schema_version": "2.2.0",
-            "privacy_receipt_source_lock": {
-                "source_sha256": "b" * 64,
-                "key_id": "test-only",
-                "algorithm": "HMAC-SHA256",
-                "key_fingerprint_sha256": "c" * 64,
-            },
-            "lab_note_source_lock": {
-                "source_sha256": "d" * 64,
-                "schema_version": "1.1.0",
-                "notes_version": "test-only",
-            },
-        }
-    )
+    assert wire["schema_version"] == "2.3.0"
     path = tmp_path / "bundle.json"
     path.write_text(json.dumps(wire), encoding="utf-8")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -97,7 +82,9 @@ def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
     assert loaded.lab_note_source_lock == wire["lab_note_source_lock"]
     wire.pop("lab_note_source_lock")
     path.write_text(json.dumps(wire), encoding="utf-8")
-    with pytest.raises(RuntimeError, match="compressed_preparation_plan_mismatch"):
+    with pytest.raises(
+        RuntimeError, match="compressed_preparation_bundle_shape_invalid"
+    ):
         load_compressed_bundle(
             tmp_path,
             expected_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -106,7 +93,7 @@ def test_bundle_v22_requires_both_external_source_locks(tmp_path) -> None:
         )
 
 
-def test_stale_committed_bundle_fails_before_ledger_construction() -> None:
+def test_committed_final_only_bundle_loads_before_ledger_construction() -> None:
     plan = load_compressed_plan(ROOT)
     bundle_sha = hashlib.sha256(
         (ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH).read_bytes()
@@ -117,12 +104,14 @@ def test_stale_committed_bundle_fails_before_ledger_construction() -> None:
         nonlocal ledger_constructions
         ledger_constructions += 1
 
-    with pytest.raises(RuntimeError, match="compressed_preparation_plan_mismatch"):
-        load_compressed_bundle(
-            ROOT, expected_sha256=bundle_sha, plan=plan
-        )
-        construct_ledger()
-    assert ledger_constructions == 0
+    bundle = load_compressed_bundle(
+        ROOT, expected_sha256=bundle_sha, plan=plan
+    )
+    construct_ledger()
+
+    assert bundle.schema_version == "2.3.0"
+    assert len(bundle.cases) == 456
+    assert ledger_constructions == 1
 
 
 def test_legacy_privacy_rows_fail_closed_for_full_audit_without_writes() -> None:

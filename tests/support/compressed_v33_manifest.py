@@ -15,7 +15,6 @@ from recall.scheduler.compressed_identity import (
 from recall.scheduler.compressed_plan import (
     PLAN3_SHA256,
     PredecessorBinding,
-    load_compressed_plan,
 )
 from recall.scheduler.compressed_preparation import (
     CompressedPreparationVerifier,
@@ -29,7 +28,10 @@ from recall.scheduler.model_cost import (
     InMemoryModelCostLedger,
 )
 from tests.agents.full_audit_double import DeterministicFullAuditRunner
-from tests.scheduler.compressed_bundle_fixture import load_rebound_test_bundle
+from tests.scheduler.compressed_bundle_fixture import (
+    load_plan9_test_plan,
+    load_rebound_test_bundle,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -46,7 +48,7 @@ class LiveMemoryLedger(InMemoryLedger):
 
 
 def load_plan_bundle():
-    plan = load_compressed_plan(REPO_ROOT)
+    plan = load_plan9_test_plan()
     bundle, bundle_sha = load_rebound_test_bundle(REPO_ROOT, plan)
     return plan, with_test_full_audit_receipts(bundle), bundle_sha
 

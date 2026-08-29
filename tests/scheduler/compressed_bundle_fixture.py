@@ -8,7 +8,11 @@ from tempfile import TemporaryDirectory
 
 from recall.contracts import content_hash
 from recall.scheduler.compressed_identity import prepared_watch_artifact_id
-from recall.scheduler.compressed_plan import PLAN_PATH, CompressedPlan
+from recall.scheduler.compressed_plan import (
+    PLAN_PATH,
+    CompressedPlan,
+    parse_compressed_plan,
+)
 from recall.scheduler.compressed_preparation import (
     DEFAULT_COMPRESSED_BUNDLE_PATH,
     CompressedPreparationBundle,
@@ -17,11 +21,25 @@ from recall.scheduler.compressed_preparation import (
 from recall.scheduler.history import DAY1_EVIDENCE_PATH
 
 
+ROOT = Path(__file__).resolve().parents[2]
+PLAN9_FIXTURE_PATH = Path("tests/fixtures/compressed-plan9.json")
+PLAN9_BUNDLE_FIXTURE_PATH = Path(
+    "tests/fixtures/compressed-preparation-bundle-plan9.json"
+)
+
+
+def load_plan9_test_plan() -> CompressedPlan:
+    raw = (ROOT / PLAN9_FIXTURE_PATH).read_bytes()
+    return parse_compressed_plan(
+        json.loads(raw), sha256=hashlib.sha256(raw).hexdigest()
+    )
+
+
 def rebound_bundle_wire(root: Path, plan: CompressedPlan) -> dict[str, object]:
     """Rebind the legacy committed bundle for unit tests without altering evidence."""
 
     value = json.loads(
-        (root / DEFAULT_COMPRESSED_BUNDLE_PATH).read_text(encoding="utf-8")
+        (root / PLAN9_BUNDLE_FIXTURE_PATH).read_text(encoding="utf-8")
     )
     rebound = deepcopy(value)
     rebound["plan_sha256"] = plan.sha256
@@ -56,7 +74,7 @@ def write_rebound_test_repo(
     history.write_bytes((root / DAY1_EVIDENCE_PATH).read_bytes())
     plan_target = target_root / PLAN_PATH
     plan_target.parent.mkdir(parents=True, exist_ok=True)
-    plan_target.write_bytes((root / PLAN_PATH).read_bytes())
+    plan_target.write_bytes((root / PLAN9_FIXTURE_PATH).read_bytes())
     target = target_root / DEFAULT_COMPRESSED_BUNDLE_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(

@@ -101,3 +101,42 @@ def test_object_redaction_masks_keys_as_well_as_values() -> None:
 
     redacted = redact_json({"projects/807520717526": "value"}, None)
     assert list(redacted) == ["projects/<project>"]
+
+
+# The bare-number net once fired INSIDE hex, because its lookarounds excluded
+# adjacent digits but not adjacent letters. It spliced <project-number> into an
+# image digest and a commit sha -- corrupting the two values a person reads while
+# diagnosing a failed deploy, at the one moment they cannot afford a corrupted
+# value. Both directions are pinned below: the net must stay off hex, and it must
+# still cover every boundary a real project number actually appears at.
+
+
+def test_digit_run_inside_hex_is_not_masked() -> None:
+    """A commit sha and an image digest survive intact."""
+
+    digest = "sha256:6e4d71281349717e08e2388667589137027941adb344d6f40bbc8f7b52b905f9"
+    commit = "5bc1c7a2f89731cd4d80827579311cb923dd77a3"
+    masked = redact_identifiers(f"{digest} built from {commit}", PROJECT_ID)
+    assert digest in masked, "image digest was corrupted by the bare-number net"
+    assert commit in masked, "commit sha was corrupted by the bare-number net"
+    assert "<project-number>" not in masked
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "namespace: {n}",
+        'namespace: "{n}"',
+        "projects/{n}/locations/us-central1",
+        "serviceAccount:{n}",
+        "{n}-compute@developer.gserviceaccount.com",
+        "sa-{n}@example.iam.gserviceaccount.com",
+        "value,{n},next",
+        "{{'number': {n}}}",
+    ],
+)
+def test_bare_project_number_still_masked_at_every_real_boundary(template: str) -> None:
+    """Tightening the lookarounds must not lose coverage where numbers really appear."""
+
+    masked = redact_identifiers(template.format(n=PROJECT_NUMBER), PROJECT_ID)
+    assert PROJECT_NUMBER not in masked, f"project number leaked from: {template}"

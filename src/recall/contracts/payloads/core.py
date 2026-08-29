@@ -51,6 +51,7 @@ from .scheduler_v3 import CohortDayManifestV3Payload
 from .scheduler_v31 import CohortDayManifestV31Payload
 from .scheduler_v32 import CohortDayManifestV32Payload
 from .scheduler_v33 import CohortDayManifestV33Payload
+from .scheduler_v34 import CohortDayManifestV34Payload
 from .scheduler_legacy import CohortDayManifestV20Payload
 from .cohort_failure import CohortDayFailureReceiptPayload
 from .cohort_checkpoint import (
@@ -155,6 +156,7 @@ Payload = (
     | CohortDayManifestV31Payload
     | CohortDayManifestV32Payload
     | CohortDayManifestV33Payload
+    | CohortDayManifestV34Payload
     | CohortDayManifestV20Payload
     | CohortDayFailureReceiptPayload
     | CohortExecutionCheckpointPayload

@@ -72,6 +72,10 @@ from .scheduler_v33 import (
     CohortDayManifestV33Payload,
     parse_cohort_day_manifest_v33_payload,
 )
+from .scheduler_v34 import (
+    CohortDayManifestV34Payload,
+    parse_cohort_day_manifest_v34_payload,
+)
 from .scheduler_legacy import (
     CohortDayManifestV20Payload,
     parse_cohort_day_manifest_v20_payload,
@@ -131,6 +135,7 @@ __all__ = [
     "CohortDayManifestV3Payload",
     "CohortDayManifestV20Payload",
     "CohortDayManifestV33Payload",
+    "CohortDayManifestV34Payload",
     "CohortDayFailureReceiptPayload",
     "CohortExecutionCheckpointPayload",
     "BatchExecutionReceiptPayload",
@@ -162,6 +167,7 @@ __all__ = [
     "parse_cohort_day_manifest_payload",
     "parse_cohort_day_manifest_v3_payload",
     "parse_cohort_day_manifest_v33_payload",
+    "parse_cohort_day_manifest_v34_payload",
     "CohortDayManifestV31Payload",
     "CohortDayManifestV32Payload",
     "parse_cohort_day_manifest_v31_payload",

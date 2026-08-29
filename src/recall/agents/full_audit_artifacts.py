@@ -139,6 +139,8 @@ def build_failed_receipt(
     turns: tuple[TurnTelemetry, ...] = (),
     http_429_count: int = 0,
     tool_records: tuple[Mapping[str, str], ...] = (),
+    tool_call_ids: tuple[str, ...] = (),
+    tool_response_ids: tuple[str, ...] = (),
 ) -> dict[str, object]:
     return _agent_receipt(
         case_id=case_id,
@@ -157,6 +159,8 @@ def build_failed_receipt(
         partial_turns=turns,
         partial_http_429_count=http_429_count,
         partial_tool_records=tool_records,
+        partial_tool_call_ids=tool_call_ids,
+        partial_tool_response_ids=tool_response_ids,
     )
 
 
@@ -475,6 +479,8 @@ def _agent_receipt(
     partial_turns: tuple[TurnTelemetry, ...] = (),
     partial_http_429_count: int = 0,
     partial_tool_records: tuple[Mapping[str, str], ...] = (),
+    partial_tool_call_ids: tuple[str, ...] = (),
+    partial_tool_response_ids: tuple[str, ...] = (),
 ) -> dict[str, object]:
     artifact_id = _id(run_id, f"agent:{role.value}:{attempt}:{status}")
     latency = None if completed_at is None else round((completed_at - started_at).total_seconds() * 1000)
@@ -488,8 +494,16 @@ def _agent_receipt(
             key=lambda item: (item["call_id"], item["tool_id"]),
         )
     )
-    call_ids = () if result is None else tuple(sorted(result.tool_call_ids))
-    response_ids = () if result is None else tuple(sorted(result.tool_response_ids))
+    call_ids = (
+        tuple(sorted(partial_tool_call_ids))
+        if result is None
+        else tuple(sorted(result.tool_call_ids))
+    )
+    response_ids = (
+        tuple(sorted(partial_tool_response_ids))
+        if result is None
+        else tuple(sorted(result.tool_response_ids))
+    )
     dependency_ids = () if started_receipt_id is None else tuple(
         sorted(
             {

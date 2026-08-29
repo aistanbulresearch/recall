@@ -29,6 +29,7 @@ from .payloads import (
     parse_cohort_day_manifest_v31_payload,
     parse_cohort_day_manifest_v32_payload,
     parse_cohort_day_manifest_v33_payload,
+    parse_cohort_day_manifest_v34_payload,
     parse_cohort_day_manifest_v20_payload,
     parse_cohort_day_failure_receipt_payload,
     parse_cohort_execution_checkpoint_payload,
@@ -86,6 +87,9 @@ _COHORT_MANIFEST_V33_FIELDS = _COHORT_MANIFEST_V32_FIELDS | frozenset(
         "deadline_policy",
     }
 )
+_COHORT_MANIFEST_V34_FIELDS = _COHORT_MANIFEST_V33_FIELDS | frozenset(
+    {"final_only_supersession"}
+)
 
 
 LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
@@ -136,6 +140,11 @@ LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
         parse_cohort_day_manifest_v32_payload,
         True,
     ),
+    ("CohortDayManifest", "3.3.0"): (
+        _COHORT_MANIFEST_V33_FIELDS,
+        parse_cohort_day_manifest_v33_payload,
+        True,
+    ),
 }
 
 
@@ -169,9 +178,9 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         True,
     ),
     "CohortDayManifest": (
-        "3.3.0",
-        _COHORT_MANIFEST_V33_FIELDS,
-        parse_cohort_day_manifest_v33_payload,
+        "3.4.0",
+        _COHORT_MANIFEST_V34_FIELDS,
+        parse_cohort_day_manifest_v34_payload,
         True,
     ),
     "CompressedCycleFailureReceipt": (

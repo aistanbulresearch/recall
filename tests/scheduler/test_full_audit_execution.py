@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncGenerator
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -8,6 +9,13 @@ from types import SimpleNamespace
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
+import recall.agents.full_audit as full_audit_module
+from google.adk.models import BaseLlm
+from google.adk.models._capabilities import LlmCapabilities
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
+from google.genai import types
+from pydantic import PrivateAttr
 
 from recall.agents.full_audit import (
     FullAuditCoordinator,
@@ -15,8 +23,13 @@ from recall.agents.full_audit import (
     RoleRunResult,
     TurnTelemetry,
 )
-from recall.agents.full_audit_models import FullAuditRunOutcome, RoleExecutionError
+from recall.agents.full_audit_models import (
+    MAX_MODEL_TURNS_PER_ROLE,
+    FullAuditRunOutcome,
+    RoleExecutionError,
+)
 from recall.agents.full_audit_artifacts import build_started_receipt
+from recall.agents.in_process_runtime import InProcessAdkRoleRunner
 from recall.agents.schemas import (
     AssessmentAgentOutput,
     CitationAuditOutput,
@@ -38,6 +51,7 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.model_cost import (
     DEFAULT_MODEL_COST_POLICY,
     InMemoryModelCostLedger,
+    projected_cost_micros,
 )
 from recall.scheduler.full_audit_phase import (
     FullAuditCaseFailure,
@@ -50,6 +64,45 @@ from tests.admission import admit_watch_case, in_memory_ledger
 
 CASE_ID = "728d6e23-5ee4-4bd4-9319-4304f55628f3"
 NOW = datetime(2026, 8, 27, 8, 0, tzinfo=UTC)
+
+
+async def _no_sleep(_seconds: float) -> None:
+    return None
+
+
+class ToolThenRateLimitedLlm(BaseLlm):
+    """Complete one real FunctionTool turn, then fail every final-answer call."""
+
+    _calls: int = PrivateAttr(default=0)
+
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        self._calls += 1
+        if self._calls == 1:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part.from_function_call(
+                            name="evidence_connector",
+                            args={},
+                        )
+                    ],
+                ),
+                partial=False,
+            )
+            return
+        raise RuntimeError("429 ResourceExhausted")
+        yield  # pragma: no cover - keeps the async-generator contract
 
 
 class FakeRoleRunner:
@@ -227,6 +280,547 @@ def test_full_audit_executes_all_roles_and_commits_deterministic_policy() -> Non
     ) == 6
     assert sum(item["schema_name"] == "CitationAuditReceipt" for item in artifacts) == 1
     assert sum(item["schema_name"] == "PolicyDecision" for item in artifacts) == 1
+
+
+def test_two_turn_cost_contract_reserves_and_reconciles_every_role_turn() -> None:
+    assert MAX_MODEL_TURNS_PER_ROLE == 2
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reserved: list[str] = []
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            self.reserved.append(reservation_id)
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(
+                reservation_id, actual_usd_micros=actual_usd_micros
+            )
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+
+    expected_ids = [
+        f"{run_id}:{role.value}:1:{turn}"
+        for role in (
+            AgentRole.EVIDENCE_WATCHER,
+            AgentRole.EVIDENCE_ASSESSOR,
+            AgentRole.CITATION_AUDITOR,
+        )
+        for turn in range(1, MAX_MODEL_TURNS_PER_ROLE + 1)
+    ]
+    one_turn_actual = projected_cost_micros(
+        prompt_tokens=100,
+        candidate_tokens=20,
+        thoughts_tokens=5,
+        policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    assert outcome.terminal_state == "NO_ACTION"
+    assert cost.reserved == expected_ids
+    assert [item[0] for item in cost.reconciled] == expected_ids
+    assert [item[1] for item in cost.reconciled] == [
+        value for _role in range(3) for value in (one_turn_actual, 0)
+    ]
+    assert cost.snapshot().reserved_usd_micros == one_turn_actual * 3
+    assert cost.snapshot().reconciled_usd_micros == one_turn_actual * 3
+
+
+def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_once() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(
+                reservation_id, actual_usd_micros=actual_usd_micros
+            )
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    turn = TurnTelemetry(1, 100, 20, 5, 125, "STOP", True, 10)
+
+    class MissingFinalSchemaRunner:
+        async def execute(self, role, prompt, tools, context):
+            del prompt
+            assert role is AgentRole.EVIDENCE_WATCHER
+            tools["evidence_connector"](
+                stage="prepared",
+                tool_context=context.tool_context("watcher-call"),
+            )
+            raise RoleExecutionError(
+                "agent_response_missing",
+                turns=(turn,),
+                tool_call_ids=("watcher-call",),
+                tool_response_ids=("watcher-call",),
+            )
+
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=MissingFinalSchemaRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+    actual = projected_cost_micros(
+        prompt_tokens=100,
+        candidate_tokens=20,
+        thoughts_tokens=5,
+        policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert failed["failure_code"] == "agent_schema_invalid"
+    assert failed["turns"] == [turn.to_wire()]
+    assert failed["tool_call_ids"] == ["watcher-call"]
+    assert failed["tool_response_ids"] == ["watcher-call"]
+    assert [item["tool_id"] for item in failed["tool_records"]] == [
+        "evidence_connector"
+    ]
+    assert cost.reconciled == [
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:1", actual),
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:2", 0),
+    ]
+    assert not any(
+        item["schema_name"] == "PolicyDecision"
+        for item in ledger.list_by_run(run_id)
+    )
+
+
+def test_deadline_exhausted_after_reservation_reconciles_both_turns_to_zero() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(reservation_id, actual_usd_micros=actual_usd_micros)
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    with pytest.raises(
+        RoleExecutionError, match="agent_execution_deadline_exceeded"
+    ):
+        asyncio.run(
+            coordinator._execute_role(
+                AgentRole.EVIDENCE_WATCHER,
+                run_id=run_id,
+                evidence=evidence,
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                now=NOW,
+                deadline_at=NOW,
+            )
+        )
+
+    assert cost.reconciled == [
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:1", 0),
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:2", 0),
+    ]
+
+
+def test_second_reserve_exception_zero_reconciles_first_reservation_once() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class SecondReserveFails:
+        def __init__(self) -> None:
+            self.reserve_count = 0
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            self.reserve_count += 1
+            if self.reserve_count == 2:
+                raise RuntimeError("second_reserve_failed")
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(reservation_id, actual_usd_micros=actual_usd_micros)
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    cost = SecondReserveFails()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    with pytest.raises(RuntimeError, match="second_reserve_failed"):
+        asyncio.run(
+            coordinator._execute_role(
+                AgentRole.EVIDENCE_WATCHER,
+                run_id=run_id,
+                evidence=evidence,
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                now=NOW,
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+        )
+
+    assert cost.reconciled == [
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:1", 0)
+    ]
+
+
+def test_unexpected_runner_failure_zero_reconciles_all_reservations_once() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(reservation_id, actual_usd_micros=actual_usd_micros)
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    class UnexpectedFailureRunner:
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt, tools, context
+            raise ValueError("unexpected_runner_failure")
+
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=UnexpectedFailureRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    with pytest.raises(ValueError, match="unexpected_runner_failure"):
+        asyncio.run(
+            coordinator._execute_role(
+                AgentRole.EVIDENCE_WATCHER,
+                run_id=run_id,
+                evidence=evidence,
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                now=NOW,
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+        )
+
+    assert cost.reconciled == [
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:1", 0),
+        (f"{run_id}:{AgentRole.EVIDENCE_WATCHER.value}:1:2", 0),
+    ]
+
+
+def test_failure_tool_ids_disagree_with_authoritative_records_fails_closed() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class DisagreeingRunner:
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt
+            tools["evidence_connector"](
+                stage="prepared",
+                tool_context=context.tool_context("authoritative-call"),
+            )
+            raise RoleExecutionError(
+                "agent_provider_call_failed",
+                tool_call_ids=("reported-call",),
+                tool_response_ids=("reported-call",),
+            )
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=DisagreeingRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    with pytest.raises(RoleExecutionError) as captured:
+        asyncio.run(
+            coordinator._execute_role(
+                AgentRole.EVIDENCE_WATCHER,
+                run_id=run_id,
+                evidence=evidence,
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                now=NOW,
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+        )
+
+    assert captured.value.code == "agent_tool_evidence_mismatch"
+    assert captured.value.tool_call_ids == ("authoritative-call",)
+    assert captured.value.tool_response_ids == ("authoritative-call",)
+    assert captured.value.tool_records[0]["authorization_receipt_id"]
+
+
+def test_real_adk_tool_then_second_provider_429_preserves_authoritative_evidence() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(reservation_id, actual_usd_micros=actual_usd_micros)
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    runner = InProcessAdkRoleRunner(
+        model=ToolThenRateLimitedLlm(),
+        provider_rpm=60,
+        provider_clock=lambda: 0.0,
+        provider_sleeper=_no_sleep,
+        backoff_sleeper=_no_sleep,
+    )
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    artifacts = ledger.list_by_run(run_id)
+    failed = next(
+        item
+        for item in artifacts
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert failed["failure_code"] == "controller_failed"
+    assert len(failed["turns"]) == 1
+    assert failed["http_429_count"] >= 1
+    assert len(failed["tool_records"]) == 1
+    record = failed["tool_records"][0]
+    assert record["tool_id"] == "evidence_connector"
+    assert failed["tool_call_ids"] == [record["call_id"]]
+    assert failed["tool_response_ids"] == [record["response_id"]]
+    assert record["authorization_receipt_id"] in failed["input_artifact_ids"]
+    assert len(cost.reconciled) == 2
+    assert len({reservation_id for reservation_id, _ in cost.reconciled}) == 2
+    assert not any(item["schema_name"] == "PolicyDecision" for item in artifacts)
+
+
+def test_local_tool_construction_failure_occurs_before_any_cost_reservation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class NoReservationCostLedger:
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            raise AssertionError("cost reservation must follow tool construction")
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            raise AssertionError("nothing was reserved")
+
+        def snapshot(self):
+            return SimpleNamespace(reserved_usd_micros=0, reconciled_usd_micros=0)
+
+    monkeypatch.setattr(
+        full_audit_module,
+        "build_local_tools",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("local_tool_construction_failed")
+        ),
+    )
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=NoReservationCostLedger(),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    with pytest.raises(RuntimeError, match="local_tool_construction_failed"):
+        asyncio.run(
+            coordinator._execute_role(
+                AgentRole.EVIDENCE_WATCHER,
+                run_id=run_id,
+                evidence=evidence,
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                now=NOW,
+                deadline_at=NOW + timedelta(minutes=1),
+            )
+        )
+
+
+@pytest.mark.parametrize("invalid_mode", ["ROUND_TRIP", "THREE_TURNS"])
+def test_post_result_invariant_failure_preserves_evidence_without_double_cost(
+    invalid_mode: str,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            inner.reconcile(reservation_id, actual_usd_micros=actual_usd_micros)
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    base_turns = (
+        TurnTelemetry(1, 100, 20, 5, 125, "STOP", True, 10),
+        TurnTelemetry(2, 110, 25, 5, 140, "STOP", False, 10),
+    )
+
+    class InvalidResultRunner:
+        async def execute(self, role, prompt, tools, context):
+            del prompt
+            tools["evidence_connector"](
+                stage="prepared",
+                tool_context=context.tool_context("watcher-call"),
+            )
+            turns = base_turns
+            responses: tuple[str, ...] = ()
+            if invalid_mode == "THREE_TURNS":
+                turns += (
+                    TurnTelemetry(3, 1, 1, 0, 2, "STOP", False, 1),
+                )
+                responses = ("watcher-call",)
+            return RoleRunResult(
+                EvidenceSnapshotOutput.model_validate(
+                    {
+                        "effective_at": "2026-08-27T08:00:00Z",
+                        "observation_ids": [],
+                        "coverage_status": "PASS",
+                        "source_cursors": {"clinvar": "42"},
+                        "normalized_facts": {
+                            "observation_count": 1,
+                            "scope": "synthetic",
+                        },
+                        "conflicts": [],
+                        "snapshot_hash": "a" * 64,
+                    }
+                ),
+                turns,
+                ("watcher-call",),
+                responses,
+                context.trace_id,
+                context.invocation_id,
+                NOW,
+                NOW + timedelta(seconds=1),
+                0,
+            )
+
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=InvalidResultRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert failed["turns"] == [turn.to_wire() for turn in (
+        base_turns
+        if invalid_mode == "ROUND_TRIP"
+        else base_turns + (TurnTelemetry(3, 1, 1, 0, 2, "STOP", False, 1),)
+    )]
+    assert failed["tool_call_ids"] == ["watcher-call"]
+    assert failed["tool_response_ids"] == (
+        [] if invalid_mode == "ROUND_TRIP" else ["watcher-call"]
+    )
+    assert len(cost.reconciled) == 2
+    assert len({item[0] for item in cost.reconciled}) == 2
+    assert not any(
+        item["schema_name"] == "PolicyDecision"
+        for item in ledger.list_by_run(run_id)
+    )
 
 
 def test_hash_bound_exact_allele_projection_creates_present_candidate() -> None:

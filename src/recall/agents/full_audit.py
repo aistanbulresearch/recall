@@ -47,6 +47,7 @@ from .full_audit_artifacts import (
 )
 from .full_audit_models import (
     FullAuditRunOutcome,
+    MAX_MODEL_TURNS_PER_ROLE,
     PreparedRunEvidence,
     RoleExecutionContext,
     RoleExecutionError,
@@ -437,15 +438,7 @@ class FullAuditCoordinator:
         self._ledger.append_artifact(started)
         prompt = self._prompt(role, input_artifact_ids)
         validate_request_budget(prompt.encode("utf-8"), self._cost_policy)
-        reservations = []
         tool_records: list[Mapping[str, str]] = []
-        worst = worst_case_turn_cost_micros(self._cost_policy)
-        for turn_index in (1, 2):
-            reservation_id = f"{run_id}:{role.value}:{attempt}:{turn_index}"
-            reservation = self._cost.reserve(reservation_id, worst)
-            if reservation.state != "RESERVED":
-                raise RuntimeError("model_cost_cap_exceeded")
-            reservations.append(reservation_id)
         tools = build_local_tools(
             self._ledger,
             self._invocations,
@@ -465,47 +458,133 @@ class FullAuditCoordinator:
                 tool_record_sink=tool_records.append,
             ),
         )
-        remaining_seconds = (deadline_at - now).total_seconds()
-        if remaining_seconds <= 0:
-            raise RoleExecutionError("agent_execution_deadline_exceeded")
-        try:
-            result = await asyncio.wait_for(
-                self._runner.execute(role, prompt, tools, context),
-                timeout=min(self._role_timeout, remaining_seconds),
+        reservations: list[str] = []
+        reconciled_reservations: set[str] = set()
+        reconciliation_failed = False
+        captured_turns: tuple[TurnTelemetry, ...] = ()
+        worst = worst_case_turn_cost_micros(self._cost_policy)
+
+        def reconcile_unsettled_reservations(
+            turns: tuple[TurnTelemetry, ...],
+        ) -> None:
+            nonlocal reconciliation_failed
+            for index, reservation_id in enumerate(reservations):
+                if reservation_id in reconciled_reservations:
+                    continue
+                actual = 0
+                if index < len(turns):
+                    turn = turns[index]
+                    actual = projected_cost_micros(
+                        prompt_tokens=turn.prompt_tokens,
+                        candidate_tokens=turn.candidate_tokens,
+                        thoughts_tokens=turn.thoughts_tokens,
+                        policy=self._cost_policy,
+                    )
+                try:
+                    self._cost.reconcile(
+                        reservation_id,
+                        actual_usd_micros=actual,
+                    )
+                except BaseException:  # cost-ledger failure is not safely retryable
+                    reconciliation_failed = True
+                    raise
+                reconciled_reservations.add(reservation_id)
+
+        def failed_role_error(exc: RoleExecutionError) -> RoleExecutionError:
+            record_calls = tuple(str(item["call_id"]) for item in tool_records)
+            record_responses = tuple(
+                str(item["response_id"]) for item in tool_records
             )
-        except RoleExecutionError as exc:
-            raise RoleExecutionError(
-                exc.code,
+            exception_has_ids = bool(
+                exc.tool_call_ids or exc.tool_response_ids
+            )
+            records_have_ids = bool(record_calls or record_responses)
+            evidence_disagrees = (
+                exception_has_ids
+                and records_have_ids
+                and (
+                    exc.tool_call_ids != record_calls
+                    or exc.tool_response_ids != record_responses
+                )
+            )
+            return RoleExecutionError(
+                "agent_tool_evidence_mismatch" if evidence_disagrees else exc.code,
                 turns=exc.turns,
                 http_429_count=exc.http_429_count,
                 tool_records=tuple(tool_records),
-            ) from exc
-        except TimeoutError as exc:
-            raise RoleExecutionError(
-                "agent_timeout",
-                tool_records=tuple(tool_records),
-            ) from exc
-        result = replace(result, tool_records=tuple(tool_records))
-        if len(result.turns) > 2:
-            raise RuntimeError("model_turn_budget_exceeded")
-        if (
-            not result.tool_call_ids
-            or len(set(result.tool_call_ids)) != len(result.tool_call_ids)
-            or set(result.tool_call_ids) != set(result.tool_response_ids)
-        ):
-            raise RuntimeError("agent_tool_round_trip_incomplete")
-        for index, reservation_id in enumerate(reservations):
-            actual = 0
-            if index < len(result.turns):
-                turn = result.turns[index]
-                actual = projected_cost_micros(
-                    prompt_tokens=turn.prompt_tokens,
-                    candidate_tokens=turn.candidate_tokens,
-                    thoughts_tokens=turn.thoughts_tokens,
-                    policy=self._cost_policy,
+                tool_call_ids=(
+                    record_calls if records_have_ids else exc.tool_call_ids
+                ),
+                tool_response_ids=(
+                    record_responses
+                    if records_have_ids
+                    else exc.tool_response_ids
+                ),
+            )
+
+        try:
+            for turn_index in range(1, MAX_MODEL_TURNS_PER_ROLE + 1):
+                reservation_id = f"{run_id}:{role.value}:{attempt}:{turn_index}"
+                reservation = self._cost.reserve(reservation_id, worst)
+                if reservation.state != "RESERVED":
+                    raise RuntimeError("model_cost_cap_exceeded")
+                reservations.append(reservation_id)
+            remaining_seconds = (deadline_at - now).total_seconds()
+            if remaining_seconds <= 0:
+                raise RoleExecutionError("agent_execution_deadline_exceeded")
+            try:
+                result = await asyncio.wait_for(
+                    self._runner.execute(role, prompt, tools, context),
+                    timeout=min(self._role_timeout, remaining_seconds),
                 )
-            self._cost.reconcile(reservation_id, actual_usd_micros=actual)
-        return attempt, started, result
+            except RoleExecutionError as exc:
+                captured_turns = exc.turns
+                raise failed_role_error(exc) from exc
+            except TimeoutError as exc:
+                raise RoleExecutionError(
+                    "agent_timeout",
+                    tool_records=tuple(tool_records),
+                ) from exc
+            result = replace(result, tool_records=tuple(tool_records))
+            captured_turns = result.turns
+            reconcile_unsettled_reservations(result.turns)
+            if len(result.turns) > MAX_MODEL_TURNS_PER_ROLE:
+                raise RoleExecutionError(
+                    "model_turn_budget_exceeded",
+                    turns=result.turns,
+                    http_429_count=result.http_429_count,
+                    tool_records=result.tool_records,
+                    tool_call_ids=result.tool_call_ids,
+                    tool_response_ids=result.tool_response_ids,
+                )
+            if (
+                not result.tool_call_ids
+                or len(set(result.tool_call_ids)) != len(result.tool_call_ids)
+                or set(result.tool_call_ids) != set(result.tool_response_ids)
+            ):
+                raise RoleExecutionError(
+                    "agent_tool_round_trip_incomplete",
+                    turns=result.turns,
+                    http_429_count=result.http_429_count,
+                    tool_records=result.tool_records,
+                    tool_call_ids=result.tool_call_ids,
+                    tool_response_ids=result.tool_response_ids,
+                )
+            return attempt, started, result
+        except BaseException as exc:
+            if (
+                not reconciliation_failed
+                and len(reconciled_reservations) < len(reservations)
+            ):
+                try:
+                    reconcile_unsettled_reservations(captured_turns)
+                except BaseException as reconciliation_error:
+                    exc.add_note(
+                        "model cost reconciliation also failed; reservation "
+                        "state is not safely retryable"
+                    )
+                    raise exc from reconciliation_error
+            raise
 
     def _halt(
         self,
@@ -555,6 +634,14 @@ class FullAuditCoordinator:
             active_tool_records = (
                 error.tool_records if isinstance(error, RoleExecutionError) else ()
             )
+            active_tool_call_ids = (
+                error.tool_call_ids if isinstance(error, RoleExecutionError) else ()
+            )
+            active_tool_response_ids = (
+                error.tool_response_ids
+                if isinstance(error, RoleExecutionError)
+                else ()
+            )
             failed_agent_receipt = build_failed_receipt(
                 case_id=evidence.case_id, run_id=run_id, role=active_role,
                 attempt=active_attempt, started_receipt_id=str(active_started["artifact_id"]),
@@ -565,6 +652,8 @@ class FullAuditCoordinator:
                 turns=active_turns,
                 http_429_count=active_429_count,
                 tool_records=active_tool_records,
+                tool_call_ids=active_tool_call_ids,
+                tool_response_ids=active_tool_response_ids,
             )
         failure = build_artifact(
             schema_name="FailureReceipt", schema_version="1.0.0",
@@ -723,6 +812,11 @@ class FullAuditCoordinator:
             isinstance(error, RoleExecutionError) and error.code == "agent_timeout"
         ):
             return "agent_timeout"
+        if isinstance(error, RoleExecutionError) and error.code in {
+            "agent_schema_invalid",
+            "agent_response_missing",
+        }:
+            return "agent_schema_invalid"
         if isinstance(error, RoleExecutionError):
             return "controller_failed"
         if isinstance(error, ContractError):
@@ -811,7 +905,7 @@ class FullAuditCoordinator:
     @staticmethod
     def _prompt(role: AgentRole, input_ids: tuple[str, ...]) -> str:
         if role is AgentRole.EVIDENCE_WATCHER:
-            return "Call evidence_connector with stage=prepared, then return the strict EvidenceSnapshot output."
+            return "Call evidence_connector once, then return the strict EvidenceSnapshot output."
         if role is AgentRole.EVIDENCE_ASSESSOR:
             return f"Call ledger_read for CandidateDeltaReceipt {input_ids[0]}; return strict assessment JSON even when no candidate exists."
         return f"Call ledger_read for AssessmentReceipt {input_ids[0]}; return strict citation audit JSON. Empty material claims still require COMPLETE no-claim audit semantics."

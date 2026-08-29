@@ -48,6 +48,7 @@ from .compressed_preparation import (
     load_compressed_bundle,
     verify_prepared_cycle,
 )
+from .compressed_supersession import verify_final_only_supersession
 from .model_cost import (
     DEFAULT_MODEL_COST_POLICY,
     FirestoreModelCostLedger,
@@ -93,8 +94,7 @@ def execute(
     source_commit = _required(environment, "RECALL_SOURCE_COMMIT")
     if not _SOURCE_COMMIT.fullmatch(source_commit):
         raise RuntimeError("cohort_source_commit_invalid")
-    if source_commit != bundle.source_commit:
-        raise RuntimeError("source_commit_mismatch")
+    _require_compressed_source_binding(bundle, source_commit)
     image_digest = _required(environment, "RECALL_IMAGE_DIGEST")
     if not _IMAGE_DIGEST.fullmatch(image_digest):
         raise RuntimeError("cohort_image_digest_invalid")
@@ -151,6 +151,16 @@ def execute(
         }
     project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
     verifier = CompressedPreparationVerifier(bundle)
+
+    def historical_ledger(prefix: str):
+        return ledger_factory(
+            collection_prefix=prefix,
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+
     if args.verify_prefix:
         try:
             due = datetime.strptime(args.verify_prefix, "%Y%m%d").date()
@@ -167,6 +177,12 @@ def execute(
         before = {
             name: ledger.read_back_count(name) for name in ledger.collection_names
         }
+        verified_history = None
+        if plan.schema_version == "2.8.0":
+            verified_history = verify_final_only_supersession(
+                plan,
+                ledger_for_prefix=historical_ledger,
+            )
         verify_prepared_cycle(ledger, bundle, plan, cycle)
         after = {
             name: ledger.read_back_count(name) for name in ledger.collection_names
@@ -183,6 +199,11 @@ def execute(
             "readback": after,
             "plan_sha256": plan.sha256,
             "preparation_bundle_sha256": bundle.bundle_sha256,
+            "verified_historical_artifact_ids": (
+                []
+                if verified_history is None
+                else list(verified_history.verified_artifact_ids)
+            ),
         }
     now = now_factory()
     cycle = resolve_declared_cycle(now, plan)
@@ -217,38 +238,40 @@ def execute(
         refetch_backend = ncbi.fetch
     previous = None
     prior_ledgers = {}
-    for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
-        prior_ledger = ledger_factory(
-            collection_prefix=evidence_collection_prefix(plan, prior_cycle),
-            privacy_receipt_verifier=verifier,
-            expected_project_sha256=project_sha,
-            database="(default)",
-            require_live=True,
-        )
-        prior_ledgers[prior_cycle.cycle_id] = prior_ledger
-    if cycle.cycle_index > 1:
-        predecessor = plan.cycles[cycle.cycle_index - 2]
-        previous = prior_ledgers[predecessor.cycle_id].get_artifact(
-            evidence_manifest_artifact_id(plan, predecessor)
-        )
-        if previous is None:
-            raise RuntimeError("compressed_previous_manifest_missing")
-    predecessor = plan.cycles[cycle.cycle_index - 2]
-    ramp_gate = evaluate_and_persist_ramp_gate(
-            plan=plan,
-            target_cycle=cycle,
-            predecessor_ledger=prior_ledgers[predecessor.cycle_id],
-            target_ledger=ledger,
-            now=now,
-    )
+    ramp_gate = None
     headroom = None
-    if cycle.cycle_id == "c6":
-        headroom = evaluate_and_persist_headroom(
-            plan=plan,
-            c6_cycle=cycle,
-            prior_ledgers=prior_ledgers,
-            c6_ledger=ledger,
+    if plan.schema_version != "2.8.0":
+        for prior_cycle in plan.cycles[: cycle.cycle_index - 1]:
+            prior_ledger = ledger_factory(
+                collection_prefix=evidence_collection_prefix(plan, prior_cycle),
+                privacy_receipt_verifier=verifier,
+                expected_project_sha256=project_sha,
+                database="(default)",
+                require_live=True,
+            )
+            prior_ledgers[prior_cycle.cycle_id] = prior_ledger
+        if cycle.cycle_index > 1:
+            predecessor = plan.cycles[cycle.cycle_index - 2]
+            previous = prior_ledgers[predecessor.cycle_id].get_artifact(
+                evidence_manifest_artifact_id(plan, predecessor)
+            )
+            if previous is None:
+                raise RuntimeError("compressed_previous_manifest_missing")
+        predecessor = plan.cycles[cycle.cycle_index - 2]
+        ramp_gate = evaluate_and_persist_ramp_gate(
+                plan=plan,
+                target_cycle=cycle,
+                predecessor_ledger=prior_ledgers[predecessor.cycle_id],
+                target_ledger=ledger,
+                now=now,
         )
+        if cycle.cycle_id == "c6":
+            headroom = evaluate_and_persist_headroom(
+                plan=plan,
+                c6_cycle=cycle,
+                prior_ledgers=prior_ledgers,
+                c6_ledger=ledger,
+            )
     result = CompressedCycleScheduler(
         ledger,
         plan=plan,
@@ -265,6 +288,9 @@ def execute(
         ramp_gate_receipt=ramp_gate,
         headroom_receipt=headroom,
         prior_ledgers=prior_ledgers,
+        historical_ledger_factory=(
+            historical_ledger if plan.schema_version == "2.8.0" else None
+        ),
     )
     return {
         "mode": "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE",
@@ -275,7 +301,9 @@ def execute(
         "authoritative_run_ids": list(result.authoritative_run_ids),
         "manifest_artifact_id": result.manifest_artifact_id,
         "data_mode_receipt_id": result.data_mode_receipt_id,
-        "ramp_gate_receipt_id": str(ramp_gate["artifact_id"]),
+        "ramp_gate_receipt_id": (
+            None if ramp_gate is None else str(ramp_gate["artifact_id"])
+        ),
         "headroom_receipt_id": (
             None if headroom is None else str(headroom["artifact_id"])
         ),
@@ -419,6 +447,13 @@ def _execute_legacy(
             "terminal_agent_execution": "NOT_RUN_NOT_CLAIMED",
         },
     }
+
+
+def _require_compressed_source_binding(bundle, source_commit: str) -> None:
+    """Keep legacy equality; final-only input provenance is loader-verified."""
+
+    if bundle.schema_version != "2.3.0" and source_commit != bundle.source_commit:
+        raise RuntimeError("source_commit_mismatch")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

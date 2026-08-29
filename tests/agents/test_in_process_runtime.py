@@ -42,7 +42,7 @@ class ToolThenJsonLlm(BaseLlm):
                         parts=[
                             types.Part.from_function_call(
                                 name="evidence_connector",
-                                args={"stage": "prepared"},
+                                args={},
                             )
                         ],
                     ),
@@ -84,6 +84,44 @@ class RateLimitedLlm(BaseLlm):
         yield  # pragma: no cover - keeps the async-generator contract
 
 
+class ToolThenInvalidFinalLlm(BaseLlm):
+    _responses: deque[LlmResponse] = PrivateAttr()
+
+    def __init__(self, final_text: str | None) -> None:
+        super().__init__(model="gemini-3.7-flash")
+        final_parts = [] if final_text is None else [types.Part(text=final_text)]
+        self._responses = deque(
+            (
+                LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[
+                            types.Part.from_function_call(
+                                name="evidence_connector",
+                                args={},
+                            )
+                        ],
+                    ),
+                    partial=False,
+                ),
+                LlmResponse(
+                    content=types.Content(role="model", parts=final_parts),
+                    partial=False,
+                ),
+            )
+        )
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        yield self._responses.popleft()
+
+
 class ThreeTurnLlm(BaseLlm):
     _calls: int = PrivateAttr(default=0)
 
@@ -103,6 +141,70 @@ class ThreeTurnLlm(BaseLlm):
     ) -> AsyncGenerator[LlmResponse, None]:
         del llm_request, stream
         self._calls += 1
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_function_call(
+                        name="evidence_connector",
+                        args={"stage": "prepared"},
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
+class RepeatToolUnlessFinalTurnIsLockedLlm(BaseLlm):
+    _calls: int = PrivateAttr(default=0)
+    _modes: list[types.FunctionCallingConfigMode | None] = PrivateAttr(
+        default_factory=list
+    )
+
+    def __init__(self) -> None:
+        super().__init__(model="gemini-3.7-flash")
+
+    @property
+    def calls(self) -> int:
+        return self._calls
+
+    @property
+    def modes(self) -> tuple[types.FunctionCallingConfigMode | None, ...]:
+        return tuple(self._modes)
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del stream
+        self._calls += 1
+        function_config = (
+            None
+            if llm_request.config.tool_config is None
+            else llm_request.config.tool_config.function_calling_config
+        )
+        mode = None if function_config is None else function_config.mode
+        self._modes.append(mode)
+        if mode is types.FunctionCallingConfigMode.NONE:
+            output = (
+                '{"effective_at":"2026-08-27T08:00:00Z",'
+                '"observation_ids":[],"coverage_status":"PASS",'
+                '"source_cursors":{"clinvar":"42"},'
+                '"normalized_facts":{"observation_count":1,'
+                '"scope":"synthetic"},"conflicts":[],"snapshot_hash":"'
+                + "a" * 64
+                + '"}'
+            )
+            yield LlmResponse(
+                content=types.Content(
+                    role="model", parts=[types.Part(text=output)]
+                ),
+                partial=False,
+            )
+            return
         yield LlmResponse(
             content=types.Content(
                 role="model",
@@ -203,6 +305,79 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
     assert result.tool_call_ids == result.tool_response_ids
 
 
+def test_watcher_tool_exposes_no_model_controlled_stage_and_keeps_local_guard() -> None:
+    observed: list[str] = []
+
+    def evidence_connector(stage, tool_context):
+        del tool_context
+        observed.append(stage)
+        return {"records": []}
+
+    result = asyncio.run(
+        _runner(ToolThenJsonLlm()).execute(
+            AgentRole.EVIDENCE_WATCHER,
+            "Call the evidence connector once and return strict JSON.",
+            {"evidence_connector": evidence_connector},
+            RoleExecutionContext(
+                case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+                run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+                attempt=1,
+                invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+                input_artifact_ids=(),
+                trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+            ),
+        )
+    )
+
+    assert observed == ["prepared"]
+    assert len(result.tool_call_ids) == 1
+    assert result.tool_call_ids == result.tool_response_ids
+
+
+@pytest.mark.parametrize(
+    ("final_text", "error_code"),
+    [
+        ("not-json", "agent_schema_invalid"),
+        (None, "agent_response_missing"),
+    ],
+)
+def test_schema_failure_after_real_tool_round_trip_preserves_runtime_evidence(
+    final_text: str | None,
+    error_code: str,
+) -> None:
+    calls: list[str] = []
+
+    with pytest.raises(RoleExecutionError) as captured:
+        asyncio.run(
+            _runner(ToolThenInvalidFinalLlm(final_text)).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call the evidence connector once and return strict JSON.",
+                {
+                    "evidence_connector": lambda stage, **_: (
+                        calls.append(stage) or {"records": []}
+                    )
+                },
+                RoleExecutionContext(
+                    case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+                    run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+                    attempt=1,
+                    invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+                    input_artifact_ids=(),
+                    trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                ),
+            )
+        )
+
+    error = captured.value
+    assert error.code == error_code
+    assert calls == ["prepared"]
+    assert len(error.turns) == 2
+    assert error.turns[0].function_call_emitted is True
+    assert error.turns[1].function_call_emitted is False
+    assert len(error.tool_call_ids) == 1
+    assert error.tool_call_ids == error.tool_response_ids
+
+
 def test_in_process_runner_preserves_rate_limit_telemetry_on_provider_error() -> None:
     context = RoleExecutionContext(
         case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
@@ -251,6 +426,40 @@ def test_in_process_runner_refuses_third_provider_dispatch() -> None:
         )
 
     assert model.calls == 2
+
+
+def test_watcher_final_turn_disables_repeat_tool_call_within_two_turn_budget() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    model = RepeatToolUnlessFinalTurnIsLockedLlm()
+    calls: list[str] = []
+
+    runner = _runner(model)
+    result = asyncio.run(
+        runner.execute(
+            AgentRole.EVIDENCE_WATCHER,
+            "Call the evidence connector once.",
+            {
+                "evidence_connector": lambda **_: (
+                    calls.append("evidence_connector") or {"records": []}
+                )
+            },
+            context,
+        )
+    )
+
+    assert model.calls == 2
+    assert model.modes == (None, types.FunctionCallingConfigMode.NONE)
+    assert runner.provider_limiter.dispatch_count == 2
+    assert calls == ["evidence_connector"]
+    assert len(result.turns) == 2
+    assert result.output.coverage_status == "PASS"
 
 
 def test_in_process_runner_refuses_oversized_second_request_before_dispatch() -> None:

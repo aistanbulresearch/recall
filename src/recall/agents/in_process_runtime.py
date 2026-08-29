@@ -13,6 +13,7 @@ from google.adk.tools import ToolContext
 from google.adk.models import BaseLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
+from google.genai import types
 from pydantic import BaseModel, PrivateAttr
 
 from recall.contracts import AgentRole, ContractError
@@ -20,6 +21,7 @@ from recall.contracts import AgentRole, ContractError
 from .config import MODEL_ID
 from .factory import OUTPUT_SCHEMAS, build_agent_bundle
 from .full_audit_models import (
+    MAX_MODEL_TURNS_PER_ROLE,
     RoleExecutionContext,
     RoleExecutionError,
     RoleRunResult,
@@ -70,11 +72,22 @@ class InProcessAdkRoleRunner:
 
         def before_model(callback_context: Any, llm_request: Any) -> None:
             del callback_context
-            if len(turns) + len(turn_starts) >= 2:
+            if len(turns) + len(turn_starts) >= MAX_MODEL_TURNS_PER_ROLE:
                 raise RoleExecutionError(
                     "model_turn_budget_exceeded",
                     turns=tuple(turns),
                     http_429_count=http_429_count,
+                )
+            if (
+                role is AgentRole.EVIDENCE_WATCHER
+                and len(turns) == 1
+                and turns[0].function_call_emitted
+                and not turn_starts
+            ):
+                llm_request.config.tool_config = types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(
+                        mode=types.FunctionCallingConfigMode.NONE
+                    )
                 )
             turn_starts.append(monotonic())
 
@@ -154,6 +167,8 @@ class InProcessAdkRoleRunner:
                 turns=exc.turns or tuple(turns),
                 http_429_count=max(http_429_count, exc.http_429_count),
                 tool_records=exc.tool_records,
+                tool_call_ids=exc.tool_call_ids,
+                tool_response_ids=exc.tool_response_ids,
             ) from exc
         except Exception as exc:  # noqa: BLE001 - retain failed-provider telemetry
             absorb_provider_429_count()
@@ -165,8 +180,17 @@ class InProcessAdkRoleRunner:
                 http_429_count=http_429_count,
             ) from exc
         absorb_provider_429_count()
-        output = _parse_last_output(events, OUTPUT_SCHEMAS[role])
         calls, responses = _tool_event_ids(events)
+        try:
+            output = _parse_last_output(events, OUTPUT_SCHEMAS[role])
+        except ContractError as exc:
+            raise RoleExecutionError(
+                exc.code,
+                turns=tuple(turns),
+                http_429_count=http_429_count,
+                tool_call_ids=calls,
+                tool_response_ids=responses,
+            ) from exc
         return RoleRunResult(
             output=output,
             turns=tuple(turns),
@@ -190,12 +214,12 @@ def _adk_tools(
     if "evidence_connector" in local:
 
         def evidence_connector(
-            stage: str, tool_context: ToolContext
+            tool_context: ToolContext,
         ) -> dict[str, object]:
             """Read the hash-bound prepared evidence for this run."""
 
             return local["evidence_connector"](
-                stage=stage, tool_context=_local_context(tool_context)
+                stage="prepared", tool_context=_local_context(tool_context)
             )
 
         wrapped["evidence_connector"] = evidence_connector

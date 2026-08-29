@@ -20,7 +20,14 @@ from typing import Any
 PROJECT_PLACEHOLDER = "<project>"
 PROJECT_PATH = re.compile(r"projects/[^/\"'\s,}\]]+")
 PROJECT_NUMBER_URN = re.compile(r"projects-[0-9]+")
-BARE_PROJECT_NUMBER = re.compile(r"(?<![0-9])[0-9]{10,14}(?![0-9])")
+# The lookarounds exclude adjacent LETTERS as well as digits. Excluding only
+# digits let the net fire inside hex: an image digest or a commit sha contains
+# long digit runs bounded by hex letters, and masking one corrupts the value at
+# exactly the moment somebody is reading it to diagnose a failed deploy. A real
+# project number is always a standalone token -- bounded by / " ' : , @ - or
+# whitespace -- so an alphanumeric-free boundary loses no coverage. projects/<n>
+# and projects-<n> have their own patterns above and do not depend on this one.
+BARE_PROJECT_NUMBER = re.compile(r"(?<![0-9A-Za-z])[0-9]{10,14}(?![0-9A-Za-z])")
 
 
 def redact_identifiers(text: str, project_id: str | None = None) -> str:

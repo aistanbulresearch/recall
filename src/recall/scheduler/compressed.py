@@ -40,6 +40,7 @@ from .compressed_manifest import (
     build_compressed_manifest,
     build_compressed_mode_receipt,
 )
+from .compressed_final_only_manifest import verify_final_only_history_rows
 from .compressed_plan import (
     CompressedCycle,
     CompressedPlan,
@@ -49,6 +50,11 @@ from .compressed_plan import (
 from .compressed_preparation import (
     CompressedPreparationBundle,
     verify_prepared_cycle,
+)
+from .compressed_supersession import (
+    LedgerForPrefix,
+    VerifiedFinalOnlySupersession,
+    verify_final_only_supersession,
 )
 from .full_audit_phase import (
     FullAuditCaseFailure,
@@ -103,6 +109,7 @@ class CompressedCycleScheduler:
         ramp_gate_receipt: Mapping[str, object] | None = None,
         headroom_receipt: Mapping[str, object] | None = None,
         prior_ledgers: Mapping[str, LedgerPort] | None = None,
+        historical_ledger_factory: LedgerForPrefix | None = None,
     ) -> CompressedCycleResult:
         resolved = resolve_declared_cycle(now, self._plan)
         clock = self._clock or (lambda: now)
@@ -110,10 +117,27 @@ class CompressedCycleScheduler:
             raise RuntimeError("compressed_cycle_resolution_mismatch")
         if self._cycle.write_path == "EXTERNAL_IMMUTABLE":
             raise RuntimeError("compressed_cycle_external_immutable")
+        verified_supersession: VerifiedFinalOnlySupersession | None = None
+        if self._plan.schema_version == "2.8.0":
+            if any(
+                item is not None
+                for item in (
+                    previous_manifest,
+                    ramp_gate_receipt,
+                    headroom_receipt,
+                )
+            ):
+                raise RuntimeError("final_only_legacy_gate_input_forbidden")
+            if historical_ledger_factory is None:
+                raise RuntimeError("final_only_history_ledger_factory_missing")
+            verified_supersession = verify_final_only_supersession(
+                self._plan,
+                ledger_for_prefix=historical_ledger_factory,
+            )
         verify_prepared_cycle(
             self._ledger, self._bundle, self._plan, self._cycle
         )
-        if self._cycle.cycle_index >= 3:
+        if self._cycle.cycle_index >= 3 and verified_supersession is None:
             if ramp_gate_receipt is None:
                 raise RuntimeError("compressed_ramp_gate_receipt_missing")
             require_ramp_gate_pass(
@@ -122,7 +146,7 @@ class CompressedCycleScheduler:
                 target_cycle=self._cycle,
                 target_ledger=self._ledger,
             )
-        if self._cycle.cycle_id == "c6":
+        if self._cycle.cycle_id == "c6" and verified_supersession is None:
             if headroom_receipt is None:
                 raise RuntimeError("compressed_headroom_receipt_missing")
             require_headroom_pass(
@@ -146,6 +170,7 @@ class CompressedCycleScheduler:
                 previous_manifest=previous_manifest,
                 ramp_gate_receipt=ramp_gate_receipt,
                 headroom_receipt=headroom_receipt,
+                verified_supersession=verified_supersession,
             )
         batch_execution = None
         write_deadline_at = min(
@@ -292,9 +317,19 @@ class CompressedCycleScheduler:
                     )
                 ),
                 trigger_started_at=now,
+                verified_supersession=verified_supersession,
             )
+            parsed_candidate = parse_artifact(
+                manifest, authorized_producers=PRODUCER_REGISTRY
+            )
+            if verified_supersession is not None:
+                verify_final_only_history_rows(
+                    self._plan,
+                    verified_supersession,
+                    parsed_candidate.payload.execution_history,
+                )
             verify_manifest_against_plan(
-                parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY),
+                parsed_candidate,
                 self._plan,
                 expected_legacy_failure_receipt_id=evidence_legacy_failure_receipt_id(
                     self._plan
@@ -304,10 +339,18 @@ class CompressedCycleScheduler:
         else:
             manifest = existing
             parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
+            if verified_supersession is not None:
+                verify_final_only_history_rows(
+                    self._plan,
+                    verified_supersession,
+                    parsed.payload.execution_history,
+                )
             if (
                 parsed.schema_version
                 != (
-                    "3.3.0"
+                    "3.4.0"
+                    if self._plan.schema_version == "2.8.0"
+                    else "3.3.0"
                     if self._cycle.execution_profile == "FULL_AUDIT_V1"
                     else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
                 )
@@ -467,6 +510,7 @@ class CompressedCycleScheduler:
         previous_manifest: Mapping[str, object] | None,
         ramp_gate_receipt: Mapping[str, object] | None,
         headroom_receipt: Mapping[str, object] | None,
+        verified_supersession: VerifiedFinalOnlySupersession | None,
     ) -> None:
         parsed = parse_artifact(manifest, authorized_producers=PRODUCER_REGISTRY)
         verify_manifest_against_plan(
@@ -494,7 +538,9 @@ class CompressedCycleScheduler:
         if (
             parsed.schema_version
             != (
-                "3.3.0"
+                "3.4.0"
+                if self._plan.schema_version == "2.8.0"
+                else "3.3.0"
                 if self._cycle.execution_profile == "FULL_AUDIT_V1"
                 else ("3.1.0" if self._cycle.cycle_index >= 3 else "3.0.0")
             )
@@ -508,6 +554,15 @@ class CompressedCycleScheduler:
                 and parsed.payload.ramp_gate_receipt_id != expected_gate
             )
             or parsed.payload.headroom_receipt_id != expected_headroom
+            or (
+                verified_supersession is not None
+                and tuple(
+                    parsed.payload.final_only_supersession[
+                        "verified_artifact_ids"
+                    ]
+                )
+                != verified_supersession.verified_artifact_ids
+            )
         ):
             raise RuntimeError("compressed_existing_manifest_context_mismatch")
         if self._cycle.cycle_index >= 3:

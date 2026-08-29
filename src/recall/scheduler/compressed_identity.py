@@ -107,6 +107,12 @@ def evidence_manifest_artifact_id(plan: CompressedPlan, cycle: CompressedCycle) 
 
 
 def evidence_mode_receipt_artifact_id(plan: CompressedPlan, cycle: CompressedCycle) -> str:
+    successor_index = cycle.cycle_index
+    if successor_index < len(plan.cycles):
+        binding = plan.cycles[successor_index].predecessor
+        if binding is not None and binding.binding == "EXTERNAL_PLAN":
+            assert binding.mode_receipt_artifact_id is not None
+            return binding.mode_receipt_artifact_id
     return mode_receipt_artifact_id(evidence_plan(plan, cycle), cycle)
 
 

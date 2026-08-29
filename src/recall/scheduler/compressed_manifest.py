@@ -21,6 +21,12 @@ from .compressed_plan import CompressedCycle, CompressedPlan, TRIGGER_CODE
 from .compressed_preparation import CompressedPreparationBundle
 from .history import DAY1_EXECUTED_AT
 from .full_audit_phase import FullAuditPhaseResult, outcome_to_wire
+from .compressed_final_only_manifest import (
+    final_only_cumulative,
+    final_only_prior_history,
+    final_only_supersession_payload,
+)
+from .compressed_supersession import VerifiedFinalOnlySupersession
 
 
 DAY1_SCHEDULED_FOR = "2026-08-25T15:00:00Z"
@@ -48,16 +54,25 @@ def build_compressed_manifest(
     agent_phase: FullAuditPhaseResult | None,
     executed_at: datetime,
     trigger_started_at: datetime,
+    verified_supersession: VerifiedFinalOnlySupersession | None = None,
 ) -> dict[str, object]:
     authoritative = tuple(sorted(item.run_id for item in run_records))
-    history = _prior_history(
-        plan=plan,
-        cycle=cycle,
-        previous_manifest=previous_manifest,
-        bundle=bundle,
-    )
+    final_only = plan.schema_version == "2.8.0"
+    if final_only:
+        if verified_supersession is None:
+            raise RuntimeError("final_only_verified_snapshot_missing")
+        history = final_only_prior_history(plan, verified_supersession)
+    else:
+        history = _prior_history(
+            plan=plan,
+            cycle=cycle,
+            previous_manifest=previous_manifest,
+            bundle=bundle,
+        )
     schema_version = (
-        "3.3.0"
+        "3.4.0"
+        if final_only
+        else "3.3.0"
         if cycle.execution_profile == "FULL_AUDIT_V1"
         else ("3.0.0" if cycle.cycle_index < 3 else "3.1.0")
     )
@@ -135,6 +150,8 @@ def build_compressed_manifest(
         inputs.add(str(headroom_receipt["artifact_id"]))
     if batch_execution_receipt is not None:
         inputs.add(str(batch_execution_receipt["artifact_id"]))
+    if verified_supersession is not None:
+        inputs.update(verified_supersession.verified_artifact_ids)
     if agent_phase is not None:
         for outcome in agent_phase.outcomes:
             inputs.update(outcome.agent_execution_receipt_ids)
@@ -176,6 +193,10 @@ def build_compressed_manifest(
         and int(write_metrics["effective_write_millis_per_case"]) <= 2000
         and deadline_qualified
     )) and agent_qualified
+    if final_only:
+        history[-1]["execution_status"] = (
+            "COMPLETE" if qualified else "INCOMPLETE"
+        )
     payload = {
         "day_index": cycle.cycle_index + 1,
         "selected_for_date": cycle.cohort_due_date.isoformat(),
@@ -207,22 +228,35 @@ def build_compressed_manifest(
             "runs_predicted": cycle.runs_predicted,
             "prediction_match": predicted_match,
         },
-        "cumulative": _cumulative(history),
+        "cumulative": (
+            final_only_cumulative(
+                history,
+                historical_attempt_count=len(
+                    plan.supersession.historical_evidence
+                )
+                - 2,
+            )
+            if final_only and plan.supersession is not None
+            else _cumulative(history)
+        ),
         "cases": cases,
         "vcv_anchors": anchors,
         "execution_history": history,
     }
     if cycle.cycle_index >= 3:
-        assert (
-            ramp_gate_receipt is not None
-            and write_metrics is not None
-            and batch_execution_receipt is not None
-        )
+        if write_metrics is None or batch_execution_receipt is None:
+            raise RuntimeError("compressed_write_evidence_missing")
+        if not final_only and ramp_gate_receipt is None:
+            raise RuntimeError("compressed_ramp_gate_receipt_missing")
         payload.update(
             {
                 "epoch_label": cycle.epoch_label,
                 "evaluation_role": cycle.evaluation_role,
-                "ramp_gate_receipt_id": str(ramp_gate_receipt["artifact_id"]),
+                "ramp_gate_receipt_id": (
+                    None
+                    if ramp_gate_receipt is None
+                    else str(ramp_gate_receipt["artifact_id"])
+                ),
                 "cycle_attempt_id": tick_run_id(plan, cycle),
                 "batch_execution_receipt_id": str(
                     batch_execution_receipt["artifact_id"]
@@ -243,7 +277,15 @@ def build_compressed_manifest(
                 },
             }
         )
-    if (cycle.cycle_id == "c6") is not (headroom_receipt is not None):
+    if final_only:
+        assert verified_supersession is not None
+        payload["final_only_supersession"] = final_only_supersession_payload(
+            plan, verified_supersession
+        )
+    if (
+        not final_only
+        and (cycle.cycle_id == "c6") is not (headroom_receipt is not None)
+    ):
         raise RuntimeError("compressed_headroom_manifest_binding_invalid")
     if agent_phase is not None:
         payload.update(

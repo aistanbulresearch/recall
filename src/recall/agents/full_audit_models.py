@@ -13,6 +13,9 @@ from recall.connectors.live import LiveSourceRecord
 from .local_tools import LocalToolCallContext
 
 
+MAX_MODEL_TURNS_PER_ROLE = 2
+
+
 @dataclass(frozen=True, slots=True)
 class TurnTelemetry:
     turn_index: int
@@ -62,12 +65,16 @@ class RoleExecutionError(RuntimeError):
         turns: tuple[TurnTelemetry, ...] = (),
         http_429_count: int = 0,
         tool_records: tuple[Mapping[str, str], ...] = (),
+        tool_call_ids: tuple[str, ...] = (),
+        tool_response_ids: tuple[str, ...] = (),
     ) -> None:
         super().__init__(code)
         self.code = code
         self.turns = turns
         self.http_429_count = http_429_count
         self.tool_records = tool_records
+        self.tool_call_ids = tool_call_ids
+        self.tool_response_ids = tool_response_ids
 
 
 @dataclass(frozen=True, slots=True)
