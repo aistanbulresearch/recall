@@ -3,8 +3,8 @@
   "schema_version": "1.0.0",
   "plan_artifact": {
     "path": "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json",
-    "sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
-    "raw_text": "{\n  \"decision_reference\": \"DEC-2026-08-26-046\",\n  \"plan_version\": \"COMPRESSED_PREDICTION_PLAN_V2\",\n  \"schedule_mode\": \"COMPRESSED_MACHINE_TRIGGERED\",\n  \"schema_version\": \"2.6.0\",\n  \"window_semantics\": \"TRIGGER_START_ONLY\",\n  \"cycles\": [\n    {\n      \"cohort_due_date\": \"2026-08-26\", \"cycle_id\": \"c1\", \"cycle_index\": 1,\n      \"activation\": \"IMMUTABLE_EXECUTED\", \"execution_profile\": \"CREATE_ONLY_V1\",\n      \"epoch_label\": \"PLAN3_C1_EXECUTED\", \"evaluation_role\": \"IMMUTABLE_EXECUTED\",\n      \"execution_timeout_seconds\": 600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 0, \"predecessor\": null, \"runs_predicted\": 3,\n      \"trigger_policy\": \"ALWAYS\", \"write_path\": \"EXTERNAL_IMMUTABLE\",\n      \"window_end\": \"2026-08-26T20:49:59Z\", \"window_start\": \"2026-08-26T20:40:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-27\", \"cycle_id\": \"c2\", \"cycle_index\": 2,\n      \"activation\": \"IMMUTABLE_EXECUTED\", \"execution_profile\": \"CREATE_ONLY_V1\",\n      \"epoch_label\": \"PLAN4_C2_EXECUTED\", \"evaluation_role\": \"IMMUTABLE_EXECUTED\",\n      \"execution_timeout_seconds\": 600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 0,\n      \"predecessor\": {\n        \"binding\": \"EXTERNAL_PLAN\", \"collection_prefix\": \"dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_\",\n        \"cycle_id\": \"c1\", \"manifest_artifact_id\": \"bd51bd00-fcf4-5d91-a45d-4d203e02127c\",\n        \"manifest_content_hash\": \"372b7e3e64805b1518793d944422bbf35e6f404c2d5b3392c3442c960427c02c\",\n        \"mode_receipt_artifact_id\": \"f4c677c8-e927-5ee6-a85f-cdd0c2fe4845\",\n        \"mode_receipt_content_hash\": \"4303d3e75fe88421ea21b8f5c2f353d86abea30ec0c56620c65c35693083694c\",\n        \"plan_sha256\": \"5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4\"\n      },\n      \"runs_predicted\": 2, \"trigger_policy\": \"ALWAYS\", \"write_path\": \"EXTERNAL_IMMUTABLE\",\n      \"window_end\": \"2026-08-26T22:39:59Z\", \"window_start\": \"2026-08-26T22:30:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-28\", \"cycle_id\": \"c3\", \"cycle_index\": 3,\n      \"activation\": \"ACTIVE\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_RAMP_FIRST_PASS_RETRY\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 3600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 3000,\n      \"predecessor\": {\n        \"binding\": \"EXTERNAL_PLAN\", \"collection_prefix\": \"dev_recall_m2_compressed_p4c2b5ededcf7_c2_20260827_\",\n        \"cycle_id\": \"c2\", \"manifest_artifact_id\": \"d89d209e-22f4-5e9e-84ed-329857bb4a27\",\n        \"manifest_content_hash\": \"ba588c3777035bb2d72eecfa8951970472e1127efa1de480b44183aec2823505\",\n        \"mode_receipt_artifact_id\": \"d84f6ea0-3e5b-5a2a-b1c6-af632187e661\",\n        \"mode_receipt_content_hash\": \"c615e0c0e34e8a230aacd3d6298fa7d4103a517a4860fb025fc70187bfde4c3b\",\n        \"plan_sha256\": \"4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89\"\n      },\n      \"runs_predicted\": 20, \"trigger_policy\": \"PREDECESSOR_INTEGRITY_AND_MODEL_COST_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T08:44:59Z\", \"window_start\": \"2026-08-29T08:15:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-29\", \"cycle_id\": \"c4\", \"cycle_index\": 4,\n      \"activation\": \"ACTIVE\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_R2_80_ACTIVE\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 7200, \"write_timeout_seconds\": 1200, \"agent_timeout_seconds\": 6000,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c3\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 80, \"trigger_policy\": \"R1_TELEMETRY_OWNER_COST_AND_RAMP_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T11:09:59Z\", \"window_start\": \"2026-08-29T09:10:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-30\", \"cycle_id\": \"c5\", \"cycle_index\": 5,\n      \"activation\": \"PROVISIONAL_R1_GATED\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_R3_200_PROVISIONAL\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 14400, \"write_timeout_seconds\": 1800, \"agent_timeout_seconds\": 12600,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c4\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 200, \"trigger_policy\": \"R2_TELEMETRY_AND_RAMP_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T15:33:59Z\", \"window_start\": \"2026-08-29T11:34:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-31\", \"cycle_id\": \"c6\", \"cycle_index\": 6,\n      \"activation\": \"PROVISIONAL_R1_GATED\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_FINAL_456_REASSESSMENT_PROVISIONAL\", \"evaluation_role\": \"PORTFOLIO_REASSESSMENT\",\n      \"execution_timeout_seconds\": 32400, \"write_timeout_seconds\": 1800, \"agent_timeout_seconds\": 30600,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c5\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 456, \"trigger_policy\": \"OWNER_COST_APPROVAL_AND_R3_TELEMETRY_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-30T00:01:59Z\", \"window_start\": \"2026-08-29T16:02:00Z\"\n    }\n  ]\n}\n"
+    "sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
+    "raw_text": "{\n  \"decision_reference\": \"DEC-2026-08-26-046\",\n  \"plan_version\": \"COMPRESSED_PREDICTION_PLAN_V2\",\n  \"schedule_mode\": \"COMPRESSED_MACHINE_TRIGGERED\",\n  \"schema_version\": \"2.6.0\",\n  \"window_semantics\": \"TRIGGER_START_ONLY\",\n  \"cycles\": [\n    {\n      \"cohort_due_date\": \"2026-08-26\", \"cycle_id\": \"c1\", \"cycle_index\": 1,\n      \"activation\": \"IMMUTABLE_EXECUTED\", \"execution_profile\": \"CREATE_ONLY_V1\",\n      \"epoch_label\": \"PLAN3_C1_EXECUTED\", \"evaluation_role\": \"IMMUTABLE_EXECUTED\",\n      \"execution_timeout_seconds\": 600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 0, \"predecessor\": null, \"runs_predicted\": 3,\n      \"trigger_policy\": \"ALWAYS\", \"write_path\": \"EXTERNAL_IMMUTABLE\",\n      \"window_end\": \"2026-08-26T20:49:59Z\", \"window_start\": \"2026-08-26T20:40:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-27\", \"cycle_id\": \"c2\", \"cycle_index\": 2,\n      \"activation\": \"IMMUTABLE_EXECUTED\", \"execution_profile\": \"CREATE_ONLY_V1\",\n      \"epoch_label\": \"PLAN4_C2_EXECUTED\", \"evaluation_role\": \"IMMUTABLE_EXECUTED\",\n      \"execution_timeout_seconds\": 600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 0,\n      \"predecessor\": {\n        \"binding\": \"EXTERNAL_PLAN\", \"collection_prefix\": \"dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_\",\n        \"cycle_id\": \"c1\", \"manifest_artifact_id\": \"bd51bd00-fcf4-5d91-a45d-4d203e02127c\",\n        \"manifest_content_hash\": \"372b7e3e64805b1518793d944422bbf35e6f404c2d5b3392c3442c960427c02c\",\n        \"mode_receipt_artifact_id\": \"f4c677c8-e927-5ee6-a85f-cdd0c2fe4845\",\n        \"mode_receipt_content_hash\": \"4303d3e75fe88421ea21b8f5c2f353d86abea30ec0c56620c65c35693083694c\",\n        \"plan_sha256\": \"5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4\"\n      },\n      \"runs_predicted\": 2, \"trigger_policy\": \"ALWAYS\", \"write_path\": \"EXTERNAL_IMMUTABLE\",\n      \"window_end\": \"2026-08-26T22:39:59Z\", \"window_start\": \"2026-08-26T22:30:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-28\", \"cycle_id\": \"c3\", \"cycle_index\": 3,\n      \"activation\": \"ACTIVE\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_RAMP_FIRST_PASS_RETRY\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 3600, \"write_timeout_seconds\": 600, \"agent_timeout_seconds\": 3000,\n      \"predecessor\": {\n        \"binding\": \"EXTERNAL_PLAN\", \"collection_prefix\": \"dev_recall_m2_compressed_p4c2b5ededcf7_c2_20260827_\",\n        \"cycle_id\": \"c2\", \"manifest_artifact_id\": \"d89d209e-22f4-5e9e-84ed-329857bb4a27\",\n        \"manifest_content_hash\": \"ba588c3777035bb2d72eecfa8951970472e1127efa1de480b44183aec2823505\",\n        \"mode_receipt_artifact_id\": \"d84f6ea0-3e5b-5a2a-b1c6-af632187e661\",\n        \"mode_receipt_content_hash\": \"c615e0c0e34e8a230aacd3d6298fa7d4103a517a4860fb025fc70187bfde4c3b\",\n        \"plan_sha256\": \"4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89\"\n      },\n      \"runs_predicted\": 20, \"trigger_policy\": \"PREDECESSOR_INTEGRITY_AND_MODEL_COST_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T10:29:59Z\", \"window_start\": \"2026-08-29T10:00:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-29\", \"cycle_id\": \"c4\", \"cycle_index\": 4,\n      \"activation\": \"ACTIVE\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_R2_80_ACTIVE\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 7200, \"write_timeout_seconds\": 1200, \"agent_timeout_seconds\": 6000,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c3\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 80, \"trigger_policy\": \"R1_TELEMETRY_OWNER_COST_AND_RAMP_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T12:54:59Z\", \"window_start\": \"2026-08-29T10:55:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-30\", \"cycle_id\": \"c5\", \"cycle_index\": 5,\n      \"activation\": \"PROVISIONAL_R1_GATED\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_R3_200_PROVISIONAL\", \"evaluation_role\": \"RAMP_FIRST_PASS\",\n      \"execution_timeout_seconds\": 14400, \"write_timeout_seconds\": 1800, \"agent_timeout_seconds\": 12600,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c4\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 200, \"trigger_policy\": \"R2_TELEMETRY_AND_RAMP_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-29T17:18:59Z\", \"window_start\": \"2026-08-29T13:19:00Z\"\n    },\n    {\n      \"cohort_due_date\": \"2026-08-31\", \"cycle_id\": \"c6\", \"cycle_index\": 6,\n      \"activation\": \"PROVISIONAL_R1_GATED\", \"execution_profile\": \"FULL_AUDIT_V1\",\n      \"epoch_label\": \"PLAN6_FINAL_456_REASSESSMENT_PROVISIONAL\", \"evaluation_role\": \"PORTFOLIO_REASSESSMENT\",\n      \"execution_timeout_seconds\": 32400, \"write_timeout_seconds\": 1800, \"agent_timeout_seconds\": 30600,\n      \"predecessor\": {\"binding\": \"CURRENT_PLAN\", \"collection_prefix\": null, \"cycle_id\": \"c5\", \"manifest_artifact_id\": null, \"manifest_content_hash\": null, \"mode_receipt_artifact_id\": null, \"mode_receipt_content_hash\": null, \"plan_sha256\": null},\n      \"runs_predicted\": 456, \"trigger_policy\": \"OWNER_COST_APPROVAL_AND_R3_TELEMETRY_GATE\", \"write_path\": \"FIRESTORE_BATCH_V1\",\n      \"window_end\": \"2026-08-30T01:46:59Z\", \"window_start\": \"2026-08-29T17:47:00Z\"\n    }\n  ]\n}\n"
   },
   "vectors": [
     {
@@ -12,24 +12,24 @@
       "expected": "ACCEPT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -37,24 +37,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T11:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T13:00:00Z"
       }
     },
     {
@@ -62,24 +62,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 3599,
-        "write_deadline": "2026-08-29T09:14:59.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:59:59.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 1,
-        "agent_deadline": "2026-08-29T08:20:01.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:05:01.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -87,24 +87,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:58Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:58Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -112,24 +112,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:01.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:01.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -137,24 +137,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:01.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:01.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -162,24 +162,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:01Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:01Z"
       }
     },
     {
@@ -187,24 +187,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T08:44:59Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T10:29:59Z"
       }
     },
     {
@@ -212,24 +212,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:01.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:01.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -237,24 +237,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T10:15:00Z",
-        "window_end": "2026-08-29T10:44:59Z",
-        "scheduled_for": "2026-08-29T10:15:00Z",
-        "created_at": "2026-08-29T11:05:00.999999Z"
+        "window_start": "2026-08-29T12:00:00Z",
+        "window_end": "2026-08-29T12:29:59Z",
+        "scheduled_for": "2026-08-29T12:00:00Z",
+        "created_at": "2026-08-29T12:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T10:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T10:44:59Z",
+        "trigger_started_at": "2026-08-29T12:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T12:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T10:25:00.123456Z",
-        "write_completed_at": "2026-08-29T10:20:00.654321Z",
+        "write_deadline": "2026-08-29T12:10:00.123456Z",
+        "write_completed_at": "2026-08-29T12:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T11:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T11:05:00.999999Z",
+        "agent_deadline": "2026-08-29T12:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T12:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T11:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T13:00:00Z"
       }
     },
     {
@@ -262,24 +262,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:45:00Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:30:00Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:45:00Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:30:00Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -287,24 +287,24 @@
       "expected": "REJECT",
       "manifest_context": {
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
-        "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:01Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:01Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     },
     {
@@ -314,22 +314,22 @@
         "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
         "plan_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         "cycle_id": "c3",
-        "window_start": "2026-08-29T08:15:00Z",
-        "window_end": "2026-08-29T08:44:59Z",
-        "scheduled_for": "2026-08-29T08:15:00Z",
-        "created_at": "2026-08-29T09:05:00.999999Z"
+        "window_start": "2026-08-29T10:00:00Z",
+        "window_end": "2026-08-29T10:29:59Z",
+        "scheduled_for": "2026-08-29T10:00:00Z",
+        "created_at": "2026-08-29T10:50:00.999999Z"
       },
       "deadline_policy": {
-        "trigger_started_at": "2026-08-29T08:15:00.1234567Z",
-        "trigger_window_end": "2026-08-29T08:44:59Z",
+        "trigger_started_at": "2026-08-29T10:00:00.1234567Z",
+        "trigger_window_end": "2026-08-29T10:29:59Z",
         "write_timeout_seconds": 600,
-        "write_deadline": "2026-08-29T08:25:00.123456Z",
-        "write_completed_at": "2026-08-29T08:20:00.654321Z",
+        "write_deadline": "2026-08-29T10:10:00.123456Z",
+        "write_completed_at": "2026-08-29T10:05:00.654321Z",
         "agent_timeout_seconds": 3000,
-        "agent_deadline": "2026-08-29T09:10:00.654321Z",
-        "agent_completed_at": "2026-08-29T09:05:00.999999Z",
+        "agent_deadline": "2026-08-29T10:55:00.654321Z",
+        "agent_completed_at": "2026-08-29T10:50:00.999999Z",
         "execution_timeout_seconds": 3600,
-        "authoritative_end_to_end_deadline": "2026-08-29T09:15:00Z"
+        "authoritative_end_to_end_deadline": "2026-08-29T11:00:00Z"
       }
     }
   ]

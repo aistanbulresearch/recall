@@ -13,6 +13,7 @@ import recall.testing.compressed_plan_regeneration as regeneration_module
 from recall.scheduler.compressed_plan import PLAN_PATH
 from recall.testing.compressed_plan_regeneration import (
     CORE_PIN_COUNTS,
+    IMMUTABLE_HISTORICAL_SHA_PATHS,
     STALE_PREPARATION_BUNDLE,
     WEB_PIN_PATH,
     regenerate_compressed_plan,
@@ -22,16 +23,16 @@ from recall.testing.deadline_policy_vectors import VECTOR_PATH
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPLICIT_WINDOWS = (
-    ("c3", "2026-08-29T08:15:00Z", "2026-08-29T08:44:59Z"),
-    ("c4", "2026-08-29T09:10:00Z", "2026-08-29T11:09:59Z"),
-    ("c5", "2026-08-29T11:34:00Z", "2026-08-29T15:33:59Z"),
-    ("c6", "2026-08-29T16:02:00Z", "2026-08-30T00:01:59Z"),
+    ("c3", "2026-08-29T10:00:00Z", "2026-08-29T10:29:59Z"),
+    ("c4", "2026-08-29T10:55:00Z", "2026-08-29T12:54:59Z"),
+    ("c5", "2026-08-29T13:19:00Z", "2026-08-29T17:18:59Z"),
+    ("c6", "2026-08-29T17:47:00Z", "2026-08-30T01:46:59Z"),
 )
 PLAN9_WINDOWS = (
-    ("c3", "2026-08-29T08:15:00Z", "2026-08-29T08:44:59Z"),
-    ("c4", "2026-08-29T09:10:00Z", "2026-08-29T11:09:59Z"),
-    ("c5", "2026-08-29T11:34:00Z", "2026-08-29T15:33:59Z"),
-    ("c6", "2026-08-29T16:02:00Z", "2026-08-30T00:01:59Z"),
+    ("c3", "2026-08-29T10:00:00Z", "2026-08-29T10:29:59Z"),
+    ("c4", "2026-08-29T10:55:00Z", "2026-08-29T12:54:59Z"),
+    ("c5", "2026-08-29T13:19:00Z", "2026-08-29T17:18:59Z"),
+    ("c6", "2026-08-29T17:47:00Z", "2026-08-30T01:46:59Z"),
 )
 PLAN8_WINDOWS = (
     ("c3", "2026-08-28T21:00:00Z", "2026-08-28T21:29:59Z"),
@@ -117,7 +118,7 @@ def test_regeneration_reports_only_windows_that_actually_changed(
     web = tmp_path / "web"
     _seed_repositories(core, web)
     c4_only = EXPLICIT_WINDOWS[:1] + (
-        ("c4", "2026-08-29T09:09:40Z", "2026-08-29T11:09:39Z"),
+        ("c4", "2026-08-29T10:54:40Z", "2026-08-29T12:54:39Z"),
     ) + EXPLICIT_WINDOWS[2:]
 
     result = regenerate_compressed_plan(core, web, windows=c4_only)
@@ -228,6 +229,30 @@ def test_regeneration_refuses_unexpected_old_sha_before_writes(
         )
 
     assert (core / PLAN_PATH).read_bytes() == before
+
+
+def test_regeneration_preserves_immutable_historical_sha_receipt(
+    tmp_path: Path,
+) -> None:
+    core = tmp_path / "core"
+    web = tmp_path / "web"
+    old_sha = _seed_repositories(core, web)
+    receipt_path = next(iter(IMMUTABLE_HISTORICAL_SHA_PATHS))
+    receipt = core / receipt_path
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text(old_sha, encoding="utf-8")
+    _git(core, "add", receipt_path.as_posix())
+
+    result = regenerate_compressed_plan(
+        core,
+        web,
+        anchor="2026-08-29T09:00:00+03:00",
+    )
+
+    assert receipt.read_text(encoding="utf-8") == old_sha
+    assert result.stale_old_sha_paths == (
+        STALE_PREPARATION_BUNDLE.as_posix(),
+    )
 
 
 def test_regeneration_rolls_back_both_roots_after_mid_write_failure(

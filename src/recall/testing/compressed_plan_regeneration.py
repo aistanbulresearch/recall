@@ -27,6 +27,14 @@ RUNNABLE_CYCLE_IDS = ("c3", "c4", "c5", "c6")
 STALE_PREPARATION_BUNDLE = Path(
     "artifacts/evidence/cohort-compression/preparation-bundle-v2.json"
 )
+IMMUTABLE_HISTORICAL_SHA_PATHS = frozenset(
+    {
+        Path(
+            "artifacts/evidence/cohort-compression/"
+            "PLAN8_C3_LIVE_PARSE_RECEIPT.json"
+        )
+    }
+)
 CORE_PIN_COUNTS = {
     Path("src/recall/scheduler/compressed_plan.py"): 1,
     Path("src/recall/contracts/payloads/scheduler_v3.py"): 1,
@@ -122,6 +130,7 @@ def regenerate_compressed_plan(
         *(path.as_posix() for path in CORE_PIN_COUNTS),
         VECTOR_PATH.as_posix(),
         STALE_PREPARATION_BUNDLE.as_posix(),
+        *(path.as_posix() for path in IMMUTABLE_HISTORICAL_SHA_PATHS),
     }
     core_old_paths = _sha_occurrences(core_root, old_plan_sha)
     unexpected_core = core_old_paths - expected_old_paths
@@ -182,13 +191,21 @@ def regenerate_compressed_plan(
 
         stale_old_sha_paths: set[str] = set()
         if old_plan_sha != new_plan_sha:
-            allowed_stale = {STALE_PREPARATION_BUNDLE.as_posix()}
-            stale_old_sha_paths = _sha_occurrences(core_root, old_plan_sha)
+            allowed_historical = {
+                path.as_posix() for path in IMMUTABLE_HISTORICAL_SHA_PATHS
+            }
+            old_sha_paths = _sha_occurrences(core_root, old_plan_sha)
             stale_web = _sha_occurrences(web_root, old_plan_sha)
-            if stale_old_sha_paths - allowed_stale or stale_web:
+            unexpected_old_paths = old_sha_paths - allowed_historical - {
+                STALE_PREPARATION_BUNDLE.as_posix()
+            }
+            if unexpected_old_paths or stale_web:
                 raise RuntimeError(
                     "compressed_plan_old_sha_remains_outside_stale_bundle"
                 )
+            stale_old_sha_paths = old_sha_paths & {
+                STALE_PREPARATION_BUNDLE.as_posix()
+            }
         preparation_path = core_root / STALE_PREPARATION_BUNDLE
         if preparation_path.is_file():
             preparation = json.loads(

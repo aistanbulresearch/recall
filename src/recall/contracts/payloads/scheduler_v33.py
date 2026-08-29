@@ -53,22 +53,22 @@ _APPROVED_PHASE_BUDGETS = MappingProxyType(
         ): (32400, 1800, 30600),
         (
             "COMPRESSED_PREDICTION_PLAN_V2",
-            "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+            "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
             "c3",
         ): (3600, 600, 3000),
         (
             "COMPRESSED_PREDICTION_PLAN_V2",
-            "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+            "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
             "c4",
         ): (7200, 1200, 6000),
         (
             "COMPRESSED_PREDICTION_PLAN_V2",
-            "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+            "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
             "c5",
         ): (14400, 1800, 12600),
         (
             "COMPRESSED_PREDICTION_PLAN_V2",
-            "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+            "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
             "c6",
         ): (32400, 1800, 30600),
     }

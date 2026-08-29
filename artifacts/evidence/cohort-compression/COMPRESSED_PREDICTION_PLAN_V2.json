@@ -43,7 +43,7 @@
         "plan_sha256": "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89"
       },
       "runs_predicted": 20, "trigger_policy": "PREDECESSOR_INTEGRITY_AND_MODEL_COST_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-29T08:44:59Z", "window_start": "2026-08-29T08:15:00Z"
+      "window_end": "2026-08-29T10:29:59Z", "window_start": "2026-08-29T10:00:00Z"
     },
     {
       "cohort_due_date": "2026-08-29", "cycle_id": "c4", "cycle_index": 4,
@@ -52,7 +52,7 @@
       "execution_timeout_seconds": 7200, "write_timeout_seconds": 1200, "agent_timeout_seconds": 6000,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c3", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 80, "trigger_policy": "R1_TELEMETRY_OWNER_COST_AND_RAMP_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-29T11:09:59Z", "window_start": "2026-08-29T09:10:00Z"
+      "window_end": "2026-08-29T12:54:59Z", "window_start": "2026-08-29T10:55:00Z"
     },
     {
       "cohort_due_date": "2026-08-30", "cycle_id": "c5", "cycle_index": 5,
@@ -61,7 +61,7 @@
       "execution_timeout_seconds": 14400, "write_timeout_seconds": 1800, "agent_timeout_seconds": 12600,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c4", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 200, "trigger_policy": "R2_TELEMETRY_AND_RAMP_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-29T15:33:59Z", "window_start": "2026-08-29T11:34:00Z"
+      "window_end": "2026-08-29T17:18:59Z", "window_start": "2026-08-29T13:19:00Z"
     },
     {
       "cohort_due_date": "2026-08-31", "cycle_id": "c6", "cycle_index": 6,
@@ -70,7 +70,7 @@
       "execution_timeout_seconds": 32400, "write_timeout_seconds": 1800, "agent_timeout_seconds": 30600,
       "predecessor": {"binding": "CURRENT_PLAN", "collection_prefix": null, "cycle_id": "c5", "manifest_artifact_id": null, "manifest_content_hash": null, "mode_receipt_artifact_id": null, "mode_receipt_content_hash": null, "plan_sha256": null},
       "runs_predicted": 456, "trigger_policy": "OWNER_COST_APPROVAL_AND_R3_TELEMETRY_GATE", "write_path": "FIRESTORE_BATCH_V1",
-      "window_end": "2026-08-30T00:01:59Z", "window_start": "2026-08-29T16:02:00Z"
+      "window_end": "2026-08-30T01:46:59Z", "window_start": "2026-08-29T17:47:00Z"
     }
   ]
 }
