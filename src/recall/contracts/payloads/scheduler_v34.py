@@ -20,6 +20,7 @@ from .scheduler_v34_support import (
     parse_v34_cumulative,
     parse_v34_deadline,
     parse_v34_history,
+    parse_v34_owner_release,
     parse_v34_parity,
 )
 
@@ -131,7 +132,8 @@ def parse_cohort_day_manifest_v34_payload(
     summary = _parse_summary(value["agent_execution_summary"])
     outcomes = _parse_outcomes(value["run_outcomes"], str(value["epoch_label"]))
     _validate_outcome_binding(value, summary, outcomes)
-    deadline = parse_v34_deadline(value)
+    owner_release = parse_v34_owner_release(value["warnings"])
+    deadline = parse_v34_deadline(value, owner_release=owner_release)
     if (
         deadline["execution_timeout_seconds"],
         deadline["write_timeout_seconds"],

@@ -42,7 +42,13 @@ from .compressed_identity import (
     evidence_manifest_artifact_id,
     manifest_artifact_id as compressed_manifest_artifact_id,
 )
-from .compressed_plan import load_compressed_plan, resolve_declared_cycle
+from .compressed_plan import (
+    FINAL_ONLY_OWNER_RELEASE_REASON,
+    FINAL_ONLY_OWNER_RELEASE_TOKEN,
+    authorize_final_only_owner_release,
+    load_compressed_plan,
+    resolve_declared_cycle,
+)
 from .compressed_preparation import (
     CompressedPreparationVerifier,
     load_compressed_bundle,
@@ -93,7 +99,23 @@ def execute(
     parser.add_argument("--smoke-mode")
     parser.add_argument("--smoke-id")
     parser.add_argument("--smoke-prefix")
+    parser.add_argument("--owner-release-token")
+    parser.add_argument("--owner-release-reason")
     args = parser.parse_args(list(argv))
+    release_values = (args.owner_release_token, args.owner_release_reason)
+    if any(item is not None for item in release_values):
+        if (
+            not all(release_values)
+            or args.owner_release_token != FINAL_ONLY_OWNER_RELEASE_TOKEN
+            or args.owner_release_reason != FINAL_ONLY_OWNER_RELEASE_REASON
+            or args.preview_date is not None
+            or args.verify_prefix is not None
+            or any(
+                item is not None
+                for item in (args.smoke_mode, args.smoke_id, args.smoke_prefix)
+            )
+        ):
+            raise RuntimeError("final_only_owner_release_cli_invalid")
     smoke_values = (args.smoke_mode, args.smoke_id, args.smoke_prefix)
     if any(item is not None for item in smoke_values) and not all(smoke_values):
         raise RuntimeError("smoke_contract_incomplete")
@@ -276,7 +298,23 @@ def execute(
             ),
         }
     now = now_factory()
-    cycle = resolve_declared_cycle(now, plan)
+    owner_release = None
+    if args.owner_release_token is not None:
+        raw_max_retries = _required(
+            environment, "RECALL_FINAL_OWNER_RELEASE_MAX_RETRIES"
+        )
+        if raw_max_retries != "0":
+            raise RuntimeError("final_only_owner_release_max_retries_invalid")
+        owner_release = authorize_final_only_owner_release(
+            plan,
+            token=args.owner_release_token,
+            reason=args.owner_release_reason,
+            actual_start=now,
+            max_retries=0,
+        )
+        cycle = plan.by_id(owner_release.cycle_id)
+    else:
+        cycle = resolve_declared_cycle(now, plan)
     if cycle.write_path == "EXTERNAL_IMMUTABLE":
         raise RuntimeError("compressed_cycle_external_immutable")
     ledger = ledger_factory(
@@ -352,6 +390,7 @@ def execute(
         full_audit_coordinator=full_audit,
         refetch_fetcher=refetch_backend,
         clock=lambda: datetime.now(timezone.utc),
+        owner_release=owner_release,
     ).trigger(
         now=now,
         previous_manifest=previous,
@@ -363,7 +402,11 @@ def execute(
         ),
     )
     return {
-        "mode": "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE",
+        "mode": (
+            "LIVE_FIRESTORE_FINAL_ONLY_OWNER_RELEASED_COHORT_CYCLE"
+            if owner_release is not None
+            else "LIVE_FIRESTORE_COMPRESSED_MACHINE_TRIGGERED_COHORT_CYCLE"
+        ),
         "cycle_id": result.cycle_id,
         "cohort_due_date": result.cohort_due_date,
         "newly_created_run_ids": list(result.newly_created_run_ids),
@@ -387,7 +430,23 @@ def execute(
         "write_timeout_seconds": cycle.write_timeout_seconds,
         "agent_timeout_seconds": cycle.agent_timeout_seconds,
         "authoritative_end_to_end_deadline": (
-            cycle.end_to_end_deadline.isoformat().replace("+00:00", "Z")
+            (
+                owner_release.execution_deadline
+                if owner_release is not None
+                else cycle.end_to_end_deadline
+            ).isoformat().replace("+00:00", "Z")
+        ),
+        "owner_release": (
+            None
+            if owner_release is None
+            else {
+                "token": owner_release.token,
+                "reason": owner_release.reason,
+                "actual_start": owner_release.actual_start.isoformat().replace(
+                    "+00:00", "Z"
+                ),
+                "max_retries": owner_release.max_retries,
+            }
         ),
         "activation": cycle.activation,
         "execution_profile": cycle.execution_profile,

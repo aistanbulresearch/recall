@@ -16,6 +16,9 @@ from recall.scheduler.compressed_cohort import cases_for_cycle, portfolio_cases
 from recall.scheduler.compressed_identity import evidence_legacy_failure_receipt_id
 from recall.scheduler.compressed_manifest import build_compressed_manifest
 from recall.scheduler.compressed_plan import (
+    FINAL_ONLY_OWNER_RELEASE_REASON,
+    FINAL_ONLY_OWNER_RELEASE_TOKEN,
+    authorize_final_only_owner_release,
     parse_compressed_plan,
     verify_manifest_against_plan,
 )
@@ -83,7 +86,14 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         for item in portfolio_cases(plan.cycles)
         if item.case_id not in selected_ids
     )
-    now = cycle.window_start
+    now = cycle.window_end + timedelta(seconds=1)
+    owner_release = authorize_final_only_owner_release(
+        plan,
+        token=FINAL_ONLY_OWNER_RELEASE_TOKEN,
+        reason=FINAL_ONLY_OWNER_RELEASE_REASON,
+        actual_start=now,
+        max_retries=0,
+    )
     run_ids = {item.case_id: _id(f"run:{item.case_id}") for item in selected}
     policy_ids = {
         item.case_id: _id(f"policy:{item.case_id}") for item in selected
@@ -242,6 +252,7 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         executed_at=completed_at,
         trigger_started_at=now,
         verified_supersession=verified,
+        owner_release=owner_release,
     )
 
     parsed = parse_artifact(
@@ -256,3 +267,20 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
     )
     assert parsed.status.value == "VALID"
     assert len(parsed.payload.run_outcomes) == 456
+    assert parsed.payload.window_start == cycle.schedule_epoch
+    assert parsed.payload.window_end == cycle.window_end.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert parsed.payload.deadline_policy["trigger_started_at"] == now.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert parsed.payload.deadline_policy["trigger_window_end"] == now.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert parsed.payload.deadline_policy["authoritative_end_to_end_deadline"] == (
+        now + timedelta(seconds=28_800)
+    ).isoformat().replace("+00:00", "Z")
+    assert [(item.code, item.message_key) for item in parsed.warnings] == [
+        (FINAL_ONLY_OWNER_RELEASE_TOKEN, FINAL_ONLY_OWNER_RELEASE_REASON),
+        ("CLOUD_RUN_MAX_RETRIES_0", "OWNER_RELEASE_EXTERNAL_ACTIVATION_FACT"),
+    ]

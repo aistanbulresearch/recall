@@ -11,6 +11,35 @@ from .scheduler_v3 import _HISTORY_FIELDS
 from .scheduler_v33 import _DEADLINE_FIELDS, require_deadline_completion_binding
 
 
+FINAL_ONLY_OWNER_RELEASE_TOKEN = "FINAL_ONLY_LATE_MANUAL_RELEASE_V1"
+FINAL_ONLY_OWNER_RELEASE_REASON = "OWNER_AUTHORIZED_FINAL_TONIGHT"
+FINAL_ONLY_MAX_RETRIES_WARNING = "CLOUD_RUN_MAX_RETRIES_0"
+FINAL_ONLY_MAX_RETRIES_MESSAGE = "OWNER_RELEASE_EXTERNAL_ACTIVATION_FACT"
+
+
+def final_only_owner_release_warnings() -> tuple[dict[str, object], ...]:
+    return (
+        {
+            "code": FINAL_ONLY_OWNER_RELEASE_TOKEN,
+            "message_key": FINAL_ONLY_OWNER_RELEASE_REASON,
+            "related_artifact_ids": [],
+        },
+        {
+            "code": FINAL_ONLY_MAX_RETRIES_WARNING,
+            "message_key": FINAL_ONLY_MAX_RETRIES_MESSAGE,
+            "related_artifact_ids": [],
+        },
+    )
+
+
+def parse_v34_owner_release(value: Any) -> bool:
+    if value == []:
+        return False
+    if value != list(final_only_owner_release_warnings()):
+        raise ContractError("contract_value_invalid", "owner_release")
+    return True
+
+
 def parse_v34_history(
     value: Any, envelope: Mapping[str, Any]
 ) -> tuple[Mapping[str, object], ...]:
@@ -160,7 +189,9 @@ def parse_v34_parity(value: Any, envelope: Mapping[str, Any]) -> Mapping[str, ob
     return MappingProxyType(parsed)
 
 
-def parse_v34_deadline(value: Mapping[str, Any]) -> Mapping[str, object]:
+def parse_v34_deadline(
+    value: Mapping[str, Any], *, owner_release: bool = False
+) -> Mapping[str, object]:
     raw = value["deadline_policy"]
     if not isinstance(raw, Mapping):
         raise ContractError("contract_type_invalid", "deadline_policy")
@@ -175,16 +206,27 @@ def parse_v34_deadline(value: Mapping[str, Any]) -> Mapping[str, object]:
         parsed[field] = timestamp(raw[field], field)
     for field in numeric:
         parsed[field] = integer(raw[field], field)
-    start = datetime_value(value["window_start"])
-    window_end = datetime_value(value["window_end"])
+    static_start = datetime_value(value["window_start"])
+    static_window_end = datetime_value(value["window_end"])
     trigger = datetime_value(parsed["trigger_started_at"])
     write_completed = datetime_value(parsed["write_completed_at"])
     agent_completed = datetime_value(parsed["agent_completed_at"])
-    end_to_end = start + timedelta(seconds=int(parsed["execution_timeout_seconds"]))
+    effective_start = trigger if owner_release else static_start
+    end_to_end = effective_start + timedelta(
+        seconds=int(parsed["execution_timeout_seconds"])
+    )
+    trigger_binding_valid = (
+        trigger > static_window_end
+        and parsed["trigger_window_end"] == parsed["trigger_started_at"]
+        if owner_release
+        else (
+            static_start <= trigger <= static_window_end
+            and parsed["trigger_window_end"] == value["window_end"]
+        )
+    )
     if (
-        not start <= trigger <= window_end
+        not trigger_binding_valid
         or not trigger <= write_completed <= agent_completed
-        or parsed["trigger_window_end"] != value["window_end"]
         or datetime_value(parsed["write_deadline"])
         != min(
             trigger + timedelta(seconds=int(parsed["write_timeout_seconds"])),

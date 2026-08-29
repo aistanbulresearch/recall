@@ -22,6 +22,7 @@ def build_artifact(
     status: ArtifactStatus,
     payload: Mapping[str, Any],
     authorized_producers: Mapping[str, Collection[str]],
+    warnings: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, object]:
     wire: dict[str, object] = {
         "schema_name": schema_name,
@@ -35,7 +36,7 @@ def build_artifact(
         "content_hash": "0" * 64,
         "data_mode": data_mode.value,
         "status": status.value,
-        "warnings": [],
+        "warnings": [dict(item) for item in warnings],
         "extensions": {},
     }
     wire.update(payload)

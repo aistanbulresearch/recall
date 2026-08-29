@@ -13,6 +13,11 @@ from recall.contracts.errors import ContractError
 from recall.contracts.payloads.scheduler_v33 import (
     require_deadline_completion_binding,
 )
+from recall.contracts.payloads.scheduler_v34_support import (
+    FINAL_ONLY_OWNER_RELEASE_REASON,
+    FINAL_ONLY_OWNER_RELEASE_TOKEN,
+    final_only_owner_release_warnings,
+)
 
 
 PLAN_PATH = Path(
@@ -144,6 +149,68 @@ class CompressedPlan:
         if len(matches) != 1:
             raise RuntimeError("compressed_cycle_due_date_invalid")
         return matches[0]
+
+
+@dataclass(frozen=True, slots=True)
+class FinalOnlyOwnerRelease:
+    cycle_id: str
+    token: str
+    reason: str
+    actual_start: datetime
+    write_deadline: datetime
+    execution_deadline: datetime
+    agent_timeout_seconds: int
+    max_retries: int
+
+
+def authorize_final_only_owner_release(
+    plan: CompressedPlan,
+    *,
+    token: str,
+    reason: str,
+    actual_start: datetime,
+    max_retries: int,
+) -> FinalOnlyOwnerRelease:
+    if token != FINAL_ONLY_OWNER_RELEASE_TOKEN:
+        raise RuntimeError("final_only_owner_release_token_invalid")
+    if reason != FINAL_ONLY_OWNER_RELEASE_REASON:
+        raise RuntimeError("final_only_owner_release_reason_invalid")
+    if isinstance(max_retries, bool) or max_retries != 0:
+        raise RuntimeError("final_only_owner_release_max_retries_invalid")
+    active = tuple(item for item in plan.cycles if item.activation == "ACTIVE")
+    if (
+        plan.schema_version != "2.8.0"
+        or plan.supersession is None
+        or len(active) != 1
+        or active[0].cycle_id != "c6"
+    ):
+        raise RuntimeError("final_only_owner_release_plan_invalid")
+    cycle = active[0]
+    if (
+        cycle.runs_predicted != 456
+        or cycle.execution_profile != "FULL_AUDIT_V1"
+        or (
+            cycle.execution_timeout_seconds,
+            cycle.write_timeout_seconds,
+            cycle.agent_timeout_seconds,
+        )
+        != PLAN10_C6_PHASE_TIMEOUTS
+    ):
+        raise RuntimeError("final_only_owner_release_cycle_invalid")
+    start = _aware_utc(actual_start)
+    if start <= cycle.window_end:
+        raise RuntimeError("final_only_owner_release_not_late")
+    return FinalOnlyOwnerRelease(
+        cycle_id=cycle.cycle_id,
+        token=token,
+        reason=reason,
+        actual_start=start,
+        write_deadline=start + timedelta(seconds=cycle.write_timeout_seconds),
+        execution_deadline=start
+        + timedelta(seconds=cycle.execution_timeout_seconds),
+        agent_timeout_seconds=cycle.agent_timeout_seconds,
+        max_retries=max_retries,
+    )
 
 
 def load_compressed_plan(repo_root: Path) -> CompressedPlan:
@@ -738,8 +805,16 @@ def verify_manifest_against_plan(
         != expected_legacy_failure_receipt_id
     ):
         raise RuntimeError("compressed_manifest_plan_mismatch")
+    to_wire = getattr(manifest, "to_wire", None)
+    manifest_warnings = to_wire()["warnings"] if callable(to_wire) else []
+    owner_release = (
+        manifest.schema_version == "3.4.0"
+        and manifest_warnings == list(final_only_owner_release_warnings())
+    )
     if manifest.schema_version in {"3.3.0", "3.4.0"}:
-        _verify_deadline_policy_against_cycle(payload.deadline_policy, cycle)
+        _verify_deadline_policy_against_cycle(
+            payload.deadline_policy, cycle, owner_release=owner_release
+        )
         try:
             require_deadline_completion_binding(
                 manifest.created_at,
@@ -750,10 +825,15 @@ def verify_manifest_against_plan(
                 "compressed_manifest_deadline_plan_mismatch"
             ) from exc
     completed_at = datetime.fromisoformat(manifest.created_at.replace("Z", "+00:00"))
-    end_to_end_deadline = cycle.window_start + timedelta(
+    effective_start = (
+        _parse_timestamp(payload.deadline_policy["trigger_started_at"])
+        if owner_release
+        else cycle.window_start
+    )
+    end_to_end_deadline = effective_start + timedelta(
         seconds=cycle.execution_timeout_seconds
     )
-    if completed_at < cycle.window_start or (
+    if completed_at < effective_start or (
         completed_at > end_to_end_deadline
         and manifest.status.value != "INCOMPLETE"
     ):
@@ -932,15 +1012,21 @@ def _verify_final_only_manifest_against_plan(
 def _verify_deadline_policy_against_cycle(
     deadline: Any,
     cycle: CompressedCycle,
+    *,
+    owner_release: bool = False,
 ) -> None:
     trigger_started_at = _parse_timestamp(deadline["trigger_started_at"])
     write_completed_at = _parse_timestamp(deadline["write_completed_at"])
-    end_to_end_deadline = cycle.end_to_end_deadline
+    end_to_end_deadline = (
+        trigger_started_at + timedelta(seconds=cycle.execution_timeout_seconds)
+        if owner_release
+        else cycle.end_to_end_deadline
+    )
     expected = (
         cycle.execution_timeout_seconds,
         cycle.write_timeout_seconds,
         cycle.agent_timeout_seconds,
-        _timestamp(cycle.window_end),
+        _timestamp(trigger_started_at if owner_release else cycle.window_end),
         _timestamp(
             min(
                 trigger_started_at

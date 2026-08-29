@@ -44,6 +44,7 @@ from .compressed_final_only_manifest import verify_final_only_history_rows
 from .compressed_plan import (
     CompressedCycle,
     CompressedPlan,
+    FinalOnlyOwnerRelease,
     resolve_declared_cycle,
     verify_manifest_against_plan,
 )
@@ -89,6 +90,7 @@ class CompressedCycleScheduler:
         full_audit_coordinator: FullAuditCoordinator | None = None,
         refetch_fetcher: Callable[[str], LiveSourceRecord] | None = None,
         clock: Callable[[], datetime] | None = None,
+        owner_release: FinalOnlyOwnerRelease | None = None,
     ) -> None:
         self._ledger = ledger
         self._plan = plan
@@ -99,6 +101,7 @@ class CompressedCycleScheduler:
         self._full_audit = full_audit_coordinator
         self._refetch_fetcher = refetch_fetcher
         self._clock = clock
+        self._owner_release = owner_release
         self.controller = Controller(ledger)
 
     def trigger(
@@ -111,10 +114,16 @@ class CompressedCycleScheduler:
         prior_ledgers: Mapping[str, LedgerPort] | None = None,
         historical_ledger_factory: LedgerForPrefix | None = None,
     ) -> CompressedCycleResult:
-        resolved = resolve_declared_cycle(now, self._plan)
+        resolved = (
+            self._plan.by_id(self._owner_release.cycle_id)
+            if self._owner_release is not None
+            else resolve_declared_cycle(now, self._plan)
+        )
         clock = self._clock or (lambda: now)
         if resolved != self._cycle:
             raise RuntimeError("compressed_cycle_resolution_mismatch")
+        if self._owner_release is not None and now != self._owner_release.actual_start:
+            raise RuntimeError("final_only_owner_release_start_mismatch")
         if self._cycle.write_path == "EXTERNAL_IMMUTABLE":
             raise RuntimeError("compressed_cycle_external_immutable")
         verified_supersession: VerifiedFinalOnlySupersession | None = None
@@ -175,7 +184,7 @@ class CompressedCycleScheduler:
         batch_execution = None
         write_deadline_at = min(
             now + timedelta(seconds=self._cycle.write_timeout_seconds),
-            self._cycle.end_to_end_deadline,
+            self._effective_deadline(),
         )
         if self._cycle.write_path == "FIRESTORE_BATCH_V1":
             try:
@@ -262,7 +271,7 @@ class CompressedCycleScheduler:
             agent_deadline_at = min(
                 write_completed_at
                 + timedelta(seconds=self._cycle.agent_timeout_seconds),
-                self._cycle.end_to_end_deadline,
+                self._effective_deadline(),
             )
             agent_phase = execute_full_audit_phase(
                 tuple(outcomes),
@@ -318,6 +327,7 @@ class CompressedCycleScheduler:
                 ),
                 trigger_started_at=now,
                 verified_supersession=verified_supersession,
+                owner_release=self._owner_release,
             )
             parsed_candidate = parse_artifact(
                 manifest, authorized_producers=PRODUCER_REGISTRY
@@ -588,6 +598,13 @@ class CompressedCycleScheduler:
 
     def _deadline(self, now: datetime) -> str:
         del now
-        return self._cycle.end_to_end_deadline.isoformat().replace(
+        return self._effective_deadline().isoformat().replace(
             "+00:00", "Z"
+        )
+
+    def _effective_deadline(self) -> datetime:
+        return (
+            self._owner_release.execution_deadline
+            if self._owner_release is not None
+            else self._cycle.end_to_end_deadline
         )

@@ -7,6 +7,10 @@ from uuid import NAMESPACE_URL, uuid5
 import pytest
 
 from recall.contracts import ContractError, content_hash, parse_artifact
+from recall.contracts.payloads.scheduler_v34_support import (
+    FINAL_ONLY_OWNER_RELEASE_REASON,
+    FINAL_ONLY_OWNER_RELEASE_TOKEN,
+)
 from recall.ledger.producers import PRODUCER_REGISTRY
 from tests.support.compressed_v33_manifest import build_valid_c3_manifest
 
@@ -57,6 +61,61 @@ def _misstate_parity_count(value: dict[str, object], field: str) -> None:
     parity = value["parity"]
     assert isinstance(parity, dict)
     parity[field] = int(parity[field]) + 1
+
+
+def _as_owner_release(value: dict[str, object]) -> None:
+    static_end = datetime.fromisoformat(
+        str(value["window_end"]).replace("Z", "+00:00")
+    )
+    actual_start = static_end + timedelta(seconds=1)
+    write_completed = actual_start + timedelta(seconds=1)
+    agent_completed = actual_start + timedelta(seconds=2)
+    value["created_at"] = agent_completed.isoformat().replace("+00:00", "Z")
+    value["warnings"] = [
+        {
+            "code": FINAL_ONLY_OWNER_RELEASE_TOKEN,
+            "message_key": FINAL_ONLY_OWNER_RELEASE_REASON,
+            "related_artifact_ids": [],
+        },
+        {
+            "code": "CLOUD_RUN_MAX_RETRIES_0",
+            "message_key": "OWNER_RELEASE_EXTERNAL_ACTIVATION_FACT",
+            "related_artifact_ids": [],
+        },
+    ]
+    value["deadline_policy"] = {
+        "trigger_started_at": actual_start.isoformat().replace("+00:00", "Z"),
+        "trigger_window_end": actual_start.isoformat().replace("+00:00", "Z"),
+        "write_timeout_seconds": 1_800,
+        "write_deadline": (actual_start + timedelta(seconds=1_800))
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "write_completed_at": write_completed.isoformat().replace(
+            "+00:00", "Z"
+        ),
+        "agent_timeout_seconds": 27_000,
+        "agent_deadline": (write_completed + timedelta(seconds=27_000))
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "agent_completed_at": agent_completed.isoformat().replace(
+            "+00:00", "Z"
+        ),
+        "execution_timeout_seconds": 28_800,
+        "authoritative_end_to_end_deadline": (
+            actual_start + timedelta(seconds=28_800)
+        )
+        .isoformat()
+        .replace("+00:00", "Z"),
+    }
+    value["execution_history"][-1]["executed_at"] = value["created_at"]
+    compressed = value["execution_history"][2:]
+    value["cumulative"]["distinct_execution_dates"] = len(
+        {
+            str(row["executed_at"])[:10]
+            for row in compressed
+            if row["executed_at"] is not None
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -252,6 +311,35 @@ def test_manifest_340_accepts_hash_bound_final_only_supersession(
     assert parsed.payload.headroom_receipt_id is None
     assert parsed.payload.final_only_supersession["mode"] == "FINAL_ONLY_TIMEBOX"
     assert parsed.payload.execution_history[-3]["execution_status"] == "RETIRED_TIMEBOX"
+
+
+def test_manifest_340_accepts_exact_owner_release_after_static_window(
+    final_only_wire: dict[str, object],
+) -> None:
+    value = deepcopy(final_only_wire)
+    _as_owner_release(value)
+    value["content_hash"] = content_hash(value)
+
+    parsed = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
+
+    assert parsed.payload.window_end == final_only_wire["window_end"]
+    assert parsed.payload.deadline_policy["trigger_started_at"] > value["window_end"]
+
+
+@pytest.mark.parametrize("warning_mutation", ["missing", "wrong_reason"])
+def test_manifest_340_rejects_late_deadlines_without_exact_owner_release(
+    final_only_wire: dict[str, object], warning_mutation: str
+) -> None:
+    value = deepcopy(final_only_wire)
+    _as_owner_release(value)
+    if warning_mutation == "missing":
+        value["warnings"] = []
+    else:
+        value["warnings"][0]["message_key"] = "UNAUTHORIZED_REASON"
+    value["content_hash"] = content_hash(value)
+
+    with pytest.raises(ContractError):
+        parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
 
 
 @pytest.mark.parametrize(

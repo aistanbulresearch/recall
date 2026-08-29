@@ -4,6 +4,9 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 
 from recall.contracts import ArtifactStatus, DataMode, build_artifact, parse_artifact
+from recall.contracts.payloads.scheduler_v34_support import (
+    final_only_owner_release_warnings,
+)
 from recall.contracts.enums import FactState
 from recall.ledger.models import ScanRunRecord, WatchCaseRecord
 from recall.ledger.producers import PRODUCER_REGISTRY
@@ -17,7 +20,12 @@ from .compressed_identity import (
     mode_receipt_artifact_id,
     tick_run_id,
 )
-from .compressed_plan import CompressedCycle, CompressedPlan, TRIGGER_CODE
+from .compressed_plan import (
+    CompressedCycle,
+    CompressedPlan,
+    FinalOnlyOwnerRelease,
+    TRIGGER_CODE,
+)
 from .compressed_preparation import CompressedPreparationBundle
 from .history import DAY1_EXECUTED_AT
 from .full_audit_phase import FullAuditPhaseResult, outcome_to_wire
@@ -55,9 +63,14 @@ def build_compressed_manifest(
     executed_at: datetime,
     trigger_started_at: datetime,
     verified_supersession: VerifiedFinalOnlySupersession | None = None,
+    owner_release: FinalOnlyOwnerRelease | None = None,
 ) -> dict[str, object]:
     authoritative = tuple(sorted(item.run_id for item in run_records))
     final_only = plan.schema_version == "2.8.0"
+    if owner_release is not None and (
+        not final_only or cycle.cycle_id != "c6"
+    ):
+        raise RuntimeError("final_only_owner_release_context_invalid")
     if final_only:
         if verified_supersession is None:
             raise RuntimeError("final_only_verified_snapshot_missing")
@@ -177,6 +190,7 @@ def build_compressed_manifest(
             )
         ),
         agent_completed_at=executed_at,
+        owner_release=owner_release,
     )
     deadline_qualified = (
         deadline_policy["trigger_started_at"] <= deadline_policy["trigger_window_end"]
@@ -310,6 +324,11 @@ def build_compressed_manifest(
         status=ArtifactStatus.VALID if qualified else ArtifactStatus.INCOMPLETE,
         payload=payload,
         authorized_producers=PRODUCER_REGISTRY,
+        warnings=(
+            final_only_owner_release_warnings()
+            if owner_release is not None
+            else ()
+        ),
     )
 
 
@@ -431,8 +450,18 @@ def _deadline_policy(
     trigger_started_at: datetime,
     write_completed_at: datetime,
     agent_completed_at: datetime,
+    owner_release: FinalOnlyOwnerRelease | None = None,
 ) -> dict[str, str]:
-    end_to_end = cycle.end_to_end_deadline
+    if owner_release is not None and (
+        owner_release.cycle_id != cycle.cycle_id
+        or owner_release.actual_start != trigger_started_at
+    ):
+        raise RuntimeError("final_only_owner_release_context_invalid")
+    end_to_end = (
+        owner_release.execution_deadline
+        if owner_release is not None
+        else cycle.end_to_end_deadline
+    )
     write_deadline = min(
         trigger_started_at + timedelta(seconds=cycle.write_timeout_seconds),
         end_to_end,
@@ -443,7 +472,9 @@ def _deadline_policy(
     )
     return {
         "trigger_started_at": _timestamp(trigger_started_at),
-        "trigger_window_end": _timestamp(cycle.window_end),
+        "trigger_window_end": _timestamp(
+            trigger_started_at if owner_release is not None else cycle.window_end
+        ),
         "write_timeout_seconds": cycle.write_timeout_seconds,
         "write_deadline": _timestamp(write_deadline),
         "write_completed_at": _timestamp(write_completed_at),
