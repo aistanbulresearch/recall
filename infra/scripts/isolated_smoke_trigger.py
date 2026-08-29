@@ -181,14 +181,19 @@ def _command(pair: SmokePair, mode: str) -> str:
 
 
 def build_cloud_build_config(
-    pair: SmokePair, *, machine_service_account: str
+    pair: SmokePair, *, machine_service_account: str | None = None
 ) -> dict[str, object]:
     """Return one no-source build body that attempts each smoke exactly once."""
 
-    match = MACHINE_SERVICE_ACCOUNT.fullmatch(machine_service_account)
-    if not match:
-        raise ValueError("machine_service_account_invalid")
-    project = match.group("project")
+    service_account_resource: str | None = None
+    if machine_service_account is not None:
+        match = MACHINE_SERVICE_ACCOUNT.fullmatch(machine_service_account)
+        if not match:
+            raise ValueError("machine_service_account_invalid")
+        service_account_resource = (
+            f"projects/{match.group('project')}/serviceAccounts/"
+            f"{machine_service_account}"
+        )
     positive = _command(pair, "positive")
     negative = _command(pair, "negative")
     script = f"""\
@@ -207,7 +212,7 @@ printf 'RECALL_SMOKE_EXECUTION negative %s\\n' "$negative_name"
 printf 'RECALL_SMOKE_TERMINAL_RC positive %s\\n' "$positive_rc"
 printf 'RECALL_SMOKE_TERMINAL_RC negative %s\\n' "$negative_rc"
 """
-    return {
+    config: dict[str, object] = {
         "steps": [
             {
                 "id": "isolated-smoke-pair",
@@ -218,11 +223,11 @@ printf 'RECALL_SMOKE_TERMINAL_RC negative %s\\n' "$negative_rc"
             }
         ],
         "timeout": "60000s",
-        "serviceAccount": (
-            f"projects/{project}/serviceAccounts/{machine_service_account}"
-        ),
         "options": {"logging": "CLOUD_LOGGING_ONLY"},
     }
+    if service_account_resource is not None:
+        config["serviceAccount"] = service_account_resource
+    return config
 
 
 def _nested(value: Mapping[str, Any], path: tuple[str, ...]) -> Any:
@@ -413,7 +418,7 @@ def _alias(value: str) -> str:
 def submit_smoke_pair(
     pair: SmokePair,
     *,
-    machine_service_account_local_part: str,
+    machine_service_account_local_part: str | None = None,
     project: str,
     receipt_path: Path,
     run_fn: Any = None,
@@ -425,7 +430,9 @@ def submit_smoke_pair(
     collector.  The function never retries either the build or an execution.
     """
 
-    if not SERVICE_ACCOUNT_LOCAL_PART.fullmatch(machine_service_account_local_part):
+    if machine_service_account_local_part is not None and not (
+        SERVICE_ACCOUNT_LOCAL_PART.fullmatch(machine_service_account_local_part)
+    ):
         raise ValueError("machine_service_account_local_part_invalid")
     if not PROJECT.fullmatch(project):
         raise ValueError("project_invalid")
@@ -453,6 +460,8 @@ def submit_smoke_pair(
 
     service_account = (
         f"{machine_service_account_local_part}@{project}.iam.gserviceaccount.com"
+        if machine_service_account_local_part is not None
+        else None
     )
     config = build_cloud_build_config(
         pair, machine_service_account=service_account
@@ -463,16 +472,20 @@ def submit_smoke_pair(
             json.dumps(config, sort_keys=True, separators=(",", ":")),
             encoding="utf-8",
         )
-        service_account_resource = (
-            f"projects/{project}/serviceAccounts/{service_account}"
-        )
-        submitted: CompletedProcess[str] = run_fn(
+        submit_args = [
             "builds",
             "submit",
             "--no-source",
             f"--config={config_path}",
-            f"--service-account={service_account_resource}",
-            "--format=value(id)",
+        ]
+        if service_account is not None:
+            submit_args.append(
+                f"--service-account=projects/{project}/serviceAccounts/"
+                f"{service_account}"
+            )
+        submit_args.append("--format=value(id)")
+        submitted: CompletedProcess[str] = run_fn(
+            *submit_args,
             timeout_seconds=60_600,
         )
     if submitted.returncode != 0:

@@ -123,15 +123,10 @@ def _job() -> dict[str, object]:
 
 
 def test_generated_build_is_source_less_machine_trigger_with_two_explicit_overrides() -> None:
-    config = build_cloud_build_config(
-        _pair(),
-        machine_service_account="smoke-runner@sample-project.iam.gserviceaccount.com",
-    )
+    config = build_cloud_build_config(_pair())
 
     encoded = json.dumps(config, sort_keys=True)
-    assert config["serviceAccount"].endswith(
-        "/serviceAccounts/smoke-runner@sample-project.iam.gserviceaccount.com"
-    )
+    assert "serviceAccount" not in config
     assert encoded.count("run jobs execute") == 2
     assert encoded.count("--args=") == 2
     assert encoded.count("--update-env-vars=") == 2
@@ -147,6 +142,17 @@ def test_generated_build_is_source_less_machine_trigger_with_two_explicit_overri
     assert "final" not in encoded.lower()
     assert "exit 93" not in encoded
     assert encoded.count("RECALL_SMOKE_TERMINAL_RC") == 2
+
+
+def test_generated_build_retains_valid_explicit_machine_identity() -> None:
+    config = build_cloud_build_config(
+        _pair(),
+        machine_service_account="smoke-runner@sample-project.iam.gserviceaccount.com",
+    )
+
+    assert config["serviceAccount"].endswith(
+        "/serviceAccounts/smoke-runner@sample-project.iam.gserviceaccount.com"
+    )
 
 
 @pytest.mark.parametrize(
@@ -283,7 +289,15 @@ def test_build_id_parser_requires_one_exact_uuid() -> None:
         parse_build_id(build_id + "\n" + "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 
 
-def test_submit_uses_redacted_runner_no_source_and_returns_only_aliases(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("machine_service_account_local_part", "expects_explicit_account"),
+    [(None, False), ("smoke-runner", True)],
+)
+def test_submit_uses_default_or_explicit_machine_identity(
+    tmp_path: Path,
+    machine_service_account_local_part: str | None,
+    expects_explicit_account: bool,
+) -> None:
     calls: list[tuple[str, ...]] = []
 
     def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
@@ -292,7 +306,10 @@ def test_submit_uses_redacted_runner_no_source_and_returns_only_aliases(tmp_path
             return subprocess.CompletedProcess([], 0, json.dumps(_job()), "")
         if args[:2] == ("builds", "submit"):
             assert "--no-source" in args
-            assert any(item.startswith("--service-account=projects/") for item in args)
+            has_explicit_account = any(
+                item.startswith("--service-account=projects/") for item in args
+            )
+            assert has_explicit_account is expects_explicit_account
             assert timeout_seconds == 60_600
             return subprocess.CompletedProcess(
                 [], 0, "12345678-1234-1234-1234-123456789abc\n", ""
@@ -316,13 +333,16 @@ def test_submit_uses_redacted_runner_no_source_and_returns_only_aliases(tmp_path
             "RECALL_SMOKE_EXECUTION negative recall-cohort-daily-d4e5f\n", ""
         )
 
-    report = submit_smoke_pair(
-        _pair(),
-        machine_service_account_local_part="smoke-runner",
-        project="sample-project",
-        receipt_path=tmp_path / "receipt.json",
-        run_fn=run_fn,
-    )
+    submit_kwargs = {
+        "project": "sample-project",
+        "receipt_path": tmp_path / "receipt.json",
+        "run_fn": run_fn,
+    }
+    if machine_service_account_local_part is not None:
+        submit_kwargs["machine_service_account_local_part"] = (
+            machine_service_account_local_part
+        )
+    report = submit_smoke_pair(_pair(), **submit_kwargs)
     assert report == {
         "verdict": "READY_FOR_COLLECTION",
         "execution_count": 2,
