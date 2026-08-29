@@ -174,6 +174,31 @@ def test_job_preflight_accepts_only_exact_candidate_config() -> None:
     assert validate_job_snapshot(changed, expectation) == ("max_retries_mismatch",)
 
 
+@pytest.mark.parametrize("cpu", ["1", "1000m"])
+def test_job_preflight_accepts_equivalent_single_cpu_forms(cpu: str) -> None:
+    job = _job()
+    spec = job["spec"]["template"]["spec"]["template"]["spec"]  # type: ignore[index]
+    container = spec["containers"][0]
+    container["resources"]["limits"]["cpu"] = cpu
+
+    expectation = DeploymentExpectation.from_pair(_pair(), project=PROJECT)
+    assert validate_job_snapshot(job, expectation) == ()
+
+
+@pytest.mark.parametrize(
+    "cpu",
+    ["999m", "1001m", "2", "", "1.0", "1000M", None, {"value": "1"}],
+)
+def test_job_preflight_rejects_non_equivalent_or_malformed_cpu(cpu: object) -> None:
+    job = _job()
+    spec = job["spec"]["template"]["spec"]["template"]["spec"]  # type: ignore[index]
+    container = spec["containers"][0]
+    container["resources"]["limits"]["cpu"] = cpu
+
+    expectation = DeploymentExpectation.from_pair(_pair(), project=PROJECT)
+    assert validate_job_snapshot(job, expectation) == ("cpu_mismatch",)
+
+
 def test_job_preflight_fails_closed_on_provenance_or_candidate_drift() -> None:
     expectation = DeploymentExpectation.from_pair(_pair(), project=PROJECT)
     changed = _job()

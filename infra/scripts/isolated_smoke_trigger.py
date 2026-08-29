@@ -234,6 +234,12 @@ def _nested(value: Mapping[str, Any], path: tuple[str, ...]) -> Any:
     return current
 
 
+def _canonical_cpu(value: Any) -> str | None:
+    if isinstance(value, str) and value in {"1", "1000m"}:
+        return "1"
+    return None
+
+
 def _container(job: Mapping[str, Any]) -> Mapping[str, Any]:
     candidates = (
         ("spec", "template", "spec", "template", "spec", "containers"),
@@ -362,7 +368,13 @@ def validate_job_snapshot(
     if timeout != str(expectation.timeout_seconds):
         failures.append("timeout_mismatch")
     limits = _nested(container, ("resources", "limits"))
-    if not isinstance(limits, Mapping) or str(limits.get("cpu")) != expectation.cpu:
+    actual_cpu = (
+        _canonical_cpu(limits.get("cpu"))
+        if isinstance(limits, Mapping)
+        else None
+    )
+    expected_cpu = _canonical_cpu(expectation.cpu)
+    if actual_cpu is None or expected_cpu is None or actual_cpu != expected_cpu:
         failures.append("cpu_mismatch")
     if not isinstance(limits, Mapping) or str(limits.get("memory")) != expectation.memory:
         failures.append("memory_mismatch")
