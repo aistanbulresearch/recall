@@ -25,6 +25,11 @@ def main() -> int:
         help="Repeat exactly once for each of c3, c4, c5, and c6.",
     )
     parser.add_argument("--web-root", type=Path, required=True)
+    parser.add_argument(
+        "--plan9-r1-retry",
+        action="store_true",
+        help="Re-declare c3 as a new, explicitly labelled r1 retry epoch.",
+    )
     args = parser.parse_args()
     windows = None
     if args.window is not None:
@@ -37,6 +42,7 @@ def main() -> int:
         args.web_root,
         anchor=args.anchor,
         windows=windows,
+        plan9_r1_retry=args.plan9_r1_retry,
     )
     print(json.dumps(result.to_wire(), indent=2, sort_keys=True))
     return 0

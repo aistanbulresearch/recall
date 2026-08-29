@@ -22,6 +22,18 @@ from recall.testing.deadline_policy_vectors import VECTOR_PATH
 
 ROOT = Path(__file__).resolve().parents[2]
 EXPLICIT_WINDOWS = (
+    ("c3", "2026-08-29T08:15:00Z", "2026-08-29T08:44:59Z"),
+    ("c4", "2026-08-29T09:10:00Z", "2026-08-29T11:09:59Z"),
+    ("c5", "2026-08-29T11:34:00Z", "2026-08-29T15:33:59Z"),
+    ("c6", "2026-08-29T16:02:00Z", "2026-08-30T00:01:59Z"),
+)
+PLAN9_WINDOWS = (
+    ("c3", "2026-08-29T08:15:00Z", "2026-08-29T08:44:59Z"),
+    ("c4", "2026-08-29T09:10:00Z", "2026-08-29T11:09:59Z"),
+    ("c5", "2026-08-29T11:34:00Z", "2026-08-29T15:33:59Z"),
+    ("c6", "2026-08-29T16:02:00Z", "2026-08-30T00:01:59Z"),
+)
+PLAN8_WINDOWS = (
     ("c3", "2026-08-28T21:00:00Z", "2026-08-28T21:29:59Z"),
     ("c4", "2026-08-28T21:52:00Z", "2026-08-28T23:51:59Z"),
     ("c5", "2026-08-29T00:16:00Z", "2026-08-29T04:15:59Z"),
@@ -105,12 +117,57 @@ def test_regeneration_reports_only_windows_that_actually_changed(
     web = tmp_path / "web"
     _seed_repositories(core, web)
     c4_only = EXPLICIT_WINDOWS[:1] + (
-        ("c4", "2026-08-28T21:51:40Z", "2026-08-28T23:51:39Z"),
+        ("c4", "2026-08-29T09:09:40Z", "2026-08-29T11:09:39Z"),
     ) + EXPLICIT_WINDOWS[2:]
 
     result = regenerate_compressed_plan(core, web, windows=c4_only)
 
     assert result.shifted_cycle_ids == ("c4",)
+
+
+def test_plan9_regeneration_redeclares_r1_without_rebinding_successors(
+    tmp_path: Path,
+) -> None:
+    core = tmp_path / "core"
+    web = tmp_path / "web"
+    plan8 = _plan8_seed_bytes()
+    before = json.loads(plan8.decode("utf-8"))
+    _seed_repositories(core, web, plan_bytes=plan8)
+
+    result = regenerate_compressed_plan(
+        core,
+        web,
+        windows=PLAN9_WINDOWS,
+        plan9_r1_retry=True,
+    )
+
+    after = json.loads((core / PLAN_PATH).read_text(encoding="utf-8"))
+    assert result.mode == "PLAN9_R1_RETRY"
+    assert result.shifted_cycle_ids == ("c3", "c4", "c5", "c6")
+    assert after["schema_version"] == "2.6.0"
+    assert after["cycles"][:2] == before["cycles"][:2]
+    assert after["cycles"][2]["predecessor"] == before["cycles"][2]["predecessor"]
+    assert after["cycles"][2]["epoch_label"] == "PLAN6_RAMP_FIRST_PASS_RETRY"
+    assert after["cycles"][3]["activation"] == "ACTIVE"
+    assert after["cycles"][3]["epoch_label"] == "PLAN6_R2_80_ACTIVE"
+    assert [after["cycles"][index]["predecessor"]["binding"] for index in (3, 4, 5)] == [
+        "CURRENT_PLAN",
+        "CURRENT_PLAN",
+        "CURRENT_PLAN",
+    ]
+    assert [
+        (item["cycle_id"], item["window_start"], item["window_end"])
+        for item in after["cycles"][2:]
+    ] == list(PLAN9_WINDOWS)
+    assert (core / VECTOR_PATH).read_bytes() == (web / VECTOR_PATH).read_bytes()
+
+    second = regenerate_compressed_plan(
+        core,
+        web,
+        windows=PLAN9_WINDOWS,
+        plan9_r1_retry=True,
+    )
+    assert second.old_plan_sha256 == second.new_plan_sha256
 
 
 @pytest.mark.parametrize(
@@ -264,8 +321,13 @@ def test_regeneration_requires_explicit_timezone(anchor: str, tmp_path: Path) ->
         regenerate_compressed_plan(core, web, anchor=anchor)
 
 
-def _seed_repositories(core: Path, web: Path) -> str:
-    plan = (ROOT / PLAN_PATH).read_bytes()
+def _seed_repositories(
+    core: Path,
+    web: Path,
+    *,
+    plan_bytes: bytes | None = None,
+) -> str:
+    plan = plan_bytes or (ROOT / PLAN_PATH).read_bytes()
     old_sha = hashlib.sha256(plan).hexdigest()
     _write(core / PLAN_PATH, plan)
     for path, count in CORE_PIN_COUNTS.items():
@@ -281,6 +343,19 @@ def _seed_repositories(core: Path, web: Path) -> str:
         _git(root, "init")
         _git(root, "add", ".")
     return old_sha
+
+
+def _plan8_seed_bytes() -> bytes:
+    value = json.loads((ROOT / PLAN_PATH).read_text(encoding="utf-8"))
+    value["schema_version"] = "2.4.0"
+    cycles = {item["cycle_id"]: item for item in value["cycles"]}
+    cycles["c3"]["epoch_label"] = "PLAN6_R1_20"
+    cycles["c4"]["activation"] = "PROVISIONAL_R1_GATED"
+    cycles["c4"]["epoch_label"] = "PLAN6_R2_80_PROVISIONAL"
+    for cycle_id, start, end in PLAN8_WINDOWS:
+        cycles[cycle_id]["window_start"] = start
+        cycles[cycle_id]["window_end"] = end
+    return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _write(path: Path, value: bytes) -> None:

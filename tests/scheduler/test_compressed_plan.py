@@ -46,11 +46,104 @@ def _wire() -> dict[str, object]:
 def _wire_for_schema(schema_version: str) -> dict[str, object]:
     value = copy.deepcopy(_wire())
     value["schema_version"] = schema_version
+    if schema_version != "2.6.0":
+        value["cycles"][2]["epoch_label"] = "PLAN6_R1_20"
+        value["cycles"][3]["activation"] = "PROVISIONAL_R1_GATED"
+        value["cycles"][3]["epoch_label"] = "PLAN6_R2_80_PROVISIONAL"
+    else:
+        value["cycles"][3]["activation"] = "ACTIVE"
+        value["cycles"][3]["epoch_label"] = "PLAN6_R2_80_ACTIVE"
     if schema_version == "2.3.0":
         for cycle in value["cycles"]:
             cycle.pop("write_timeout_seconds")
             cycle.pop("agent_timeout_seconds")
     return value
+
+
+def test_schema_260_accepts_exact_plan9_r1_retry() -> None:
+    value = _wire_for_schema("2.6.0")
+    value["cycles"][2]["epoch_label"] = "PLAN6_RAMP_FIRST_PASS_RETRY"
+    value["cycles"][3]["activation"] = "ACTIVE"
+
+    plan = parse_compressed_plan(value, sha256="0" * 64)
+
+    assert plan.by_id("c3").epoch_label == "PLAN6_RAMP_FIRST_PASS_RETRY"
+    assert plan.by_id("c3").predecessor == load_compressed_plan(ROOT).by_id(
+        "c3"
+    ).predecessor
+    assert [plan.by_id(item).predecessor.binding for item in ("c4", "c5", "c6")] == [
+        "CURRENT_PLAN",
+        "CURRENT_PLAN",
+        "CURRENT_PLAN",
+    ]
+    assert [item.activation for item in plan.cycles] == [
+        "IMMUTABLE_EXECUTED",
+        "IMMUTABLE_EXECUTED",
+        "ACTIVE",
+        "ACTIVE",
+        "PROVISIONAL_R1_GATED",
+        "PROVISIONAL_R1_GATED",
+    ]
+    assert plan.by_id("c4").epoch_label == "PLAN6_R2_80_ACTIVE"
+
+
+@pytest.mark.parametrize("schema_version", ["2.4.0", "2.5.0"])
+def test_legacy_schema_rejects_plan9_retry_epoch(schema_version: str) -> None:
+    value = _wire_for_schema(schema_version)
+    value["cycles"][2]["epoch_label"] = "PLAN6_RAMP_FIRST_PASS_RETRY"
+
+    with pytest.raises(RuntimeError, match="compressed_retry_schema_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_260_rejects_unlabelled_retry() -> None:
+    value = _wire_for_schema("2.6.0")
+    value["cycles"][2]["epoch_label"] = "PLAN6_R1_20"
+    value["cycles"][3]["activation"] = "ACTIVE"
+
+    with pytest.raises(RuntimeError, match="compressed_retry_epoch_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_260_rejects_provisional_label_on_active_c4() -> None:
+    value = _wire_for_schema("2.6.0")
+    value["cycles"][3]["epoch_label"] = "PLAN6_R2_80_PROVISIONAL"
+
+    with pytest.raises(RuntimeError, match="compressed_active_epoch_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+def test_schema_260_preserves_current_plan_successor_chain() -> None:
+    value = _wire_for_schema("2.6.0")
+    value["cycles"][2]["epoch_label"] = "PLAN6_RAMP_FIRST_PASS_RETRY"
+    value["cycles"][3]["activation"] = "ACTIVE"
+    value["cycles"][3]["predecessor"] = copy.deepcopy(
+        value["cycles"][2]["predecessor"]
+    )
+    value["cycles"][3]["predecessor"]["cycle_id"] = "c3"
+
+    with pytest.raises(RuntimeError, match="compressed_current_predecessor_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
+
+
+@pytest.mark.parametrize(
+    "active_tail",
+    [
+        ["ACTIVE", "PROVISIONAL_R1_GATED", "PROVISIONAL_R1_GATED", "PROVISIONAL_R1_GATED"],
+        ["ACTIVE", "ACTIVE", "ACTIVE", "PROVISIONAL_R1_GATED"],
+        ["ACTIVE", "ACTIVE", "PROVISIONAL_R1_GATED", "ACTIVE"],
+    ],
+)
+def test_schema_260_rejects_non_plan9_activation_tuple(
+    active_tail: list[str],
+) -> None:
+    value = _wire_for_schema("2.6.0")
+    value["cycles"][2]["epoch_label"] = "PLAN6_RAMP_FIRST_PASS_RETRY"
+    for cycle, activation in zip(value["cycles"][2:], active_tail, strict=True):
+        cycle["activation"] = activation
+
+    with pytest.raises(RuntimeError, match="compressed_cycle_activation_invalid"):
+        parse_compressed_plan(value, sha256="0" * 64)
 
 
 @pytest.mark.parametrize("active_count", [1, 2, 3, 4])
@@ -155,10 +248,10 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
         )
         for item in plan.cycles[2:]
     ] == [
-        ("c3", "2026-08-28T21:00:00+00:00", "2026-08-28T21:29:59+00:00"),
-        ("c4", "2026-08-28T21:52:00+00:00", "2026-08-28T23:51:59+00:00"),
-        ("c5", "2026-08-29T00:16:00+00:00", "2026-08-29T04:15:59+00:00"),
-        ("c6", "2026-08-29T04:44:00+00:00", "2026-08-29T12:43:59+00:00"),
+        ("c3", "2026-08-29T08:15:00+00:00", "2026-08-29T08:44:59+00:00"),
+        ("c4", "2026-08-29T09:10:00+00:00", "2026-08-29T11:09:59+00:00"),
+        ("c5", "2026-08-29T11:34:00+00:00", "2026-08-29T15:33:59+00:00"),
+        ("c6", "2026-08-29T16:02:00+00:00", "2026-08-30T00:01:59+00:00"),
     ]
     assert [item.window_end - item.window_start for item in plan.cycles[2:]] == [
         timedelta(minutes=29, seconds=59),
@@ -186,9 +279,11 @@ def test_locked_plan_has_exact_table_and_verification_gaps() -> None:
     ]
     assert [item.activation for item in plan.cycles] == [
         "IMMUTABLE_EXECUTED", "IMMUTABLE_EXECUTED", "ACTIVE",
-        "PROVISIONAL_R1_GATED", "PROVISIONAL_R1_GATED",
+        "ACTIVE", "PROVISIONAL_R1_GATED",
         "PROVISIONAL_R1_GATED",
     ]
+    assert plan.by_id("c3").epoch_label == "PLAN6_RAMP_FIRST_PASS_RETRY"
+    assert plan.by_id("c4").epoch_label == "PLAN6_R2_80_ACTIVE"
     cases = all_compressed_cases(plan.cycles)
     assert len(cases) == 762
     assert len({(item.case_id, item.cycle_id) for item in cases}) == 762
@@ -259,11 +354,12 @@ def test_resolver_requires_exactly_one_declared_window() -> None:
             datetime(2026, 8, 26, 20, 55, tzinfo=timezone.utc), plan
         )
 
-    with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
-        c4_inside_window = plan.by_id("c4").window_start + timedelta(minutes=30)
-        resolve_declared_cycle(
-            c4_inside_window, plan
-        )
+    c4_inside_window = plan.by_id("c4").window_start + timedelta(minutes=30)
+    assert resolve_declared_cycle(c4_inside_window, plan).cycle_id == "c4"
+    for cycle_id in ("c5", "c6"):
+        with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
+            cycle = plan.by_id(cycle_id)
+            resolve_declared_cycle(cycle.window_start + timedelta(minutes=1), plan)
 
 
 def test_plan_rejects_overlap_and_short_gap() -> None:
@@ -327,3 +423,21 @@ def test_cycle_identities_are_unique_and_do_not_collide_with_legacy() -> None:
     assert len(set(prefixes)) == 6
     assert all(f"_p{plan.sha256[:12]}_" in item for item in prefixes)
     assert collection_prefix(replace(plan, sha256="f" * 64), plan.cycles[0]) != prefixes[0]
+
+
+def test_plan9_retry_uses_fresh_c3_namespace_without_changing_case_set() -> None:
+    plan = load_compressed_plan(ROOT)
+    c3 = plan.by_id("c3")
+    failed_plan = replace(
+        plan,
+        sha256=(
+            "fe3a1d5650daf27fd72b31030d5f7e26cf75b7ffd6cb1f7220c5c86f4c869b61"
+        ),
+    )
+
+    assert collection_prefix(plan, c3) != collection_prefix(failed_plan, c3)
+    assert tick_run_id(plan, c3) != tick_run_id(failed_plan, c3)
+    assert manifest_artifact_id(plan, c3) != manifest_artifact_id(failed_plan, c3)
+    assert [item.case_id for item in cases_for_cycle(c3)] == [
+        item.case_id for item in cases_for_cycle(failed_plan.by_id("c3"))
+    ]

@@ -18,7 +18,7 @@ PLAN_PATH = Path(
     "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json"
 )
 EXPECTED_PLAN_SHA256 = (
-    "fe3a1d5650daf27fd72b31030d5f7e26cf75b7ffd6cb1f7220c5c86f4c869b61"
+    "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338"
 )
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
@@ -27,9 +27,11 @@ TRIGGER_CODE = "COHORT_COMPRESSED_MACHINE_TRIGGERED"
 PLAN3_SHA256 = "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
 PLAN3_C1_PREFIX = "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_"
 PLAN3_C1_MANIFEST_ID = "bd51bd00-fcf4-5d91-a45d-4d203e02127c"
+PLAN9_RETRY_EPOCH_LABEL = "PLAN6_RAMP_FIRST_PASS_RETRY"
+PLAN9_C4_EPOCH_LABEL = "PLAN6_R2_80_ACTIVE"
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_ACTIVATION_SCHEMAS = {"2.3.0", "2.4.0", "2.5.0"}
-_PHASE_TIMEOUT_SCHEMAS = {"2.4.0", "2.5.0"}
+_ACTIVATION_SCHEMAS = {"2.3.0", "2.4.0", "2.5.0", "2.6.0"}
+_PHASE_TIMEOUT_SCHEMAS = {"2.4.0", "2.5.0", "2.6.0"}
 
 
 class ManifestDeadlinePlanMismatch(RuntimeError):
@@ -128,7 +130,7 @@ def parse_compressed_plan(value: Any, *, sha256: str) -> CompressedPlan:
         raise RuntimeError("compressed_plan_shape_invalid")
     schema_version = value["schema_version"]
     if (
-        schema_version not in {"2.2.0", "2.3.0", "2.4.0", "2.5.0"}
+        schema_version not in {"2.2.0", "2.3.0", "2.4.0", "2.5.0", "2.6.0"}
         or value["plan_version"] != PLAN_VERSION
         or value["decision_reference"] != DECISION_REFERENCE
         or value["schedule_mode"] != SCHEDULE_MODE
@@ -366,6 +368,16 @@ def _validate_cycles(
             or "ACTIVE" in active_tail[first_provisional + 1 :]
         ):
             raise RuntimeError("compressed_cycle_activation_invalid")
+    elif schema_version == "2.6.0":
+        if tuple(item.activation for item in cycles) != (
+            "IMMUTABLE_EXECUTED",
+            "IMMUTABLE_EXECUTED",
+            "ACTIVE",
+            "ACTIVE",
+            "PROVISIONAL_R1_GATED",
+            "PROVISIONAL_R1_GATED",
+        ):
+            raise RuntimeError("compressed_cycle_activation_invalid")
     if schema_version in _PHASE_TIMEOUT_SCHEMAS:
         if any(item.agent_timeout_seconds != 0 for item in cycles[:2]) or any(
             item.agent_timeout_seconds <= 0 for item in cycles[2:]
@@ -382,6 +394,13 @@ def _validate_cycles(
         raise RuntimeError("compressed_c2_external_predecessor_invalid")
     if cycles[2].predecessor is None or cycles[2].predecessor.binding != "EXTERNAL_PLAN":
         raise RuntimeError("compressed_c3_external_predecessor_invalid")
+    if schema_version == "2.6.0":
+        if cycles[2].epoch_label != PLAN9_RETRY_EPOCH_LABEL:
+            raise RuntimeError("compressed_retry_epoch_invalid")
+        if cycles[3].epoch_label != PLAN9_C4_EPOCH_LABEL:
+            raise RuntimeError("compressed_active_epoch_invalid")
+    elif cycles[2].epoch_label == PLAN9_RETRY_EPOCH_LABEL:
+        raise RuntimeError("compressed_retry_schema_invalid")
     if any(
         item.predecessor is None or item.predecessor.binding != "CURRENT_PLAN"
         for item in cycles[3:]

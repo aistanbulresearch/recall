@@ -20,9 +20,7 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed import CompressedCycleScheduler
 from recall.scheduler.compressed_cohort import cases_for_cycle
 from recall.scheduler.compressed_identity import evidence_legacy_failure_receipt_id
-from recall.scheduler.compressed_plan import (
-    load_compressed_plan,
-)
+from recall.scheduler.compressed_plan import PredecessorBinding, load_compressed_plan
 from recall.scheduler.compressed_preparation import (
     DEFAULT_COMPRESSED_BUNDLE_PATH,
     install_prepared_cycle,
@@ -56,6 +54,7 @@ from tests.support.compressed_v33_manifest import (
     make_ledger as _ledger,
     run_c3 as _run_c3,
     run_legacy_history as _run_legacy_history,
+    with_test_full_audit_receipts,
 )
 
 
@@ -257,6 +256,96 @@ def test_ramp_gate_retry_with_new_clock_reuses_content_addressed_receipt() -> No
     assert target.read_back_count("artifacts") == count
 
 
+def test_c4_ramp_gate_passes_only_for_qualified_current_plan_c3() -> None:
+    plan, bundle, _c3, predecessor, _gate, result = _run_c3()
+    c4 = plan.by_id("c4")
+    target = _ledger(bundle, live=True)
+
+    receipt = evaluate_and_persist_ramp_gate(
+        plan=plan,
+        target_cycle=c4,
+        predecessor_ledger=predecessor,
+        target_ledger=target,
+        now=c4.window_start,
+    )
+
+    parsed = parse_artifact(receipt, authorized_producers=PRODUCER_REGISTRY)
+    assert predecessor.get_artifact(result.manifest_artifact_id) is not None
+    assert parsed.payload.decision == "PASS"
+    assert parsed.payload.reason_codes == ()
+
+
+def test_c4_ramp_gate_denies_incomplete_retry_without_downstream_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, bundle, _c3, predecessor, _gate, result = _run_c3(live=False)
+    manifest = predecessor.get_artifact(result.manifest_artifact_id)
+    assert manifest is not None
+    assert result.data_mode_receipt_id is None
+    target = _ledger(bundle, live=True)
+    c4 = plan.by_id("c4")
+    install_prepared_cycle(target, bundle, plan, c4, now=c4.window_start)
+    before = {
+        name: target.read_back_count(name) for name in target.collection_names
+    }
+
+    receipt = evaluate_and_persist_ramp_gate(
+        plan=plan,
+        target_cycle=plan.by_id("c4"),
+        predecessor_ledger=predecessor,
+        target_ledger=target,
+        now=plan.by_id("c4").window_start,
+    )
+
+    parsed = parse_artifact(receipt, authorized_producers=PRODUCER_REGISTRY)
+    after_gate = {
+        name: target.read_back_count(name) for name in target.collection_names
+    }
+    assert parsed.payload.decision == "DENIED"
+    assert {"manifest_invalid", "mode_receipt_missing"} <= set(
+        parsed.payload.reason_codes
+    )
+    assert after_gate["artifacts"] == before["artifacts"] + 1
+    for collection in ("scan_runs", "scan_run_events", "review_tasks"):
+        assert after_gate[collection] == before[collection] == 0
+    assert after_gate["watch_cases"] == before["watch_cases"] == 80
+
+    model_calls = 0
+
+    def unexpected_full_audit(*_args, **_kwargs):
+        nonlocal model_calls
+        model_calls += 1
+        raise AssertionError("full audit must not run after a denied ramp gate")
+
+    monkeypatch.setattr(
+        compressed_module,
+        "execute_full_audit_phase",
+        unexpected_full_audit,
+    )
+    before_trigger = {
+        name: target.read_back_count(name) for name in target.collection_names
+    }
+    with pytest.raises(RuntimeError, match="compressed_ramp_gate_denied"):
+        CompressedCycleScheduler(
+            target,
+            plan=plan,
+            cycle=c4,
+            bundle=bundle,
+            source_commit=bundle.source_commit,
+            image_digest=IMAGE_DIGEST,
+            full_audit_coordinator=_full_audit(target, now=c4.window_start),
+        ).trigger(
+            now=c4.window_start,
+            previous_manifest=manifest,
+            ramp_gate_receipt=receipt,
+        )
+    after_trigger = {
+        name: target.read_back_count(name) for name in target.collection_names
+    }
+    assert after_trigger == before_trigger
+    assert model_calls == 0
+
+
 def test_r1_manifest_proves_epoch_parity_metrics_and_exact_counts() -> None:
     _plan, _bundle, c3, ledger, gate, result = _run_c3()
     gate_parsed = parse_artifact(gate, authorized_producers=PRODUCER_REGISTRY)
@@ -266,7 +355,7 @@ def test_r1_manifest_proves_epoch_parity_metrics_and_exact_counts() -> None:
     manifest = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     assert manifest.schema_version == "3.3.0"
     assert manifest.status.value == "VALID"
-    assert manifest.payload.epoch_label == "PLAN6_R1_20"
+    assert manifest.payload.epoch_label == "PLAN6_RAMP_FIRST_PASS_RETRY"
     assert manifest.payload.agent_execution_summary["complete_runs"] == 20
     assert manifest.payload.agent_execution_summary["concurrency"] == 2
     assert len(manifest.payload.run_outcomes) == 20
@@ -345,6 +434,107 @@ def test_halted_agent_outcome_emits_parseable_incomplete_manifest() -> None:
     assert len(halted) == 1
     assert halted[0]["failure_receipt_ids"]
     assert halted[0]["policy_decision_id"] is None
+    assert result.data_mode_receipt_id is None
+
+
+def test_historical_plan8_production_reconstruction_remains_parseable() -> None:
+    current = load_compressed_plan(ROOT)
+    old_windows = {
+        "c3": ("2026-08-28T21:00:00Z", "2026-08-28T21:29:59Z"),
+        "c4": ("2026-08-28T21:52:00Z", "2026-08-28T23:51:59Z"),
+        "c5": ("2026-08-29T00:16:00Z", "2026-08-29T04:15:59Z"),
+        "c6": ("2026-08-29T04:44:00Z", "2026-08-29T12:43:59Z"),
+    }
+    cycles = []
+    for cycle in current.cycles:
+        if cycle.cycle_id not in old_windows:
+            cycles.append(cycle)
+            continue
+        start, end = old_windows[cycle.cycle_id]
+        changes = {
+            "window_start": datetime.fromisoformat(start.replace("Z", "+00:00")),
+            "window_end": datetime.fromisoformat(end.replace("Z", "+00:00")),
+        }
+        if cycle.cycle_id == "c3":
+            changes["epoch_label"] = "PLAN6_R1_20"
+        if cycle.cycle_id == "c4":
+            changes.update(
+                activation="PROVISIONAL_R1_GATED",
+                epoch_label="PLAN6_R2_80_PROVISIONAL",
+            )
+        cycles.append(replace(cycle, **changes))
+    plan8 = replace(
+        current,
+        sha256=(
+            "fe3a1d5650daf27fd72b31030d5f7e26cf75b7ffd6cb1f7220c5c86f4c869b61"
+        ),
+        cycles=tuple(cycles),
+    )
+    bundle, _bundle_sha = load_rebound_test_bundle(ROOT, plan8)
+    bundle = with_test_full_audit_receipts(bundle)
+    _plan, _legacy_bundle, predecessor, m2, mode2 = _run_legacy_history()
+    parsed_m2 = parse_artifact(m2, authorized_producers=PRODUCER_REGISTRY)
+    binding = PredecessorBinding(
+        "EXTERNAL_PLAN",
+        "c2",
+        parsed_m2.payload.plan_sha256,
+        "test_plan5_c2_",
+        str(m2["artifact_id"]),
+        str(m2["content_hash"]),
+        str(mode2["artifact_id"]),
+        str(mode2["content_hash"]),
+    )
+    c3 = replace(plan8.by_id("c3"), predecessor=binding)
+    plan8 = replace(
+        plan8,
+        cycles=(*plan8.cycles[:2], c3, *plan8.cycles[3:]),
+    )
+    target = _ledger(bundle, live=True)
+    install_prepared_cycle(target, bundle, plan8, c3, now=c3.window_start)
+    gate = evaluate_and_persist_ramp_gate(
+        plan=plan8,
+        target_cycle=c3,
+        predecessor_ledger=predecessor,
+        target_ledger=target,
+        now=c3.window_start,
+    )
+    halted_ids = {item.case_id for item in cases_for_cycle(c3)[:11]}
+
+    class ElevenHaltedRunner(DeterministicFullAuditRunner):
+        async def execute(self, role, prompt, tools, context):
+            if role is AgentRole.EVIDENCE_WATCHER and context.case_id in halted_ids:
+                raise TimeoutError("historical synthetic provider limit")
+            return await super().execute(role, prompt, tools, context)
+
+    coordinator = FullAuditCoordinator(
+        target,
+        role_runner=ElevenHaltedRunner(now=c3.window_start),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    result = CompressedCycleScheduler(
+        target,
+        plan=plan8,
+        cycle=c3,
+        bundle=bundle,
+        source_commit=bundle.source_commit,
+        image_digest=IMAGE_DIGEST,
+        full_audit_coordinator=coordinator,
+    ).trigger(
+        now=c3.window_start,
+        previous_manifest=m2,
+        ramp_gate_receipt=gate,
+    )
+
+    wire = target.get_artifact(result.manifest_artifact_id)
+    assert wire is not None
+    parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    assert parsed.artifact_id == "7fa158a0-e868-5c08-9825-c3abb69165ec"
+    assert parsed.payload.plan_sha256 == plan8.sha256
+    assert parsed.status.value == "INCOMPLETE"
+    assert parsed.payload.agent_execution_summary["complete_runs"] == 9
+    assert parsed.payload.agent_execution_summary["halted_runs"] == 11
     assert result.data_mode_receipt_id is None
 
 
@@ -477,20 +667,20 @@ def test_partial_pre_receipt_recovery_is_not_reported_as_measured() -> None:
     assert result.data_mode_receipt_id is None
 
 
-def test_r2_remains_provisional_even_after_r1_until_owner_rebinds_plan() -> None:
+def test_r3_remains_provisional_until_owner_rebinds_plan() -> None:
     plan, bundle, _c3, prior, _gate, r1 = _run_c3()
     previous = prior.get_artifact(r1.manifest_artifact_id)
     assert previous is not None
-    c4 = plan.by_id("c4")
+    c5 = plan.by_id("c5")
     target = _ledger(bundle, live=True)
-    install_prepared_cycle(target, bundle, plan, c4, now=c4.window_start)
+    install_prepared_cycle(target, bundle, plan, c5, now=c5.window_start)
     before = {name: target.read_back_count(name) for name in target.collection_names}
     with pytest.raises(RuntimeError, match="compressed_cycle_not_active"):
         CompressedCycleScheduler(
-            target, plan=plan, cycle=c4, bundle=bundle,
+            target, plan=plan, cycle=c5, bundle=bundle,
             source_commit=bundle.source_commit, image_digest=IMAGE_DIGEST,
-            full_audit_coordinator=_full_audit(target, now=c4.window_start),
-        ).trigger(now=c4.window_start, previous_manifest=previous)
+            full_audit_coordinator=_full_audit(target, now=c5.window_start),
+        ).trigger(now=c5.window_start, previous_manifest=previous)
     after = {name: target.read_back_count(name) for name in target.collection_names}
     assert after == before
 

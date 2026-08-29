@@ -4,13 +4,19 @@ import hashlib
 import json
 import os
 import subprocess
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Sequence
 
-from recall.scheduler.compressed_plan import PLAN_PATH, parse_compressed_plan
+from recall.scheduler.compressed_plan import (
+    PLAN_PATH,
+    PLAN9_C4_EPOCH_LABEL,
+    PLAN9_RETRY_EPOCH_LABEL,
+    parse_compressed_plan,
+)
 from recall.testing.deadline_policy_vectors import (
     VECTOR_PATH,
     render_deadline_policy_vectors,
@@ -77,6 +83,7 @@ def regenerate_compressed_plan(
     *,
     anchor: str | None = None,
     windows: Sequence[tuple[str, str, str]] | None = None,
+    plan9_r1_retry: bool = False,
 ) -> PlanRegenerationResult:
     """Shift c3-c6, refresh every executable SHA pin, and rebuild vectors."""
 
@@ -84,6 +91,8 @@ def regenerate_compressed_plan(
     web_root = web_root.resolve()
     if (anchor is None) == (windows is None):
         raise RuntimeError("compressed_plan_regeneration_mode_invalid")
+    if plan9_r1_retry and windows is None:
+        raise RuntimeError("compressed_plan9_requires_explicit_windows")
     plan_path = core_root / PLAN_PATH
     old_plan_bytes = plan_path.read_bytes()
     old_plan_sha = hashlib.sha256(old_plan_bytes).hexdigest()
@@ -101,6 +110,9 @@ def regenerate_compressed_plan(
             explicit_windows,
             require_common_delta=False,
         )
+    if plan9_r1_retry:
+        new_plan_bytes, new_plan = _bind_plan9_r1_retry(new_plan_bytes)
+        mode = "PLAN9_R1_RETRY"
     new_plan_sha = hashlib.sha256(new_plan_bytes).hexdigest()
     # Validate the complete candidate with the same production invariants used
     # by the runtime before either checkout receives a write.
@@ -136,11 +148,14 @@ def regenerate_compressed_plan(
         web_pin.read_bytes(), old_plan_sha, new_plan_sha, count=1
     )
 
-    _assert_values_only(
-        old_plan,
-        new_plan,
-        require_common_delta=mode == "ANCHOR_SHIFT",
-    )
+    if plan9_r1_retry and not _is_plan9_retry(old_plan):
+        _assert_plan9_delta(old_plan, new_plan)
+    else:
+        _assert_values_only(
+            old_plan,
+            new_plan,
+            require_common_delta=mode == "ANCHOR_SHIFT",
+        )
     with TemporaryDirectory(prefix="recall-plan-vectors-") as raw_temp:
         vector_root = Path(raw_temp)
         vector_plan = vector_root / PLAN_PATH
@@ -276,6 +291,85 @@ def _replace_plan_windows(
         require_common_delta=require_common_delta,
     )
     return text.encode("utf-8"), after
+
+
+def _bind_plan9_r1_retry(
+    raw: bytes,
+) -> tuple[bytes, dict[str, object]]:
+    before = json.loads(raw.decode("utf-8"))
+    if _is_plan9_retry(before):
+        return raw, before
+    if before.get("schema_version") != "2.4.0":
+        raise RuntimeError("compressed_plan9_source_schema_invalid")
+    cycles = _cycle_map(before)
+    if cycles["c3"].get("epoch_label") != "PLAN6_R1_20":
+        raise RuntimeError("compressed_plan9_source_epoch_invalid")
+    if cycles["c4"].get("activation") != "PROVISIONAL_R1_GATED":
+        raise RuntimeError("compressed_plan9_source_activation_invalid")
+    text = raw.decode("utf-8")
+    schema_needle = '"schema_version": "2.4.0"'
+    epoch_needle = '"epoch_label": "PLAN6_R1_20"'
+    c4_epoch_needle = '"epoch_label": "PLAN6_R2_80_PROVISIONAL"'
+    activation_needle = '"activation": "PROVISIONAL_R1_GATED"'
+    if (
+        text.count(schema_needle) != 1
+        or text.count(epoch_needle) != 1
+        or text.count(c4_epoch_needle) != 1
+        or text.count(activation_needle) != 3
+    ):
+        raise RuntimeError("compressed_plan9_source_occurrence_invalid")
+    text = text.replace(schema_needle, '"schema_version": "2.6.0"', 1)
+    text = text.replace(
+        epoch_needle,
+        f'"epoch_label": "{PLAN9_RETRY_EPOCH_LABEL}"',
+        1,
+    )
+    text = text.replace(
+        c4_epoch_needle,
+        f'"epoch_label": "{PLAN9_C4_EPOCH_LABEL}"',
+        1,
+    )
+    text = text.replace(activation_needle, '"activation": "ACTIVE"', 1)
+    after = json.loads(text)
+    _assert_plan9_delta(before, after)
+    return text.encode("utf-8"), after
+
+
+def _is_plan9_retry(value: dict[str, object]) -> bool:
+    try:
+        return (
+            value.get("schema_version") == "2.6.0"
+            and _cycle_map(value)["c3"].get("epoch_label")
+            == PLAN9_RETRY_EPOCH_LABEL
+            and _cycle_map(value)["c4"].get("activation") == "ACTIVE"
+            and _cycle_map(value)["c4"].get("epoch_label")
+            == PLAN9_C4_EPOCH_LABEL
+        )
+    except RuntimeError:
+        return False
+
+
+def _assert_plan9_delta(
+    before: dict[str, object], after: dict[str, object]
+) -> None:
+    if before.get("schema_version") != "2.4.0":
+        raise RuntimeError("compressed_plan9_source_schema_invalid")
+    if not _is_plan9_retry(after):
+        raise RuntimeError("compressed_plan9_retry_invalid")
+    normalized = deepcopy(after)
+    normalized["schema_version"] = before["schema_version"]
+    normalized_cycles = _cycle_map(normalized)
+    before_cycles = _cycle_map(before)
+    normalized_cycles["c3"]["epoch_label"] = before_cycles["c3"][
+        "epoch_label"
+    ]
+    normalized_cycles["c4"]["activation"] = before_cycles["c4"][
+        "activation"
+    ]
+    normalized_cycles["c4"]["epoch_label"] = before_cycles["c4"][
+        "epoch_label"
+    ]
+    _assert_values_only(before, normalized, require_common_delta=False)
 
 
 def _assert_values_only(
