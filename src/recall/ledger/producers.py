@@ -71,6 +71,12 @@ PRODUCER_REGISTRY = ProducerRegistry(
         "DeploymentReceipt": ProducerRule("Release controller", frozenset({"release-controller"})),
         "ManagedPathReceipt": ProducerRule("Deterministic health aggregator", frozenset({"health-aggregator"})),
         "CohortDayManifest": ProducerRule("Cohort scheduler", frozenset({"cohort-scheduler"})),
+        "IsolatedSmokeManifest": ProducerRule(
+            "Isolated smoke controller", frozenset({"smoke-controller"})
+        ),
+        "IsolatedSmokeModeReceipt": ProducerRule(
+            "Isolated smoke mode gate", frozenset({"smoke-mode-gate"})
+        ),
         "CohortDayFailureReceipt": ProducerRule(
             "Cohort scheduler", frozenset({"cohort-scheduler"})
         ),

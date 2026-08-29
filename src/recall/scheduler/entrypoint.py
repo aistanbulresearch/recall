@@ -53,6 +53,12 @@ from .model_cost import (
     DEFAULT_MODEL_COST_POLICY,
     FirestoreModelCostLedger,
 )
+from .smoke import (
+    SMOKE_NEGATIVE_PROBE,
+    SMOKE_PROVIDER_MAX_429_RETRIES,
+    build_smoke_contract,
+    execute_isolated_smoke,
+)
 
 
 LedgerFactory = Callable[..., Any]
@@ -84,7 +90,13 @@ def execute(
     parser = argparse.ArgumentParser()
     parser.add_argument("--preview-date")
     parser.add_argument("--verify-prefix")
+    parser.add_argument("--smoke-mode")
+    parser.add_argument("--smoke-id")
+    parser.add_argument("--smoke-prefix")
     args = parser.parse_args(list(argv))
+    smoke_values = (args.smoke_mode, args.smoke_id, args.smoke_prefix)
+    if any(item is not None for item in smoke_values) and not all(smoke_values):
+        raise RuntimeError("smoke_contract_incomplete")
     root = (repo_root or Path.cwd()).resolve()
     plan = load_compressed_plan(root)
     bundle_sha = _required(environment, "RECALL_COMPRESSED_PREPARATION_SHA256")
@@ -98,6 +110,64 @@ def execute(
     image_digest = _required(environment, "RECALL_IMAGE_DIGEST")
     if not _IMAGE_DIGEST.fullmatch(image_digest):
         raise RuntimeError("cohort_image_digest_invalid")
+    if args.smoke_mode is not None:
+        contract = build_smoke_contract(
+            mode=args.smoke_mode,
+            smoke_id=args.smoke_id,
+            collection_prefix=args.smoke_prefix,
+            source_commit=source_commit,
+            plan_sha256=plan.sha256,
+            image_digest=image_digest,
+            expected_plan_sha256=_required(
+                environment, "RECALL_SMOKE_EXPECTED_PLAN_SHA256"
+            ),
+            expected_image_digest=_required(
+                environment, "RECALL_SMOKE_EXPECTED_IMAGE_DIGEST"
+            ),
+            preparation_bundle_sha256=bundle.bundle_sha256,
+            job_max_retries=_required(
+                environment, "RECALL_SMOKE_JOB_MAX_RETRIES"
+            ),
+        )
+        project_sha = _required(environment, "RECALL_EXPECTED_PROJECT_SHA256")
+        verifier = CompressedPreparationVerifier(bundle)
+        ledger = ledger_factory(
+            collection_prefix=contract.collection_prefix,
+            privacy_receipt_verifier=verifier,
+            expected_project_sha256=project_sha,
+            database="(default)",
+            require_live=True,
+        )
+        failure_probe = (
+            SMOKE_NEGATIVE_PROBE
+            if contract.mode == "negative"
+            else None
+        )
+        full_audit = (
+            full_audit_factory(ledger)
+            if full_audit_factory is not None
+            else _build_full_audit_coordinator(
+                ledger,
+                plan_sha256=plan.sha256,
+                provider_rpm=provider_rpm,
+                max_429_retries=SMOKE_PROVIDER_MAX_429_RETRIES,
+                failure_probe=failure_probe,
+                isolated_cost_collection=True,
+            )
+        )
+        ncbi = PubMedConnector(
+            tool=_required(environment, "RECALL_NCBI_TOOL"),
+            email=_required(environment, "RECALL_NCBI_EMAIL"),
+        )
+        return execute_isolated_smoke(
+            contract=contract,
+            ledger=ledger,
+            plan=plan,
+            bundle=bundle,
+            coordinator=full_audit,
+            now=now_factory(),
+            refetch_fetcher=ncbi.fetch,
+        )
     if args.preview_date:
         selected = date.fromisoformat(args.preview_date)
         cycle = plan.by_due_date(selected)
@@ -338,7 +408,13 @@ def execute(
 
 
 def _build_full_audit_coordinator(
-    ledger: FirestoreLedger, *, plan_sha256: str, provider_rpm: int
+    ledger: FirestoreLedger,
+    *,
+    plan_sha256: str,
+    provider_rpm: int,
+    max_429_retries: int = 3,
+    failure_probe: str | None = None,
+    isolated_cost_collection: bool = False,
 ) -> FullAuditCoordinator:
     prefix = ledger.collection_prefix
     return FullAuditCoordinator(
@@ -348,6 +424,8 @@ def _build_full_audit_coordinator(
                 DEFAULT_MODEL_COST_POLICY.max_request_bytes_per_turn
             ),
             provider_rpm=provider_rpm,
+            max_429_retries=max_429_retries,
+            failure_probe=failure_probe,
         ),
         invocation_store=FirestoreGatewayInvocationStore(
             ledger.client,
@@ -355,7 +433,11 @@ def _build_full_audit_coordinator(
         ),
         cost_ledger=FirestoreModelCostLedger(
             ledger.client,
-            collection_name=f"recall_plan6_cost_{plan_sha256[:16]}",
+            collection_name=(
+                f"{prefix}model_cost"
+                if isolated_cost_collection
+                else f"recall_plan6_cost_{plan_sha256[:16]}"
+            ),
             hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
         ),
         cost_policy=DEFAULT_MODEL_COST_POLICY,

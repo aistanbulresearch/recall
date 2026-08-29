@@ -305,6 +305,49 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
     assert result.tool_call_ids == result.tool_response_ids
 
 
+def test_smoke_probe_fails_after_real_watcher_tool_round_trip_without_retry() -> None:
+    observed: list[str] = []
+    runner = _runner(
+        ToolThenJsonLlm(),
+        max_429_retries=0,
+        failure_probe="WATCHER_SCHEMA_INVALID_AFTER_TOOL_ROUND_TRIP",
+    )
+
+    with pytest.raises(RoleExecutionError) as captured:
+        asyncio.run(
+            runner.execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call the evidence connector once and return strict JSON.",
+                {
+                    "evidence_connector": lambda stage, **_: (
+                        observed.append(stage) or {"records": []}
+                    )
+                },
+                RoleExecutionContext(
+                    case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+                    run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+                    attempt=1,
+                    invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+                    input_artifact_ids=(),
+                    trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                ),
+            )
+        )
+
+    error = captured.value
+    assert error.code == "agent_schema_invalid"
+    assert observed == ["prepared"]
+    assert len(error.turns) == 2
+    assert error.tool_call_ids == error.tool_response_ids
+    assert len(error.tool_call_ids) == 1
+    assert runner.provider_limiter.dispatch_count == 2
+
+
+def test_smoke_runner_rejects_provider_retry_budget_above_contract() -> None:
+    with pytest.raises(ValueError, match="provider_retry_budget_invalid"):
+        _runner(ToolThenJsonLlm(), max_429_retries=4)
+
+
 def test_watcher_tool_exposes_no_model_controlled_stage_and_keeps_local_guard() -> None:
     observed: list[str] = []
 

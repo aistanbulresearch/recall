@@ -43,15 +43,30 @@ class InProcessAdkRoleRunner:
         provider_clock: Callable[[], float] = monotonic,
         provider_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
         backoff_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        max_429_retries: int = 3,
+        failure_probe: str | None = None,
     ) -> None:
         if max_request_bytes < 1:
             raise ValueError("model_request_budget_invalid")
+        if (
+            isinstance(max_429_retries, bool)
+            or not isinstance(max_429_retries, int)
+            or not 0 <= max_429_retries <= 3
+        ):
+            raise ValueError("provider_retry_budget_invalid")
+        if failure_probe not in {
+            None,
+            "WATCHER_SCHEMA_INVALID_AFTER_TOOL_ROUND_TRIP",
+        }:
+            raise ValueError("role_failure_probe_invalid")
         self._model = model
         self._max_request_bytes = max_request_bytes
         self._provider_limiter = ProviderRateLimiter(
             provider_rpm, clock=provider_clock, sleeper=provider_sleeper
         )
         self._backoff_sleeper = backoff_sleeper
+        self._max_429_retries = max_429_retries
+        self._failure_probe = failure_probe
 
     @property
     def provider_limiter(self) -> ProviderRateLimiter:
@@ -134,6 +149,7 @@ class InProcessAdkRoleRunner:
             max_request_bytes=self._max_request_bytes,
             provider_limiter=self._provider_limiter,
             backoff_sleeper=self._backoff_sleeper,
+            max_429_retries=self._max_429_retries,
         )
         agent = bundle.agent.model_copy(
             update={
@@ -181,6 +197,26 @@ class InProcessAdkRoleRunner:
             ) from exc
         absorb_provider_429_count()
         calls, responses = _tool_event_ids(events)
+        if (
+            self._failure_probe
+            == "WATCHER_SCHEMA_INVALID_AFTER_TOOL_ROUND_TRIP"
+            and role is AgentRole.EVIDENCE_WATCHER
+        ):
+            if not calls or calls != responses:
+                raise RoleExecutionError(
+                    "smoke_failure_probe_round_trip_missing",
+                    turns=tuple(turns),
+                    http_429_count=http_429_count,
+                    tool_call_ids=calls,
+                    tool_response_ids=responses,
+                )
+            raise RoleExecutionError(
+                "agent_schema_invalid",
+                turns=tuple(turns),
+                http_429_count=http_429_count,
+                tool_call_ids=calls,
+                tool_response_ids=responses,
+            )
         try:
             output = _parse_last_output(events, OUTPUT_SCHEMAS[role])
         except ContractError as exc:

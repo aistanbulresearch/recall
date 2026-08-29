@@ -108,6 +108,12 @@ from .agent_execution import (
     AgentExecutionReceiptPayload,
     parse_agent_execution_receipt_payload,
 )
+from .smoke import (
+    IsolatedSmokeManifestPayload,
+    IsolatedSmokeModeReceiptPayload,
+    parse_isolated_smoke_manifest_payload,
+    parse_isolated_smoke_mode_receipt_payload,
+)
 
 __all__ = [
     "DataModePayload",
@@ -117,6 +123,8 @@ __all__ = [
     "PolicyDecisionPayload",
     "ScanRunPayload",
     "AgentExecutionReceiptPayload",
+    "IsolatedSmokeManifestPayload",
+    "IsolatedSmokeModeReceiptPayload",
     "ReviewTaskPayload",
     "ScanRunEventPayload",
     "WatchCasePayload",
@@ -182,4 +190,6 @@ __all__ = [
     "parse_cohort_ramp_gate_receipt_payload",
     "parse_compressed_cycle_failure_receipt_payload",
     "parse_agent_execution_receipt_payload",
+    "parse_isolated_smoke_manifest_payload",
+    "parse_isolated_smoke_mode_receipt_payload",
 ]

@@ -39,6 +39,8 @@ from .payloads import (
     parse_compressed_cycle_failure_receipt_payload,
     parse_cohort_ramp_gate_receipt_payload,
     parse_agent_execution_receipt_payload,
+    parse_isolated_smoke_manifest_payload,
+    parse_isolated_smoke_mode_receipt_payload,
 )
 
 
@@ -149,6 +151,61 @@ LEGACY_SCHEMAS: dict[tuple[str, str], tuple[frozenset[str], Any, bool]] = {
 
 
 SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
+    "IsolatedSmokeManifest": (
+        "1.0.0",
+        frozenset(
+            {
+                "smoke_id",
+                "smoke_mode",
+                "collection_prefix",
+                "source_commit",
+                "plan_sha256",
+                "preparation_bundle_sha256",
+                "image_digest",
+                "selected_case_ids",
+                "run_ids",
+                "terminal_states",
+                "audit_statuses",
+                "agent_execution_receipt_ids",
+                "policy_decision_ids",
+                "failure_receipt_ids",
+                "role_receipt_counts",
+                "total_model_turns",
+                "turn_budget_limit",
+                "aggregate_turn_budget_limit",
+                "provider_max_429_retries",
+                "job_max_retries",
+                "http_429_count",
+                "reserved_cost_usd_micros",
+                "reconciled_cost_usd_micros",
+                "execution_status",
+            }
+        ),
+        parse_isolated_smoke_manifest_payload,
+        True,
+    ),
+    "IsolatedSmokeModeReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "smoke_id",
+                "collection_prefix",
+                "source_commit",
+                "plan_sha256",
+                "preparation_bundle_sha256",
+                "image_digest",
+                "manifest_artifact_id",
+                "manifest_content_hash",
+                "agent_execution_receipt_ids",
+                "mode_set",
+                "declared_composition",
+                "validation_status",
+                "reason_codes",
+            }
+        ),
+        parse_isolated_smoke_mode_receipt_payload,
+        True,
+    ),
     "CohortHistoryReceipt": (
         "1.0.0",
         frozenset(
