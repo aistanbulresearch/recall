@@ -114,6 +114,10 @@ from .smoke import (
     parse_isolated_smoke_manifest_payload,
     parse_isolated_smoke_mode_receipt_payload,
 )
+from .final_recovery import (
+    FinalExecutionRecoveryReceiptPayload,
+    parse_final_execution_recovery_receipt_payload,
+)
 
 __all__ = [
     "DataModePayload",
@@ -125,6 +129,7 @@ __all__ = [
     "AgentExecutionReceiptPayload",
     "IsolatedSmokeManifestPayload",
     "IsolatedSmokeModeReceiptPayload",
+    "FinalExecutionRecoveryReceiptPayload",
     "ReviewTaskPayload",
     "ScanRunEventPayload",
     "WatchCasePayload",
@@ -192,4 +197,5 @@ __all__ = [
     "parse_agent_execution_receipt_payload",
     "parse_isolated_smoke_manifest_payload",
     "parse_isolated_smoke_mode_receipt_payload",
+    "parse_final_execution_recovery_receipt_payload",
 ]

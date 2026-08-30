@@ -41,6 +41,7 @@ from .payloads import (
     parse_agent_execution_receipt_payload,
     parse_isolated_smoke_manifest_payload,
     parse_isolated_smoke_mode_receipt_payload,
+    parse_final_execution_recovery_receipt_payload,
 )
 
 
@@ -444,6 +445,40 @@ SCHEMAS: dict[str, tuple[str, frozenset[str], Any, bool]] = {
         ),
         parse_registry_resolution_payload,
         True,
+    ),
+    "FinalExecutionRecoveryReceipt": (
+        "1.0.0",
+        frozenset(
+            {
+                "recovery_attempt_id",
+                "identity_scope",
+                "owner_decision",
+                "owner_recovery_reason",
+                "previous_execution_id",
+                "previous_collection_prefix",
+                "previous_source_commit",
+                "previous_image_digest",
+                "previous_plan_sha256",
+                "previous_bundle_sha256",
+                "previous_snapshot_sha256",
+                "previous_state_counts",
+                "previous_manifest_status",
+                "previous_batch_receipt_id",
+                "previous_batch_receipt_hash",
+                "target_collection_prefix",
+                "target_source_commit",
+                "target_image_digest",
+                "target_plan_sha256",
+                "target_bundle_sha256",
+                "target_case_count",
+                "plan_cost_collection",
+                "hard_cap_usd_micros",
+                "baseline_reserved_usd_micros",
+                "baseline_reconciled_usd_micros",
+            }
+        ),
+        parse_final_execution_recovery_receipt_payload,
+        False,
     ),
     "ToolAuthorizationReceipt": (
         "1.0.0",

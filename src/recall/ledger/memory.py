@@ -134,6 +134,7 @@ class InMemoryLedger(InMemoryTerminalMixin):
         expected_source_cursors: Mapping[str, str],
         triggered_at: datetime,
         now: datetime,
+        identity_scope: str | None = None,
     ) -> tuple[ScanRunRecord, bool]:
         artifact = parse_artifact(value, authorized_producers=PRODUCER_REGISTRY)
         if artifact.schema_name != "ScanRun" or not isinstance(
@@ -172,6 +173,7 @@ class InMemoryLedger(InMemoryTerminalMixin):
                 expected_source_cursors=expected_source_cursors,
                 triggered_at=triggered_at,
                 verify_receipt=self._privacy_receipt_verifier,
+                identity_scope=identity_scope,
             )
             existing = self._scan_runs.get(artifact.run_id)
             if existing is not None:

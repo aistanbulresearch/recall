@@ -67,12 +67,14 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
         deadline_at: str,
         now: datetime,
         execution_profile: ExecutionProfile | None = None,
+        identity_scope: str | None = None,
     ) -> CreateRunResult:
         key = scan_idempotency_key(
             watch_case_id=watch_case_id,
             source_cursors=source_cursors,
             schedule_epoch=schedule_epoch,
             data_mode=data_mode.value,
+            identity_scope=identity_scope,
         )
         run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
         watch_case = self._ledger.get_watch_case(watch_case_id)
@@ -120,6 +122,7 @@ class Controller(ControllerGuardMixin, ControllerTerminalMixin):
             expected_source_cursors=source_cursors,
             triggered_at=triggered_at,
             now=now,
+            identity_scope=identity_scope,
         )
         return CreateRunResult(record, created)
 

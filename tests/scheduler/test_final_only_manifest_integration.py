@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import timedelta
 from types import SimpleNamespace
 from uuid import NAMESPACE_URL, uuid5
@@ -8,17 +9,29 @@ import pytest
 
 import recall.scheduler.compressed_final_only_manifest as final_manifest_module
 from recall.agents.full_audit import FullAuditRunOutcome
-from recall.contracts import parse_artifact
+from recall.contracts import (
+    ArtifactStatus,
+    DataMode,
+    build_artifact,
+    content_hash,
+    parse_artifact,
+)
 from recall.contracts.enums import ScanRunState, WatchCaseState
 from recall.ledger.models import ScanRunRecord, WatchCaseRecord
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed_cohort import cases_for_cycle, portfolio_cases
 from recall.scheduler.compressed_identity import evidence_legacy_failure_receipt_id
-from recall.scheduler.compressed_manifest import build_compressed_manifest
+from recall.scheduler.compressed_manifest import (
+    build_compressed_manifest,
+    build_compressed_mode_receipt,
+    require_compressed_mode_receipt_binding,
+)
 from recall.scheduler.compressed_plan import (
     FINAL_ONLY_OWNER_RELEASE_REASON,
     FINAL_ONLY_OWNER_RELEASE_TOKEN,
     authorize_final_only_owner_release,
+    authorize_final_only_recovery,
+    FINAL_ONLY_RECOVERY_REASON,
     parse_compressed_plan,
     verify_manifest_against_plan,
 )
@@ -87,12 +100,23 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         if item.case_id not in selected_ids
     )
     now = cycle.window_end + timedelta(seconds=1)
+    recovery = authorize_final_only_recovery(
+        plan,
+        cycle=cycle,
+        recovery_attempt_id=_id("recovery-attempt"),
+        owner_recovery_reason=FINAL_ONLY_RECOVERY_REASON,
+        previous_execution_id="recall-cohort-daily-cancelled",
+        previous_source_commit="c" * 40,
+        previous_image_digest=f"sha256:{'d' * 64}",
+        previous_snapshot_sha256="e" * 64,
+    )
     owner_release = authorize_final_only_owner_release(
         plan,
         token=FINAL_ONLY_OWNER_RELEASE_TOKEN,
         reason=FINAL_ONLY_OWNER_RELEASE_REASON,
         actual_start=now,
         max_retries=0,
+        recovery=recovery,
     )
     run_ids = {item.case_id: _id(f"run:{item.case_id}") for item in selected}
     policy_ids = {
@@ -198,6 +222,56 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         if item.vcv is not None
     }
     batch_id = _id("batch")
+    recovery_receipt = build_artifact(
+        schema_name="FinalExecutionRecoveryReceipt",
+        schema_version="1.0.0",
+        artifact_id=_id("recovery-receipt"),
+        case_id=_id("recovery-cohort"),
+        run_id=_id("recovery-run"),
+        producer={
+            "component": "final-execution-recovery-controller",
+            "version": "1.0.0",
+            "identity": "cohort-scheduler",
+        },
+        created_at=now.isoformat().replace("+00:00", "Z"),
+        input_artifact_ids=(),
+        data_mode=DataMode.SYNTHETIC,
+        status=ArtifactStatus.VALID,
+        payload={
+            "recovery_attempt_id": recovery.recovery_attempt_id,
+            "identity_scope": recovery.identity_scope,
+            "owner_decision": "AUTHORIZE_APPEND_ONLY_FINAL_RECOVERY",
+            "owner_recovery_reason": FINAL_ONLY_RECOVERY_REASON,
+            "previous_execution_id": recovery.previous_execution_id,
+            "previous_collection_prefix": recovery.previous_collection_prefix,
+            "previous_source_commit": recovery.previous_source_commit,
+            "previous_image_digest": recovery.previous_image_digest,
+            "previous_plan_sha256": plan.sha256,
+            "previous_bundle_sha256": "f" * 64,
+            "previous_snapshot_sha256": recovery.previous_snapshot_sha256,
+            "previous_state_counts": {
+                "AUDITING": 1,
+                "CREATED": 417,
+                "HALTED": 14,
+                "NO_ACTION": 23,
+                "WATCHING": 1,
+            },
+            "previous_manifest_status": "MISSING_AFTER_CANCELLED_EXECUTION",
+            "previous_batch_receipt_id": _id("old-batch"),
+            "previous_batch_receipt_hash": "1" * 64,
+            "target_collection_prefix": recovery.collection_prefix,
+            "target_source_commit": "a" * 40,
+            "target_image_digest": f"sha256:{'b' * 64}",
+            "target_plan_sha256": plan.sha256,
+            "target_bundle_sha256": "f" * 64,
+            "target_case_count": 456,
+            "plan_cost_collection": f"recall_plan6_cost_{plan.sha256[:16]}",
+            "hard_cap_usd_micros": 75_000_000,
+            "baseline_reserved_usd_micros": 1_000,
+            "baseline_reconciled_usd_micros": 900,
+        },
+        authorized_producers=PRODUCER_REGISTRY,
+    )
     wire = build_compressed_manifest(
         plan=plan,
         cycle=cycle,
@@ -253,6 +327,7 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         trigger_started_at=now,
         verified_supersession=verified,
         owner_release=owner_release,
+        recovery_receipt=recovery_receipt,
     )
 
     parsed = parse_artifact(
@@ -284,3 +359,28 @@ def test_real_final_only_producer_parser_plan_verifier_chain(
         (FINAL_ONLY_OWNER_RELEASE_TOKEN, FINAL_ONLY_OWNER_RELEASE_REASON),
         ("CLOUD_RUN_MAX_RETRIES_0", "OWNER_RELEASE_EXTERNAL_ACTIVATION_FACT"),
     ]
+    assert recovery_receipt["artifact_id"] in parsed.input_artifact_ids
+    mode_wire = build_compressed_mode_receipt(wire, plan, cycle)
+    mode = parse_artifact(
+        mode_wire,
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+    assert recovery_receipt["artifact_id"] in mode.payload.subject_artifact_ids
+    require_compressed_mode_receipt_binding(
+        mode_wire,
+        manifest_artifact_id=str(wire["artifact_id"]),
+        recovery_receipt_id=str(recovery_receipt["artifact_id"]),
+    )
+
+    drifted_mode = deepcopy(mode_wire)
+    drifted_mode["subject_artifact_ids"].remove(recovery_receipt["artifact_id"])
+    drifted_mode["input_artifact_ids"].remove(recovery_receipt["artifact_id"])
+    drifted_mode["content_hash"] = content_hash(drifted_mode)
+    with pytest.raises(
+        RuntimeError, match="compressed_data_mode_receipt_unbound"
+    ):
+        require_compressed_mode_receipt_binding(
+            drifted_mode,
+            manifest_artifact_id=str(wire["artifact_id"]),
+            recovery_receipt_id=str(recovery_receipt["artifact_id"]),
+        )

@@ -32,6 +32,7 @@ class LedgerPort(Protocol):
         expected_source_cursors: Mapping[str, str],
         triggered_at: datetime,
         now: datetime,
+        identity_scope: str | None = None,
     ) -> tuple[ScanRunRecord, bool]: ...
 
     def append_artifact(self, value: Mapping[str, Any]) -> Artifact: ...

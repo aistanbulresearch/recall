@@ -45,10 +45,13 @@ from .compressed_identity import (
 from .compressed_plan import (
     FINAL_ONLY_OWNER_RELEASE_REASON,
     FINAL_ONLY_OWNER_RELEASE_TOKEN,
+    FINAL_ONLY_RECOVERY_REASON,
     authorize_final_only_owner_release,
+    authorize_final_only_recovery,
     load_compressed_plan,
     resolve_declared_cycle,
 )
+from .compressed_recovery import recovery_collection_prefix
 from .compressed_preparation import (
     CompressedPreparationVerifier,
     load_compressed_bundle,
@@ -58,6 +61,7 @@ from .compressed_supersession import verify_final_only_supersession
 from .model_cost import (
     DEFAULT_MODEL_COST_POLICY,
     FirestoreModelCostLedger,
+    plan_cost_collection_name,
 )
 from .smoke import (
     SMOKE_NEGATIVE_PROBE,
@@ -101,6 +105,12 @@ def execute(
     parser.add_argument("--smoke-prefix")
     parser.add_argument("--owner-release-token")
     parser.add_argument("--owner-release-reason")
+    parser.add_argument("--recovery-attempt-id")
+    parser.add_argument("--owner-recovery-reason")
+    parser.add_argument("--recovery-previous-execution-id")
+    parser.add_argument("--recovery-previous-source-commit")
+    parser.add_argument("--recovery-previous-image-digest")
+    parser.add_argument("--recovery-previous-snapshot-sha256")
     args = parser.parse_args(list(argv))
     release_values = (args.owner_release_token, args.owner_release_reason)
     if any(item is not None for item in release_values):
@@ -116,6 +126,20 @@ def execute(
             )
         ):
             raise RuntimeError("final_only_owner_release_cli_invalid")
+    recovery_values = (
+        args.recovery_attempt_id,
+        args.owner_recovery_reason,
+        args.recovery_previous_execution_id,
+        args.recovery_previous_source_commit,
+        args.recovery_previous_image_digest,
+        args.recovery_previous_snapshot_sha256,
+    )
+    if any(item is not None for item in recovery_values) and (
+        not all(recovery_values)
+        or args.owner_release_token is None
+        or args.owner_recovery_reason != FINAL_ONLY_RECOVERY_REASON
+    ):
+        raise RuntimeError("final_recovery_cli_invalid")
     smoke_values = (args.smoke_mode, args.smoke_id, args.smoke_prefix)
     if any(item is not None for item in smoke_values) and not all(smoke_values):
         raise RuntimeError("smoke_contract_incomplete")
@@ -299,26 +323,45 @@ def execute(
         }
     now = now_factory()
     owner_release = None
+    recovery = None
     if args.owner_release_token is not None:
         raw_max_retries = _required(
             environment, "RECALL_FINAL_OWNER_RELEASE_MAX_RETRIES"
         )
         if raw_max_retries != "0":
             raise RuntimeError("final_only_owner_release_max_retries_invalid")
+        cycle = plan.by_id("c6")
+        if args.recovery_attempt_id is not None:
+            recovery = authorize_final_only_recovery(
+                plan,
+                cycle=cycle,
+                recovery_attempt_id=args.recovery_attempt_id,
+                owner_recovery_reason=args.owner_recovery_reason,
+                previous_execution_id=args.recovery_previous_execution_id,
+                previous_source_commit=args.recovery_previous_source_commit,
+                previous_image_digest=args.recovery_previous_image_digest,
+                previous_snapshot_sha256=args.recovery_previous_snapshot_sha256,
+            )
         owner_release = authorize_final_only_owner_release(
             plan,
             token=args.owner_release_token,
             reason=args.owner_release_reason,
             actual_start=now,
             max_retries=0,
+            recovery=recovery,
         )
         cycle = plan.by_id(owner_release.cycle_id)
     else:
         cycle = resolve_declared_cycle(now, plan)
     if cycle.write_path == "EXTERNAL_IMMUTABLE":
         raise RuntimeError("compressed_cycle_external_immutable")
+    target_prefix = (
+        compressed_collection_prefix(plan, cycle)
+        if recovery is None
+        else recovery_collection_prefix(plan, cycle, recovery)
+    )
     ledger = ledger_factory(
-        collection_prefix=compressed_collection_prefix(plan, cycle),
+        collection_prefix=target_prefix,
         privacy_receipt_verifier=verifier,
         expected_project_sha256=project_sha,
         database="(default)",
@@ -400,6 +443,11 @@ def execute(
         historical_ledger_factory=(
             historical_ledger if plan.schema_version == "2.8.0" else None
         ),
+        recovery_previous_ledger=(
+            None
+            if recovery is None
+            else historical_ledger(recovery.previous_collection_prefix)
+        ),
     )
     return {
         "mode": (
@@ -420,7 +468,7 @@ def execute(
         "headroom_receipt_id": (
             None if headroom is None else str(headroom["artifact_id"])
         ),
-        "collection_prefix": compressed_collection_prefix(plan, cycle),
+        "collection_prefix": target_prefix,
         "plan_sha256": plan.sha256,
         "schedule_mode": plan.schedule_mode,
         "write_path": cycle.write_path,
@@ -446,6 +494,21 @@ def execute(
                     "+00:00", "Z"
                 ),
                 "max_retries": owner_release.max_retries,
+                "recovery_attempt_id": (
+                    None
+                    if owner_release.recovery is None
+                    else owner_release.recovery.recovery_attempt_id
+                ),
+                "owner_recovery_reason": (
+                    None
+                    if owner_release.recovery is None
+                    else owner_release.recovery.owner_recovery_reason
+                ),
+                "previous_execution_id": (
+                    None
+                    if owner_release.recovery is None
+                    else owner_release.recovery.previous_execution_id
+                ),
             }
         ),
         "activation": cycle.activation,
@@ -495,7 +558,7 @@ def _build_full_audit_coordinator(
             collection_name=(
                 f"{prefix}model_cost"
                 if isolated_cost_collection
-                else f"recall_plan6_cost_{plan_sha256[:16]}"
+                else plan_cost_collection_name(plan_sha256)
             ),
             hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
         ),

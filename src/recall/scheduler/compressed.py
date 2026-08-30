@@ -39,6 +39,7 @@ from .compressed_identity import (
 from .compressed_manifest import (
     build_compressed_manifest,
     build_compressed_mode_receipt,
+    require_compressed_mode_receipt_binding,
 )
 from .compressed_final_only_manifest import verify_final_only_history_rows
 from .compressed_plan import (
@@ -52,6 +53,11 @@ from .compressed_preparation import (
     CompressedPreparationBundle,
     ensure_final_only_history_receipt,
     verify_prepared_cycle,
+)
+from .compressed_recovery import (
+    install_final_only_recovery,
+    recovery_trace_id,
+    require_recovery_for_started_final_prefix,
 )
 from .compressed_supersession import (
     LedgerForPrefix,
@@ -114,6 +120,7 @@ class CompressedCycleScheduler:
         headroom_receipt: Mapping[str, object] | None = None,
         prior_ledgers: Mapping[str, LedgerPort] | None = None,
         historical_ledger_factory: LedgerForPrefix | None = None,
+        recovery_previous_ledger: LedgerPort | None = None,
     ) -> CompressedCycleResult:
         resolved = (
             self._plan.by_id(self._owner_release.cycle_id)
@@ -144,7 +151,38 @@ class CompressedCycleScheduler:
                 self._plan,
                 ledger_for_prefix=historical_ledger_factory,
             )
-        if self._plan.schema_version == "2.8.0":
+        recovery_receipt = None
+        if (
+            self._plan.schema_version == "2.8.0"
+            and self._owner_release is not None
+            and self._owner_release.recovery is not None
+        ):
+            if recovery_previous_ledger is None or self._full_audit is None:
+                raise RuntimeError("final_recovery_runtime_context_missing")
+            ready = install_final_only_recovery(
+                previous_ledger=recovery_previous_ledger,
+                target_ledger=self._ledger,
+                plan=self._plan,
+                cycle=self._cycle,
+                bundle=self._bundle,
+                recovery=self._owner_release.recovery,
+                source_commit=self._source_commit,
+                image_digest=self._image_digest,
+                cost_snapshot=self._full_audit.cost_snapshot(),
+                now=now,
+            )
+            recovery_receipt = self._ledger.get_artifact(
+                ready.recovery_receipt_id
+            )
+            if recovery_receipt is None:
+                raise RuntimeError("final_recovery_receipt_missing")
+        elif self._plan.schema_version == "2.8.0":
+            if self._owner_release is not None:
+                require_recovery_for_started_final_prefix(
+                    self._ledger,
+                    plan=self._plan,
+                    cycle=self._cycle,
+                )
             ensure_final_only_history_receipt(
                 self._ledger, self._bundle, self._plan, self._cycle
             )
@@ -334,6 +372,7 @@ class CompressedCycleScheduler:
                 trigger_started_at=now,
                 verified_supersession=verified_supersession,
                 owner_release=self._owner_release,
+                recovery_receipt=recovery_receipt,
             )
             parsed_candidate = parse_artifact(
                 manifest, authorized_producers=PRODUCER_REGISTRY
@@ -400,11 +439,15 @@ class CompressedCycleScheduler:
         persisted = self._ledger.get_artifact(receipt_id)
         if persisted is None:
             raise RuntimeError("compressed_data_mode_receipt_missing")
-        parsed_receipt = parse_artifact(
-            persisted, authorized_producers=PRODUCER_REGISTRY
+        require_compressed_mode_receipt_binding(
+            persisted,
+            manifest_artifact_id=manifest_id,
+            recovery_receipt_id=(
+                None
+                if recovery_receipt is None
+                else str(recovery_receipt["artifact_id"])
+            ),
         )
-        if manifest_id not in parsed_receipt.payload.subject_artifact_ids:
-            raise RuntimeError("compressed_data_mode_receipt_unbound")
         return CompressedCycleResult(
             cycle_id=self._cycle.cycle_id,
             cohort_due_date=self._cycle.cohort_due_date.isoformat(),
@@ -431,6 +474,12 @@ class CompressedCycleScheduler:
             source_cursors=dict(record.source_cursors),
             schedule_epoch=self._cycle.schedule_epoch,
             data_mode=DataMode.SYNTHETIC.value,
+            identity_scope=(
+                None
+                if self._owner_release is None
+                or self._owner_release.recovery is None
+                else self._owner_release.recovery.identity_scope
+            ),
         )
         expected_run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
         existing_run = self._ledger.get_scan_run(expected_run_id)
@@ -461,7 +510,7 @@ class CompressedCycleScheduler:
                 receipt_id,
                 self._cycle.schedule_epoch,
                 key,
-                trace_id(self._plan, self._cycle, item.case_id),
+                self._trace_id(item.case_id),
                 existing_artifact.payload.deadline_at,
                 BUDGET_SNAPSHOT,
                 self._cycle.execution_profile,
@@ -475,13 +524,19 @@ class CompressedCycleScheduler:
             expected_watch_case_version=record.version,
             triggered_at=now,
             budget_snapshot=BUDGET_SNAPSHOT,
-            trace_id=trace_id(self._plan, self._cycle, item.case_id),
+            trace_id=self._trace_id(item.case_id),
             deadline_at=self._deadline(now),
             now=now,
             execution_profile=(
                 ExecutionProfile.FULL_AUDIT_V1
                 if self._cycle.execution_profile == "FULL_AUDIT_V1"
                 else None
+            ),
+            identity_scope=(
+                None
+                if self._owner_release is None
+                or self._owner_release.recovery is None
+                else self._owner_release.recovery.identity_scope
             ),
         )
         created_wire = self._ledger.get_artifact(
@@ -501,7 +556,7 @@ class CompressedCycleScheduler:
             receipt_id,
             self._cycle.schedule_epoch,
             key,
-            trace_id(self._plan, self._cycle, item.case_id),
+            self._trace_id(item.case_id),
             self._deadline(now),
             BUDGET_SNAPSHOT,
             self._cycle.execution_profile,
@@ -516,8 +571,24 @@ class CompressedCycleScheduler:
             source_cursors=dict(record.source_cursors),
             schedule_epoch=self._cycle.schedule_epoch,
             data_mode=DataMode.SYNTHETIC.value,
+            identity_scope=(
+                None
+                if self._owner_release is None
+                or self._owner_release.recovery is None
+                else self._owner_release.recovery.identity_scope
+            ),
         )
         return str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
+
+    def _trace_id(self, case_id: str) -> str:
+        if self._owner_release is not None and self._owner_release.recovery is not None:
+            return recovery_trace_id(
+                self._plan,
+                self._cycle,
+                case_id,
+                self._owner_release.recovery,
+            )
+        return trace_id(self._plan, self._cycle, case_id)
 
     def _reconcile_existing_context(
         self,

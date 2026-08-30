@@ -75,6 +75,7 @@ def validate_scan_run_admission(
     expected_source_cursors: Mapping[str, str],
     triggered_at: datetime,
     verify_receipt: PrivacyReceiptVerifier | None,
+    identity_scope: str | None = None,
 ) -> tuple[Artifact, Artifact]:
     if scan_run.schema_name != "ScanRun" or not isinstance(
         scan_run.payload, ScanRunPayload
@@ -125,6 +126,7 @@ def validate_scan_run_admission(
         source_cursors=expected_source_cursors,
         schedule_epoch=payload.scheduled_for,
         data_mode=scan_run.data_mode.value,
+        identity_scope=identity_scope,
     )
     if payload.idempotency_key != expected_key:
         raise ContractError("artifact_integrity_failed", "idempotency_key")

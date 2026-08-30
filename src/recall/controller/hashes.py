@@ -19,15 +19,19 @@ def scan_idempotency_key(
     source_cursors: Mapping[str, str],
     schedule_epoch: str,
     data_mode: str,
+    identity_scope: str | None = None,
 ) -> str:
-    return _hash(
-        {
-            "watch_case_id": watch_case_id,
-            "source_cursors": dict(sorted(source_cursors.items())),
-            "schedule_epoch": schedule_epoch,
-            "data_mode": data_mode,
-        }
-    )
+    value: dict[str, Any] = {
+        "watch_case_id": watch_case_id,
+        "source_cursors": dict(sorted(source_cursors.items())),
+        "schedule_epoch": schedule_epoch,
+        "data_mode": data_mode,
+    }
+    if identity_scope is not None:
+        if not identity_scope.strip():
+            raise ContractError("contract_type_invalid", "identity_scope")
+        value["identity_scope"] = identity_scope
+    return _hash(value)
 
 def review_deduplication_key(
     *, case_id: str, policy_decision_id: str, verified_delta_hash: str

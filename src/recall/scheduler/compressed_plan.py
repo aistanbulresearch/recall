@@ -29,6 +29,7 @@ PLAN9_HISTORICAL_SHA256 = (
 FINAL_ONLY_PLAN_SHA256 = (
     "8cb69fbd44403e299ccdc00a9a0c5fe3b18e70f5d7aa43c0d5d2ee48d7e424d7"
 )
+FINAL_ONLY_RECOVERY_REASON = "RECOVER_CANCELLED_FINAL_EXECUTION_APPEND_ONLY"
 EXPECTED_PLAN_SHA256 = FINAL_ONLY_PLAN_SHA256
 PLAN_VERSION = "COMPRESSED_PREDICTION_PLAN_V2"
 DECISION_REFERENCE = "DEC-2026-08-26-046"
@@ -161,6 +162,20 @@ class FinalOnlyOwnerRelease:
     execution_deadline: datetime
     agent_timeout_seconds: int
     max_retries: int
+    recovery: "FinalOnlyRecoverySpec | None" = None
+
+
+@dataclass(frozen=True, slots=True)
+class FinalOnlyRecoverySpec:
+    recovery_attempt_id: str
+    owner_recovery_reason: str
+    previous_execution_id: str
+    previous_collection_prefix: str
+    previous_source_commit: str
+    previous_image_digest: str
+    previous_snapshot_sha256: str
+    identity_scope: str
+    collection_prefix: str
 
 
 def authorize_final_only_owner_release(
@@ -170,6 +185,7 @@ def authorize_final_only_owner_release(
     reason: str,
     actual_start: datetime,
     max_retries: int,
+    recovery: FinalOnlyRecoverySpec | None = None,
 ) -> FinalOnlyOwnerRelease:
     if token != FINAL_ONLY_OWNER_RELEASE_TOKEN:
         raise RuntimeError("final_only_owner_release_token_invalid")
@@ -210,6 +226,68 @@ def authorize_final_only_owner_release(
         + timedelta(seconds=cycle.execution_timeout_seconds),
         agent_timeout_seconds=cycle.agent_timeout_seconds,
         max_retries=max_retries,
+        recovery=recovery,
+    )
+
+
+def authorize_final_only_recovery(
+    plan: CompressedPlan,
+    *,
+    cycle: CompressedCycle,
+    recovery_attempt_id: str,
+    owner_recovery_reason: str,
+    previous_execution_id: str,
+    previous_source_commit: str,
+    previous_image_digest: str,
+    previous_snapshot_sha256: str,
+) -> FinalOnlyRecoverySpec:
+    try:
+        canonical_attempt = str(UUID(recovery_attempt_id))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("final_recovery_attempt_id_invalid") from exc
+    if canonical_attempt != recovery_attempt_id:
+        raise RuntimeError("final_recovery_attempt_id_invalid")
+    if owner_recovery_reason != FINAL_ONLY_RECOVERY_REASON:
+        raise RuntimeError("final_recovery_reason_invalid")
+    if (
+        plan.schema_version != "2.8.0"
+        or cycle != plan.by_id("c6")
+        or cycle.activation != "ACTIVE"
+        or cycle.runs_predicted != 456
+    ):
+        raise RuntimeError("final_recovery_plan_invalid")
+    if not re.fullmatch(r"recall-cohort-daily-[a-z0-9-]+", previous_execution_id):
+        raise RuntimeError("final_recovery_previous_execution_invalid")
+    if not re.fullmatch(r"[0-9a-f]{40}", previous_source_commit):
+        raise RuntimeError("final_recovery_previous_source_invalid")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", previous_image_digest):
+        raise RuntimeError("final_recovery_previous_image_invalid")
+    if not _SHA256.fullmatch(previous_snapshot_sha256):
+        raise RuntimeError("final_recovery_previous_snapshot_invalid")
+    attempt_hash = hashlib.sha256(canonical_attempt.encode("ascii")).hexdigest()
+    identity_scope = f"final-only-recovery:{attempt_hash}"
+    prefix = (
+        f"dev_recall_final_p{plan.sha256[:8]}_c6_r{attempt_hash[:10]}_"
+    )
+    old_prefix = (
+        f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c6_"
+        f"{cycle.cohort_due_date:%Y%m%d}_"
+    )
+    if (
+        prefix == old_prefix
+        or len(f"{prefix}tool_gateway_invocations") > 75
+    ):
+        raise RuntimeError("final_recovery_namespace_invalid")
+    return FinalOnlyRecoverySpec(
+        recovery_attempt_id=canonical_attempt,
+        owner_recovery_reason=owner_recovery_reason,
+        previous_execution_id=previous_execution_id,
+        previous_collection_prefix=old_prefix,
+        previous_source_commit=previous_source_commit,
+        previous_image_digest=previous_image_digest,
+        previous_snapshot_sha256=previous_snapshot_sha256,
+        identity_scope=identity_scope,
+        collection_prefix=prefix,
     )
 
 

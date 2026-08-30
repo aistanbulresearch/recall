@@ -52,6 +52,16 @@ def _policy() -> ModelCostPolicy:
 DEFAULT_MODEL_COST_POLICY = _policy()
 
 
+def plan_cost_collection_name(plan_sha256: str) -> str:
+    if (
+        not isinstance(plan_sha256, str)
+        or len(plan_sha256) != 64
+        or any(char not in "0123456789abcdef" for char in plan_sha256)
+    ):
+        raise ValueError("model_cost_plan_sha256_invalid")
+    return f"recall_plan6_cost_{plan_sha256[:16]}"
+
+
 @dataclass(frozen=True, slots=True)
 class CostReservation:
     state: str

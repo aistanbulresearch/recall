@@ -64,6 +64,7 @@ def build_compressed_manifest(
     trigger_started_at: datetime,
     verified_supersession: VerifiedFinalOnlySupersession | None = None,
     owner_release: FinalOnlyOwnerRelease | None = None,
+    recovery_receipt: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     authoritative = tuple(sorted(item.run_id for item in run_records))
     final_only = plan.schema_version == "2.8.0"
@@ -71,6 +72,11 @@ def build_compressed_manifest(
         not final_only or cycle.cycle_id != "c6"
     ):
         raise RuntimeError("final_only_owner_release_context_invalid")
+    recovery_expected = (
+        owner_release is not None and owner_release.recovery is not None
+    )
+    if recovery_expected is not (recovery_receipt is not None):
+        raise RuntimeError("final_recovery_manifest_binding_invalid")
     if final_only:
         if verified_supersession is None:
             raise RuntimeError("final_only_verified_snapshot_missing")
@@ -165,6 +171,18 @@ def build_compressed_manifest(
         inputs.add(str(batch_execution_receipt["artifact_id"]))
     if verified_supersession is not None:
         inputs.update(verified_supersession.verified_artifact_ids)
+    if recovery_receipt is not None:
+        parsed_recovery = parse_artifact(
+            recovery_receipt, authorized_producers=PRODUCER_REGISTRY
+        )
+        if (
+            parsed_recovery.schema_name != "FinalExecutionRecoveryReceipt"
+            or parsed_recovery.payload.target_plan_sha256 != plan.sha256
+            or parsed_recovery.payload.target_source_commit != source_commit
+            or parsed_recovery.payload.target_image_digest != image_digest
+        ):
+            raise RuntimeError("final_recovery_manifest_binding_invalid")
+        inputs.add(parsed_recovery.artifact_id)
     if agent_phase is not None:
         for outcome in agent_phase.outcomes:
             inputs.update(outcome.agent_execution_receipt_ids)
@@ -360,6 +378,28 @@ def build_compressed_mode_receipt(
         },
         authorized_producers=PRODUCER_REGISTRY,
     )
+
+
+def require_compressed_mode_receipt_binding(
+    receipt: Mapping[str, object],
+    *,
+    manifest_artifact_id: str,
+    recovery_receipt_id: str | None = None,
+) -> None:
+    parsed = parse_artifact(receipt, authorized_producers=PRODUCER_REGISTRY)
+    required = {manifest_artifact_id}
+    if recovery_receipt_id is not None:
+        required.add(recovery_receipt_id)
+    if (
+        parsed.schema_name != "DataModeReceipt"
+        or parsed.schema_version != "2.0.0"
+        or parsed.status is not ArtifactStatus.VALID
+        or not required.issubset(set(parsed.input_artifact_ids))
+        or not required.issubset(set(parsed.payload.subject_artifact_ids))
+        or parsed.payload.propagation_status is not FactState.PASS
+        or parsed.payload.reason_codes
+    ):
+        raise RuntimeError("compressed_data_mode_receipt_unbound")
 
 
 def _prior_history(

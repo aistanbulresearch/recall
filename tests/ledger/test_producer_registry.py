@@ -25,7 +25,7 @@ def test_producer_registry_matches_authoritative_producer_column() -> None:
     )
     documented = {schema: producer.strip() for schema, producer in rows}
 
-    assert len(documented) == 34
+    assert len(documented) == 37
     assert set(PRODUCER_REGISTRY) == set(documented)
     assert {
         schema: PRODUCER_REGISTRY.authority_label(schema)
@@ -42,7 +42,7 @@ def test_producer_registry_import_does_not_require_firestore_distribution() -> N
         "import sys; "
         f"sys.path.insert(0, {str(project_root / 'src')!r}); "
         "from recall.ledger.producers import PRODUCER_REGISTRY; "
-        "assert len(PRODUCER_REGISTRY) == 34"
+        "assert len(PRODUCER_REGISTRY) == 37"
     )
 
     completed = subprocess.run(
