@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock
@@ -16,21 +17,12 @@ from recall.scheduler.compressed_batch import (
 )
 from recall.scheduler.compressed_cohort import cases_for_cycle
 from recall.scheduler.compressed_plan import load_compressed_plan
+from recall.scheduler.compressed_preparation import DEFAULT_COMPRESSED_BUNDLE_PATH
 from recall.scheduler.entrypoint import execute
-from tests.scheduler.compressed_bundle_fixture import (
-    load_rebound_test_bundle,
-    write_rebound_test_repo,
-)
 
 
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE_DIGEST = "sha256:" + "a" * 64
-
-
-def _loaded():
-    plan = load_compressed_plan(ROOT)
-    bundle, sha = load_rebound_test_bundle(ROOT, plan)
-    return plan, bundle, sha
 
 
 def test_parallel_failure_joins_all_started_workers_before_raising() -> None:
@@ -121,11 +113,10 @@ def test_batch_metrics_are_additive_and_count_committed_case_documents() -> None
     assert counts["aggregate_count_reads"] == 2
 
 
-def test_preview_declares_ramp_and_final_without_constructing_ledger(
-    tmp_path: Path,
-) -> None:
+def test_preview_declares_ramp_and_final_without_constructing_ledger() -> None:
     plan = load_compressed_plan(ROOT)
-    bundle, bundle_sha = write_rebound_test_repo(ROOT, plan, tmp_path)
+    bundle_path = ROOT / DEFAULT_COMPRESSED_BUNDLE_PATH
+    bundle_sha = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
 
     def forbidden(**_kwargs):
         raise AssertionError("preview_must_not_construct_ledger")
@@ -135,19 +126,20 @@ def test_preview_declares_ramp_and_final_without_constructing_ledger(
         environment={
             "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
             "RECALL_COMPRESSED_PREPARATION_SHA256": bundle_sha,
-            "RECALL_SOURCE_COMMIT": bundle.source_commit,
+            "RECALL_SOURCE_COMMIT": "f" * 40,
             "RECALL_IMAGE_DIGEST": IMAGE_DIGEST,
+            "RECALL_PROVIDER_RPM": "8",
         },
         ledger_factory=forbidden,
-        repo_root=tmp_path,
+        repo_root=ROOT,
     )
     assert result["writes"] == 0
     assert result["cycle_id"] == "c6"
     assert result["runs_predicted"] == 456
     assert result["write_path"] == "FIRESTORE_BATCH_V1"
     assert result["batch_max_workers"] == BATCH_MAX_WORKERS
-    assert result["epoch_label"] == "PLAN6_FINAL_456_REASSESSMENT_PROVISIONAL"
-    assert result["activation"] == "PROVISIONAL_R1_GATED"
+    assert result["epoch_label"] == plan.by_id("c6").epoch_label
+    assert result["activation"] == "ACTIVE"
     assert result["execution_profile"] == "FULL_AUDIT_V1"
     assert result["evaluation_role"] == "PORTFOLIO_REASSESSMENT"
     assert "actual_reused_runs" in result["parity_indicator_fields"]
@@ -190,7 +182,7 @@ def test_invalid_provider_rpm_fails_before_ledger_construction(
 
 
 def test_ramp_subsets_and_final_use_identical_write_path() -> None:
-    plan, _bundle, _sha = _loaded()
+    plan = load_compressed_plan(ROOT)
     ramp_sets = [
         {item.case_id for item in cases_for_cycle(plan.by_id(cycle_id))}
         for cycle_id in ("c3", "c4", "c5")
