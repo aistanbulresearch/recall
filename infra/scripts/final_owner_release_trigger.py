@@ -20,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -41,6 +42,7 @@ from gcloud_redacted import resolve_project  # noqa: E402
 
 OWNER_RELEASE_TOKEN = "FINAL_ONLY_LATE_MANUAL_RELEASE_V1"
 OWNER_RELEASE_REASON = "OWNER_AUTHORIZED_FINAL_TONIGHT"
+OWNER_RECOVERY_REASON = "RECOVER_CANCELLED_FINAL_EXECUTION_APPEND_ONLY"
 INTENT_ENV = "RECALL_FINAL_OWNER_RELEASE_INTENT_SHA256"
 OWNER_RETRY_ENV = "RECALL_FINAL_OWNER_RELEASE_MAX_RETRIES"
 CONCURRENCY_ENV = "FULL_AUDIT_CONCURRENCY"
@@ -84,6 +86,14 @@ class FinalLaunchIdentity:
     coordinator_commit: str
     coordinator_tree: str
     coordinator_trigger_sha256: str
+    recovery_attempt_id: str
+    owner_recovery_reason: str
+    recovery_previous_execution_id: str
+    recovery_previous_source_commit: str
+    recovery_previous_image_digest: str
+    recovery_previous_snapshot_sha256: str
+    recovery_prefix: str
+    recovery_receipt_artifact_id: str
     attempt_key: str
     intent_sha256: str
 
@@ -102,6 +112,12 @@ class FinalLaunchIdentity:
         coordinator_commit: str,
         coordinator_tree: str,
         coordinator_trigger_sha256: str,
+        recovery_attempt_id: str,
+        owner_recovery_reason: str,
+        recovery_previous_execution_id: str,
+        recovery_previous_source_commit: str,
+        recovery_previous_image_digest: str,
+        recovery_previous_snapshot_sha256: str,
     ) -> "FinalLaunchIdentity":
         if ATTEMPT_ID.fullmatch(owner_start_attempt_id) is None:
             raise ValueError("owner_start_attempt_id_invalid")
@@ -127,6 +143,39 @@ class FinalLaunchIdentity:
             raise ValueError("expected_generation_invalid")
         if coordinator_trigger_sha256 != current_trigger_sha256():
             raise ValueError("coordinator_trigger_sha256_mismatch")
+        try:
+            recovery_uuid = uuid.UUID(recovery_attempt_id)
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError("recovery_attempt_id_invalid") from None
+        if str(recovery_uuid) != recovery_attempt_id:
+            raise ValueError("recovery_attempt_id_invalid")
+        if owner_recovery_reason != OWNER_RECOVERY_REASON:
+            raise ValueError("owner_recovery_reason_mismatch")
+        if EXECUTION.fullmatch(recovery_previous_execution_id) is None:
+            raise ValueError("recovery_previous_execution_id_invalid")
+        if HEX40.fullmatch(recovery_previous_source_commit) is None:
+            raise ValueError("recovery_previous_source_commit_invalid")
+        if DIGEST.fullmatch(recovery_previous_image_digest) is None:
+            raise ValueError("recovery_previous_image_digest_invalid")
+        if HEX64.fullmatch(recovery_previous_snapshot_sha256) is None:
+            raise ValueError("recovery_previous_snapshot_sha256_invalid")
+        recovery_prefix = (
+            f"dev_recall_final_p{plan_sha256[:8]}_c6_r"
+            f"{hashlib.sha256(recovery_attempt_id.encode('ascii')).hexdigest()[:10]}_"
+        )
+        recovery_receipt_artifact_id = str(
+            uuid.uuid5(recovery_uuid, "final-execution-recovery-receipt")
+        )
+        recovery_identity = {
+            "recovery_attempt_id": recovery_attempt_id,
+            "owner_recovery_reason": owner_recovery_reason,
+            "recovery_previous_execution_id": recovery_previous_execution_id,
+            "recovery_previous_source_commit": recovery_previous_source_commit,
+            "recovery_previous_image_digest": recovery_previous_image_digest,
+            "recovery_previous_snapshot_sha256": recovery_previous_snapshot_sha256,
+            "recovery_prefix": recovery_prefix,
+            "recovery_receipt_artifact_id": recovery_receipt_artifact_id,
+        }
         attempt_identity = {
             "owner_start_attempt_id": owner_start_attempt_id,
             "deployed_source_commit": deployed_source_commit,
@@ -134,6 +183,7 @@ class FinalLaunchIdentity:
             "deployed_image_digest": deployed_image_digest,
             "plan_sha256": plan_sha256,
             "bundle_sha256": bundle_sha256,
+            **recovery_identity,
         }
         identity = {
             **attempt_identity,
@@ -142,6 +192,7 @@ class FinalLaunchIdentity:
             "coordinator_commit": coordinator_commit,
             "coordinator_tree": coordinator_tree,
             "coordinator_trigger_sha256": coordinator_trigger_sha256,
+            **recovery_identity,
         }
         attempt_key = _canonical_hash(attempt_identity)
         intent_sha256 = hashlib.sha256(
@@ -277,7 +328,17 @@ def build_execute_args(identity: FinalLaunchIdentity, project: str) -> list[str]
         f"--project={project}",
         (
             "--args=--owner-release-token,"
-            f"{OWNER_RELEASE_TOKEN},--owner-release-reason,{OWNER_RELEASE_REASON}"
+            f"{OWNER_RELEASE_TOKEN},--owner-release-reason,{OWNER_RELEASE_REASON},"
+            f"--recovery-attempt-id,{identity.recovery_attempt_id},"
+            f"--owner-recovery-reason,{identity.owner_recovery_reason},"
+            "--recovery-previous-execution-id,"
+            f"{identity.recovery_previous_execution_id},"
+            "--recovery-previous-source-commit,"
+            f"{identity.recovery_previous_source_commit},"
+            "--recovery-previous-image-digest,"
+            f"{identity.recovery_previous_image_digest},"
+            "--recovery-previous-snapshot-sha256,"
+            f"{identity.recovery_previous_snapshot_sha256}"
         ),
         (
             "--update-env-vars="
@@ -419,6 +480,16 @@ def _receipt_wire(
             "source_commit": identity.coordinator_commit,
             "source_tree": identity.coordinator_tree,
             "trigger_sha256": identity.coordinator_trigger_sha256,
+        },
+        "recovery": {
+            "attempt_id": identity.recovery_attempt_id,
+            "owner_reason": identity.owner_recovery_reason,
+            "previous_execution_id": identity.recovery_previous_execution_id,
+            "previous_source_commit": identity.recovery_previous_source_commit,
+            "previous_image_digest": identity.recovery_previous_image_digest,
+            "previous_snapshot_sha256": identity.recovery_previous_snapshot_sha256,
+            "derived_prefix": identity.recovery_prefix,
+            "receipt_artifact_id": identity.recovery_receipt_artifact_id,
         },
         "baseline_execution_aliases": sorted(set(baseline_aliases)),
     }
@@ -679,6 +750,18 @@ def _execution_binding_failures(
         OWNER_RELEASE_TOKEN,
         "--owner-release-reason",
         OWNER_RELEASE_REASON,
+        "--recovery-attempt-id",
+        identity.recovery_attempt_id,
+        "--owner-recovery-reason",
+        identity.owner_recovery_reason,
+        "--recovery-previous-execution-id",
+        identity.recovery_previous_execution_id,
+        "--recovery-previous-source-commit",
+        identity.recovery_previous_source_commit,
+        "--recovery-previous-image-digest",
+        identity.recovery_previous_image_digest,
+        "--recovery-previous-snapshot-sha256",
+        identity.recovery_previous_snapshot_sha256,
     ]
     if container.get("args") != expected_args:
         failures.add("execution_args_mismatch")
@@ -865,6 +948,12 @@ def _identity_from_args(args: argparse.Namespace) -> FinalLaunchIdentity:
         coordinator_commit=args.coordinator_commit,
         coordinator_tree=args.coordinator_tree,
         coordinator_trigger_sha256=args.coordinator_trigger_sha256,
+        recovery_attempt_id=args.recovery_attempt_id,
+        owner_recovery_reason=args.owner_recovery_reason,
+        recovery_previous_execution_id=args.recovery_previous_execution_id,
+        recovery_previous_source_commit=args.recovery_previous_source_commit,
+        recovery_previous_image_digest=args.recovery_previous_image_digest,
+        recovery_previous_snapshot_sha256=args.recovery_previous_snapshot_sha256,
     )
 
 
@@ -882,6 +971,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--coordinator-commit", required=True)
     parser.add_argument("--coordinator-tree", required=True)
     parser.add_argument("--coordinator-trigger-sha256", required=True)
+    parser.add_argument("--recovery-attempt-id", required=True)
+    parser.add_argument("--owner-recovery-reason", required=True)
+    parser.add_argument("--recovery-previous-execution-id", required=True)
+    parser.add_argument("--recovery-previous-source-commit", required=True)
+    parser.add_argument("--recovery-previous-image-digest", required=True)
+    parser.add_argument("--recovery-previous-snapshot-sha256", required=True)
     return parser
 
 

@@ -6,6 +6,7 @@ import inspect
 import json
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,12 @@ DIGEST = "sha256:" + "e" * 64
 PROJECT_HASH = hashlib.sha256(PROJECT.encode("utf-8")).hexdigest()
 COORDINATOR_COMMIT = "1" * 40
 COORDINATOR_TREE = "2" * 40
+RECOVERY_ATTEMPT_ID = "123e4567-e89b-12d3-a456-426614174000"
+RECOVERY_REASON = "RECOVER_CANCELLED_FINAL_EXECUTION_APPEND_ONLY"
+PREVIOUS_EXECUTION = "recall-cohort-daily-5tqxh"
+PREVIOUS_SOURCE = "3" * 40
+PREVIOUS_DIGEST = "sha256:" + "4" * 64
+PREVIOUS_SNAPSHOT = "5" * 64
 
 
 def _load():
@@ -35,20 +42,69 @@ def _load():
     return module
 
 
-def _identity(trigger):
-    return trigger.FinalLaunchIdentity.create(
-        owner_start_attempt_id="ownerstart01",
-        deployed_source_commit=SOURCE,
-        deployed_source_tree=TREE,
-        deployed_image_digest=DIGEST,
-        plan_sha256=PLAN,
-        bundle_sha256=BUNDLE,
-        expected_project_sha256=PROJECT_HASH,
-        expected_generation=23,
-        coordinator_commit=COORDINATOR_COMMIT,
-        coordinator_tree=COORDINATOR_TREE,
-        coordinator_trigger_sha256=trigger.current_trigger_sha256(),
-    )
+def _identity(trigger, **overrides):
+    values = {
+        "owner_start_attempt_id": "ownerstart01",
+        "deployed_source_commit": SOURCE,
+        "deployed_source_tree": TREE,
+        "deployed_image_digest": DIGEST,
+        "plan_sha256": PLAN,
+        "bundle_sha256": BUNDLE,
+        "expected_project_sha256": PROJECT_HASH,
+        "expected_generation": 23,
+        "coordinator_commit": COORDINATOR_COMMIT,
+        "coordinator_tree": COORDINATOR_TREE,
+        "coordinator_trigger_sha256": trigger.current_trigger_sha256(),
+        "recovery_attempt_id": RECOVERY_ATTEMPT_ID,
+        "owner_recovery_reason": RECOVERY_REASON,
+        "recovery_previous_execution_id": PREVIOUS_EXECUTION,
+        "recovery_previous_source_commit": PREVIOUS_SOURCE,
+        "recovery_previous_image_digest": PREVIOUS_DIGEST,
+        "recovery_previous_snapshot_sha256": PREVIOUS_SNAPSHOT,
+    }
+    values.update(overrides)
+    return trigger.FinalLaunchIdentity.create(**values)
+
+
+def _cli_args(trigger) -> list[str]:
+    identity = _identity(trigger)
+    return [
+        "submit",
+        "--owner-start-attempt-id",
+        identity.owner_start_attempt_id,
+        "--deployed-source-commit",
+        identity.deployed_source_commit,
+        "--deployed-source-tree",
+        identity.deployed_source_tree,
+        "--deployed-image-digest",
+        identity.deployed_image_digest,
+        "--plan-sha256",
+        identity.plan_sha256,
+        "--bundle-sha256",
+        identity.bundle_sha256,
+        "--expected-project-sha256",
+        identity.expected_project_sha256,
+        "--expected-generation",
+        str(identity.expected_generation),
+        "--coordinator-commit",
+        identity.coordinator_commit,
+        "--coordinator-tree",
+        identity.coordinator_tree,
+        "--coordinator-trigger-sha256",
+        identity.coordinator_trigger_sha256,
+        "--recovery-attempt-id",
+        identity.recovery_attempt_id,
+        "--owner-recovery-reason",
+        identity.owner_recovery_reason,
+        "--recovery-previous-execution-id",
+        identity.recovery_previous_execution_id,
+        "--recovery-previous-source-commit",
+        identity.recovery_previous_source_commit,
+        "--recovery-previous-image-digest",
+        identity.recovery_previous_image_digest,
+        "--recovery-previous-snapshot-sha256",
+        identity.recovery_previous_snapshot_sha256,
+    ]
 
 
 def _bind_receipt_root(trigger, monkeypatch, tmp_path: Path) -> None:
@@ -184,6 +240,18 @@ def _execution(
                                 "FINAL_ONLY_LATE_MANUAL_RELEASE_V1",
                                 "--owner-release-reason",
                                 "OWNER_AUTHORIZED_FINAL_TONIGHT",
+                                "--recovery-attempt-id",
+                                RECOVERY_ATTEMPT_ID,
+                                "--owner-recovery-reason",
+                                RECOVERY_REASON,
+                                "--recovery-previous-execution-id",
+                                PREVIOUS_EXECUTION,
+                                "--recovery-previous-source-commit",
+                                PREVIOUS_SOURCE,
+                                "--recovery-previous-image-digest",
+                                PREVIOUS_DIGEST,
+                                "--recovery-previous-snapshot-sha256",
+                                PREVIOUS_SNAPSHOT,
                             ],
                             "env": [
                                 {"name": "RECALL_PROVIDER_RPM", "value": "8"},
@@ -241,7 +309,163 @@ def test_attempt_key_and_receipt_path_are_canonical_and_no_path_bypass(
     assert "receipt_dir" not in inspect.signature(trigger.submit_once).parameters
     assert "receipt_dir" not in inspect.signature(trigger.reconcile).parameters
     assert "--receipt-dir" not in trigger._parser().format_help()
+    assert "--target-prefix" not in trigger._parser().format_help()
     assert "ownerstart01" not in trigger.receipt_path(identity).name
+
+
+def test_recovery_identity_derives_prefix_and_receipt_id_without_caller_prefix(
+) -> None:
+    trigger = _load()
+    identity = _identity(trigger)
+
+    suffix = hashlib.sha256(RECOVERY_ATTEMPT_ID.encode("ascii")).hexdigest()[:10]
+    assert identity.recovery_prefix == f"dev_recall_final_p{PLAN[:8]}_c6_r{suffix}_"
+    assert identity.recovery_receipt_artifact_id == str(
+        uuid.uuid5(
+            uuid.UUID(RECOVERY_ATTEMPT_ID),
+            "final-execution-recovery-receipt",
+        )
+    )
+    assert "target_prefix" not in inspect.signature(
+        trigger.FinalLaunchIdentity.create
+    ).parameters
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid", "code"),
+    [
+        (
+            "recovery_attempt_id",
+            "123E4567-E89B-12D3-A456-426614174000",
+            "recovery_attempt_id_invalid",
+        ),
+        (
+            "owner_recovery_reason",
+            "RECOVER_SOMETHING_ELSE",
+            "owner_recovery_reason_mismatch",
+        ),
+        (
+            "recovery_previous_execution_id",
+            "other-job-5tqxh",
+            "recovery_previous_execution_id_invalid",
+        ),
+        (
+            "recovery_previous_source_commit",
+            "A" * 40,
+            "recovery_previous_source_commit_invalid",
+        ),
+        (
+            "recovery_previous_image_digest",
+            "sha256:" + "A" * 64,
+            "recovery_previous_image_digest_invalid",
+        ),
+        (
+            "recovery_previous_snapshot_sha256",
+            "A" * 64,
+            "recovery_previous_snapshot_sha256_invalid",
+        ),
+    ],
+)
+def test_every_recovery_field_fails_closed_on_invalid_or_fixed_reason_mismatch(
+    field: str, invalid: str, code: str
+) -> None:
+    trigger = _load()
+
+    with pytest.raises(ValueError, match=code):
+        _identity(trigger, **{field: invalid})
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "recovery_attempt_id",
+        "recovery_previous_execution_id",
+        "recovery_previous_source_commit",
+        "recovery_previous_image_digest",
+        "recovery_previous_snapshot_sha256",
+    ],
+)
+def test_every_recovery_field_is_immutable_attempt_identity(field: str) -> None:
+    trigger = _load()
+    first = _identity(trigger)
+    replacements = {
+        "recovery_attempt_id": "123e4567-e89b-12d3-a456-426614174001",
+        "recovery_previous_execution_id": "recall-cohort-daily-other1",
+        "recovery_previous_source_commit": "6" * 40,
+        "recovery_previous_image_digest": "sha256:" + "7" * 64,
+        "recovery_previous_snapshot_sha256": "8" * 64,
+    }
+    changed = _identity(trigger, **{field: replacements[field]})
+
+    assert changed.attempt_key != first.attempt_key
+    assert changed.intent_sha256 != first.intent_sha256
+
+
+def test_fixed_recovery_reason_and_derived_values_are_bound_into_attempt_key() -> None:
+    trigger = _load()
+    identity = _identity(trigger)
+    expected = trigger._canonical_hash(
+        {
+            "owner_start_attempt_id": identity.owner_start_attempt_id,
+            "deployed_source_commit": identity.deployed_source_commit,
+            "deployed_source_tree": identity.deployed_source_tree,
+            "deployed_image_digest": identity.deployed_image_digest,
+            "plan_sha256": identity.plan_sha256,
+            "bundle_sha256": identity.bundle_sha256,
+            "recovery_attempt_id": identity.recovery_attempt_id,
+            "owner_recovery_reason": identity.owner_recovery_reason,
+            "recovery_previous_execution_id": (
+                identity.recovery_previous_execution_id
+            ),
+            "recovery_previous_source_commit": (
+                identity.recovery_previous_source_commit
+            ),
+            "recovery_previous_image_digest": (
+                identity.recovery_previous_image_digest
+            ),
+            "recovery_previous_snapshot_sha256": (
+                identity.recovery_previous_snapshot_sha256
+            ),
+            "recovery_prefix": identity.recovery_prefix,
+            "recovery_receipt_artifact_id": (
+                identity.recovery_receipt_artifact_id
+            ),
+        }
+    )
+
+    assert identity.owner_recovery_reason == RECOVERY_REASON
+    assert identity.attempt_key == expected
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        "--recovery-attempt-id",
+        "--owner-recovery-reason",
+        "--recovery-previous-execution-id",
+        "--recovery-previous-source-commit",
+        "--recovery-previous-image-digest",
+        "--recovery-previous-snapshot-sha256",
+    ],
+)
+def test_cli_omission_of_each_recovery_field_fails_before_identity_or_cloud(
+    option: str,
+) -> None:
+    trigger = _load()
+    argv = _cli_args(trigger)
+    index = argv.index(option)
+    del argv[index : index + 2]
+
+    with pytest.raises(SystemExit):
+        trigger._parser().parse_args(argv)
+
+
+def test_caller_supplied_target_prefix_is_rejected_by_parser() -> None:
+    trigger = _load()
+    argv = _cli_args(trigger) + ["--target-prefix", "dev_recall_final_attacker_"]
+
+    with pytest.raises(SystemExit):
+        trigger._parser().parse_args(argv)
 
 
 def test_attempt_key_ignores_generation_and_coordinator_only_identity() -> None:
@@ -259,6 +483,12 @@ def test_attempt_key_ignores_generation_and_coordinator_only_identity() -> None:
         coordinator_commit="3" * 40,
         coordinator_tree="4" * 40,
         coordinator_trigger_sha256=trigger.current_trigger_sha256(),
+        recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        owner_recovery_reason=RECOVERY_REASON,
+        recovery_previous_execution_id=PREVIOUS_EXECUTION,
+        recovery_previous_source_commit=PREVIOUS_SOURCE,
+        recovery_previous_image_digest=PREVIOUS_DIGEST,
+        recovery_previous_snapshot_sha256=PREVIOUS_SNAPSHOT,
     )
 
     assert changed.attempt_key == first.attempt_key
@@ -277,10 +507,27 @@ def test_execute_command_is_exact_async_one_shot_without_wait() -> None:
     assert args.count("--tasks=1") == 1
     assert args.count("--task-timeout=28800s") == 1
     assert args.count(f"--project={PROJECT}") == 1
-    assert args.count(
+    expected_runtime_args = (
         "--args=--owner-release-token,FINAL_ONLY_LATE_MANUAL_RELEASE_V1,"
-        "--owner-release-reason,OWNER_AUTHORIZED_FINAL_TONIGHT"
-    ) == 1
+        "--owner-release-reason,OWNER_AUTHORIZED_FINAL_TONIGHT,"
+        f"--recovery-attempt-id,{RECOVERY_ATTEMPT_ID},"
+        f"--owner-recovery-reason,{RECOVERY_REASON},"
+        f"--recovery-previous-execution-id,{PREVIOUS_EXECUTION},"
+        f"--recovery-previous-source-commit,{PREVIOUS_SOURCE},"
+        f"--recovery-previous-image-digest,{PREVIOUS_DIGEST},"
+        f"--recovery-previous-snapshot-sha256,{PREVIOUS_SNAPSHOT}"
+    )
+    assert args.count(expected_runtime_args) == 1
+    for option in (
+        "--recovery-attempt-id",
+        "--owner-recovery-reason",
+        "--recovery-previous-execution-id",
+        "--recovery-previous-source-commit",
+        "--recovery-previous-image-digest",
+        "--recovery-previous-snapshot-sha256",
+    ):
+        assert expected_runtime_args.count(option) == 1
+    assert not any("target-prefix" in arg for arg in args)
     override = next(arg for arg in args if arg.startswith("--update-env-vars="))
     assert "RECALL_FINAL_OWNER_RELEASE_MAX_RETRIES=0" in override
     assert f"RECALL_FINAL_OWNER_RELEASE_INTENT_SHA256={identity.intent_sha256}" in override
@@ -328,6 +575,16 @@ def test_full_preflight_then_marker_list_then_durable_receipt_then_one_execute(
     assert receipt["deployed"]["source_commit"] == SOURCE
     assert receipt["coordinator"]["source_commit"] == COORDINATOR_COMMIT
     assert receipt["coordinator"]["source_commit"] != receipt["deployed"]["source_commit"]
+    assert receipt["recovery"] == {
+        "attempt_id": RECOVERY_ATTEMPT_ID,
+        "owner_reason": RECOVERY_REASON,
+        "previous_execution_id": PREVIOUS_EXECUTION,
+        "previous_source_commit": PREVIOUS_SOURCE,
+        "previous_image_digest": PREVIOUS_DIGEST,
+        "previous_snapshot_sha256": PREVIOUS_SNAPSHOT,
+        "derived_prefix": identity.recovery_prefix,
+        "receipt_artifact_id": identity.recovery_receipt_artifact_id,
+    }
 
 
 @pytest.mark.parametrize(
@@ -572,6 +829,51 @@ def test_reconcile_exactly_one_new_marker_candidate_describes_once_safely(
 
 
 @pytest.mark.parametrize(
+    "option",
+    [
+        "--recovery-attempt-id",
+        "--owner-recovery-reason",
+        "--recovery-previous-execution-id",
+        "--recovery-previous-source-commit",
+        "--recovery-previous-image-digest",
+        "--recovery-previous-snapshot-sha256",
+    ],
+)
+@pytest.mark.parametrize("mutation", ["omit", "mismatch"])
+def test_reconcile_rejects_each_omitted_or_mismatched_recovery_argument(
+    tmp_path: Path,
+    monkeypatch,
+    option: str,
+    mutation: str,
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    candidate = _execution(
+        "recall-cohort-daily-recovery-binding",
+        marker=identity.intent_sha256,
+    )
+    runtime_args = candidate["spec"]["template"]["spec"]["containers"][0]["args"]
+    index = runtime_args.index(option)
+    if mutation == "omit":
+        del runtime_args[index : index + 2]
+    else:
+        runtime_args[index + 1] = "mismatch"
+
+    def run(*args: str, **_kwargs):
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([candidate])
+        return _completed(candidate)
+
+    report = trigger.reconcile(identity, project=PROJECT, run_fn=run)
+
+    assert report["verdict"] == "FAIL"
+    assert report["state"] == "BINDING_MISMATCH"
+    assert report["codes"] == ["execution_args_mismatch"]
+
+
+@pytest.mark.parametrize(
     ("generation", "creator", "expected_verdict", "expected_evidence", "code"),
     [
         (24, "runner@x.iam.gserviceaccount.com", "FAIL", None, "execution_generation_mismatch"),
@@ -671,6 +973,43 @@ def test_malformed_receipt_blocks_reconcile_without_cloud(
         "attempt_alias": identity.attempt_key[:16],
         "codes": ["attempt_receipt_invalid"],
     }
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "attempt_id",
+        "owner_reason",
+        "previous_execution_id",
+        "previous_source_commit",
+        "previous_image_digest",
+        "previous_snapshot_sha256",
+        "derived_prefix",
+        "receipt_artifact_id",
+    ],
+)
+def test_recovery_receipt_tamper_blocks_reconcile_without_cloud(
+    tmp_path: Path, monkeypatch, field: str
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    path = trigger.receipt_path(identity)
+    wire = json.loads(path.read_text("utf-8"))
+    wire["recovery"][field] = "tampered"
+    path.write_text(json.dumps(wire), encoding="utf-8")
+    calls: list[tuple[str, ...]] = []
+
+    report = trigger.reconcile(
+        identity,
+        project=PROJECT,
+        run_fn=lambda *args, **_kwargs: calls.append(args),
+    )
+
+    assert report["verdict"] == "FAIL"
+    assert report["codes"] == ["attempt_receipt_invalid"]
     assert calls == []
 
 
@@ -892,4 +1231,10 @@ def test_trigger_sha_and_coordinator_identity_are_separate_from_deployed_image()
             coordinator_commit=COORDINATOR_COMMIT,
             coordinator_tree=COORDINATOR_TREE,
             coordinator_trigger_sha256="0" * 64,
+            recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+            owner_recovery_reason=RECOVERY_REASON,
+            recovery_previous_execution_id=PREVIOUS_EXECUTION,
+            recovery_previous_source_commit=PREVIOUS_SOURCE,
+            recovery_previous_image_digest=PREVIOUS_DIGEST,
+            recovery_previous_snapshot_sha256=PREVIOUS_SNAPSHOT,
         )
