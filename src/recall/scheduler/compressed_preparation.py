@@ -307,7 +307,60 @@ def verify_prepared_cycle(
     plan: CompressedPlan,
     cycle: CompressedCycle,
 ) -> None:
+    _verify_prepared_cycle(
+        ledger, bundle, plan, cycle, require_history_receipt=True
+    )
+
+
+def ensure_final_only_history_receipt(
+    ledger: LedgerPort,
+    bundle: CompressedPreparationBundle,
+    plan: CompressedPlan,
+    cycle: CompressedCycle,
+) -> int:
+    """Install only the exact committed Day-1 receipt after a read-only precheck."""
+
+    if (
+        plan.schema_version != "2.8.0"
+        or bundle.schema_version != "2.3.0"
+        or cycle != plan.by_id("c6")
+        or bundle.plan_sha256 != plan.sha256
+        or bundle.source_bundle_sha256 != FINAL_ONLY_SOURCE_BUNDLE_SHA256
+        or bundle.source_material_sha256 != FINAL_ONLY_SOURCE_MATERIAL_SHA256
+        or bundle.input_source_commit != FINAL_ONLY_SOURCE_BUNDLE_COMMIT
+        or bundle.input_plan_sha256 != PLAN9_HISTORICAL_SHA256
+        or bundle.privacy_receipt_source_lock != FINAL_ONLY_PRIVACY_SOURCE_LOCK
+        or bundle.lab_note_source_lock != FINAL_ONLY_LAB_NOTE_SOURCE_LOCK
+        or final_only_source_material_sha256(bundle)
+        != FINAL_ONLY_SOURCE_MATERIAL_SHA256
+    ):
+        raise RuntimeError("compressed_final_only_preparation_lock_mismatch")
+    _verify_prepared_cycle(
+        ledger, bundle, plan, cycle, require_history_receipt=False
+    )
+    persisted = ledger.get_artifact(str(bundle.history_receipt["artifact_id"]))
+    if persisted is not None:
+        _verify_locked(
+            ledger, bundle.history_receipt, "cohort_history_receipt_missing"
+        )
+        return 0
+    created = _append_locked(ledger, bundle.history_receipt)
     _verify_locked(ledger, bundle.history_receipt, "cohort_history_receipt_missing")
+    return created
+
+
+def _verify_prepared_cycle(
+    ledger: LedgerPort,
+    bundle: CompressedPreparationBundle,
+    plan: CompressedPlan,
+    cycle: CompressedCycle,
+    *,
+    require_history_receipt: bool,
+) -> None:
+    if require_history_receipt:
+        _verify_locked(
+            ledger, bundle.history_receipt, "cohort_history_receipt_missing"
+        )
     if cycle.cycle_id == "c1":
         if bundle.legacy_failure_receipt is None:
             raise RuntimeError("compressed_legacy_failure_receipt_missing")

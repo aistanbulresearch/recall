@@ -50,6 +50,7 @@ from .compressed_plan import (
 )
 from .compressed_preparation import (
     CompressedPreparationBundle,
+    ensure_final_only_history_receipt,
     verify_prepared_cycle,
 )
 from .compressed_supersession import (
@@ -143,9 +144,14 @@ class CompressedCycleScheduler:
                 self._plan,
                 ledger_for_prefix=historical_ledger_factory,
             )
-        verify_prepared_cycle(
-            self._ledger, self._bundle, self._plan, self._cycle
-        )
+        if self._plan.schema_version == "2.8.0":
+            ensure_final_only_history_receipt(
+                self._ledger, self._bundle, self._plan, self._cycle
+            )
+        else:
+            verify_prepared_cycle(
+                self._ledger, self._bundle, self._plan, self._cycle
+            )
         if self._cycle.cycle_index >= 3 and verified_supersession is None:
             if ramp_gate_receipt is None:
                 raise RuntimeError("compressed_ramp_gate_receipt_missing")
