@@ -111,6 +111,7 @@ class FakeRoleRunner:
 
     async def execute(self, role, prompt, tools, context):
         self.roles.append(role)
+        tool_results = {}
         if role is AgentRole.EVIDENCE_WATCHER:
             tool_value = tools["evidence_connector"](
                 stage="prepared", tool_context=context.tool_context("watcher-call")
@@ -129,10 +130,14 @@ class FakeRoleRunner:
             )
         elif role is AgentRole.EVIDENCE_ASSESSOR:
             candidate_id = context.input_artifact_ids[0]
-            assert tools["ledger_read"](
+            tool_results[f"ledger:{candidate_id}"] = tools["ledger_read"](
                 artifact_id=candidate_id,
                 tool_context=context.tool_context("assessor-call"),
-            )["schema_name"] == "CandidateDeltaReceipt"
+            )
+            assert (
+                tool_results[f"ledger:{candidate_id}"]["schema_name"]
+                == "CandidateDeltaReceipt"
+            )
             output = AssessmentAgentOutput.model_validate(
                 {
                     "evidence_delta": {
@@ -161,10 +166,14 @@ class FakeRoleRunner:
             )
         else:
             assessment_id = context.input_artifact_ids[0]
-            assert tools["ledger_read"](
+            tool_results[f"ledger:{assessment_id}"] = tools["ledger_read"](
                 artifact_id=assessment_id,
                 tool_context=context.tool_context("auditor-call"),
-            )["schema_name"] == "AssessmentReceipt"
+            )
+            assert (
+                tool_results[f"ledger:{assessment_id}"]["schema_name"]
+                == "AssessmentReceipt"
+            )
             output = CitationAuditOutput.model_validate(
                 {
                     "assessment_id": assessment_id,
@@ -191,6 +200,130 @@ class FakeRoleRunner:
             started_at=NOW,
             completed_at=NOW + timedelta(seconds=1),
             http_429_count=0,
+            tool_results=tool_results,
+        )
+
+
+class MaterialClaimToolPlanRunner(FakeRoleRunner):
+    def __init__(
+        self,
+        refetch_claim_ids: tuple[str, ...],
+        *,
+        assessor_ledger_indexes: tuple[int, ...] = (0,),
+        auditor_ledger_indexes: tuple[int, ...] = (0,),
+    ) -> None:
+        super().__init__()
+        self.refetch_claim_ids = refetch_claim_ids
+        self.assessor_ledger_indexes = assessor_ledger_indexes
+        self.auditor_ledger_indexes = auditor_ledger_indexes
+        self.auditor_prompt = ""
+
+    async def execute(self, role, prompt, tools, context):
+        if role is AgentRole.EVIDENCE_WATCHER:
+            return await super().execute(role, prompt, tools, context)
+        self.roles.append(role)
+        if role is AgentRole.EVIDENCE_ASSESSOR:
+            candidate_id, snapshot_id = context.input_artifact_ids
+            tool_results = {}
+            call_ids = []
+            for index, artifact_index in enumerate(
+                self.assessor_ledger_indexes, start=1
+            ):
+                artifact_id = context.input_artifact_ids[artifact_index]
+                call_id = f"assessor-call-{index}"
+                tool_results[f"ledger:{artifact_id}"] = tools["ledger_read"](
+                    artifact_id=artifact_id,
+                    tool_context=context.tool_context(call_id),
+                )
+                call_ids.append(call_id)
+            return RoleRunResult(
+                output=AssessmentAgentOutput.model_validate(
+                    {
+                        "evidence_delta": {
+                            "candidate_receipt_id": candidate_id,
+                            "previous_snapshot_id": None,
+                            "current_snapshot_id": snapshot_id,
+                            "added_observation_refs": [],
+                            "removed_observation_refs": [],
+                            "change_items": [{"claim_id": "claim-1"}],
+                            "comparison": {
+                                "classification_changed": "NOT_EVALUATED",
+                                "classification_source_refs": [],
+                            },
+                            "materiality_proposal": "MATERIAL",
+                            "uncertainties": [],
+                            "counter_evidence_refs": [],
+                        },
+                        "assessment_receipt": {
+                            "delta_id": "00000000-0000-4000-8000-000000000001",
+                            "material_claims": ["claim-1"],
+                            "counter_evidence_set": [],
+                            "uncertainty_codes": [],
+                            "schema_validation_status": "PASS",
+                        },
+                    }
+                ),
+                turns=(TurnTelemetry(1, 100, 20, 5, 125, "STOP", True, 10),),
+                tool_call_ids=tuple(call_ids),
+                tool_response_ids=tuple(call_ids),
+                trace_id=context.trace_id,
+                invocation_id=context.invocation_id,
+                started_at=NOW,
+                completed_at=NOW + timedelta(seconds=1),
+                http_429_count=0,
+                tool_results=tool_results,
+            )
+        self.auditor_prompt = prompt
+        assessment_id = context.input_artifact_ids[0]
+        tool_results = {}
+        ledger_call_ids = []
+        for index, artifact_index in enumerate(
+            self.auditor_ledger_indexes, start=1
+        ):
+            artifact_id = context.input_artifact_ids[artifact_index]
+            call_id = f"auditor-ledger-{index}"
+            tool_results[f"ledger:{artifact_id}"] = tools["ledger_read"](
+                artifact_id=artifact_id,
+                tool_context=context.tool_context(call_id),
+            )
+            ledger_call_ids.append(call_id)
+        for index, claim_id in enumerate(self.refetch_claim_ids, start=1):
+            tool_results[f"refetch:{claim_id}"] = tools["refetch_metadata"](
+                claim_id=claim_id,
+                tool_context=context.tool_context(f"auditor-refetch-{index}"),
+            )
+        call_ids = (
+            *ledger_call_ids,
+            *(f"auditor-refetch-{index}" for index in range(1, len(self.refetch_claim_ids) + 1)),
+        )
+        return RoleRunResult(
+            output=CitationAuditOutput.model_validate(
+                {
+                    "assessment_id": assessment_id,
+                    "audit_status": "COMPLETE",
+                    "claim_results": [
+                        {
+                            "claim_id": "claim-1",
+                            "cited_identifier": "claim-1",
+                            "reason_codes": ["citation_source_binding_missing"],
+                            "refetched_source": None,
+                        }
+                    ],
+                    "metadata_refetches": [],
+                    "counter_evidence_coverage": "PASS",
+                    "audit_completeness": "PASS",
+                    "rejected_claim_ids": ["claim-1"],
+                }
+            ),
+            turns=(TurnTelemetry(1, 100, 20, 5, 125, "STOP", True, 10),),
+            tool_call_ids=call_ids,
+            tool_response_ids=call_ids,
+            trace_id=context.trace_id,
+            invocation_id=context.invocation_id,
+            started_at=NOW,
+            completed_at=NOW + timedelta(seconds=1),
+            http_429_count=0,
+            tool_results=tool_results,
         )
 
 
@@ -249,6 +382,32 @@ def _full_audit_run() -> tuple[InMemoryLedger, str, PreparedRunEvidence]:
         source_cursors={"clinvar": "42"},
         data_mode=DataMode.SYNTHETIC,
         replay_observations=(),
+    )
+
+
+def _material_claim_evidence(
+    evidence: PreparedRunEvidence,
+) -> PreparedRunEvidence:
+    return replace(
+        evidence,
+        data_mode=DataMode.CAPTURED_REPLAY,
+        replay_observations=(
+            {
+                "source": "NCBI ClinVar",
+                "source_record_id": "clinvar_positive_v5",
+                "retrieved_at": "2026-08-16T23:18:25Z",
+                "source_version": "rcl-205:1.0.1",
+                "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.5/",
+                "source_content_hash": "d" * 64,
+                "structured_fields": {
+                    "semantic_anchor": "VCV002895953.5",
+                    "gene": "BRCA2",
+                    "transcript_hgvs": "NM_000059.4:c.7522G>C",
+                    "aggregate_classification": "CONFLICTING",
+                },
+                "retrieval_status": "PASS",
+            },
+        ),
     )
 
 
@@ -343,6 +502,178 @@ def test_two_turn_cost_contract_reserves_and_reconciles_every_role_turn() -> Non
     assert cost.snapshot().reconciled_usd_micros == one_turn_actual * 3
 
 
+def test_material_claim_auditor_plan_is_prompt_bound_and_cost_bounded() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    evidence = _material_claim_evidence(evidence)
+    inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reserved: list[str] = []
+            self.reconciled: list[str] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            self.reserved.append(reservation_id)
+            return inner.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append(reservation_id)
+            inner.reconcile(
+                reservation_id, actual_usd_micros=actual_usd_micros
+            )
+
+        def snapshot(self):
+            return inner.snapshot()
+
+    runner = MaterialClaimToolPlanRunner(("claim-1",))
+    cost = RecordingCostLedger()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    auditor_receipt = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == AgentRole.CITATION_AUDITOR.value
+        and item["execution_status"] == "COMPLETED"
+    )
+    auditor_reservations = [
+        item
+        for item in cost.reserved
+        if f":{AgentRole.CITATION_AUDITOR.value}:" in item
+    ]
+
+    assert 'exact material claim IDs ["claim-1"]' in runner.auditor_prompt
+    assert "same first model turn" in runner.auditor_prompt
+    assert outcome.terminal_state == "ABSTAIN"
+    assert [item["tool_id"] for item in auditor_receipt["tool_records"]] == [
+        "ledger_read",
+        "refetch_metadata",
+    ]
+    assert len(auditor_reservations) == MAX_MODEL_TURNS_PER_ROLE
+    assert all(item in cost.reconciled for item in auditor_reservations)
+
+
+@pytest.mark.parametrize(
+    "refetch_claim_ids",
+    [(), ("claim-1", "unexpected-claim")],
+    ids=("missing", "extra"),
+)
+def test_auditor_missing_or_extra_refetch_halts_without_policy(
+    refetch_claim_ids: tuple[str, ...],
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    evidence = _material_claim_evidence(evidence)
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=MaterialClaimToolPlanRunner(refetch_claim_ids),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    artifacts = ledger.list_by_run(run_id)
+    failed = next(
+        item
+        for item in artifacts
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == AgentRole.CITATION_AUDITOR.value
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert failed["failure_code"] == "controller_failed"
+    assert failed["turns"]
+    assert not any(item["schema_name"] == "PolicyDecision" for item in artifacts)
+
+
+@pytest.mark.parametrize(
+    ("role", "ledger_indexes"),
+    [
+        (AgentRole.EVIDENCE_ASSESSOR, (1,)),
+        (AgentRole.EVIDENCE_ASSESSOR, (0, 0)),
+        (AgentRole.EVIDENCE_ASSESSOR, ()),
+        (AgentRole.EVIDENCE_ASSESSOR, (0, 1)),
+        (AgentRole.CITATION_AUDITOR, (1,)),
+        (AgentRole.CITATION_AUDITOR, (0, 0)),
+        (AgentRole.CITATION_AUDITOR, ()),
+        (AgentRole.CITATION_AUDITOR, (0, 1)),
+    ],
+    ids=(
+        "assessor-wrong-target",
+        "assessor-duplicate",
+        "assessor-omitted",
+        "assessor-mixed",
+        "auditor-wrong-target",
+        "auditor-duplicate",
+        "auditor-omitted",
+        "auditor-mixed",
+    ),
+)
+def test_role_ledger_read_must_match_exact_controller_supplied_artifact(
+    role: AgentRole,
+    ledger_indexes: tuple[int, ...],
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    evidence = _material_claim_evidence(evidence)
+    runner = MaterialClaimToolPlanRunner(
+        ("claim-1",),
+        assessor_ledger_indexes=(
+            ledger_indexes
+            if role is AgentRole.EVIDENCE_ASSESSOR
+            else (0,)
+        ),
+        auditor_ledger_indexes=(
+            ledger_indexes
+            if role is AgentRole.CITATION_AUDITOR
+            else (0,)
+        ),
+    )
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == role.value
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert failed["failure_code"] == "controller_failed"
+    assert failed["turns"]
+    assert not any(
+        item["schema_name"] == "PolicyDecision"
+        for item in ledger.list_by_run(run_id)
+    )
+
+
 def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_once() -> None:
     ledger, run_id, evidence = _full_audit_run()
     inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
@@ -421,6 +752,51 @@ def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_onc
         item["schema_name"] == "PolicyDecision"
         for item in ledger.list_by_run(run_id)
     )
+
+
+def test_post_assessor_contract_failure_preserves_completed_role_evidence(
+    monkeypatch,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    def reject_assessor_artifacts(**_):
+        raise ContractError("contract_required_field_missing")
+
+    monkeypatch.setattr(
+        full_audit_module,
+        "build_assessor_artifacts",
+        reject_assessor_artifacts,
+    )
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == AgentRole.EVIDENCE_ASSESSOR.value
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert failed["failure_code"] == "agent_schema_invalid"
+    assert failed["turns"]
+    assert failed["tool_call_ids"] == ["assessor-call"]
+    assert failed["tool_response_ids"] == ["assessor-call"]
+    assert [item["tool_id"] for item in failed["tool_records"]] == [
+        "ledger_read"
+    ]
+    assert outcome.policy_decision_id is None
 
 
 def test_deadline_exhausted_after_reservation_reconciles_both_turns_to_zero() -> None:

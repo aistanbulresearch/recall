@@ -31,6 +31,15 @@ from .local_tools import LocalToolCallContext
 from .provider_pacing import DEFAULT_PROVIDER_RPM, ProviderRateLimiter
 
 
+_TWO_TURN_TOOL_PLAN_ROLES = frozenset(
+    {
+        AgentRole.EVIDENCE_WATCHER,
+        AgentRole.EVIDENCE_ASSESSOR,
+        AgentRole.CITATION_AUDITOR,
+    }
+)
+
+
 class InProcessAdkRoleRunner:
     """Runs one bounded role invocation inside the scheduler Cloud Run Job."""
 
@@ -94,7 +103,7 @@ class InProcessAdkRoleRunner:
                     http_429_count=http_429_count,
                 )
             if (
-                role is AgentRole.EVIDENCE_WATCHER
+                role in _TWO_TURN_TOOL_PLAN_ROLES
                 and len(turns) == 1
                 and turns[0].function_call_emitted
                 and not turn_starts
@@ -267,10 +276,12 @@ def _adk_tools(
         ) -> dict[str, object]:
             """Read one authorized run-scoped typed ledger artifact."""
 
-            return local["ledger_read"](
+            result = local["ledger_read"](
                 artifact_id=artifact_id,
                 tool_context=_local_context(tool_context),
             )
+            tool_results[f"ledger:{artifact_id}"] = dict(result)
+            return result
 
         wrapped["ledger_read"] = ledger_read
 
@@ -311,7 +322,10 @@ def _parse_last_output(
         if not parts:
             continue
         text = "".join(
-            str(part.text) for part in parts if getattr(part, "text", None)
+            str(part.text)
+            for part in parts
+            if getattr(part, "text", None)
+            and not bool(getattr(part, "thought", False))
         )
         if text:
             try:

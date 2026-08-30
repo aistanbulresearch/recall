@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -157,12 +158,15 @@ class FullAuditCoordinator:
                     data_mode=evidence.data_mode,
                     result=result,
                 )
-                artifacts = build_watcher_artifacts(
-                    run_id=run_id,
-                    evidence=evidence,
-                    result=result,
-                    completed_receipt=completed,
-                )
+                try:
+                    artifacts = build_watcher_artifacts(
+                        run_id=run_id,
+                        evidence=evidence,
+                        result=result,
+                        completed_receipt=completed,
+                    )
+                except ContractError as exc:
+                    raise self._role_contract_failure(result) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -189,6 +193,7 @@ class FullAuditCoordinator:
                     trace_id=trace_id,
                     now=current.updated_at,
                     deadline_at=deadline_at,
+                    required_ledger_artifact_id=input_ids[0],
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -201,14 +206,17 @@ class FullAuditCoordinator:
                     data_mode=evidence.data_mode,
                     result=result,
                 )
-                artifacts = build_assessor_artifacts(
-                    run_id=run_id,
-                    evidence=evidence,
-                    candidate=candidate,
-                    snapshot=snapshot,
-                    result=result,
-                    completed_receipt=completed,
-                )
+                try:
+                    artifacts = build_assessor_artifacts(
+                        run_id=run_id,
+                        evidence=evidence,
+                        candidate=candidate,
+                        snapshot=snapshot,
+                        result=result,
+                        completed_receipt=completed,
+                    )
+                except ContractError as exc:
+                    raise self._role_contract_failure(result) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -221,6 +229,7 @@ class FullAuditCoordinator:
 
             assessment = self._one(run_id, "AssessmentReceipt")
             delta = self._one(run_id, "EvidenceDelta")
+            material_claim_ids = self._material_claim_ids(assessment)
             if current.state is ScanRunState.AUDITING:
                 active_role = AgentRole.CITATION_AUDITOR
                 input_ids = (
@@ -235,6 +244,8 @@ class FullAuditCoordinator:
                     trace_id=trace_id,
                     now=current.updated_at,
                     deadline_at=deadline_at,
+                    required_ledger_artifact_id=input_ids[0],
+                    required_refetch_claim_ids=material_claim_ids,
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -247,13 +258,16 @@ class FullAuditCoordinator:
                     data_mode=evidence.data_mode,
                     result=result,
                 )
-                artifacts = build_auditor_artifacts(
-                    run_id=run_id,
-                    evidence=evidence,
-                    assessment=assessment,
-                    result=result,
-                    completed_receipt=completed,
-                )
+                try:
+                    artifacts = build_auditor_artifacts(
+                        run_id=run_id,
+                        evidence=evidence,
+                        assessment=assessment,
+                        result=result,
+                        completed_receipt=completed,
+                    )
+                except ContractError as exc:
+                    raise self._role_contract_failure(result) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -266,19 +280,12 @@ class FullAuditCoordinator:
 
             self._append_data_mode_receipt(run_id, evidence=evidence, now=current.updated_at)
             audit = self._one(run_id, "CitationAuditReceipt")
-            claim_ids = tuple(
-                sorted(
-                    str(item)
-                    for item in assessment.get("material_claims", [])
-                )
-            )
-
             terminal = self._controller.evaluate_and_commit(
                 run_id,
                 verified_delta_hash=str(candidate["content_hash"]),
                 now=current.updated_at,
                 audit_receipt_id=str(audit["artifact_id"]),
-                claim_ids=claim_ids,
+                claim_ids=material_claim_ids,
                 verified_snapshot_id=str(snapshot["artifact_id"]),
                 verified_source_cursors=evidence.source_cursors,
             )
@@ -397,6 +404,8 @@ class FullAuditCoordinator:
         trace_id: str,
         now: datetime,
         deadline_at: datetime,
+        required_ledger_artifact_id: str | None = None,
+        required_refetch_claim_ids: tuple[str, ...] = (),
     ) -> tuple[int, Mapping[str, object], RoleRunResult]:
         abandoned = self._open_started_receipt(run_id, role)
         if abandoned is not None:
@@ -436,7 +445,11 @@ class FullAuditCoordinator:
             data_mode=evidence.data_mode, now=now,
         )
         self._ledger.append_artifact(started)
-        prompt = self._prompt(role, input_artifact_ids)
+        prompt = self._prompt(
+            role,
+            input_artifact_ids,
+            required_refetch_claim_ids=required_refetch_claim_ids,
+        )
         validate_request_budget(prompt.encode("utf-8"), self._cost_policy)
         tool_records: list[Mapping[str, str]] = []
         tools = build_local_tools(
@@ -569,6 +582,17 @@ class FullAuditCoordinator:
                     tool_records=result.tool_records,
                     tool_call_ids=result.tool_call_ids,
                     tool_response_ids=result.tool_response_ids,
+                )
+            if required_ledger_artifact_id is not None:
+                self._verify_ledger_read_target(
+                    result,
+                    required_artifact_id=required_ledger_artifact_id,
+                )
+            if role is AgentRole.CITATION_AUDITOR:
+                self._verify_auditor_tool_plan(
+                    result,
+                    required_ledger_artifact_id=required_ledger_artifact_id,
+                    required_refetch_claim_ids=required_refetch_claim_ids,
                 )
             return attempt, started, result
         except BaseException as exc:
@@ -903,9 +927,111 @@ class FullAuditCoordinator:
         return max(attempts, default=0) + 1
 
     @staticmethod
-    def _prompt(role: AgentRole, input_ids: tuple[str, ...]) -> str:
+    def _prompt(
+        role: AgentRole,
+        input_ids: tuple[str, ...],
+        *,
+        required_refetch_claim_ids: tuple[str, ...] = (),
+    ) -> str:
         if role is AgentRole.EVIDENCE_WATCHER:
             return "Call evidence_connector once, then return the strict EvidenceSnapshot output."
         if role is AgentRole.EVIDENCE_ASSESSOR:
             return f"Call ledger_read for CandidateDeltaReceipt {input_ids[0]}; return strict assessment JSON even when no candidate exists."
-        return f"Call ledger_read for AssessmentReceipt {input_ids[0]}; return strict citation audit JSON. Empty material claims still require COMPLETE no-claim audit semantics."
+        claim_ids = json.dumps(
+            list(required_refetch_claim_ids), separators=(",", ":")
+        )
+        return (
+            f"Call ledger_read for AssessmentReceipt {input_ids[0]} and call "
+            "refetch_metadata exactly once for each of the exact material claim "
+            f"IDs {claim_ids} in the same first model turn; then return strict "
+            "citation audit JSON. Empty material claims still require COMPLETE "
+            "no-claim audit semantics."
+        )
+
+    @staticmethod
+    def _material_claim_ids(
+        assessment: Mapping[str, object],
+    ) -> tuple[str, ...]:
+        raw_claim_ids = assessment.get("material_claims", [])
+        if not isinstance(raw_claim_ids, list):
+            raise ContractError(
+                "ledger_integrity_failed", "AssessmentReceipt.material_claims"
+            )
+        claim_ids = tuple(sorted(str(item) for item in raw_claim_ids))
+        if len(set(claim_ids)) != len(claim_ids):
+            raise ContractError(
+                "ledger_integrity_failed", "AssessmentReceipt.material_claims"
+            )
+        return claim_ids
+
+    @staticmethod
+    def _verify_auditor_tool_plan(
+        result: RoleRunResult,
+        *,
+        required_ledger_artifact_id: str | None,
+        required_refetch_claim_ids: tuple[str, ...],
+    ) -> None:
+        if required_ledger_artifact_id is None:
+            raise ContractError("ledger_integrity_failed", "auditor-ledger-plan")
+        tool_ids = tuple(str(item["tool_id"]) for item in result.tool_records)
+        expected_tool_ids = (
+            "ledger_read",
+            *("refetch_metadata" for _ in required_refetch_claim_ids),
+        )
+        expected_result_ids = {f"ledger:{required_ledger_artifact_id}"} | {
+            f"refetch:{claim_id}" for claim_id in required_refetch_claim_ids
+        }
+        if (
+            tool_ids.count("ledger_read") != 1
+            or tuple(sorted(tool_ids)) != tuple(sorted(expected_tool_ids))
+            or set(result.tool_results) != expected_result_ids
+        ):
+            raise RoleExecutionError(
+                "agent_tool_round_trip_incomplete",
+                turns=result.turns,
+                http_429_count=result.http_429_count,
+                tool_records=result.tool_records,
+                tool_call_ids=result.tool_call_ids,
+                tool_response_ids=result.tool_response_ids,
+            )
+
+    @staticmethod
+    def _verify_ledger_read_target(
+        result: RoleRunResult,
+        *,
+        required_artifact_id: str,
+    ) -> None:
+        tool_ids = tuple(str(item["tool_id"]) for item in result.tool_records)
+        ledger_result_ids = {
+            key for key in result.tool_results if key.startswith("ledger:")
+        }
+        expected_result_id = f"ledger:{required_artifact_id}"
+        unexpected_result_ids = {
+            key
+            for key in result.tool_results
+            if not key.startswith(("ledger:", "refetch:"))
+        }
+        if (
+            tool_ids.count("ledger_read") != 1
+            or ledger_result_ids != {expected_result_id}
+            or unexpected_result_ids
+        ):
+            raise RoleExecutionError(
+                "agent_tool_round_trip_incomplete",
+                turns=result.turns,
+                http_429_count=result.http_429_count,
+                tool_records=result.tool_records,
+                tool_call_ids=result.tool_call_ids,
+                tool_response_ids=result.tool_response_ids,
+            )
+
+    @staticmethod
+    def _role_contract_failure(result: RoleRunResult) -> RoleExecutionError:
+        return RoleExecutionError(
+            "agent_schema_invalid",
+            turns=result.turns,
+            http_429_count=result.http_429_count,
+            tool_records=result.tool_records,
+            tool_call_ids=result.tool_call_ids,
+            tool_response_ids=result.tool_response_ids,
+        )
