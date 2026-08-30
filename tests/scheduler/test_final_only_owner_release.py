@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,12 +14,33 @@ from recall.scheduler.compressed_plan import (
     authorize_final_only_owner_release,
     parse_compressed_plan,
 )
-from recall.scheduler.entrypoint import execute
+from recall.scheduler.entrypoint import _build_full_audit_coordinator, execute
 from tests.scheduler.test_compressed_plan import _wire_for_final_only
 
 
 def _plan():
     return parse_compressed_plan(_wire_for_final_only(), sha256="e" * 64)
+
+
+class _ClockTestFirestoreClient:
+    def collection(self, _name: str) -> object:
+        return object()
+
+
+def test_default_full_audit_coordinator_clock_returns_aware_utc() -> None:
+    coordinator = _build_full_audit_coordinator(
+        SimpleNamespace(
+            collection_prefix="dev_recall_clock_test_",
+            client=_ClockTestFirestoreClient(),
+        ),
+        plan_sha256="a" * 64,
+        provider_rpm=8,
+    )
+
+    assert coordinator._clock is not None
+    observed = coordinator._clock()
+    assert observed.tzinfo is timezone.utc
+    assert observed.utcoffset() == timedelta(0)
 
 
 def test_owner_release_is_exact_final_only_c6_and_actual_start_bound() -> None:

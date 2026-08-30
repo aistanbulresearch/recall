@@ -500,7 +500,7 @@ def _build_full_audit_coordinator(
             hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
         ),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
-        clock=lambda: datetime.now(UTC),
+        clock=lambda: datetime.now(timezone.utc),
     )
 
 
