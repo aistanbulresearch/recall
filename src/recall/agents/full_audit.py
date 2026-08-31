@@ -37,6 +37,7 @@ from recall.scheduler.model_cost import (
 )
 
 from .full_audit_artifacts import (
+    ASSESSOR_OUTPUT_BINDING_FIELDS,
     build_assessor_artifacts,
     build_auditor_artifacts,
     build_completed_receipt,
@@ -199,6 +200,8 @@ class FullAuditCoordinator:
                     now=current.updated_at,
                     deadline_at=deadline_at,
                     required_ledger_artifact_id=input_ids[0],
+                    assessor_candidate=candidate,
+                    assessor_snapshot=snapshot,
                 )
                 all_turns.extend(result.turns)
                 http_429_count += result.http_429_count
@@ -221,7 +224,11 @@ class FullAuditCoordinator:
                         completed_receipt=completed,
                     )
                 except ContractError as exc:
-                    raise self._role_contract_failure(result, exc.code) from exc
+                    raise self._role_contract_failure(
+                        result,
+                        exc.code,
+                        contract_detail=exc.detail,
+                    ) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -411,6 +418,8 @@ class FullAuditCoordinator:
         deadline_at: datetime,
         required_ledger_artifact_id: str | None = None,
         required_refetch_claim_ids: tuple[str, ...] = (),
+        assessor_candidate: Mapping[str, object] | None = None,
+        assessor_snapshot: Mapping[str, object] | None = None,
     ) -> tuple[int, Mapping[str, object], RoleRunResult]:
         abandoned = self._open_started_receipt(run_id, role)
         if abandoned is not None:
@@ -455,6 +464,8 @@ class FullAuditCoordinator:
             input_artifact_ids,
             run_id=run_id,
             required_refetch_claim_ids=required_refetch_claim_ids,
+            assessor_candidate=assessor_candidate,
+            assessor_snapshot=assessor_snapshot,
         )
         validate_request_budget(prompt.encode("utf-8"), self._cost_policy)
         tool_records: list[Mapping[str, str]] = []
@@ -948,16 +959,85 @@ class FullAuditCoordinator:
         *,
         run_id: str,
         required_refetch_claim_ids: tuple[str, ...] = (),
+        assessor_candidate: Mapping[str, object] | None = None,
+        assessor_snapshot: Mapping[str, object] | None = None,
     ) -> str:
         if role is AgentRole.EVIDENCE_WATCHER:
             return "Call evidence_connector once, then return the strict EvidenceSnapshot output."
         if role is AgentRole.EVIDENCE_ASSESSOR:
+            if assessor_candidate is None or assessor_snapshot is None:
+                raise ContractError("ledger_integrity_failed", "assessor_binding")
+            candidate_id = str(assessor_candidate.get("artifact_id", ""))
+            snapshot_id = str(assessor_snapshot.get("artifact_id", ""))
+            state = str(assessor_candidate.get("candidate_delta_state", ""))
+            if (
+                input_ids != (candidate_id, snapshot_id)
+                or assessor_candidate.get("current_snapshot_id") != snapshot_id
+                or state not in {"ABSENT", "PRESENT", "UNKNOWN"}
+            ):
+                raise ContractError("ledger_integrity_failed", "assessor_binding")
             delta_id = str(uuid5(UUID(run_id), "evidence-delta"))
+            exact_fields = {
+                "assessment_receipt.delta_id": delta_id,
+                "evidence_delta.candidate_receipt_id": candidate_id,
+                "evidence_delta.comparison": {
+                    "classification_changed": "NOT_EVALUATED",
+                    "classification_source_refs": [],
+                },
+                "evidence_delta.counter_evidence_refs": [],
+                "evidence_delta.current_snapshot_id": snapshot_id,
+                "evidence_delta.previous_snapshot_id": assessor_candidate.get(
+                    "previous_snapshot_id"
+                ),
+                "evidence_delta.removed_observation_refs": [],
+            }
+            exact_branch_fields: dict[str, object]
+            constraints: dict[str, object]
+            if state == "PRESENT":
+                exact_branch_fields = {}
+                constraints = {
+                    "evidence_delta.materiality_proposal": {
+                        "not_const": "NO_CANDIDATE",
+                        "type": "string",
+                    }
+                }
+                branch_instruction = (
+                    "For PRESENT, materiality_proposal must be a schema-valid "
+                    "string other than NO_CANDIDATE. Constraint objects are "
+                    "predicates only; never copy them into the output."
+                )
+            else:
+                exact_branch_fields = {
+                    "assessment_receipt.counter_evidence_set": [],
+                    "assessment_receipt.material_claims": [],
+                    "evidence_delta.added_observation_refs": [],
+                    "evidence_delta.change_items": [],
+                    "evidence_delta.materiality_proposal": "NO_CANDIDATE",
+                }
+                constraints = {}
+                branch_instruction = (
+                    f"For {state}, emit the strict no-candidate JSON: copy every "
+                    "exact_branch_fields value literally, keep all listed arrays "
+                    "empty, and set materiality_proposal to NO_CANDIDATE. Do not "
+                    "propose materiality or claims."
+                )
+            binding_contract = json.dumps(
+                {
+                    "candidate_delta_state": state,
+                    "constraints": constraints,
+                    "exact_branch_fields": exact_branch_fields,
+                    "exact_fields": exact_fields,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
             return (
                 "Call ledger_read for CandidateDeltaReceipt "
-                f"{input_ids[0]}; bind current_snapshot_id to {input_ids[1]} "
-                f"and assessment delta_id to {delta_id}; return strict "
-                "assessment JSON even when no candidate exists."
+                f"{candidate_id} exactly once. Then return strict assessment JSON. "
+                "Copy every exact_fields value literally; do not replace, omit, "
+                "or contradict controller-owned values. "
+                f"{branch_instruction} "
+                f"BINDING_CONTRACT={binding_contract}"
             )
         claim_ids = json.dumps(
             list(required_refetch_claim_ids), separators=(",", ":")
@@ -1084,11 +1164,28 @@ class FullAuditCoordinator:
 
     @staticmethod
     def _role_contract_failure(
-        result: RoleRunResult, contract_code: str
+        result: RoleRunResult,
+        contract_code: str,
+        *,
+        contract_detail: str | None = None,
     ) -> RoleExecutionError:
+        safe_code = safe_contract_code(contract_code)
+        mismatch_suffix = ""
+        if (
+            safe_code == "assessor_output_binding_invalid"
+            and contract_detail is not None
+        ):
+            fields = tuple(contract_detail.split(","))
+            if (
+                fields
+                and fields == tuple(sorted(set(fields)))
+                and all(field in ASSESSOR_OUTPUT_BINDING_FIELDS for field in fields)
+            ):
+                mismatch_suffix = ":" + ",".join(fields)
         return RoleExecutionError(
             "agent_schema_invalid:artifact_contract:"
-            + safe_contract_code(contract_code),
+            + safe_code
+            + mismatch_suffix,
             turns=result.turns,
             http_429_count=result.http_429_count,
             tool_records=result.tool_records,
@@ -1100,4 +1197,20 @@ class FullAuditCoordinator:
     def _schema_failure_detail(error: Exception) -> str | None:
         if not isinstance(error, RoleExecutionError):
             return None
+        mismatch_prefix = (
+            "agent_schema_invalid:artifact_contract:"
+            "assessor_output_binding_invalid:"
+        )
+        if error.code.startswith(mismatch_prefix):
+            fields = tuple(error.code.removeprefix(mismatch_prefix).split(","))
+            if (
+                fields
+                and fields == tuple(sorted(set(fields)))
+                and all(field in ASSESSOR_OUTPUT_BINDING_FIELDS for field in fields)
+            ):
+                return (
+                    "artifact_contract:assessor_output_binding_invalid:"
+                    + ",".join(fields)
+                )
+            return "artifact_contract:assessor_output_binding_invalid"
         return safe_schema_failure_detail(error.code)

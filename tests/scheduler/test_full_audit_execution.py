@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+import json
 from types import SimpleNamespace
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -108,6 +109,7 @@ class ToolThenRateLimitedLlm(BaseLlm):
 class FakeRoleRunner:
     def __init__(self) -> None:
         self.roles: list[AgentRole] = []
+        self.assessor_prompt = ""
 
     async def execute(self, role, prompt, tools, context):
         self.roles.append(role)
@@ -130,6 +132,7 @@ class FakeRoleRunner:
                 }
             )
         elif role is AgentRole.EVIDENCE_ASSESSOR:
+            self.assessor_prompt = prompt
             candidate_id = context.input_artifact_ids[0]
             tool_results[f"ledger:{candidate_id}"] = tools["ledger_read"](
                 artifact_id=candidate_id,
@@ -226,6 +229,7 @@ class MaterialClaimToolPlanRunner(FakeRoleRunner):
             return await super().execute(role, prompt, tools, context)
         self.roles.append(role)
         if role is AgentRole.EVIDENCE_ASSESSOR:
+            self.assessor_prompt = prompt
             candidate_id, snapshot_id = context.input_artifact_ids
             tool_results = {}
             call_ids = []
@@ -416,6 +420,30 @@ def _material_claim_evidence(
     )
 
 
+def _unknown_candidate_evidence(
+    evidence: PreparedRunEvidence,
+) -> PreparedRunEvidence:
+    return replace(
+        evidence,
+        data_mode=DataMode.CAPTURED_REPLAY,
+        replay_observations=(
+            {
+                "source": "NCBI ClinVar",
+                "source_record_id": "projection-unavailable",
+                "retrieved_at": "2026-08-16T23:18:25Z",
+                "source_version": "rcl-205:1.0.1",
+                "source_locator": "bundle://projection-unavailable",
+                "source_content_hash": "e" * 64,
+                "structured_fields": {
+                    "semantic_anchor": "VCV-PROJECTION-UNAVAILABLE",
+                    "aggregate_classification": "NOT_EVALUATED",
+                },
+                "retrieval_status": "PASS",
+            },
+        ),
+    )
+
+
 def test_full_audit_executes_all_roles_and_commits_deterministic_policy() -> None:
     ledger, run_id, evidence = _full_audit_run()
     runner = FakeRoleRunner()
@@ -438,6 +466,9 @@ def test_full_audit_executes_all_roles_and_commits_deterministic_policy() -> Non
     assert outcome.audit_status == "COMPLETE"
     assert outcome.policy_outcome == "NO_ACTION"
     assert outcome.technical_failure_codes == ()
+    assert json.loads(runner.assessor_prompt.split("BINDING_CONTRACT=", 1)[1])[
+        "candidate_delta_state"
+    ] == "ABSENT"
     artifacts = ledger.list_by_run(run_id)
     assert sum(
         item["schema_name"] == "AgentExecutionReceipt" for item in artifacts
@@ -881,6 +912,133 @@ def test_watcher_cursor_mismatch_halts_without_policy_decision() -> None:
     ]
 
 
+@pytest.mark.parametrize("candidate_state", ["ABSENT", "UNKNOWN", "PRESENT"])
+def test_assessor_prompt_contains_exact_controller_binding_skeleton(
+    candidate_state: str,
+) -> None:
+    run_id = "2c90e154-0c23-5294-ab5c-3f647c150875"
+    candidate_id = "00000000-0000-4000-8000-000000000010"
+    previous_snapshot_id = "00000000-0000-4000-8000-000000000009"
+    snapshot_id = "00000000-0000-4000-8000-000000000011"
+    prompt = FullAuditCoordinator._prompt(
+        AgentRole.EVIDENCE_ASSESSOR,
+        (candidate_id, snapshot_id),
+        run_id=run_id,
+        assessor_candidate={
+            "artifact_id": candidate_id,
+            "previous_snapshot_id": previous_snapshot_id,
+            "current_snapshot_id": snapshot_id,
+            "candidate_delta_state": candidate_state,
+        },
+        assessor_snapshot={"artifact_id": snapshot_id},
+    )
+
+    binding = json.loads(prompt.split("BINDING_CONTRACT=", 1)[1])
+    assert binding["candidate_delta_state"] == candidate_state
+    assert binding["exact_fields"] == {
+        "assessment_receipt.delta_id": str(uuid5(UUID(run_id), "evidence-delta")),
+        "evidence_delta.candidate_receipt_id": candidate_id,
+        "evidence_delta.comparison": {
+            "classification_changed": "NOT_EVALUATED",
+            "classification_source_refs": [],
+        },
+        "evidence_delta.counter_evidence_refs": [],
+        "evidence_delta.current_snapshot_id": snapshot_id,
+        "evidence_delta.previous_snapshot_id": previous_snapshot_id,
+        "evidence_delta.removed_observation_refs": [],
+    }
+    universal_paths = {
+        "assessment_receipt.delta_id",
+        "evidence_delta.candidate_receipt_id",
+        "evidence_delta.comparison",
+        "evidence_delta.counter_evidence_refs",
+        "evidence_delta.current_snapshot_id",
+        "evidence_delta.previous_snapshot_id",
+        "evidence_delta.removed_observation_refs",
+    }
+    if candidate_state == "PRESENT":
+        assert binding["exact_branch_fields"] == {}
+        assert binding["constraints"] == {
+            "evidence_delta.materiality_proposal": {
+                "not_const": "NO_CANDIDATE",
+                "type": "string",
+            }
+        }
+        assert "Constraint objects are predicates only" in prompt
+        assert "never copy them into the output" in prompt
+        expected_paths = universal_paths | {
+            "evidence_delta.materiality_proposal"
+        }
+    else:
+        assert binding["exact_branch_fields"] == {
+            "assessment_receipt.counter_evidence_set": [],
+            "assessment_receipt.material_claims": [],
+            "evidence_delta.added_observation_refs": [],
+            "evidence_delta.change_items": [],
+            "evidence_delta.materiality_proposal": "NO_CANDIDATE",
+        }
+        assert binding["constraints"] == {}
+        assert "emit the strict no-candidate JSON" in prompt
+        assert "Do not propose materiality or claims" in prompt
+        expected_paths = universal_paths | {
+            "assessment_receipt.counter_evidence_set",
+            "assessment_receipt.material_claims",
+            "evidence_delta.added_observation_refs",
+            "evidence_delta.change_items",
+            "evidence_delta.materiality_proposal",
+        }
+    prompt_paths = (
+        set(binding["exact_fields"])
+        | set(binding["exact_branch_fields"])
+        | set(binding["constraints"])
+    )
+    assert prompt_paths == expected_paths
+
+
+def test_unknown_candidate_executes_with_exact_no_candidate_binding() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    runner = FakeRoleRunner()
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=runner,
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(
+            run_id,
+            evidence=_unknown_candidate_evidence(evidence),
+            now=NOW,
+        )
+    )
+    candidate = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "CandidateDeltaReceipt"
+    )
+    binding = json.loads(runner.assessor_prompt.split("BINDING_CONTRACT=", 1)[1])
+
+    assert candidate["candidate_delta_state"] == "UNKNOWN"
+    assert binding["candidate_delta_state"] == "UNKNOWN"
+    assert binding["exact_branch_fields"][
+        "evidence_delta.materiality_proposal"
+    ] == "NO_CANDIDATE"
+    assert runner.roles == [
+        AgentRole.EVIDENCE_WATCHER,
+        AgentRole.EVIDENCE_ASSESSOR,
+        AgentRole.CITATION_AUDITOR,
+    ]
+    assert outcome.terminal_state != "HALTED"
+    assert outcome.audit_status == "COMPLETE"
+    assert outcome.policy_decision_id is not None
+    assert any(
+        item["schema_name"] == "AssessmentReceipt"
+        for item in ledger.list_by_run(run_id)
+    )
+
+
 @pytest.mark.parametrize("candidate_present", [False, True])
 def test_assessor_contradictory_controller_owned_claims_halt_fail_closed(
     candidate_present: bool,
@@ -901,9 +1059,7 @@ def test_assessor_contradictory_controller_owned_claims_halt_fail_closed(
                 return result
             wire = result.output.model_dump(mode="json")
             if candidate_present:
-                wire["evidence_delta"]["current_snapshot_id"] = (
-                    "00000000-0000-4000-8000-000000000099"
-                )
+                wire["evidence_delta"]["materiality_proposal"] = "NO_CANDIDATE"
             else:
                 wire["assessment_receipt"]["material_claims"] = [
                     "fabricated-no-candidate-claim"
@@ -936,13 +1092,115 @@ def test_assessor_contradictory_controller_owned_claims_halt_fail_closed(
         and item["agent_role"] == AgentRole.EVIDENCE_ASSESSOR.value
         and item["execution_status"] == "FAILED"
     )
+    mismatch_field = (
+        "evidence_delta.materiality_proposal"
+        if candidate_present
+        else "assessment_receipt.material_claims"
+    )
     assert failed["warnings"] == [
         {
             "code": "agent_schema_failure",
-            "message_key": "artifact_contract:assessor_output_binding_invalid",
+            "message_key": (
+                "artifact_contract:assessor_output_binding_invalid:"
+                + mismatch_field
+            ),
             "related_artifact_ids": [],
         }
     ]
+
+
+def test_assessor_binding_mismatch_bitset_is_sorted_and_value_free() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class MultipleMismatchRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            result = await super().execute(role, prompt, tools, context)
+            if role is not AgentRole.EVIDENCE_ASSESSOR:
+                return result
+            wire = result.output.model_dump(mode="json")
+            wire["evidence_delta"]["current_snapshot_id"] = (
+                "00000000-0000-4000-8000-000000000099"
+            )
+            wire["assessment_receipt"]["material_claims"] = [
+                "model-supplied-value-must-not-persist"
+            ]
+            return replace(
+                result,
+                output=AssessmentAgentOutput.model_validate(wire),
+                turns=(
+                    result.turns[0],
+                    TurnTelemetry(2, 110, 25, 7, 142, "STOP", False, 900),
+                ),
+            )
+
+    inner_cost = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
+
+    class RecordingCostLedger:
+        def __init__(self) -> None:
+            self.reconciled: list[tuple[str, int]] = []
+
+        def reserve(self, reservation_id, worst_case_usd_micros):
+            return inner_cost.reserve(reservation_id, worst_case_usd_micros)
+
+        def reconcile(self, reservation_id, *, actual_usd_micros):
+            self.reconciled.append((reservation_id, actual_usd_micros))
+            return inner_cost.reconcile(
+                reservation_id,
+                actual_usd_micros=actual_usd_micros,
+            )
+
+        def snapshot(self):
+            return inner_cost.snapshot()
+
+    cost = RecordingCostLedger()
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=MultipleMismatchRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=cost,
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == AgentRole.EVIDENCE_ASSESSOR.value
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert failed["warnings"] == [
+        {
+            "code": "agent_schema_failure",
+            "message_key": (
+                "artifact_contract:assessor_output_binding_invalid:"
+                "assessment_receipt.material_claims,"
+                "evidence_delta.current_snapshot_id"
+            ),
+            "related_artifact_ids": [],
+        }
+    ]
+    assert "model-supplied-value" not in json.dumps(failed["warnings"])
+    assert len(failed["turns"]) == 2
+    assert failed["tool_call_ids"] == ["assessor-call"]
+    assert failed["tool_response_ids"] == ["assessor-call"]
+    assert [item["tool_id"] for item in failed["tool_records"]] == [
+        "ledger_read"
+    ]
+    assessor_cost = [
+        item
+        for item in cost.reconciled
+        if f":{AgentRole.EVIDENCE_ASSESSOR.value}:" in item[0]
+    ]
+    assert len(assessor_cost) == 2
+    assert len({reservation_id for reservation_id, _ in assessor_cost}) == 2
+    assert all(actual > 0 for _, actual in assessor_cost)
 
 
 def test_deadline_exhausted_after_reservation_reconciles_both_turns_to_zero() -> None:
@@ -1368,9 +1626,10 @@ def test_hash_bound_exact_allele_projection_creates_present_candidate() -> None:
             },
         ),
     )
+    runner = MaterialClaimToolPlanRunner(("claim-1",))
     coordinator = FullAuditCoordinator(
         ledger,
-        role_runner=MaterialClaimToolPlanRunner(("claim-1",)),
+        role_runner=runner,
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
@@ -1388,6 +1647,19 @@ def test_hash_bound_exact_allele_projection_creates_present_candidate() -> None:
     assert candidate["candidate_delta_state"] == "PRESENT"
     assert candidate["exact_allele_match"] is True
     assert candidate["new_observation_hashes"] == ["d" * 64]
+    binding = json.loads(runner.assessor_prompt.split("BINDING_CONTRACT=", 1)[1])
+    assert binding["candidate_delta_state"] == "PRESENT"
+    assert binding["constraints"]["evidence_delta.materiality_proposal"] == {
+        "not_const": "NO_CANDIDATE",
+        "type": "string",
+    }
+    assert runner.roles == [
+        AgentRole.EVIDENCE_WATCHER,
+        AgentRole.EVIDENCE_ASSESSOR,
+        AgentRole.CITATION_AUDITOR,
+    ]
+    assert outcome.audit_status == "COMPLETE"
+    assert outcome.policy_decision_id is not None
     assert outcome.policy_outcome == "ABSTAIN"
 
 

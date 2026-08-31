@@ -19,6 +19,22 @@ from recall.ledger.producers import PRODUCER_REGISTRY
 from .full_audit_models import PreparedRunEvidence, RoleRunResult, TurnTelemetry
 
 
+ASSESSOR_OUTPUT_BINDING_FIELDS = (
+    "assessment_receipt.counter_evidence_set",
+    "assessment_receipt.delta_id",
+    "assessment_receipt.material_claims",
+    "evidence_delta.added_observation_refs",
+    "evidence_delta.candidate_receipt_id",
+    "evidence_delta.change_items",
+    "evidence_delta.comparison",
+    "evidence_delta.counter_evidence_refs",
+    "evidence_delta.current_snapshot_id",
+    "evidence_delta.materiality_proposal",
+    "evidence_delta.previous_snapshot_id",
+    "evidence_delta.removed_observation_refs",
+)
+
+
 def prepared_tool_records(
     evidence: PreparedRunEvidence, *, observed_at: datetime
 ) -> tuple[dict[str, object], ...]:
@@ -394,31 +410,72 @@ def _validate_assessor_output(
     delta = output.evidence_delta
     receipt = output.assessment_receipt
     comparison = delta.comparison.model_dump(mode="json")
-    exact_bindings = (
-        delta.candidate_receipt_id == candidate["artifact_id"]
-        and delta.previous_snapshot_id == candidate["previous_snapshot_id"]
-        and delta.current_snapshot_id == snapshot["artifact_id"]
-        and receipt.delta_id == delta_id
-        and delta.removed_observation_refs == []
-        and comparison
+    mismatches: list[str] = []
+
+    def require(field: str, condition: bool) -> None:
+        if not condition:
+            mismatches.append(field)
+
+    require(
+        "evidence_delta.candidate_receipt_id",
+        delta.candidate_receipt_id == candidate["artifact_id"],
+    )
+    require(
+        "evidence_delta.previous_snapshot_id",
+        delta.previous_snapshot_id == candidate["previous_snapshot_id"],
+    )
+    require(
+        "evidence_delta.current_snapshot_id",
+        delta.current_snapshot_id == snapshot["artifact_id"],
+    )
+    require("assessment_receipt.delta_id", receipt.delta_id == delta_id)
+    require(
+        "evidence_delta.removed_observation_refs",
+        delta.removed_observation_refs == [],
+    )
+    require(
+        "evidence_delta.comparison",
+        comparison
         == {
             "classification_changed": "NOT_EVALUATED",
             "classification_source_refs": [],
-        }
-        and delta.counter_evidence_refs == []
+        },
     )
-    no_candidate_bindings = (
-        delta.added_observation_refs == []
-        and delta.change_items == []
-        and delta.materiality_proposal == "NO_CANDIDATE"
-        and receipt.material_claims == []
-        and receipt.counter_evidence_set == []
+    require(
+        "evidence_delta.counter_evidence_refs",
+        delta.counter_evidence_refs == [],
     )
-    candidate_bindings = delta.materiality_proposal != "NO_CANDIDATE"
-    if not exact_bindings or (
-        no_candidate and not no_candidate_bindings
-    ) or (not no_candidate and not candidate_bindings):
-        raise ContractError("assessor_output_binding_invalid")
+    if no_candidate:
+        require(
+            "evidence_delta.added_observation_refs",
+            delta.added_observation_refs == [],
+        )
+        require("evidence_delta.change_items", delta.change_items == [])
+        require(
+            "evidence_delta.materiality_proposal",
+            delta.materiality_proposal == "NO_CANDIDATE",
+        )
+        require(
+            "assessment_receipt.material_claims",
+            receipt.material_claims == [],
+        )
+        require(
+            "assessment_receipt.counter_evidence_set",
+            receipt.counter_evidence_set == [],
+        )
+    else:
+        require(
+            "evidence_delta.materiality_proposal",
+            delta.materiality_proposal != "NO_CANDIDATE",
+        )
+    if mismatches:
+        ordered = tuple(sorted(mismatches))
+        if any(field not in ASSESSOR_OUTPUT_BINDING_FIELDS for field in ordered):
+            raise AssertionError("assessor_binding_field_unregistered")
+        raise ContractError(
+            "assessor_output_binding_invalid",
+            ",".join(ordered),
+        )
 
 
 def build_auditor_artifacts(
