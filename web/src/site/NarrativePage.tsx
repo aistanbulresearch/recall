@@ -108,6 +108,75 @@ function Section({
   );
 }
 
+/**
+ * The evidence chronology, drawn to scale.
+ *
+ * Marker positions are computed from the dates in the governed case file, so
+ * the picture cannot disagree with the numbers printed beside it: the long
+ * empty stretch on the right IS the interval the text names.
+ */
+function EvidenceTimeline() {
+  const start = Date.parse(`${hero.dates.geo_public}T00:00:00Z`);
+  const paper = Date.parse(`${hero.dates.qualifying_publication}T00:00:00Z`);
+  const end = Date.parse(`${hero.dates.clinvar_v5_public}T00:00:00Z`);
+  const x = (t: number) => 30 + (700 * (t - start)) / (end - start);
+  const marks = [
+    { at: x(start), date: hero.dates.geo_public, label: 'Data deposited in public' },
+    { at: x(paper), date: hero.dates.qualifying_publication, label: 'Publication indexed' },
+    { at: x(end), date: hero.dates.clinvar_v5_public, label: 'Public record updated' },
+  ];
+  return (
+    <figure className="fig timeline">
+      <svg viewBox="0 0 760 168" role="img" aria-label="Evidence chronology drawn to scale">
+        <g fontFamily="IBM Plex Mono, monospace">
+          <line x1="30" y1="66" x2="730" y2="66" stroke="#c9c8c2" />
+          {/* the stretch in which the record said the same thing */}
+          <line x1={marks[1].at} y1="66" x2="730" y2="66" stroke="#8d3b2f" strokeWidth="2" />
+          <text x={(marks[1].at + 730) / 2} y="92" fontSize="11" fill="#8d3b2f" textAnchor="middle">
+            {days(hero.dates.qualifying_publication, hero.dates.clinvar_v5_public)} days in which
+            the chart did not change
+          </text>
+          <text x={(marks[1].at + 730) / 2} y="110" fontSize="9.5" fill="#6a6c73" textAnchor="middle">
+            the evidence was public and free to read the whole time
+          </text>
+          {marks.map((mark, i) => (
+            <g key={mark.date}>
+              <circle cx={mark.at} cy="66" r="4.5" fill="#fbfbf9" stroke="#15161a" strokeWidth="1.5" />
+              <text
+                x={mark.at}
+                y="40"
+                fontSize="11"
+                fill="#15161a"
+                textAnchor={i === 0 ? 'start' : i === marks.length - 1 ? 'end' : 'middle'}
+              >
+                {mark.date}
+              </text>
+              <text
+                x={mark.at}
+                y="24"
+                fontSize="9.5"
+                fill="#6a6c73"
+                textAnchor={i === 0 ? 'start' : i === marks.length - 1 ? 'end' : 'middle'}
+              >
+                {mark.label}
+              </text>
+            </g>
+          ))}
+          <line x1="30" y1="130" x2="730" y2="130" stroke="#15161a" strokeWidth="1" />
+          <text x="380" y="150" fontSize="11" fill="#15161a" textAnchor="middle">
+            {days(hero.dates.geo_public, hero.dates.clinvar_v5_public)} days end to end
+          </text>
+        </g>
+      </svg>
+      <figcaption className="fig-cap">
+        Fig 1. Drawn to scale from the dates in the governed case file. Nothing was hidden and
+        nothing failed; the evidence simply arrived somewhere nobody was watching on behalf of
+        the case.
+      </figcaption>
+    </figure>
+  );
+}
+
 /** Two trust boundaries and the human at the end of them. */
 function BoundaryDiagram() {
   return (
@@ -271,14 +340,89 @@ export function NarrativePage() {
 
         <Section
           num="01"
-          title="THE PROBLEM"
-          claim="An uncertain result is filed once and rarely revisited, so the record and the evidence drift apart — measurably."
+          title="THE PROBLEM: A RESULT THAT MEANS “WE DO NOT KNOW YET”"
+          claim="Genetic testing has a third answer, and it is the most common one to go stale. Nobody owns it, so nobody re-opens it."
         >
           <p>
-            On the case Recall replays, three public events happened in order. Each one is
-            captured here as bytes, hashed, so the chronology can be checked rather than
-            believed.
+            A person with a strong family history of cancer is tested. The laboratory reads
+            their genes, finds a difference from the reference, and has to say what that
+            difference means. There are three possible answers, and only two of them are
+            answers.
           </p>
+
+          <table className="tbl verdicts">
+            <thead>
+              <tr>
+                <th>The lab reports</th>
+                <th>What it means for care</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="cap">Pathogenic</td>
+                <td>
+                  This change explains the risk. Screening, prevention and testing the rest of
+                  the family can all proceed from it.
+                </td>
+              </tr>
+              <tr>
+                <td className="cap">Benign</td>
+                <td>
+                  This change is not the cause. It is set aside and the search continues
+                  elsewhere.
+                </td>
+              </tr>
+              <tr className="vus-row">
+                <td className="cap">
+                  Uncertain
+                  <span className="limit">“variant of uncertain significance”, a VUS</span>
+                </td>
+                <td>
+                  <b>Nothing.</b> The evidence available today does not support either
+                  answer, so the finding cannot guide screening, cannot guide prevention, and
+                  cannot be used to test relatives. It is not a warning and it is not an
+                  all-clear. It is an open question, written into a chart.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            So the clinician does the responsible thing: they explain that the finding cannot
+            be acted on, they manage the patient on family history instead, and they say the
+            sentence every genetics clinic says — <i>this may be reclassified as more
+            evidence accumulates</i>. Then the report is filed.
+          </p>
+
+          <p>
+            That sentence is a promise nobody is assigned to keep. The evidence that would
+            settle the question does accumulate — in laboratories on other continents, in
+            functional studies, in public data deposits and in publications — and eventually
+            it reaches the public variant databases. But it arrives <b>years later</b>, in a
+            different system, with no connection to the chart it should change. Re-contact
+            practice varies between laboratories, and no standing process watches every closed
+            case on the clinic&rsquo;s behalf.
+          </p>
+
+          <p className="hero-line">
+            The person who carries this is the one nobody writes stories about: the clinical
+            genetics specialist holding a backlog of unresolved cases, each one a question
+            that was correct to leave open and that only they remember. Their real work is not
+            reading a variant. It is remembering, for years, that a question is still open —
+            and there is no system that remembers with them.
+          </p>
+
+          <h3 className="sub-head">What that costs, measured on one real case</h3>
+          <p>
+            Recall replays a documented case: a variant in <b>BRCA2</b>, one of the two genes
+            most associated with hereditary breast and ovarian cancer, filed as uncertain. The
+            evidence that moved it was deposited publicly, published, and only much later
+            reflected in the public record that clinics read. Every event below is captured
+            here as bytes and hashed, so the chronology can be checked rather than believed.
+          </p>
+
+          <EvidenceTimeline />
+
           <div className="chrono">
             {chrono.map((row) => (
               <div className="chrono-row" key={row.date}>
@@ -288,6 +432,7 @@ export function NarrativePage() {
               </div>
             ))}
           </div>
+
           <div className="gap-line">
             <div className="gap-item">
               <span className="gap-days">{headlineDays} days</span>
@@ -298,11 +443,21 @@ export function NarrativePage() {
               <span className="gap-basis">{required.claim_basis}</span>
             </div>
           </div>
+
+          <p>
+            {requiredDays} days is not a system outage. Nothing was broken and nobody was
+            negligent. For {requiredDays} days the decisive evidence was public, free and
+            searchable — and any clinic that had filed this variant as uncertain was still
+            reading the older record, because re-reading it was nobody&rsquo;s scheduled work.
+            That gap is the product: not a smarter model, but something that keeps watching
+            after the appointment ends.
+          </p>
+
           <p className="caveat">
-            Both intervals are shown together because neither stands alone.{' '}
-            {hero.honesty_sentences.join(' ')} The day counts are computed from the dates
-            above when this page renders, so a number here can never disagree with the dates
-            beside it. Case chronology, not a product metric; governed by{' '}
+            Both intervals are shown together because neither stands alone, and the claim is
+            deliberately narrow. {hero.honesty_sentences.join(' ')} The day counts are computed
+            from the dates above when this page renders, so a number here can never disagree
+            with the dates beside it. Case chronology, not a product metric; governed by{' '}
             <code>{hero.governing_document}</code>.
           </p>
         </Section>

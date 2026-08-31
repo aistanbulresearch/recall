@@ -45,6 +45,45 @@ describe('the problem section', () => {
   });
 });
 
+describe('the problem is explained to a non-specialist', () => {
+  it('defines the three verdicts and names what uncertain costs', () => {
+    for (const verdict of ['Pathogenic', 'Benign', 'Uncertain']) {
+      expect(markup).toContain(verdict);
+    }
+    expect(markup).toContain('variant of uncertain significance');
+    expect(markup).toContain('cannot be used to test relatives');
+    expect(markup).toContain('not a warning and it is not an all-clear');
+  });
+
+  it('names the person who carries the unresolved case', () => {
+    expect(markup).toContain('clinical genetics specialist holding a backlog');
+    expect(markup).toContain('this may be reclassified as more');
+  });
+
+  it('states plainly that nothing was broken — the gap is structural', () => {
+    expect(markup).toContain('not a system outage');
+    expect(markup).toContain('nobody was negligent');
+  });
+
+  it('draws the chronology to scale from the same dates it prints', () => {
+    // The marker for the publication sits where the dates put it: 103 of the
+    // 575 days, so the long red stretch is the 472-day interval itself.
+    const svg = markup.slice(markup.indexOf('Evidence chronology drawn to scale'));
+    const cx = Number(svg.match(/cx="([\d.]+)"/g)![1].match(/[\d.]+/)![0]);
+    const expected = 30 + (700 * 103) / 575;
+    expect(Math.abs(cx - expected)).toBeLessThan(0.5);
+    expect(markup).toContain('days in which');
+    expect(markup).toContain('the chart did not change');
+  });
+
+  it('avoids unexplained clinical shorthand in the lead', () => {
+    // ACMG-style jargon must not be the first thing a non-specialist meets.
+    for (const jargon of ['ACMG', 'germline pathogenicity', 'cascade testing']) {
+      expect(markup).not.toContain(jargon);
+    }
+  });
+});
+
 describe('the live run block', () => {
   it('is stamped with the instant it was read and its source', () => {
     expect(markup).toContain(liveRun.as_of_utc);
