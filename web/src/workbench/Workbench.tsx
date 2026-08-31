@@ -1,14 +1,14 @@
 /**
- * Recall Clinical Evidence Workbench — the hosted panel shell.
+ * Recall Clinical Evidence Workbench; the hosted panel shell.
  *
  * Two permanent layers:
- *   above — a clinician-facing laboratory workbench (worklist, case records,
+ *   above; a clinician-facing laboratory workbench (worklist, case records,
  *           cohort ledger, privacy desk, evidence dossier);
- *   below — the evidence substrate strip: the same figures with their full
+ *   below; the evidence substrate strip: the same figures with their full
  *           lineage (json path, artifact id, content hash), always visible.
  *
  * Navigation is hash-based so the build serves from any static host with no
- * rewrite rules. A route can never select an outcome — it selects which
+ * rewrite rules. A route can never select an outcome; it selects which
  * derived record is on screen.
  */
 
@@ -43,7 +43,7 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     id: 'golden',
     label: 'Audited replay fixture',
-    clinicalLabel: 'Re-evaluation completed — audited replay',
+    clinicalLabel: 'Re-evaluation completed, audited replay',
     bundle: goldenBundle as unknown as ArtifactBundle,
   },
   {

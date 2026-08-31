@@ -18,7 +18,7 @@
     "result": {
       "gene": "BRCA2",
       "variant": "NM_000059.4:c.7522G>C",
-      "interpretation_at_the_time": "VUS — variant of uncertain significance",
+      "interpretation_at_the_time": "VUS, variant of uncertain significance",
       "interpretation_basis": "ClinVar aggregate record at the encounter date (v4 lineage, captured)",
       "capture": {
         "path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.4.printable.html",

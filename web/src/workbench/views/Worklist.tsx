@@ -3,7 +3,7 @@
  *
  * Each row is one completed fleet evaluation whose figures are derived from
  * that scenario's artifact bundle. The plain-language outcome label is a
- * deterministic mapping from the gate's derived outcome value — never free
+ * deterministic mapping from the gate's derived outcome value, never free
  * text. Cohort rows that do not exist yet are explicit PENDING placeholders.
  */
 
@@ -19,8 +19,8 @@ interface BuildResult {
 /** Deterministic plain-language labels, keyed by the derived gate outcome. */
 export const OUTCOME_LANGUAGE: Record<string, { label: string; tone: string }> = {
   REVIEW_REQUIRED: { label: 'Human review requested', tone: 'review' },
-  ABSTAIN: { label: 'Fleet abstained — evidence did not verify', tone: 'abstain' },
-  HALTED: { label: 'Run halted — integrity could not be proven', tone: 'halted' },
+  ABSTAIN: { label: 'Fleet abstained: evidence did not verify', tone: 'abstain' },
+  HALTED: { label: 'Run halted: integrity could not be proven', tone: 'halted' },
 };
 
 export function outcomeStamp(value: string | number | null) {
@@ -40,7 +40,7 @@ export function recordStamp(fields: ViewModel) {
   }
   if (fields['UI-GLOBAL-RUN-STATE'].value === 'HALTED') {
     return {
-      label: 'Run halted — the gate never decided',
+      label: 'Run halted; the gate never decided',
       tone: 'halted',
     };
   }
@@ -112,8 +112,8 @@ export function Worklist({
                       key: `${scenario.id}:UI-GLOBAL-RUN-ID`,
                     }}
                   />{' '}
-                  · citations {String(fields['UI-CITATION-STATUS'].value ?? '—')} · privacy{' '}
-                  {String(fields['UI-PRIVACY-STATUS'].value ?? '—')}
+                  · citations {String(fields['UI-CITATION-STATUS'].value ?? 'none')} · privacy{' '}
+                  {String(fields['UI-PRIVACY-STATUS'].value ?? 'none')}
                 </span>
               </div>
               <span className={`stamp tone-${stamp.tone}`}>{stamp.label}</span>

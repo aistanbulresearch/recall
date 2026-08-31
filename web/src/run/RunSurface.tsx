@@ -9,7 +9,7 @@
  * disagrees the disagreement is shown instead of reconciled.
  *
  * Two sections carry most of the weight. The role funnel accounts for every
- * case that did not reach the gate — each drop between stages is one recorded
+ * case that did not reach the gate; each drop between stages is one recorded
  * failure, not an unexplained gap. The containment block shows what happened
  * when the machinery could not be trusted, per case, with the checks that turn
  * "it handles failure well" from a claim into evidence.
@@ -88,7 +88,7 @@ function CohortField({
           type="button"
           role="listitem"
           className={`run-cell ${STATE_CLASS[row.state]}${selected === row.run ? ' selected' : ''}`}
-          title={`${row.run} — ${row.state}: ${STATE_LANGUAGE[row.state].short}`}
+          title={`${row.run}, ${row.state}: ${STATE_LANGUAGE[row.state].short}`}
           aria-label={`${row.run}, ${row.state}`}
           onClick={() => onSelect(row)}
         />
@@ -102,7 +102,7 @@ function CaseDetail({ row, halted }: { row: RunCase; halted: HaltedCase | undefi
     <div className="run-detail">
       <p>
         <span className={`swatch ${STATE_CLASS[row.state]}`} aria-hidden />{' '}
-        <code>{row.run}</code> — <b>{row.state}</b>: {STATE_LANGUAGE[row.state].short}.{' '}
+        <code>{row.run}</code>, <b>{row.state}</b>: {STATE_LANGUAGE[row.state].short}.{' '}
         {row.artifact_count} artifacts recorded for this case.
       </p>
       <p className="detail-roles">
@@ -166,7 +166,7 @@ export function RunSurface() {
           <p>{awaiting}</p>
           <p className="awaiting-note">
             This surface renders a completed execution from its committed artifacts. Until
-            those artifacts exist it stays empty on purpose — an empty state here is a true
+            those artifacts exist it stays empty on purpose; an empty state here is a true
             statement, and a drawn one would not be.
           </p>
         </div>
@@ -323,7 +323,7 @@ export function RunSurface() {
           <b>{halted.reduce((sum, row) => sum + row.closure.policy_decisions, 0)}</b> policy
           decisions and{' '}
           <b>{halted.reduce((sum, row) => sum + row.closure.review_tasks, 0)}</b> review tasks.
-          A halted case is a technical terminal — never a task, and never a scientific
+          A halted case is a technical terminal, never a task, and never a scientific
           statement about a variant.
         </p>
         <table className="tbl halted">
@@ -411,7 +411,7 @@ export function RunSurface() {
                   .map(([decision, count]) => `${count} ${decision}`)
                   .join(', ')}
               </td>
-              <td className="num good">—</td>
+              <td className="num good">, </td>
             </tr>
             <tr>
               <td>Trace chains, one per case</td>
@@ -441,7 +441,7 @@ export function RunSurface() {
                 {modes.run_level_receipts} / {modes.cohort_level_receipts}
               </td>
               <td className="num">
-                {modes.cohort_level_absent ? 'absence reported, no hash invented' : '—'}
+                {modes.cohort_level_absent ? 'absence reported, no hash invented' : ', '}
               </td>
             </tr>
             <tr>

@@ -3,7 +3,7 @@
  * manifests exported to the evidence tree (c1, c2 are verbatim copies of
  * artifacts/evidence/cohort-compression/executed-manifests/). Each manifest
  * goes through the same contract-validating view-model builder as every other
- * surface — the ledger renders derived fields only.
+ * surface; the ledger renders derived fields only.
  *
  * Cycles that have not executed yet are explicit PENDING placeholders, and
  * the partially-executed day is reported as the line it is, never a headline.
@@ -103,7 +103,7 @@ export function CohortLedger() {
       <div className="work-card">
         <div className="work-row honest-line">
           <div className="work-case">
-            <span className="work-title">c3 — partially executed day</span>
+            <span className="work-title">c3, partially executed day</span>
             <span className="work-meta">
               Three trigger attempts and a typed incomplete day are on the ledger for this cycle;
               its manifest export lands with the morning bundle. Recorded as a line, not a
@@ -127,7 +127,7 @@ export function CohortLedger() {
 
       <p className="honesty-footnote">
         Epoch labels stay on every row: a case re-evaluated in a later epoch is the same case
-        again, on purpose — run totals are never presented as distinct-case totals.
+        again, on purpose, run totals are never presented as distinct-case totals.
       </p>
     </section>
   );

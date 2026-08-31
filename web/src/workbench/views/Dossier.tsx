@@ -2,7 +2,7 @@
  * Evidence dossier: the auditor-grade view. The full derived-field surface
  * (Mission Control) per scenario bundle, with the provenance chain closing at
  * the bottom. This is the layer the substrate strip summarizes everywhere
- * else — here it is the whole page.
+ * else, here it is the whole page.
  */
 
 import { useState } from 'react';
@@ -34,7 +34,7 @@ export function Dossier({
         <h1>Evidence dossier</h1>
         <p className="view-sub">
           The unabridged derived-field surface for each scenario bundle. Selecting a bundle
-          changes the input artifacts only — outcomes are never preset.
+          changes the input artifacts only, outcomes are never preset.
         </p>
       </header>
 

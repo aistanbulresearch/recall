@@ -40,7 +40,7 @@ export function MissionControl({ model }: { model: ViewModel }) {
       <header className="masthead">
         <div className="masthead-identity">
           <h1>Recall</h1>
-          <p className="prototype-label">NON-CLINICAL RESEARCH PROTOTYPE — synthetic institutional records only</p>
+          <p className="prototype-label">NON-CLINICAL RESEARCH PROTOTYPE, synthetic institutional records only</p>
         </div>
         <div className="masthead-fields">
           <DataModeBadge field={model['UI-GLOBAL-MODE']} />

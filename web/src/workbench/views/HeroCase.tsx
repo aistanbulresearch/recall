@@ -3,7 +3,7 @@
  * the record changing.
  *
  * Interval arithmetic happens HERE, at render time, from the dates in the
- * case file — the file deliberately stores no day counts, so a displayed
+ * case file; the file deliberately stores no day counts, so a displayed
  * number can never disagree with the dates beside it. Display obeys the
  * 2026-08-25 claim-gate ruling recorded in the file: the registry-chronology
  * interval may headline only while the preregistered lead-time interval is

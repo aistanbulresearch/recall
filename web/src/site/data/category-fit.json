@@ -26,14 +26,14 @@
       "capability": "Memory Bank boundary",
       "mechanism": "Only admitted, non-authoritative operational context may ever be carried; no decision may rest on it.",
       "badge": "DEFERRED",
-      "evidence": "ADR-0002 — Firestore authority and Memory Bank boundary",
+      "evidence": "ADR-0002; Firestore authority and Memory Bank boundary",
       "limit": "No Memory Bank runtime is deployed or claimed. The boundary is a rule, not a running component."
     },
     {
       "capability": "Agent Identity",
       "mechanism": "Each role runs under its own service identity with role-scoped authority, and the agents hold no ledger write access at all.",
       "badge": "SOURCE VERIFIED",
-      "evidence": "src/recall/platform/identity.py — identity_for_role, declared_inventory, agents_hold_no_ledger_access",
+      "evidence": "src/recall/platform/identity.py, identity_for_role, declared_inventory, agents_hold_no_ledger_access",
       "limit": "The run recorded no IAM failure; account names and project identifiers are deliberately not published."
     },
     {
@@ -47,7 +47,7 @@
       "capability": "Model Armor",
       "mechanism": "Template-driven screening for injection, jailbreak, sensitive data and malicious URIs, producing a decision and findings that never carry the screened text.",
       "badge": "SOURCE VERIFIED",
-      "evidence": "src/recall/platform/armor.py — evaluate_sanitization, armor_receipt, ArmorFinding",
+      "evidence": "src/recall/platform/armor.py, evaluate_sanitization, armor_receipt, ArmorFinding",
       "limit": "No separate live capture is attached, so no Model Armor activity is attributed to the current run."
     },
     {

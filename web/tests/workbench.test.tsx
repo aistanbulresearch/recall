@@ -36,7 +36,7 @@ describe('record stamps derive from fields', () => {
       tone: 'review',
     });
     expect(recordStamp(fault.fields)).toEqual({
-      label: 'Fleet abstained — evidence did not verify',
+      label: 'Fleet abstained: evidence did not verify',
       tone: 'abstain',
     });
   });
@@ -46,7 +46,7 @@ describe('record stamps derive from fields', () => {
     // say the run halted, not invent an outcome.
     expect(halted.fields['UI-POLICY-OUTCOME'].status).toBe('INCOMPLETE');
     expect(recordStamp(halted.fields)).toEqual({
-      label: 'Run halted — the gate never decided',
+      label: 'Run halted; the gate never decided',
       tone: 'halted',
     });
   });

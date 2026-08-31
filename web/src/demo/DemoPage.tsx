@@ -58,7 +58,7 @@ export function DemoPage() {
             <>
               <p>
                 I can only answer from this run’s stored artifacts, and I don’t have one that
-                covers that. I would rather say so than improvise — which is the same rule the
+                covers that. I would rather say so than improvise: which is the same rule the
                 system itself follows.
               </p>
               <p className="quiet">Here is everything the artifacts do cover:</p>
@@ -107,7 +107,7 @@ export function DemoPage() {
           <h1>Welcome to the Recall demo.</h1>
           <p className="lede">
             Recall is a zero-trust institutional agent fleet that keeps watching closed genomic
-            cases after the appointment ends — and never lets a model become the scientific
+            cases after the appointment ends, and never lets a model become the scientific
             authority.
           </p>
           <p className="lede">

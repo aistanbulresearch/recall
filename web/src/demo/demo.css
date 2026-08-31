@@ -2,7 +2,7 @@
  * The demo page. White, quiet, and large enough to read across a room.
  *
  * Every class here is namespaced under `.demo` so nothing on this page can be
- * reached — or reshaped — by the other surfaces' stylesheets.
+ * reached, or reshaped, by the other surfaces' stylesheets.
  */
 
 .demo {
@@ -106,7 +106,7 @@
 .bubble .codes { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* Markers are positioned, never laid out as grid or flex children: a list item
-   holds inline content — bold figures, code spans — and turning it into a grid
+   holds inline content, bold figures, code spans, and turning it into a grid
    container would make each of those its own narrow track. */
 .bubble ol.chain { counter-reset: step; list-style: none; padding-left: 0; }
 

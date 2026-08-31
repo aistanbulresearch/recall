@@ -109,7 +109,7 @@ export function fieldToStripEntry(field: ViewField): StripEntry {
 
 /**
  * A figure in the clinician layer. Rendered from a ViewField or an explicit
- * strip entry — never from a literal. Clicking it spotlights the lineage row
+ * strip entry, never from a literal. Clicking it spotlights the lineage row
  * in the substrate strip.
  */
 export function DerivedValue({
@@ -130,7 +130,7 @@ export function DerivedValue({
       data-strip-key={entry.key}
       onClick={() => focus(entry.key)}
     >
-      {display ?? String(entry.value ?? '—')}
+      {display ?? String(entry.value ?? 'none')}
     </button>
   );
 }
@@ -169,7 +169,7 @@ export function EvidenceStrip() {
           >
             <span className={`strip-status s-${entry.status.toLowerCase()}`}>{entry.status}</span>
             <span className="strip-field">{entry.key}</span>
-            <span className="strip-value">{String(entry.value ?? '—')}</span>
+            <span className="strip-value">{String(entry.value ?? 'none')}</span>
             <span className="strip-lineage">{entry.lineage}</span>
           </div>
         ))}

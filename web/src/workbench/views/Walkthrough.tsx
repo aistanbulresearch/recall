@@ -1,7 +1,7 @@
 /**
  * The walkthrough: one synthetic patient, one real variant chronology, six
  * scenes. Each scene shows WHAT THE CLINICIAN SEES (a realistic laboratory /
- * EHR surface — synthetic, and labelled so) and, beside it, WHAT RUNS BEHIND
+ * EHR surface, synthetic, and labelled so) and, beside it, WHAT RUNS BEHIND
  * that screen (the fleet, the gate, the privacy boundary) with the real
  * evidence chips.
  *
@@ -148,7 +148,7 @@ export function Walkthrough() {
         <p className="wt-eyebrow">A WALKTHROUGH IN SIX SCENES</p>
         <h1>The result was filed as “uncertain”. The world kept moving.</h1>
         <p className="wt-lede">
-          One synthetic patient, one real variant history. What a clinician sees at every step —
+          One synthetic patient, one real variant history. What a clinician sees at every step,
           and the fleet, gate and privacy boundary running underneath it.
         </p>
       </header>
@@ -156,7 +156,7 @@ export function Walkthrough() {
       <Scene
         index={1}
         title="The clinic files a VUS"
-        kicker="The problem is not a wrong answer — it is an answer nobody will revisit."
+        kicker="The problem is not a wrong answer; it is an answer nobody will revisit."
         screen={
           <div className="ehr">
             <PatientBanner />
@@ -186,7 +186,7 @@ export function Walkthrough() {
               </tbody>
             </table>
             <div className="ehr-note">
-              <span className="ehr-note-head">Encounter note — {wt.encounter.panel}</span>
+              <span className="ehr-note-head">Encounter note, {wt.encounter.panel}</span>
               <p>{wt.encounter.note_excerpt}</p>
             </div>
           </div>
@@ -195,7 +195,7 @@ export function Walkthrough() {
           <>
             <p>
               Nothing runs. That is the point: the interpretation was honest for its date
-              ({W('EV-WT-RESULT-BASIS')}) — and once filed, no clinic re-reviews it on its own.
+              ({W('EV-WT-RESULT-BASIS')}), and once filed, no clinic re-reviews it on its own.
             </p>
             <p className="behind-evidence">
               The record state at that date is captured, byte for byte:{' '}
@@ -209,7 +209,7 @@ export function Walkthrough() {
       <Scene
         index={2}
         title="The world moves"
-        kicker="Decisive evidence appears in public — but not in the chart."
+        kicker="Decisive evidence appears in public, but not in the chart."
         screen={
           <div className="world-feed">
             {wt.world_evidence.map((row, i) => (
@@ -237,7 +237,7 @@ export function Walkthrough() {
           <>
             <p>
               Recall's <strong>Watcher</strong> scans these sources on a machine-triggered
-              schedule — a Cloud Scheduler cron starts a Cloud Run job; the execution's creator
+              schedule; a Cloud Scheduler cron starts a Cloud Run job; the execution's creator
               is the scheduler's service account, not a person. Source pages are captured as
               bytes and hashed.
             </p>
@@ -252,7 +252,7 @@ export function Walkthrough() {
       <Scene
         index={3}
         title="The fleet works the case"
-        kicker="Three roles, separated on purpose. The clinician sees none of this — yet."
+        kicker="Three roles, separated on purpose. The clinician sees none of this, yet."
         screen={
           <div className="trace">
             {[
@@ -268,7 +268,7 @@ export function Walkthrough() {
             ))}
             <div className="trace-span gate" style={{ marginLeft: '78px' }}>
               <span className="trace-role">Policy Gate</span>
-              <span className="trace-what">decides — deterministically</span>
+              <span className="trace-what">decides, deterministically</span>
             </div>
           </div>
         }
@@ -277,7 +277,7 @@ export function Walkthrough() {
             <p>
               Each role runs under its own service account with its own capability; the agent
               that proposes is never the agent that verifies. The Auditor's approval only counts
-              when the quoted source resolves to the captured bytes from scene 2 — a mismatched
+              when the quoted source resolves to the captured bytes from scene 2; a mismatched
               quote is a refusal, not a warning.
             </p>
             <p className="behind-evidence">
@@ -312,12 +312,12 @@ export function Walkthrough() {
           <>
             <p>
               The gate is lexical and reason-coded: same receipts, same ruling, every time. And it
-              is three-valued — when evidence does not verify it{' '}
+              is three-valued, when evidence does not verify it{' '}
               <a href="#/demo/case/fault">abstains</a>; when integrity cannot be proven it{' '}
               <a href="#/demo/case/halted">halts</a>. Both are honest endings, recorded like any other.
             </p>
             <p className="behind-evidence">
-              this scene renders the audited replay bundle's derived fields — outcome and reason
+              this scene renders the audited replay bundle's derived fields, outcome and reason
               codes are read, never asserted
             </p>
           </>
@@ -327,14 +327,14 @@ export function Walkthrough() {
       <Scene
         index={5}
         title="Back at the clinic"
-        kicker="The case reopens itself — with the evidence attached."
+        kicker="The case reopens itself, with the evidence attached."
         screen={
           <div className="ehr">
             <PatientBanner />
             <div className="worklist-pop">
               <span className={`stamp tone-${stamp.tone}`}>{stamp.label}</span>
               <span className="pop-line">
-                {W('EV-WT-RESULT-GENE')} {W('EV-WT-RESULT-VARIANT')} — new evidence verified to
+                {W('EV-WT-RESULT-GENE')} {W('EV-WT-RESULT-VARIANT')}, new evidence verified to
                 source; specialist review suggested.
               </span>
             </div>
@@ -355,7 +355,7 @@ export function Walkthrough() {
             <p>
               That interval is what Recall exists to close: the historical gap between evidence
               being public and the record reflecting it, measured on this case's real registry
-              chronology. Case chronology, not a product metric — and the fleet raises the case
+              chronology. Case chronology, not a product metric, and the fleet raises the case
               as soon as the evidence is captured and verified.
             </p>
             <p className="behind-evidence">
@@ -395,11 +395,11 @@ export function Walkthrough() {
         behind={
           <>
             <p>
-              Before anything leaves, a deterministic screen runs — and a local Gemma checks what
+              Before anything leaves, a deterministic screen runs, and a local Gemma checks what
               it might have missed: acceptance {P1_FIELDS && <DerivedValue entry={P1_FIELDS['EV-P1-BASELINE-ACCEPTED']} />}
               /180 → <DerivedValue entry={P1_FIELDS['EV-P1-ARM-B-ACCEPTED']} />/180 in the frozen
-              study, with zero escaped identifiers. Last night the whole portfolio —{' '}
-              <DerivedValue entry={GEMMA_RUN_FIELDS['EV-GEMMA-RECEIPTS']} /> cases — went through
+              study, with zero escaped identifiers. Last night the whole portfolio, {' '}
+              <DerivedValue entry={GEMMA_RUN_FIELDS['EV-GEMMA-RECEIPTS']} /> cases, went through
               the live gate on a private Vertex endpoint.
             </p>
             <p className="behind-evidence">
@@ -412,7 +412,7 @@ export function Walkthrough() {
       <footer className="wt-close">
         <h2>The evidence file is open</h2>
         <p>
-          Everything above resolves from committed artifacts — the strip below shows the lineage
+          Everything above resolves from committed artifacts; the strip below shows the lineage
           of every figure on this page. Keep going:
         </p>
         <nav className="wt-links">

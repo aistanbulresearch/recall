@@ -1,7 +1,7 @@
 /**
  * Application shell.
  *
- *   #/          the demo page — a white screen and a conversation, which is all
+ *   #/          the demo page; a white screen and a conversation, which is all
  *               a first-time reader should have to deal with;
  *   #/run       the recorded run, case by case;
  *   #/story     the full narrative and the architecture;

@@ -1,5 +1,5 @@
 /**
- * Recall — the jury-facing narrative page (route `/`).
+ * Recall: the jury-facing narrative page (route `/`).
  *
  * A document, not an application. It states the thesis, shows the problem with
  * captured dates, explains the fleet and the authority boundary, maps the
@@ -162,7 +162,7 @@ function EvidenceTimeline() {
         </g>
       </svg>
       <figcaption className="fig-cap">
-        Fig 1. Drawn to scale from the dates above. Nothing failed — the evidence simply
+        Fig 1. Drawn to scale from the dates above. Nothing failed; the evidence simply
         arrived where nobody was watching.
       </figcaption>
     </figure>
@@ -241,7 +241,7 @@ function BoundaryDiagram() {
         </g>
       </svg>
       <div className="legend">
-        <span>[—] live path, proven in the current run</span>
+        <span>[, ] live path, proven in the current run</span>
         <span>[·] no raw clinical text crosses the laboratory line</span>
         <span>[blue] model proposal · [black] deterministic control</span>
       </div>
@@ -249,7 +249,7 @@ function BoundaryDiagram() {
         Fig 1. Two boundaries and a person. The models live inside the cloud boundary and
         may only propose; the deterministic controller and policy gate hold every decision;
         the specialist holds the final one. What leaves the laboratory is a structured,
-        minimized, signed payload — never the note.
+        minimized, signed payload, never the note.
       </figcaption>
     </figure>
   );
@@ -292,7 +292,7 @@ export function NarrativePage() {
           </h1>
           <p>
             When a genetic test returns “uncertain”, the case is filed and almost never
-            reopened. Evidence that would change it keeps arriving in public — years later,
+            reopened. Evidence that would change it keeps arriving in public, years later,
             in a different system, with nobody watching. Recall watches.
           </p>
           <p>
@@ -315,7 +315,7 @@ export function NarrativePage() {
         <Section
           num="01"
           title="THE PROBLEM"
-          claim="Clinical genetics has an alert system. It fires when the paperwork changes — not when the evidence does."
+          claim="Clinical genetics has an alert system. It fires when the paperwork changes, not when the evidence does."
         >
           <p>
             You monitor dependencies for CVEs. Now imagine alerts only fired when the vendor
@@ -323,13 +323,13 @@ export function NarrativePage() {
             that way today: the tools watch the changelog.
           </p>
           <p>
-            A cancer patient&rsquo;s genetic test comes back <b>“uncertain significance”</b> — a
+            A cancer patient&rsquo;s genetic test comes back <b>“uncertain significance”</b>, a
             classification that means <i>do not act, wait for evidence</i>. It cannot guide
             screening, cannot guide prevention, and cannot be used to test her relatives. That
             one label can stand between her and a drug approved for exactly her kind of tumour.
           </p>
           <p>
-            The evidence that would settle it does arrive — years later, in a public database,
+            The evidence that would settle it does arrive, years later, in a public database,
             with no connection to the chart it should change.
           </p>
 
@@ -372,7 +372,7 @@ export function NarrativePage() {
           <p className="punch">
             Laboratory evidence that this variant behaves like the harmful ones went public in
             September 2024. The clinical record first moved in April 2026.{' '}
-            <b>{headlineDays} days</b> — and in between, nothing was watching.
+            <b>{headlineDays} days</b>, and in between, nothing was watching.
           </p>
 
           <EvidenceTimeline />
@@ -435,7 +435,7 @@ export function NarrativePage() {
                 <span>
                   <span className="step-what">{what}</span>
                   <span className="step-detail">{detail}</span>
-                  <span className="step-never">— {never}</span>
+                  <span className="step-never">, {never}</span>
                 </span>
               </div>
             ))}
@@ -462,7 +462,7 @@ export function NarrativePage() {
                 [
                   'Evidence Watcher',
                   'Find new public evidence and produce an evidence snapshot.',
-                  'Bind its own source cursors or identities — the controller owns those.',
+                  'Bind its own source cursors or identities; the controller owns those.',
                 ],
                 [
                   'Evidence Assessor',
@@ -472,7 +472,7 @@ export function NarrativePage() {
                 [
                   'Citation Auditor',
                   'Independently re-open every cited source and verify each claim.',
-                  'Audit its own proposal — it never wrote one.',
+                  'Audit its own proposal; it never wrote one.',
                 ],
                 [
                   'Deterministic Controller',
@@ -554,7 +554,7 @@ export function NarrativePage() {
           <p className="caveat">
             HALTED is not a quiet ABSTAIN. Collapsing the two would hide an infrastructure
             failure behind a scientific-sounding word, so the surfaces keep them visually and
-            textually distinct — you can see all four states, including the two failure
+            textually distinct; you can see all four states, including the two failure
             endings, on the <a href="#/demo">evidence surface</a>.
           </p>
         </Section>
@@ -610,7 +610,7 @@ export function NarrativePage() {
           <p>
             Three of those cases are the whole argument in miniature. A model produced a
             material claim, the Citation Auditor could not verify its sources, and the gate
-            emitted ABSTAIN with the reason codes attached — no task, no downstream action, no
+            emitted ABSTAIN with the reason codes attached; no task, no downstream action, no
             invented certainty. Eight more met an agent timeout and stopped at a technical
             terminal with a typed receipt rather than taking the cohort down with them.
           </p>
@@ -704,8 +704,8 @@ export function NarrativePage() {
           </div>
           <p>
             Deterministic detectors screen every record first; a local Gemma then proposes the
-            residual spans they may have missed, and deterministic adjudication — not the model
-            — decides what is redacted. The model proposes here too.
+            residual spans they may have missed, and deterministic adjudication, not the model
+, decides what is redacted. The model proposes here too.
           </p>
           <p className="caveat">
             <Badge kind="SOURCE VERIFIED" /> <b>Frozen measurement.</b> The full-cohort privacy
@@ -716,7 +716,7 @@ export function NarrativePage() {
             semantic drift, original bytes unchanged. It is a historical frozen measurement,
             not a measurement of the current run, and it is never re-run: the preregistration
             binds it to a single execution. Separately, the frozen P1 privacy study covers{' '}
-            <b>180</b> records — a different population from the 462, never combined with it,
+            <b>180</b> records; a different population from the 462, never combined with it,
             and its public figures come from the corrected view and the committed erratum.
           </p>
         </Section>
@@ -732,8 +732,8 @@ export function NarrativePage() {
               institution record or contact detail exists anywhere in the system.
             </li>
             <li>
-              The public evidence — registry pages, the dataset accession, the publication
-              record — is captured as bytes and hashed, so a claim can be checked against the
+              The public evidence, registry pages, the dataset accession, the publication
+              record, is captured as bytes and hashed, so a claim can be checked against the
               exact source that was read.
             </li>
             <li>
@@ -767,7 +767,7 @@ export function NarrativePage() {
             </a>
           </div>
           <p className="foot-note">
-            Recall — non-clinical research prototype. Synthetic institutional records and
+            Recall, non-clinical research prototype. Synthetic institutional records and
             captured public evidence. Models propose; deterministic policy decides; a human
             specialist holds the final authority.
           </p>

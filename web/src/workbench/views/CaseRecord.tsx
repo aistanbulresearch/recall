@@ -112,7 +112,7 @@ export function CaseRecord({
           <h2>Who worked this case</h2>
           <p className="card-note">
             Three roles, separated on purpose: the agent that proposes is never the agent that
-            verifies, and neither decides — the deterministic gate does.
+            verifies, and neither decides; the deterministic gate does.
           </p>
           <ul className="roster">
             {roster.map((agent) => (

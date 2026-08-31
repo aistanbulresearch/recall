@@ -5,7 +5,7 @@
  * from the committed generation-27 export at build time, so an answer is a
  * projection of stored artifacts rather than a model's account of them. If a
  * question falls outside what the artifacts can support, the demo says so
- * instead of improvising — which is the same rule the product itself follows.
+ * instead of improvising: which is the same rule the product itself follows.
  */
 
 import type { ReactNode } from 'react';
@@ -116,7 +116,7 @@ export const ANSWERS: Answer[] = [
       <>
         <p>
           Recall watches closed genomic cases after the appointment ends. When a genetic result
-          is filed as <b>uncertain</b>, nobody is assigned to re-read it — and the evidence that
+          is filed as <b>uncertain</b>, nobody is assigned to re-read it, and the evidence that
           would settle it arrives years later, in a public database, with no connection to the
           chart it should change.
         </p>
@@ -145,15 +145,15 @@ export const ANSWERS: Answer[] = [
         </p>
         <ul>
           <li>
-            <b>{counts.NO_ACTION}</b> cases — nothing to raise. The public evidence for that
+            <b>{counts.NO_ACTION}</b> cases: nothing to raise. The public evidence for that
             case had not moved.
           </li>
           <li>
-            <b>{counts.ABSTAIN}</b> cases — the fleet refused to decide, because the proof was
+            <b>{counts.ABSTAIN}</b> cases: the fleet refused to decide, because the proof was
             incomplete.
           </li>
           <li>
-            <b>{counts.HALTED}</b> cases — the machinery could not be trusted for that case, so
+            <b>{counts.HALTED}</b> cases: the machinery could not be trusted for that case, so
             it stopped and recorded why.
           </li>
           <li>
@@ -183,11 +183,11 @@ export const ANSWERS: Answer[] = [
         <p>The chain closed the same way in all {halted.length}:</p>
         <ol className="chain">
           <li>
-            the role timed out — <code>{sampleHalted.agent_execution_receipt.technical_code}</code>{' '}
+            the role timed out, <code>{sampleHalted.agent_execution_receipt.technical_code}</code>{' '}
             on a receipt that stays in the ledger
           </li>
           <li>
-            the controller wrote a failure receipt —{' '}
+            the controller wrote a failure receipt, {' '}
             <code>{sampleHalted.failure_receipt.controller_code}</code>, stage{' '}
             <b>{sampleHalted.failure_receipt.stage}</b>, not retryable, with an operator action
           </li>
@@ -205,8 +205,8 @@ export const ANSWERS: Answer[] = [
           <li>the other {cases.length - halted.length} cases kept going</li>
         </ol>
         <p>
-          Failures landed on three different roles — {funnel[0].failed} watcher,{' '}
-          {funnel[1].failed} assessor, {funnel[2].failed} auditor — and each one is traceable to
+          Failures landed on three different roles, {funnel[0].failed} watcher,{' '}
+          {funnel[1].failed} assessor, {funnel[2].failed} auditor, and each one is traceable to
           a case, a stage and a receipt hash.
         </p>
       </>
@@ -228,7 +228,7 @@ export const ANSWERS: Answer[] = [
           {Object.entries(governance.policy_outcomes_seen)
             .map(([outcome, count]) => `${count} ${outcome}`)
             .join(' and ')}{' '}
-          — and nothing else. The {halted.length} halted cases produced <b>no</b> policy decision
+, and nothing else. The {halted.length} halted cases produced <b>no</b> policy decision
           at all, and the ledger contains <b>{cohort.review_tasks_in_ledger}</b> review tasks.
         </p>
         <p>
@@ -302,7 +302,7 @@ export const ANSWERS: Answer[] = [
             <b>{governance.tool_calls_without_authorization}</b> unauthorized.
           </li>
           <li>
-            <b>{governance.distinct_trace_ids}</b> trace chains — one per case —{' '}
+            <b>{governance.distinct_trace_ids}</b> trace chains: one per case, {' '}
             {governance.runs_with_more_than_one_trace} mismatched,{' '}
             {governance.agent_receipts_without_trace} untraced.
           </li>
@@ -321,7 +321,7 @@ export const ANSWERS: Answer[] = [
           {Object.entries(cohort.artifacts.status_field)
             .map(([status, count]) => `${count} ${status}`)
             .join(', ')}
-          . That is not a blemish — the rejected ones are the controller’s failure receipts, and
+          . That is not a blemish; the rejected ones are the controller’s failure receipts, and
           a fail-closed system is supposed to carry typed rejections.
         </p>
       </>
@@ -347,13 +347,13 @@ export const ANSWERS: Answer[] = [
     body: (
       <>
         <p>
-          A cancer patient’s genetic test can come back <b>“uncertain significance”</b> — a
+          A cancer patient’s genetic test can come back <b>“uncertain significance”</b>, a
           result that means <i>do not act, wait for evidence</i>. It cannot guide screening,
           cannot guide prevention, and cannot be used to test her relatives.
         </p>
         <p>
-          The evidence that would settle it does arrive. On the case Recall replays — a variant
-          in {hero.gene} — laboratory data went public on {hero.dates.geo_public} and the public
+          The evidence that would settle it does arrive. On the case Recall replays, a variant
+          in {hero.gene}, laboratory data went public on {hero.dates.geo_public} and the public
           record first moved on {hero.dates.clinvar_v5_public}. That is{' '}
           <b>{registryGap} days</b>, with <b>{leadTime} days</b> from the qualifying publication.
           Two intervals, two meanings, never one number.
@@ -372,7 +372,7 @@ export const ANSWERS: Answer[] = [
       <>
         <p>
           Not the note. Deterministic detectors screen every record, a local Gemma proposes the
-          residual spans they might have missed, and deterministic adjudication — not the model —
+          residual spans they might have missed, and deterministic adjudication, not the model,
           decides what is redacted. What travels is a structured, minimized, hash-bound payload
           with a signed receipt.
         </p>
@@ -398,11 +398,11 @@ export const ANSWERS: Answer[] = [
       <>
         <p>
           <b>${(Number(cohort.cost.projected_usd_micros) / 1_000_000).toFixed(2)}</b> projected
-          for {cases.length} cases — about{' '}
+          for {cases.length} cases, about{' '}
           {((Number(cohort.cost.projected_usd_micros) / 1_000_000 / cases.length) * 100).toFixed(
             1,
           )}{' '}
-          cents each — across{' '}
+          cents each, across{' '}
           <b>{(Number(cohort.tokens.total) / 1_000_000).toFixed(2)}M</b> tokens and{' '}
           {String(gate.tool_call_ids)} tool calls, over {hours(execution.duration_seconds)}.
         </p>
@@ -512,15 +512,15 @@ export const ANSWERS: Answer[] = [
         <p>Google Cloud carries the critical path, not a side path:</p>
         <ul>
           <li>
-            <b>Cloud Run Job</b> runs the cohort as one long-lived execution — this one for{' '}
-            {hours(execution.duration_seconds)} — started by a scheduler, not by a person.
+            <b>Cloud Run Job</b> runs the cohort as one long-lived execution, this one for{' '}
+            {hours(execution.duration_seconds)}, started by a scheduler, not by a person.
           </li>
           <li>
             <b>Firestore</b> is the authoritative ledger: the durable watch case, every
             independent scan run, and an append-only artifact trail the agents cannot rewrite.
           </li>
           <li>
-            <b>{String(cohort.runtime.runtime_class)}</b> — the agent runtime executes in process
+            <b>{String(cohort.runtime.runtime_class)}</b>: the agent runtime executes in process
             inside that job, with {String(cohort.runtime.concurrency)} cases in flight.
           </li>
           <li>
@@ -559,7 +559,7 @@ export const ANSWERS: Answer[] = [
       <>
         <p>
           A consuming team asks for a <b>capability</b>, not a URL. Resolution returns the binding
-          together with the mode it was found by — <code>REGISTERED</code> when the agent reached
+          together with the mode it was found by, <code>REGISTERED</code> when the agent reached
           the catalog through <code>agents.create</code>, <code>MANUAL_SERVICE</code> when it was
           registered as a service, and <code>PINNED_FALLBACK</code> when an endpoint was pinned
           outside the catalog. The catalog record is digest-addressed, so a changed catalog is
@@ -573,7 +573,7 @@ export const ANSWERS: Answer[] = [
         </p>
         <p className="quiet">
           That is the honest reading: in this execution the endpoints were pinned, not catalogued
-          — and the registry said so on every case rather than presenting a pinned endpoint as a
+, and the registry said so on every case rather than presenting a pinned endpoint as a
           catalogued one. Cross-department discovery is proven as a mechanism in the source and
           in the receipt contract; it is not claimed as catalogue-resolved in this run.
         </p>
@@ -602,7 +602,7 @@ export const ANSWERS: Answer[] = [
           Two lifetimes, deliberately separated. A <b>watch case</b> is durable and outlives any
           single scan; a <b>scan run</b> is bounded and has its own terminal state. This execution
           carried <b>{cohort.watch_cases_in_ledger}</b> watch cases and <b>{cases.length}</b> scan
-          runs — one bounded attempt per durable case.
+          runs: one bounded attempt per durable case.
         </p>
         <p>
           Continuity lives in Firestore, not in a model's context window: source cursors, the last
@@ -613,7 +613,7 @@ export const ANSWERS: Answer[] = [
         <p className="quiet">
           A managed Memory Bank is deliberately not part of this. The architecture admits only
           non-authoritative operational context there, and no such runtime is deployed or claimed
-          — Firestore is the authority.
+. Firestore is the authority.
         </p>
       </>
     ),
@@ -642,7 +642,7 @@ export const ANSWERS: Answer[] = [
             Each role runs under its <b>own service identity</b> with a role-scoped capability.
           </li>
           <li>
-            The agents hold <b>no write access to the ledger at all</b> — they cannot record their
+            The agents hold <b>no write access to the ledger at all</b>; they cannot record their
             own conclusions.
           </li>
           <li>
@@ -652,7 +652,7 @@ export const ANSWERS: Answer[] = [
             {governance.tool_calls_without_authorization} unauthorized.
           </li>
           <li>
-            The agent that proposes is never the agent that verifies, and neither can end a case —
+            The agent that proposes is never the agent that verifies, and neither can end a case,
             only the deterministic gate can.
           </li>
         </ul>
@@ -683,14 +683,14 @@ export const ANSWERS: Answer[] = [
     body: (
       <>
         <p>
-          Yes, per case. This run recorded <b>{governance.distinct_trace_ids}</b> trace chains —
-          one for each case — with <b>{governance.runs_with_more_than_one_trace}</b> mismatches and{' '}
+          Yes, per case. This run recorded <b>{governance.distinct_trace_ids}</b> trace chains:
+          one for each case, with <b>{governance.runs_with_more_than_one_trace}</b> mismatches and{' '}
           <b>{governance.agent_receipts_without_trace}</b> untraced agent receipts.
         </p>
         <p>
           For any single case you can recover which roles started and finished, what each tool
           call was authorized to do, the artifacts produced with their schema, producer and
-          content hash, the gate's outcome and reason codes, and — where it applies — the failure
+          content hash, the gate's outcome and reason codes, and, where it applies, the failure
           receipt with the stage it names. That is why the eight timeouts are a story rather than
           a mystery.
         </p>
@@ -733,7 +733,7 @@ export const ANSWERS: Answer[] = [
           </li>
           <li>
             <b>Nothing is claimed that an artifact does not carry.</b> Every figure on this page
-            resolves to a stored artifact with a content hash, including the uncomfortable ones —
+            resolves to a stored artifact with a content hash, including the uncomfortable ones:
             eight technical terminals, a manifest that reads INCOMPLETE, and a cost that says it
             was never verified against billing.
           </li>
@@ -765,7 +765,7 @@ export const ANSWERS: Answer[] = [
         <p>
           What is measured: {cases.length} cases in {hours(execution.duration_seconds)} at a
           concurrency of {String(cohort.runtime.concurrency)}, for a projected $
-          {(Number(cohort.cost.projected_usd_micros) / 1_000_000).toFixed(2)} — about{' '}
+          {(Number(cohort.cost.projected_usd_micros) / 1_000_000).toFixed(2)}, about{' '}
           {((Number(cohort.cost.projected_usd_micros) / 1_000_000 / cases.length) * 100).toFixed(1)}{' '}
           cents per case. Median agent latency {Math.round(cohort.latency_ms.p50 / 1000)}s.
         </p>
@@ -811,7 +811,7 @@ export const ANSWERS: Answer[] = [
           parser used to read the artifacts, and the fact that it performed zero writes. The run's
           recovery prefix was re-derived from an immutable launch receipt rather than discovered
           by scanning, and the Cloud Run execution was identified by exclusion from that receipt's
-          own baseline — not by taking the most recent one.
+          own baseline, not by taking the most recent one.
         </p>
         <p className="quiet">
           Identifiers in the export are deterministic non-reversible aliases; the hashes are real.
@@ -851,7 +851,7 @@ export const ANSWERS: Answer[] = [
           </li>
           <li>
             <b>The human:</b> a simulated review task, a specialist surface, and the final
-            decision — which is never the system's.
+            decision: which is never the system's.
           </li>
         </ul>
         <p>
@@ -883,14 +883,14 @@ export const ANSWERS: Answer[] = [
         <p>
           Deterministic detectors alone are safe but blunt. On the frozen study of{' '}
           <b>{p1.record_count}</b> synthetic records, the deterministic-only baseline let{' '}
-          <b>{p1.baseline.combined.document_level.accepted}</b> records through the egress gate —
+          <b>{p1.baseline.combined.document_level.accepted}</b> records through the egress gate,
           everything else was quarantined as possibly still carrying an identifier.
         </p>
         <p>
           With a <b>local Gemma</b> proposing the residual spans the deterministic layer missed,
           and deterministic adjudication deciding what to do with those proposals,{' '}
           <b>{p1.comparison_arm_b.combined.document_level.accepted}</b> of {p1.record_count}{' '}
-          records became releasable — with{' '}
+          records became releasable, with{' '}
           <b>{p1.comparison_arm_b.combined.document_level.escaped_direct_identifier_surfaces}</b>{' '}
           escaped direct identifiers. The model widens what can be shared; it never decides what
           is safe.
@@ -902,7 +902,7 @@ export const ANSWERS: Answer[] = [
           erratum, not from the raw manifest, whose arm declarations were superseded.
         </p>
         <p>
-          Separately, the whole portfolio — <b>{gemmaRun.receipt_count} cases</b> — was put
+          Separately, the whole portfolio, <b>{gemmaRun.receipt_count} cases</b>, was put
           through the real privacy gate with the Gemma leg live on a private endpoint, producing
           a signed receipt for every case in {Math.round(gemmaRun.elapsed_minutes)} minutes. Each
           receipt declares where it ran: <code>{gemmaRun.locus.execution_locus}</code> /{' '}
@@ -911,12 +911,12 @@ export const ANSWERS: Answer[] = [
         </p>
         <p className="quiet">
           That receipt run is a <b>historical frozen measurement</b>, executed once at commit{' '}
-          <code>{gemmaRun.code_source_commit.slice(0, 8)}</code> — not the current product commit{' '}
+          <code>{gemmaRun.code_source_commit.slice(0, 8)}</code>, not the current product commit{' '}
           <code>{execution.deployed.source_commit.slice(0, 8)}</code>. It is never re-run: the
           preregistration binds it to a single execution, so a new run would be a new experiment
           rather than a confirmation. It has been revalidated read-only against the current
-          contract — {gemmaRun.receipt_count} of {gemmaRun.receipt_count} receipts parsed and
-          signature-verified, zero writes, original bytes unchanged — and its{' '}
+          contract, {gemmaRun.receipt_count} of {gemmaRun.receipt_count} receipts parsed and
+          signature-verified, zero writes, original bytes unchanged, and its{' '}
           {gemmaRun.receipt_count} cases are a different population from the {p1.record_count}{' '}
           study records. The two are never combined.
         </p>
@@ -931,7 +931,7 @@ export const ANSWERS: Answer[] = [
  * Longer keywords weigh more, so a specific word ("timeout") outranks a word
  * several answers share ("run"). A tie is not resolved by list order: it is
  * treated as no match, and the demo offers the options instead of guessing.
- * Clicking a suggestion never comes through here — those carry their id.
+ * Clicking a suggestion never comes through here, those carry their id.
  */
 export function match(input: string): Answer | null {
   const text = input.toLowerCase();
