@@ -62,6 +62,21 @@ PROJECT = re.compile(r"^[a-z][a-z0-9-]{4,61}[a-z0-9]$")
 EXECUTION = re.compile(r"^recall-cohort-daily-[a-z0-9-]+$")
 
 
+class _StoreOnce(argparse.Action):
+    """Reject repeated authority inputs instead of accepting last-value-wins."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: object,
+        option_string: str | None = None,
+    ) -> None:
+        if getattr(namespace, self.dest, None) is not None:
+            parser.error(f"{option_string or self.dest}_duplicate")
+        setattr(namespace, self.dest, values)
+
+
 def _canonical_hash(value: object) -> str:
     wire = json.dumps(
         value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
@@ -92,6 +107,8 @@ class FinalLaunchIdentity:
     recovery_previous_source_commit: str
     recovery_previous_image_digest: str
     recovery_previous_snapshot_sha256: str
+    previous_recovery_attempt_id: str | None
+    previous_recovery_receipt_hash: str | None
     recovery_prefix: str
     recovery_receipt_artifact_id: str
     attempt_key: str
@@ -118,6 +135,8 @@ class FinalLaunchIdentity:
         recovery_previous_source_commit: str,
         recovery_previous_image_digest: str,
         recovery_previous_snapshot_sha256: str,
+        previous_recovery_attempt_id: str | None = None,
+        previous_recovery_receipt_hash: str | None = None,
     ) -> "FinalLaunchIdentity":
         if ATTEMPT_ID.fullmatch(owner_start_attempt_id) is None:
             raise ValueError("owner_start_attempt_id_invalid")
@@ -159,6 +178,24 @@ class FinalLaunchIdentity:
             raise ValueError("recovery_previous_image_digest_invalid")
         if HEX64.fullmatch(recovery_previous_snapshot_sha256) is None:
             raise ValueError("recovery_previous_snapshot_sha256_invalid")
+        if (previous_recovery_attempt_id is None) != (
+            previous_recovery_receipt_hash is None
+        ):
+            raise ValueError("previous_recovery_pair_invalid")
+        if previous_recovery_attempt_id is not None:
+            try:
+                previous_recovery_uuid = uuid.UUID(previous_recovery_attempt_id)
+            except (AttributeError, TypeError, ValueError):
+                raise ValueError("previous_recovery_attempt_id_invalid") from None
+            if str(previous_recovery_uuid) != previous_recovery_attempt_id:
+                raise ValueError("previous_recovery_attempt_id_invalid")
+            if previous_recovery_attempt_id == recovery_attempt_id:
+                raise ValueError("previous_recovery_attempt_id_reused")
+            if (
+                previous_recovery_receipt_hash is None
+                or HEX64.fullmatch(previous_recovery_receipt_hash) is None
+            ):
+                raise ValueError("previous_recovery_receipt_hash_invalid")
         recovery_prefix = (
             f"dev_recall_final_p{plan_sha256[:8]}_c6_r"
             f"{hashlib.sha256(recovery_attempt_id.encode('ascii')).hexdigest()[:10]}_"
@@ -176,6 +213,13 @@ class FinalLaunchIdentity:
             "recovery_prefix": recovery_prefix,
             "recovery_receipt_artifact_id": recovery_receipt_artifact_id,
         }
+        if previous_recovery_attempt_id is not None:
+            recovery_identity.update(
+                {
+                    "previous_recovery_attempt_id": previous_recovery_attempt_id,
+                    "previous_recovery_receipt_hash": previous_recovery_receipt_hash,
+                }
+            )
         attempt_identity = {
             "owner_start_attempt_id": owner_start_attempt_id,
             "deployed_source_commit": deployed_source_commit,
@@ -194,6 +238,8 @@ class FinalLaunchIdentity:
             "coordinator_trigger_sha256": coordinator_trigger_sha256,
             **recovery_identity,
         }
+        identity["previous_recovery_attempt_id"] = previous_recovery_attempt_id
+        identity["previous_recovery_receipt_hash"] = previous_recovery_receipt_hash
         attempt_key = _canonical_hash(attempt_identity)
         intent_sha256 = hashlib.sha256(
             f"recall:final-owner-release:{attempt_key}".encode("ascii")
@@ -319,6 +365,27 @@ def validate_job_snapshot(
 def build_execute_args(identity: FinalLaunchIdentity, project: str) -> list[str]:
     """Build the immutable one-shot command; no caller-supplied args are accepted."""
 
+    runtime_args = (
+        "--args=--owner-release-token,"
+        f"{OWNER_RELEASE_TOKEN},--owner-release-reason,{OWNER_RELEASE_REASON},"
+        f"--recovery-attempt-id,{identity.recovery_attempt_id},"
+        f"--owner-recovery-reason,{identity.owner_recovery_reason},"
+        "--recovery-previous-execution-id,"
+        f"{identity.recovery_previous_execution_id},"
+        "--recovery-previous-source-commit,"
+        f"{identity.recovery_previous_source_commit},"
+        "--recovery-previous-image-digest,"
+        f"{identity.recovery_previous_image_digest},"
+        "--recovery-previous-snapshot-sha256,"
+        f"{identity.recovery_previous_snapshot_sha256}"
+    )
+    if identity.previous_recovery_attempt_id is not None:
+        runtime_args += (
+            ",--previous-recovery-attempt-id,"
+            f"{identity.previous_recovery_attempt_id},"
+            "--previous-recovery-receipt-hash,"
+            f"{identity.previous_recovery_receipt_hash}"
+        )
     return [
         "run",
         "jobs",
@@ -326,20 +393,7 @@ def build_execute_args(identity: FinalLaunchIdentity, project: str) -> list[str]
         JOB,
         f"--region={REGION}",
         f"--project={project}",
-        (
-            "--args=--owner-release-token,"
-            f"{OWNER_RELEASE_TOKEN},--owner-release-reason,{OWNER_RELEASE_REASON},"
-            f"--recovery-attempt-id,{identity.recovery_attempt_id},"
-            f"--owner-recovery-reason,{identity.owner_recovery_reason},"
-            "--recovery-previous-execution-id,"
-            f"{identity.recovery_previous_execution_id},"
-            "--recovery-previous-source-commit,"
-            f"{identity.recovery_previous_source_commit},"
-            "--recovery-previous-image-digest,"
-            f"{identity.recovery_previous_image_digest},"
-            "--recovery-previous-snapshot-sha256,"
-            f"{identity.recovery_previous_snapshot_sha256}"
-        ),
+        runtime_args,
         (
             "--update-env-vars="
             f"{INTENT_ENV}={identity.intent_sha256},{OWNER_RETRY_ENV}=0"
@@ -490,6 +544,18 @@ def _receipt_wire(
             "previous_snapshot_sha256": identity.recovery_previous_snapshot_sha256,
             "derived_prefix": identity.recovery_prefix,
             "receipt_artifact_id": identity.recovery_receipt_artifact_id,
+            **(
+                {}
+                if identity.previous_recovery_attempt_id is None
+                else {
+                    "previous_recovery_attempt_id": (
+                        identity.previous_recovery_attempt_id
+                    ),
+                    "previous_recovery_receipt_hash": (
+                        identity.previous_recovery_receipt_hash
+                    ),
+                }
+            ),
         },
         "baseline_execution_aliases": sorted(set(baseline_aliases)),
     }
@@ -763,6 +829,15 @@ def _execution_binding_failures(
         "--recovery-previous-snapshot-sha256",
         identity.recovery_previous_snapshot_sha256,
     ]
+    if identity.previous_recovery_attempt_id is not None:
+        expected_args.extend(
+            [
+                "--previous-recovery-attempt-id",
+                identity.previous_recovery_attempt_id,
+                "--previous-recovery-receipt-hash",
+                identity.previous_recovery_receipt_hash,
+            ]
+        )
     if container.get("args") != expected_args:
         failures.add("execution_args_mismatch")
     generation = _execution_generation(execution)
@@ -954,6 +1029,8 @@ def _identity_from_args(args: argparse.Namespace) -> FinalLaunchIdentity:
         recovery_previous_source_commit=args.recovery_previous_source_commit,
         recovery_previous_image_digest=args.recovery_previous_image_digest,
         recovery_previous_snapshot_sha256=args.recovery_previous_snapshot_sha256,
+        previous_recovery_attempt_id=args.previous_recovery_attempt_id,
+        previous_recovery_receipt_hash=args.previous_recovery_receipt_hash,
     )
 
 
@@ -977,6 +1054,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--recovery-previous-source-commit", required=True)
     parser.add_argument("--recovery-previous-image-digest", required=True)
     parser.add_argument("--recovery-previous-snapshot-sha256", required=True)
+    parser.add_argument("--previous-recovery-attempt-id", action=_StoreOnce)
+    parser.add_argument("--previous-recovery-receipt-hash", action=_StoreOnce)
     return parser
 
 

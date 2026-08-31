@@ -29,6 +29,10 @@ PREVIOUS_EXECUTION = "recall-cohort-daily-5tqxh"
 PREVIOUS_SOURCE = "3" * 40
 PREVIOUS_DIGEST = "sha256:" + "4" * 64
 PREVIOUS_SNAPSHOT = "5" * 64
+PREVIOUS_RECOVERY_ATTEMPT_ID = "223e4567-e89b-42d3-a456-426614174000"
+PREVIOUS_RECOVERY_RECEIPT_HASH = (
+    "f7a31d43662c2b1b3d59dd9c1205f78a2d315ef7f628b6dab500df2706bb82a1"
+)
 
 
 def _load():
@@ -66,9 +70,18 @@ def _identity(trigger, **overrides):
     return trigger.FinalLaunchIdentity.create(**values)
 
 
-def _cli_args(trigger) -> list[str]:
-    identity = _identity(trigger)
-    return [
+def _chained_identity(trigger, **overrides):
+    values = {
+        "previous_recovery_attempt_id": PREVIOUS_RECOVERY_ATTEMPT_ID,
+        "previous_recovery_receipt_hash": PREVIOUS_RECOVERY_RECEIPT_HASH,
+    }
+    values.update(overrides)
+    return _identity(trigger, **values)
+
+
+def _cli_args(trigger, *, chained: bool = False) -> list[str]:
+    identity = _chained_identity(trigger) if chained else _identity(trigger)
+    result = [
         "submit",
         "--owner-start-attempt-id",
         identity.owner_start_attempt_id,
@@ -105,6 +118,16 @@ def _cli_args(trigger) -> list[str]:
         "--recovery-previous-snapshot-sha256",
         identity.recovery_previous_snapshot_sha256,
     ]
+    if chained:
+        result.extend(
+            [
+                "--previous-recovery-attempt-id",
+                identity.previous_recovery_attempt_id,
+                "--previous-recovery-receipt-hash",
+                identity.previous_recovery_receipt_hash,
+            ]
+        )
+    return result
 
 
 def _bind_receipt_root(trigger, monkeypatch, tmp_path: Path) -> None:
@@ -213,12 +236,41 @@ def _execution(
     marker: str,
     creator: str = "runner@x.iam.gserviceaccount.com",
     generation: int | None = 23,
+    previous_recovery_attempt_id: str | None = None,
+    previous_recovery_receipt_hash: str | None = None,
 ):
     labels = (
         {}
         if generation is None
         else {"run.googleapis.com/jobGeneration": str(generation)}
     )
+    runtime_args = [
+        "--owner-release-token",
+        "FINAL_ONLY_LATE_MANUAL_RELEASE_V1",
+        "--owner-release-reason",
+        "OWNER_AUTHORIZED_FINAL_TONIGHT",
+        "--recovery-attempt-id",
+        RECOVERY_ATTEMPT_ID,
+        "--owner-recovery-reason",
+        RECOVERY_REASON,
+        "--recovery-previous-execution-id",
+        PREVIOUS_EXECUTION,
+        "--recovery-previous-source-commit",
+        PREVIOUS_SOURCE,
+        "--recovery-previous-image-digest",
+        PREVIOUS_DIGEST,
+        "--recovery-previous-snapshot-sha256",
+        PREVIOUS_SNAPSHOT,
+    ]
+    if previous_recovery_attempt_id is not None:
+        runtime_args.extend(
+            [
+                "--previous-recovery-attempt-id",
+                previous_recovery_attempt_id,
+                "--previous-recovery-receipt-hash",
+                previous_recovery_receipt_hash,
+            ]
+        )
     return {
         "metadata": {
             "name": name,
@@ -235,24 +287,7 @@ def _execution(
                                 "us-central1-docker.pkg.dev/<project>/recall-images/"
                                 f"recall-cohort-job@{DIGEST}"
                             ),
-                            "args": [
-                                "--owner-release-token",
-                                "FINAL_ONLY_LATE_MANUAL_RELEASE_V1",
-                                "--owner-release-reason",
-                                "OWNER_AUTHORIZED_FINAL_TONIGHT",
-                                "--recovery-attempt-id",
-                                RECOVERY_ATTEMPT_ID,
-                                "--owner-recovery-reason",
-                                RECOVERY_REASON,
-                                "--recovery-previous-execution-id",
-                                PREVIOUS_EXECUTION,
-                                "--recovery-previous-source-commit",
-                                PREVIOUS_SOURCE,
-                                "--recovery-previous-image-digest",
-                                PREVIOUS_DIGEST,
-                                "--recovery-previous-snapshot-sha256",
-                                PREVIOUS_SNAPSHOT,
-                            ],
+                            "args": runtime_args,
                             "env": [
                                 {"name": "RECALL_PROVIDER_RPM", "value": "8"},
                                 {"name": "FULL_AUDIT_CONCURRENCY", "value": "2"},
@@ -329,6 +364,263 @@ def test_recovery_identity_derives_prefix_and_receipt_id_without_caller_prefix(
     assert "target_prefix" not in inspect.signature(
         trigger.FinalLaunchIdentity.create
     ).parameters
+
+
+def test_chained_recovery_pair_is_immutable_identity_and_first_generation_omits_it() -> None:
+    trigger = _load()
+    first_generation = _identity(trigger)
+    chained = _chained_identity(trigger)
+
+    assert first_generation.previous_recovery_attempt_id is None
+    assert first_generation.previous_recovery_receipt_hash is None
+    assert chained.previous_recovery_attempt_id == PREVIOUS_RECOVERY_ATTEMPT_ID
+    assert chained.previous_recovery_receipt_hash == PREVIOUS_RECOVERY_RECEIPT_HASH
+    assert chained.attempt_key != first_generation.attempt_key
+    assert chained.intent_sha256 != first_generation.intent_sha256
+    changed_attempt = _chained_identity(
+        trigger,
+        previous_recovery_attempt_id="323e4567-e89b-42d3-a456-426614174000",
+    )
+    changed_hash = _chained_identity(
+        trigger,
+        previous_recovery_receipt_hash="6" * 64,
+    )
+    assert changed_attempt.attempt_key != chained.attempt_key
+    assert changed_hash.attempt_key != chained.attempt_key
+    assert changed_attempt.intent_sha256 != chained.intent_sha256
+    assert changed_hash.intent_sha256 != chained.intent_sha256
+
+
+def test_caller_cannot_supply_prior_derived_identity_surfaces() -> None:
+    trigger = _load()
+    help_text = trigger._parser().format_help()
+
+    for forbidden in (
+        "--previous-recovery-prefix",
+        "--previous-identity-scope",
+        "--previous-recovery-receipt-id",
+        "--target-prefix",
+    ):
+        assert forbidden not in help_text
+        with pytest.raises(SystemExit):
+            trigger._parser().parse_args(
+                _cli_args(trigger, chained=True) + [forbidden, "attacker"]
+            )
+
+
+@pytest.mark.parametrize(
+    ("attempt_id", "receipt_hash", "code"),
+    [
+        (PREVIOUS_RECOVERY_ATTEMPT_ID, None, "previous_recovery_pair_invalid"),
+        (None, PREVIOUS_RECOVERY_RECEIPT_HASH, "previous_recovery_pair_invalid"),
+        (
+            "223E4567-E89B-42D3-A456-426614174000",
+            PREVIOUS_RECOVERY_RECEIPT_HASH,
+            "previous_recovery_attempt_id_invalid",
+        ),
+        (
+            "not-a-uuid",
+            PREVIOUS_RECOVERY_RECEIPT_HASH,
+            "previous_recovery_attempt_id_invalid",
+        ),
+        (
+            PREVIOUS_RECOVERY_ATTEMPT_ID,
+            "A" * 64,
+            "previous_recovery_receipt_hash_invalid",
+        ),
+        (
+            PREVIOUS_RECOVERY_ATTEMPT_ID,
+            "f" * 63,
+            "previous_recovery_receipt_hash_invalid",
+        ),
+        (
+            RECOVERY_ATTEMPT_ID,
+            PREVIOUS_RECOVERY_RECEIPT_HASH,
+            "previous_recovery_attempt_id_reused",
+        ),
+    ],
+)
+def test_chained_recovery_pair_fails_closed_before_intent_or_cloud(
+    attempt_id: str | None, receipt_hash: str | None, code: str
+) -> None:
+    trigger = _load()
+
+    with pytest.raises(ValueError, match=code):
+        _identity(
+            trigger,
+            previous_recovery_attempt_id=attempt_id,
+            previous_recovery_receipt_hash=receipt_hash,
+        )
+
+
+def test_chained_recovery_execute_args_are_exact_once_and_first_generation_omits() -> None:
+    trigger = _load()
+    chained_args = trigger.build_execute_args(_chained_identity(trigger), PROJECT)
+    first_args = trigger.build_execute_args(_identity(trigger), PROJECT)
+    chained_runtime = next(item for item in chained_args if item.startswith("--args="))
+    first_runtime = next(item for item in first_args if item.startswith("--args="))
+
+    assert chained_runtime.count("--previous-recovery-attempt-id") == 1
+    assert chained_runtime.count(PREVIOUS_RECOVERY_ATTEMPT_ID) == 1
+    assert chained_runtime.count("--previous-recovery-receipt-hash") == 1
+    assert chained_runtime.count(PREVIOUS_RECOVERY_RECEIPT_HASH) == 1
+    assert "--previous-recovery-attempt-id" not in first_runtime
+    assert "--previous-recovery-receipt-hash" not in first_runtime
+
+
+@pytest.mark.parametrize(
+    "option",
+    ["--previous-recovery-attempt-id", "--previous-recovery-receipt-hash"],
+)
+def test_chained_cli_partial_pair_fails_before_cloud(option: str) -> None:
+    trigger = _load()
+    argv = _cli_args(trigger, chained=True)
+    index = argv.index(option)
+    del argv[index : index + 2]
+    namespace = trigger._parser().parse_args(argv)
+
+    with pytest.raises(ValueError, match="previous_recovery_pair_invalid"):
+        trigger._identity_from_args(namespace)
+
+
+@pytest.mark.parametrize(
+    ("option", "duplicate_value"),
+    [
+        ("--previous-recovery-attempt-id", PREVIOUS_RECOVERY_ATTEMPT_ID),
+        (
+            "--previous-recovery-attempt-id",
+            "323e4567-e89b-42d3-a456-426614174000",
+        ),
+        ("--previous-recovery-receipt-hash", PREVIOUS_RECOVERY_RECEIPT_HASH),
+        ("--previous-recovery-receipt-hash", "6" * 64),
+    ],
+)
+def test_duplicate_chained_cli_field_fails_before_identity_or_external_surface(
+    monkeypatch, option: str, duplicate_value: str
+) -> None:
+    trigger = _load()
+    calls: list[str] = []
+    monkeypatch.setattr(
+        trigger,
+        "_identity_from_args",
+        lambda _args: calls.append("identity"),
+    )
+    monkeypatch.setattr(
+        trigger,
+        "resolve_project",
+        lambda: calls.append("project"),
+    )
+    monkeypatch.setattr(
+        trigger,
+        "submit_once",
+        lambda *_args, **_kwargs: calls.append("submit"),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [SCRIPT.name, *_cli_args(trigger, chained=True), option, duplicate_value],
+    )
+
+    with pytest.raises(SystemExit):
+        trigger.main()
+
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("option", "mutation"),
+    [
+        ("--previous-recovery-attempt-id", "omit"),
+        ("--previous-recovery-attempt-id", "mismatch"),
+        ("--previous-recovery-attempt-id", "duplicate"),
+        ("--previous-recovery-receipt-hash", "omit"),
+        ("--previous-recovery-receipt-hash", "mismatch"),
+        ("--previous-recovery-receipt-hash", "duplicate"),
+    ],
+)
+def test_chained_reconcile_rejects_arg_omission_mismatch_or_duplicate(
+    tmp_path: Path, monkeypatch, option: str, mutation: str
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _chained_identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    candidate = _execution(
+        "recall-cohort-daily-chained-binding",
+        marker=identity.intent_sha256,
+        previous_recovery_attempt_id=PREVIOUS_RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=PREVIOUS_RECOVERY_RECEIPT_HASH,
+    )
+    runtime_args = candidate["spec"]["template"]["spec"]["containers"][0]["args"]
+    index = runtime_args.index(option)
+    if mutation == "omit":
+        del runtime_args[index : index + 2]
+    elif mutation == "mismatch":
+        runtime_args[index + 1] = "mismatch"
+    else:
+        runtime_args.extend(runtime_args[index : index + 2])
+
+    def run(*args: str, **_kwargs):
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([candidate])
+        return _completed(candidate)
+
+    report = trigger.reconcile(identity, project=PROJECT, run_fn=run)
+
+    assert report["verdict"] == "FAIL"
+    assert report["codes"] == ["execution_args_mismatch"]
+
+
+def test_chained_submit_executes_at_most_once(tmp_path: Path, monkeypatch) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _chained_identity(trigger)
+    execute_count = 0
+
+    def run(*args: str, **_kwargs):
+        nonlocal execute_count
+        if args[:4] == ("run", "jobs", "describe", trigger.JOB):
+            return _completed(_job())
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([])
+        execute_count += 1
+        assert args == tuple(trigger.build_execute_args(identity, PROJECT))
+        return _completed({})
+
+    first = trigger.submit_once(identity, project=PROJECT, run_fn=run)
+    second = trigger.submit_once(identity, project=PROJECT, run_fn=run)
+
+    assert first["verdict"] == "SUBMIT_ACCEPTED_NOT_RECONCILED"
+    assert second["codes"] == ["attempt_receipt_exists"]
+    assert execute_count == 1
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["previous_recovery_attempt_id", "previous_recovery_receipt_hash"],
+)
+def test_chained_recovery_receipt_tamper_blocks_reconcile_without_cloud(
+    tmp_path: Path, monkeypatch, field: str
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _chained_identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    path = trigger.receipt_path(identity)
+    wire = json.loads(path.read_text("utf-8"))
+    wire["recovery"][field] = "tampered"
+    path.write_text(json.dumps(wire), encoding="utf-8")
+    calls: list[tuple[str, ...]] = []
+
+    report = trigger.reconcile(
+        identity,
+        project=PROJECT,
+        run_fn=lambda *args, **_kwargs: calls.append(args),
+    )
+
+    assert report["verdict"] == "FAIL"
+    assert report["codes"] == ["attempt_receipt_invalid"]
+    assert calls == []
 
 
 @pytest.mark.parametrize(
