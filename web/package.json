@@ -1,0 +1,27 @@
+{
+  "name": "recall-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Recall reviewer surface. Every result-bearing value is derived from a typed artifact.",
+  "scripts": {
+    "dev": "vite",
+    "web:build": "tsc --noEmit && vite build",
+    "build": "npm run web:build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check:no-preset": "node scripts/check-no-preset.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "^3.2.0"
+  }
+}

@@ -45,6 +45,10 @@ A passing report is insufficient when the underlying mechanism did not receive v
 
 The objective is to win, but technical and scientific quality are not judged solely by placement. Preserve reusable evidence, architecture, and evaluation artifacts regardless of the result.
 
+### 8. Learn from patterns without importing prior work
+
+Recall is independently designed and implemented in its own repository. A separate codebase may be inspected to understand how it handled a failure mode or engineering problem, but Recall does not copy its code, tests, fixtures, schemas, prompts, configuration, UI, documentation, artifacts, or history. Pattern inspection informs questions and acceptance criteria; Recall's solution must be re-derived, implemented, and verified here.
+
 ## Working behavior
 
 - Be concise, direct, honest, and technically independent.

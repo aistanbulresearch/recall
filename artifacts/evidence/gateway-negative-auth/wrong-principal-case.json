@@ -1,0 +1,41 @@
+{
+  "case": "wrong_principal_authorization",
+  "question": "does IAM refuse a valid credential whose principal has no grant?",
+  "principal": "recall-sa-controller (secret access, NO run.invoker on the gateway)",
+  "token": {
+    "iss": "https://accounts.google.com",
+    "aud": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app",
+    "sub": "102349725238167209489",
+    "service_account_unique_id": "102349725238167209489",
+    "principal_confirmed": true,
+    "audience_correct": true
+  },
+  "request": "well-formed body, deliberately invalid capability",
+  "request_id": "b9e08404-ee7d-412a-8eac-5171d95a1be2",
+  "expected_http": "403",
+  "observed_http": "403",
+  "expected_reason": "forbidden (authenticated, no grant for this principal)",
+  "observed_reason": "forbidden (authenticated, no grant for this principal)",
+  "reason_matches": true,
+  "answered_by": "Cloud Run IAM",
+  "body_excerpt": "<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>403 Forbidden</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Forbidden</h1>\n<h2>Your client does not have permission to get URL <code>/v1",
+  "never_200": true,
+  "never_404": true,
+  "verdict": "PASS",
+  "temporary_privilege": {
+    "role": "roles/iam.serviceAccountTokenCreator",
+    "granted_on": "recall-sa-controller only",
+    "granted_to": "the developer user account",
+    "agent_service_accounts_touched": "none",
+    "authorized_by": "owner, in-window text 2026-08-25",
+    "revoked": true,
+    "revocation_proof": {
+      "policy_read_back": "token_creator_holders_after: [] via get-iam-policy",
+      "behavioural": "impersonation attempted repeatedly until it FAILED",
+      "lag_observed": "The policy read-back reported the binding removed while impersonation STILL SUCCEEDED for four further attempts; the mint was refused on the fifth. Grant propagation showed the same lag in reverse: the binding was present for two attempts before a token could be minted.",
+      "why_both_are_recorded": "Reading the policy back is stronger than trusting the remove call, and it is still a control-plane assertion standing in for behaviour -- the same shape as every other defect found in this work. A revoked binding is not immediately an unusable one. The policy is the intent; the behaviour is the fact, and only the behaviour closes the privilege window."
+    },
+    "confirmed_at_utc": "2026-08-25T08:43:59.600825+00:00"
+  },
+  "what_this_answers": "IAM DOES perform the authorization work. A Google-signed token with the correct audience, from a principal confirmed by sub==uniqueId to be recall-sa-controller and holding no run.invoker on this service, was refused 403 by Cloud Run IAM before reaching the container. This is the counterpart to the audience finding: the perimeter does not decide on audience, but it does decide on grant."
+}

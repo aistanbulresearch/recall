@@ -1,0 +1,120 @@
+{
+ "artifacts": {
+  "documents": 9543,
+  "parse_failures": 0,
+  "parsed_by_production_contract": 9543,
+  "schema_mix": {
+   "AgentExecutionReceipt/1.0.0": 2726,
+   "AssessmentReceipt/1.0.0": 453,
+   "BatchExecutionReceipt/1.0.0": 1,
+   "CandidateDeltaReceipt/1.0.0": 454,
+   "CitationAuditReceipt/1.0.0": 448,
+   "CohortDayManifest/3.4.0": 1,
+   "CohortHistoryReceipt/1.0.0": 1,
+   "DataModeReceipt/2.0.0": 448,
+   "EvidenceDelta/2.0.0": 453,
+   "EvidenceObservation/1.0.0": 460,
+   "EvidenceSnapshot/1.0.0": 454,
+   "FailureReceipt/1.0.0": 8,
+   "FinalExecutionRecoveryReceipt/1.0.0": 1,
+   "PolicyDecision/2.0.0": 448,
+   "PrivacyReceipt/1.1.0": 456,
+   "RegistryResolutionReceipt/1.1.0": 456,
+   "ScanRun/1.1.0": 456,
+   "ToolAuthorizationReceipt/1.0.0": 1363,
+   "WatchCase/2.0.0": 456
+  },
+  "status_field": {
+   "INCOMPLETE": 11,
+   "REJECTED": 8,
+   "VALID": 9524
+  }
+ },
+ "audit_axis_from_manifest": {
+  "complete_runs": 446,
+  "halted_runs": 8,
+  "incomplete_runs": 2,
+  "not_evaluated_runs": 8,
+  "total_runs": 456
+ },
+ "cost": {
+  "actual_billed_cost_state": "NOT_VERIFIED",
+  "pricing_policy_sha256": "2c0e664a66707e30b536fade39cf36ce6a7ca556be7633051722fb0ae1312703",
+  "projected_usd_micros": 6545526,
+  "reserved_usd_micros": 6785142
+ },
+ "governance_checks": {
+  "agent_execution_status_by_role": {
+   "CITATION_AUDITOR": {
+    "COMPLETED": 448,
+    "FAILED": 5,
+    "STARTED": 453
+   },
+   "EVIDENCE_ASSESSOR": {
+    "COMPLETED": 453,
+    "FAILED": 1,
+    "STARTED": 454
+   },
+   "EVIDENCE_WATCHER": {
+    "COMPLETED": 454,
+    "FAILED": 2,
+    "STARTED": 456
+   }
+  },
+  "agent_receipts_without_trace": 0,
+  "authorization_decisions": {
+   "ALLOWED": 1363
+  },
+  "distinct_trace_ids": 456,
+  "policy_outcomes_seen": {
+   "ABSTAIN": 3,
+   "NO_ACTION": 445
+  },
+  "runs_with_more_than_one_trace": 0,
+  "runs_with_started_but_no_terminal_agent_receipt": 0,
+  "tool_calls_without_authorization": 0
+ },
+ "latency_ms": {
+  "p50": 88898,
+  "p95": 150968
+ },
+ "note": "Cohort totals recomputed from the stored artifacts, beside the run's own declared telemetry. Rate limiting and failed cases are reported separately on purpose: a retried request is not a failed case.",
+ "rate_limiting": {
+  "cases_failed_by_rate_limiting": 0,
+  "http_429_count": 60,
+  "note": "Rate-limit responses were absorbed by the runtime. Every halted case in this run carries agent_timeout, not a rate-limit code."
+ },
+ "review_tasks_in_ledger": 0,
+ "runtime": {
+  "concurrency": 2,
+  "endpoint_class": "VERTEX_AI_GLOBAL",
+  "execution_profile": "FULL_AUDIT_V1",
+  "model_id": "gemini-3.7-flash",
+  "runtime_class": "IN_PROCESS_ADK_CLOUD_RUN"
+ },
+ "terminal_states": {
+  "ABSTAIN": 3,
+  "HALTED": 8,
+  "NO_ACTION": 445
+ },
+ "tokens": {
+  "candidate": 286835,
+  "prompt": 3564443,
+  "thoughts": 215719,
+  "total": 4066997
+ },
+ "tool_and_gateway": {
+  "agent_execution_receipts": 2726,
+  "authorization_closure": true,
+  "authorization_decisions": {
+   "ALLOWED": 1363
+  },
+  "tool_authorization_receipts": 1363,
+  "tool_call_ids": 1363,
+  "tool_records": 1363,
+  "tool_response_ids": 1363,
+  "total_agent_invocations_declared": 1363,
+  "trace_linked_agent_receipts": 2726
+ },
+ "watch_cases_in_ledger": 456
+}

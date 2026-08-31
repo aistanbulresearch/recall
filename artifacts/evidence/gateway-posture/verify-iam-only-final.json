@@ -1,0 +1,39 @@
+{
+  "service_id": "recall-tool-gateway",
+  "ingress": "INGRESS_TRAFFIC_ALL",
+  "ingress_ok": true,
+  "public_principals": [],
+  "invoker_members": [
+    "serviceAccount:recall-sa-assessor@<project>.iam.gserviceaccount.com",
+    "serviceAccount:recall-sa-auditor@<project>.iam.gserviceaccount.com",
+    "serviceAccount:recall-sa-watcher@<project>.iam.gserviceaccount.com"
+  ],
+  "missing_invokers": [],
+  "unexpected_invokers": [],
+  "inherited_project_invokers": [
+    {
+      "role": "roles/aiplatform.serviceAgent",
+      "members": [
+        "serviceAccount:service-<project-number>@gcp-sa-aiplatform.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "roles/owner",
+      "members": [
+        "user:ozge.cavus@aistanbulresearch.com"
+      ]
+    },
+    {
+      "role": "roles/run.serviceAgent",
+      "members": [
+        "serviceAccount:service-<project-number>@serverless-robot-prod.iam.gserviceaccount.com"
+      ]
+    }
+  ],
+  "previous_ingress": "INGRESS_TRAFFIC_INTERNAL_ONLY",
+  "uri": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app",
+  "status": "PASS",
+  "findings": [],
+  "_note": "inherited_project_invokers is populated from inside the gate now that cloudresourcemanager.googleapis.com is enabled. It previously reported <unreadable>:403, which was recorded as unreadable rather than as none -- a check that cannot see is not a check that found nothing. The values match the direct gcloud measurement taken while the gate was blind, so the earlier evidence is corroborated rather than replaced.",
+  "_corrected_claim": "An earlier PASS from this gate implied that exactly three principals can call the gateway. That was never true: project-level roles carrying run.routes.invoke confer it on every service. The owner and two Google service agents hold it. Reported, not failed -- an owner being able to invoke is expected, and saying so is the honest version of the claim."
+}

@@ -1,0 +1,59 @@
+{
+  "note": "Walkthrough demo case. The PATIENT IS SYNTHETIC: name, record number, dates of care and the encounter note are fabricated for demonstration and belong to no real person. The VARIANT CHRONOLOGY IS REAL public registry history (see data/historical-case.json and its governing document). Capture hashes are sha256 of the captured source bytes committed under artifacts/evidence/rcl-205/ and are reproducible from those files.",
+  "data_mode": "SYNTHETIC",
+  "patient": {
+    "name": "Ayla Deniz",
+    "synthetic": true,
+    "mrn": "SYN-2024-004417",
+    "born": "1986-03-11",
+    "sex": "F",
+    "clinic": "Hereditary Cancer Clinic (synthetic)",
+    "first_visit": "2024-05-16",
+    "referral_reason": "Family history of breast and ovarian cancer; germline panel requested."
+  },
+  "encounter": {
+    "date": "2024-06-14",
+    "panel": "Hereditary cancer germline panel (synthetic order)",
+    "note_excerpt": "34-year-old referred for strong maternal family history. Germline panel returned a BRCA2 variant of uncertain significance. Counselled that management follows family history for now; variant may be reclassified as evidence accrues. Will not routinely re-review.",
+    "result": {
+      "gene": "BRCA2",
+      "variant": "NM_000059.4:c.7522G>C",
+      "interpretation_at_the_time": "VUS, variant of uncertain significance",
+      "interpretation_basis": "ClinVar aggregate record at the encounter date (v4 lineage, captured)",
+      "capture": {
+        "path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.4.printable.html",
+        "sha256": "a7b670532215705d2106ce9ffdf252341468d3f0fe34dbe9134ddd3e8582ddf6"
+      }
+    }
+  },
+  "world_evidence": [
+    {
+      "id": "geo",
+      "what": "Saturation genome editing dataset for BRCA2 becomes public on GEO",
+      "capture": {
+        "path": "artifacts/evidence/rcl-205/geo/GSE248438.brief.soft.txt",
+        "sha256": "0723093ee8ec72ab3277b113e7fb8d2219674928792771413794bf64a3b902ef"
+      },
+      "results_capture": {
+        "path": "artifacts/evidence/rcl-205/geo/GSE248438_SGE_BRCA2_results.xlsx",
+        "sha256": "91e8fcd081dbaf200be4640b99685a1c612259e4a8e02ce7db59806451b9817f"
+      }
+    },
+    {
+      "id": "paper",
+      "what": "Qualifying publication indexed on PubMed",
+      "capture": {
+        "path": "artifacts/evidence/rcl-205/pubmed/PMID39779848.esummary.json",
+        "sha256": "6d1d7058525d9ff55a9afe1f633078ea4f274050af9450301735f6346d313d17"
+      }
+    },
+    {
+      "id": "clinvar_v5",
+      "what": "ClinVar aggregate record reflects the evidence (v5)",
+      "capture": {
+        "path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.5.printable.html",
+        "sha256": "d8d4eb4b9ab0a6bd3be9d740a0fb4aebb5911a8384113e6a037728f0688b7fbc"
+      }
+    }
+  ]
+}

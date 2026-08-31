@@ -1,0 +1,119 @@
+{
+  "artifact_id": "64a95a28-747f-5326-bc66-18187776deac",
+  "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+  "cases": [
+    {
+      "case_id": "420c82a9-c37d-5d40-826a-bda26184ae34",
+      "data_mode": "SYNTHETIC_ONLY",
+      "vcv": null
+    },
+    {
+      "case_id": "b8390531-4c50-5f26-83da-0a1dadf07acf",
+      "data_mode": "SYNTHETIC_ONLY",
+      "vcv": null
+    },
+    {
+      "case_id": "c4e45bde-971b-52ee-9ba3-f182432146fa",
+      "data_mode": "SYNTHETIC_WITH_CAPTURED_REPLAY",
+      "vcv": "VCV002895953.1"
+    }
+  ],
+  "content_hash": "222f793c218e09ae4a4350472e8169d6cebb70c643fcabe2874753b7624ac4bb",
+  "created_at": "2026-08-26T16:01:00Z",
+  "cumulative": {
+    "daily_cycles": 2,
+    "distinct_execution_dates": 2,
+    "runs_created": 4,
+    "runs_predicted": 4,
+    "successful_daily_cycles": 2
+  },
+  "data_mode": "SYNTHETIC",
+  "day_index": 2,
+  "delta": {
+    "authoritative_run_ids": [
+      "987e6b4e-1f82-598c-a264-1b26524e2aaf",
+      "9fd73a6d-d41f-5659-aca2-d99a68041f6f",
+      "d8e45d2c-bdb0-5dd3-b822-4f2c9d3abf5b"
+    ],
+    "excluded_case_ids": [
+      "504db62b-ae4e-5f79-a31e-31c0387ac4a4",
+      "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+      "98f35092-2042-5979-b627-d5bb16f3fd38",
+      "9fc76e08-da69-5871-8d1a-a62dcb2cb85c",
+      "a816bc0f-d08c-5dc4-aff9-e5143300ead9",
+      "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+      "da6252c8-585e-5803-8a2b-ec2e5ec16e41",
+      "ddedd554-a08d-5230-b72e-af38f7ad365c",
+      "f453187b-b739-598d-a266-604dba66b6e5"
+    ],
+    "newly_created_run_ids": [
+      "987e6b4e-1f82-598c-a264-1b26524e2aaf",
+      "9fd73a6d-d41f-5659-aca2-d99a68041f6f",
+      "d8e45d2c-bdb0-5dd3-b822-4f2c9d3abf5b"
+    ],
+    "prediction_match": true,
+    "reused_run_ids": [],
+    "runs_predicted": 3,
+    "selected_case_ids": [
+      "420c82a9-c37d-5d40-826a-bda26184ae34",
+      "b8390531-4c50-5f26-83da-0a1dadf07acf",
+      "c4e45bde-971b-52ee-9ba3-f182432146fa"
+    ]
+  },
+  "execution_history": [
+    {
+      "day_index": 1,
+      "executed_at": "2026-08-25T15:00:03.280432Z",
+      "execution_status": "COMPLETE",
+      "failure_receipt_id": null,
+      "runs_created": 1,
+      "runs_predicted": 1,
+      "selected_for_date": "2026-08-25"
+    },
+    {
+      "day_index": 2,
+      "executed_at": "2026-08-26T16:01:00Z",
+      "execution_status": "COMPLETE",
+      "failure_receipt_id": null,
+      "runs_created": 3,
+      "runs_predicted": 3,
+      "selected_for_date": "2026-08-26"
+    }
+  ],
+  "extensions": {},
+  "image_digest": "sha256:24a99e89b5a77fd37eeeffa84bfe2053fd734315b768f380f5d36f9e0c91d922",
+  "input_artifact_ids": [
+    "1c1ae91a-ff7d-5012-9efb-abdeedbdcec7",
+    "21068bac-1ef2-534f-8b69-b1c3f171d155",
+    "53b8fa8c-1594-54cd-a20a-11de4a03e1a4",
+    "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+    "8c1783f6-5d6d-5ae0-8077-cd7cf5981c17",
+    "a7596da9-c49c-5fcf-9f81-f0d286ee5316",
+    "b7cd6b9c-c430-54c7-9d31-92f60482e50c",
+    "cc96bc9d-f22b-5d48-804f-ff8bbfa21db3"
+  ],
+  "managed_history_starts_at_day_index": 2,
+  "previous_manifest_id": null,
+  "producer": {
+    "component": "managed-cohort-scheduler",
+    "identity": "cohort-scheduler",
+    "version": "1.0.0"
+  },
+  "run_id": "9301d00e-baad-5958-a93d-d4b6de7512bb",
+  "scheduled_for": "2026-08-26T16:00:00Z",
+  "schema_name": "CohortDayManifest",
+  "schema_version": "2.1.0",
+  "selected_for_date": "2026-08-26",
+  "source_commit": "c65ee3d55524caf1d2d9d697c9bff712e35bca82",
+  "status": "VALID",
+  "trigger_code": "COHORT_DAY_MANAGED",
+  "vcv_anchors": [
+    {
+      "artifact_id": "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+      "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.1.printable.html",
+      "sha256": "f26600a16912d4473a4dd9af2af2628fa8feb5be3d037e1da02b482824a034aa",
+      "vcv": "VCV002895953.1"
+    }
+  ],
+  "warnings": []
+}

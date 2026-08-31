@@ -9,3 +9,36 @@
 *.webp binary
 *.pdf binary
 *.mp4 binary
+artifacts/evidence/rcl-205/** binary -eol
+
+# Storage fidelity for hash-bound evidence. Every path below has its sha256
+# declared in a manifest, an approval record, or the erratum, and those hashes
+# are computed over the bytes on disk. Git must store exactly those bytes, or a
+# fresh checkout cannot reproduce a declared hash. See evidence discipline
+# rule 11 and corpus/ERRATUM_001_p1-frozen-001.md revision 3.
+# Pure evidence artifacts. Opaque bytes: their changes surface as hash changes,
+# not as textual diffs. cr-at-eol stops the whitespace checker reading the CR of
+# a CRLF line ending as trailing whitespace on files we deliberately keep byte
+# faithful.
+artifacts/evidence/** -text -diff whitespace=cr-at-eol
+corpus/generated/** -text -diff whitespace=cr-at-eol
+corpus/FROZEN_CONFIG.json -text -diff whitespace=cr-at-eol
+corpus/PRIVACY_CORPUS_MANIFEST.json -text -diff whitespace=cr-at-eol
+corpus/ARM_DECLARATION.json -text -diff whitespace=cr-at-eol
+
+# Prose under the evidence tree stays reviewable. The captures are opaque on
+# purpose, but an index that records what each capture does not show is the one
+# surface a reviewer reads as text, and a verdict change in it must be legible as
+# a diff. Only the diff attribute is restored: -text and the whitespace rule still
+# apply, so these files stay byte-stable as well as readable. Scoped to .md rather
+# than all prose extensions because .txt under this tree is a capture format, not
+# prose.
+artifacts/evidence/**/*.md diff
+artifacts/evidence/*.md diff
+
+# Hash-bound code and data. Byte faithful for the same reason, but reviewers
+# legitimately read these as diffs, so they keep textual diff and take the
+# whitespace rule alone.
+corpus/generator.py -text whitespace=cr-at-eol
+corpus/data/gazetteers.json -text whitespace=cr-at-eol
+scripts/derive_corrected_view.py -text whitespace=cr-at-eol

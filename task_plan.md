@@ -8,15 +8,33 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current phase
 
-**Phase 0 complete; awaiting owner review before Phase 1**
+**Owner-only remediation and clean-clone verification passed; PR body is corrected; final status publish, delayed actor scan, and exact-head re-review remain while merge and Phase 3 stay NO-GO**
 
 ## Phase checklist
 
 - [x] Confirm remote and local repositories.
 - [x] Record project operating principles and documentation protocol.
 - [x] Create the initial master plan and evidence ledgers.
+- [x] Approve the Fleet target architecture and record ADR-0001 through ADR-0007.
 - [ ] Complete access, eligibility, secret, license, and Gemma feasibility gates.
-- [ ] Approve architecture contracts and demo storyboard.
+- [x] Freeze independent implementation: pattern inspection allowed, direct prior-project component reuse prohibited.
+- [x] Create the hash-pinned official Rules eligibility checklist.
+- [x] Record owner eligibility assertions and `individual/solo` entry capacity without sensitive details.
+- [x] Verify RCL-102 with owner-approved Apache-2.0, policy, register, source notes, and license file.
+- [x] Freeze the 3:45 storyboard, web information architecture, and derived-value registry.
+- [x] Freeze threat model, architecture contracts, lifecycle tables, deterministic policy, and evaluation protocols as design artifacts.
+- [x] Select and freeze one historical replay case and at least two negative controls.
+- [x] Commit and push the complete Phase 2 package with remote authorship read-back as `aistanbulresearch`.
+- [x] Receive and triage the read-only GitHub auditor report.
+- [x] Resolve F-01 through F-06 across all normative documents and pass the scoped local consistency audit.
+- [x] Create replay protocol 1.0.1 for F-07 and F-08 with offline hash, chronology, exact-row, mutation, and path-boundary verification.
+- [x] Pass follow-up audit before implementation.
+- [x] Publish remote commit `05ff0b59` with owner-only attribution and receive the first auditor re-review.
+- [x] Remediate the four first-review findings locally with source-derived and fault-injection evidence.
+- [x] Receive the second local review and remediate its live-rights and counter-separation findings.
+- [x] Receive the third local review and remediate its live runtime-provenance activation finding.
+- [x] Receive the fourth local review and remediate its duplicate-live-source false pass.
+- [x] Pass fifth local auditor review with no actionable findings.
 - [ ] Implement the deterministic vertical skeleton with TDD.
 - [ ] Implement and measure the local privacy boundary.
 - [ ] Implement evidence monitoring and historical replay.
@@ -26,7 +44,7 @@ Deliver a prize-competitive, auditable Recall submission with a working managed-
 
 ## Current next action
 
-Obtain owner review of the Phase 0 plan, resolve the public hostname spelling, then begin `RCL-101` through `RCL-109` in the master plan.
+Publish the final STATUS/audit correction owner-only, run clean-clone and delayed actor scans, and request final remote auditor re-review against the exact new head. Billing-dependent RCL-104 and RCL-105 remain paused.
 
 ## Errors encountered
 

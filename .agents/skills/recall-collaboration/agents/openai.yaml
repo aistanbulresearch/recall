@@ -1,0 +1,4 @@
+interface:
+  display_name: "Recall Collaboration"
+  short_description: "Coordinate Recall subagents and audit gates"
+  default_prompt: "Use $recall-collaboration to coordinate this Recall task with scoped agents and evidence-backed gates."

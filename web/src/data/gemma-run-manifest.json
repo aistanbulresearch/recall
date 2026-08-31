@@ -1,0 +1,38 @@
+{
+ "code_source_commit": "697aa6ebcf691f39b486f384b1d6a3f7f84eb8af",
+ "code_source_dirty": false,
+ "concurrency": 2,
+ "elapsed_minutes": 37.0,
+ "final_publish_run_id": "b866ddcb92a2e3f8",
+ "finished_at": "2026-08-28T04:32:00.039934Z",
+ "held_out_inherit_binding": [],
+ "locus": {
+  "endpoint_class": "OLLAMA_VERTEX_ENDPOINT",
+  "execution_locus": "LAB_LOCAL",
+  "model_id": "gemma4:e4b-it-qat",
+  "model_revision": "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+  "transport_class": "PRIVATE_SERVICE"
+ },
+ "notes_sha256": "ce71a0b7b50601148c49b65457bc603efca929b3569ed37179902424c8d36af6",
+ "posture": "cloud",
+ "receipt_count": 462,
+ "receipts_file": "artifacts\\evidence\\full-cohort-receipts\\privacy-receipts.json",
+ "receipts_sha256": "70ccfc251d37dffa8174d82842feedcef1227399a285d13b9ba9e82979fab901",
+ "signer_key_id": "full-cohort-receipt-run-v1",
+ "started_at": "2026-08-28T03:55:01.183252Z",
+ "transport": {
+  "authenticated": true,
+  "endpoint": "rawPredict-passthrough",
+  "format": "json",
+  "keep_alive": "30m",
+  "options": {
+   "num_ctx": 2048,
+   "num_predict": 1024,
+   "num_thread": 14,
+   "temperature": 0.0
+  },
+  "server_kind": "ollama",
+  "think": false
+ },
+ "verifier_lock_fingerprint_sha256": "fa70a3d2d397209ea3fb6f5b09363e3b5cfc2bf6a0742c0f3ca7932031b92b08"
+}

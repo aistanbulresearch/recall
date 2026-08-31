@@ -1,0 +1,18 @@
+{
+ "cohort_level_absent": true,
+ "cohort_level_receipt_hash": null,
+ "cohort_level_receipts": 0,
+ "declared_compositions": {
+  "SYNTHETIC_ONLY": 445,
+  "SYNTHETIC_WITH_CAPTURED_REPLAY": 3
+ },
+ "mode_sets": {
+  "CAPTURED_REPLAY+SYNTHETIC": 3,
+  "SYNTHETIC": 445
+ },
+ "note": "Data-mode receipts by scope. A cohort-level receipt does not exist for this run; no hash is invented for it, and its absence is reported rather than filled in.",
+ "propagation_status": {
+  "PASS": 448
+ },
+ "run_level_receipts": 448
+}

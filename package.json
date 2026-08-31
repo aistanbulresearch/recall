@@ -1,0 +1,9 @@
+{
+  "name": "recall-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "web:build": "pnpm --filter @recall/web build",
+    "web:dev": "pnpm --filter @recall/web dev"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "artifact_id": "8c1783f6-5d6d-5ae0-8077-cd7cf5981c17",
+  "atomic_check_ids": [
+    "01_live_firestore",
+    "02_project_bound",
+    "03_default_database",
+    "04_three_watch_cases",
+    "05_one_due_selected",
+    "06_two_future_excluded",
+    "07_one_created_total",
+    "08_run_created_event",
+    "09_no_review_task",
+    "10_exact_counts",
+    "11_first_trigger_created_one"
+  ],
+  "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+  "content_hash": "e2450621ed9d2867d55784a3c7a5f273064685d283ab17ebb81bf6b7eff4a2dc",
+  "created_at": "2026-08-25T20:21:19.422539Z",
+  "created_run_ids": [
+    "37ec818b-719b-5dc2-8995-e85f1b67cfdf"
+  ],
+  "data_mode": "SYNTHETIC",
+  "day_index": 1,
+  "direct_exit_code": 0,
+  "evidence_classification": "LIVE_INFRASTRUCTURE_SYNTHETIC_DATA",
+  "evidence_git_blob_oid": "7d82b5158865284c00d89a20445c24db4bca518a",
+  "evidence_path": "artifacts/evidence/day1-manual-20260825-a7f31c9d/first.json",
+  "evidence_sha256": "fa588a3eee9d8ac66c6629f8668a1e878cdda7586b256c99299eb0ce56283825",
+  "excluded_case_ids": [
+    "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+    "b8390531-4c50-5f26-83da-0a1dadf07acf"
+  ],
+  "executed_at": "2026-08-25T15:00:03.280432Z",
+  "extensions": {},
+  "input_artifact_ids": [],
+  "phase": "first",
+  "producer": {
+    "component": "cohort-history-loader",
+    "identity": "cohort-history-loader",
+    "version": "1.0.0"
+  },
+  "readback_counts": {
+    "artifacts": 7,
+    "review_tasks": 0,
+    "scan_run_events": 1,
+    "scan_runs": 1,
+    "watch_cases": 3
+  },
+  "run_id": "37ec818b-719b-5dc2-8995-e85f1b67cfdf",
+  "runs_created": 1,
+  "runs_predicted": 1,
+  "schema_name": "CohortHistoryReceipt",
+  "schema_version": "1.0.0",
+  "selected_case_ids": [
+    "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3"
+  ],
+  "selected_for_date": "2026-08-25",
+  "source_commit": "14587ac5ab9fa854b4d9b0a2138dad81761bb756",
+  "source_tree": "30ec151f61850356bd42bf30c7e70af48083b3d6",
+  "status": "VALID",
+  "trigger_code": "DAY1_MANUAL",
+  "warnings": []
+}

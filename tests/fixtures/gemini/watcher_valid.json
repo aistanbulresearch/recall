@@ -1,0 +1,9 @@
+{
+  "effective_at": "2026-08-22T06:30:00Z",
+  "observation_ids": [],
+  "coverage_status": "PASS",
+  "source_cursors": {"captured-replay": "stage-1"},
+  "normalized_facts": {"observation_count": 1, "scope": "BRCA2-exons-15-26"},
+  "conflicts": [],
+  "snapshot_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

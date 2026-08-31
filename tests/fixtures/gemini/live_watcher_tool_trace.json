@@ -1,0 +1,42 @@
+{
+  "artifact_content_hash": "98ac0871fcd5f2f505221875f1673d9581a1bf77b9cbe6a9ecfb7ee9a3b959c0",
+  "artifact_schema": "EvidenceSnapshot",
+  "artifact_status": "VALID",
+  "authorization_receipts": 1,
+  "backend_invocations": 1,
+  "captured_at": "2026-08-22T19:03:54Z",
+  "credentials_recorded": false,
+  "data_mode": "CAPTURED_REPLAY",
+  "identifiers_recorded": false,
+  "model": "gemini-3.7-flash",
+  "model_turns": [
+    {
+      "candidates_token_count": 18,
+      "finish_reason": "STOP",
+      "function_call_produced": true,
+      "prompt_token_count": 633,
+      "thoughts_token_count": 27,
+      "total_token_count": 678,
+      "turn": 1,
+      "wall_seconds": 40.642
+    },
+    {
+      "candidates_token_count": 144,
+      "finish_reason": "STOP",
+      "function_call_produced": false,
+      "prompt_token_count": 1572,
+      "thoughts_token_count": 301,
+      "total_token_count": 2017,
+      "turn": 2,
+      "wall_seconds": 3.373
+    }
+  ],
+  "run_wall_seconds": 57.316,
+  "runtime_mode": "LIVE_VERTEX",
+  "snapshot_hash": "f1d903f94d0f168d482a40bd2f4347a218dbedf3589dc105b0106e4372067ddb",
+  "source_cursor": "stage-1",
+  "status": "PASS",
+  "tool_calls": 1,
+  "tool_responses": 1,
+  "vertex_location": "global"
+}

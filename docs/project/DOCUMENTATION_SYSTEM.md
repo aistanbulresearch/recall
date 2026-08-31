@@ -15,6 +15,13 @@ The repository must allow a new owner, reviewer, auditor, or contributor to reco
 | What work happened? | `docs/project/WORK_LOG.md` |
 | What failed and how was it handled? | `docs/project/ERROR_LOG.md` |
 | What does the architecture permit? | `docs/architecture/TARGET_ARCHITECTURE.md` |
+| What threats and denied actions must be tested? | `docs/security/THREAT_MODEL.md` |
+| What artifact and lifecycle contracts are normative? | `docs/contracts/ARTIFACT_CONTRACTS.md` and `docs/contracts/LIFECYCLE_STATE_MACHINES.md` |
+| What can emit a workflow outcome? | `docs/policy/DETERMINISTIC_POLICY_SPEC.md` |
+| Which measurements and failure gates were frozen before runs? | `docs/evaluation/EVALUATION_PROTOCOLS.md` |
+| Which dependency, model, API, or data source may be used? | `docs/governance/DEPENDENCY_LICENSE_POLICY.md` and `docs/governance/THIRD_PARTY_REGISTER.md` |
+| What must the four-minute demo show? | `docs/demo/FOUR_MINUTE_STORYBOARD.md` and `docs/demo/WEB_INFORMATION_ARCHITECTURE.md` |
+| Where does each displayed value come from? | `docs/demo/DERIVED_VALUE_REGISTRY.md` |
 | Which judging criterion has proof? | `docs/evidence/SCORE_MATRIX.md` |
 | Which product claim has evidence? | `docs/evidence/CLAIM_EVIDENCE_LEDGER.md` |
 | Which guardrail was actually triggered? | `docs/evidence/GUARDRAIL_PROOF_MATRIX.md` |
@@ -24,7 +31,7 @@ The repository must allow a new owner, reviewer, auditor, or contributor to reco
 
 ### Canonical, editable documents
 
-`MASTER_PLAN`, `STATUS`, `HANDOFF`, architecture specifications, runbooks, and evaluation protocols represent the latest accepted state. Changes must be described in the Work Log and, when they alter a decision, the Decision Log.
+`MASTER_PLAN`, `STATUS`, `HANDOFF`, architecture specifications, governance policies, runbooks, and evaluation protocols represent the latest accepted state. Changes must be described in the Work Log and, when they alter a decision, the Decision Log.
 
 ### Append-only ledgers
 

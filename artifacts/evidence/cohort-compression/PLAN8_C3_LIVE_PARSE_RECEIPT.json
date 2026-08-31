@@ -1,0 +1,48 @@
+{
+  "receipt_schema": "RecallLiveArtifactParseReceipt/1.0.0",
+  "evidence_state": "EXECUTED",
+  "executed_at_utc": "2026-08-29T06:44:46.973Z",
+  "owner_authorization": {
+    "scope": "sanitized execution receipt only",
+    "wire_persistence_authorized": false
+  },
+  "source_checkout": {
+    "branch": "codex/plan9-external-predecessor",
+    "base_commit": "5a1069068c6a4641b2fe4a10e64ae780b4b07c4e",
+    "base_tree": "cbaab74b036ce49726720beaaf26203d5ee6ca94",
+    "plan_sha256": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+    "scoped_file_sha256": {
+      "artifacts/evidence/cohort-compression/COMPRESSED_PREDICTION_PLAN_V2.json": "52d5f3d8651987474870dc1d2fead318ea3520a91fb54b0f41d7772ae90b7338",
+      "scripts/regenerate_compressed_plan.py": "9d88727c6c5df8947f9a3816f4310332ca6b2ceff0dd8f2a0069f870246132d0",
+      "src/recall/contracts/payloads/scheduler_v3.py": "862670f7a2cf8f75cb7df5019e5474881588aa37084fbd83d13d8611f4cf9988",
+      "src/recall/contracts/payloads/scheduler_v33.py": "fedb138c95ca8d98931c8d0536c0f31781d1e4deb6c5fe887b975cfd2329d630",
+      "src/recall/scheduler/compressed_plan.py": "fdfe8b2f7903549493b9d00b06f89a77fc2074c4ce359ada02507acd12b12afb",
+      "src/recall/testing/compressed_plan_regeneration.py": "2912a00249ca263bc8823d6bb84af9191e37af164c8d75564eb113baddc5aa9c",
+      "tests/fixtures/cohort_deadline_policy_vectors.json": "930b57bcd6b6078e54e4e7552faa10a6c34f99278b77a32fa5dfbf6fb925366d",
+      "tests/scheduler/test_compressed_plan.py": "3e20896b634620e45bb88a6882a92a3c2005625eb2cb45661b0c33846f4b5854",
+      "tests/scheduler/test_compressed_plan_regeneration.py": "fd82e32e69149906710ea30d0337cb7bb70909b0913358152dbcb35efc8448ff",
+      "tests/scheduler/test_compressed_scheduler.py": "26432cdb585a0be2bbf8599dec6f1dfc26e13f5a30d7dbe8ec1d1a06faeaf072",
+      "web:tests/fixtures/cohort_deadline_policy_vectors.json": "930b57bcd6b6078e54e4e7552faa10a6c34f99278b77a32fa5dfbf6fb925366d",
+      "web:web/src/viewmodel/deadline_policy.ts": "b32ff8292ec9cfe7fb059024ee1bffac583661547093e35d2480c26a55ebb1ab"
+    }
+  },
+  "verification": {
+    "mechanism": "read-only Firestore lookup followed by the current production parse_artifact path",
+    "verification_code_sha256": "34f80b37e24a24129a2523188c10be3fd9c9fa97c86c6cf2e7146cb24d768977",
+    "python_executable": "C:/Users/oacav/OneDrive/Desktop/recall project/.venv/Scripts/python.exe",
+    "direct_exit_code": 0,
+    "cloud_write_performed": false,
+    "wire_retained": false
+  },
+  "observed_artifact": {
+    "collection_prefix": "dev_recall_m2_compressed_pfe3a1d5650da_c3_20260828_",
+    "artifact_id": "7fa158a0-e868-5c08-9825-c3abb69165ec",
+    "content_hash": "1234259c322d970587c93a8eaae096c082b19f54870ea3953a32d84423b42f09",
+    "schema_name": "CohortDayManifest",
+    "status": "INCOMPLETE",
+    "complete_runs": 9,
+    "halted_runs": 11,
+    "data_mode_receipt_id": null
+  },
+  "evidence_boundary": "The private manifest wire was parsed only in memory and was not printed, copied, or retained. This receipt records sanitized assertions and their exact source bindings; it is not the manifest itself and does not prove Plan-9 runtime execution."
+}

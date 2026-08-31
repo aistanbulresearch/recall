@@ -1,0 +1,258 @@
+/*
+ * The run surface. Same document voice as the narrative page, plus a field of
+ * cells dense enough that the cohort's size is felt at a glance.
+ *
+ * Colour is never the only carrier: every state appears as a word in the
+ * legend, in the cell's title and in its accessible label, and the four states
+ * differ in fill weight as well as hue.
+ */
+
+.run {
+  --bg: #fbfbf9;
+  --ink: #15161a;
+  --muted: #6a6c73;
+  --faint: #8d9097;
+  --rule: #e3e2dd;
+  --rule-strong: #c9c8c2;
+  --none: #d5d4cd;
+  --review: #b07d24;
+  --abstain: #44546e;
+  --halted: #8d3b2f;
+  --mono: "IBM Plex Mono", "Cascadia Mono", ui-monospace, monospace;
+
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.7;
+  width: min(90ch, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 26px 0 60px;
+}
+
+.run h1 { font-size: 1.5rem; font-weight: 700; margin: 10px 0 8px; }
+
+.run-sub { color: #35373d; margin: 0; max-width: 72ch; }
+
+.run-tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  border: 1px solid var(--halted);
+  color: var(--halted);
+  padding: 3px 9px;
+}
+
+.run-tag.pending {
+  border-color: var(--muted);
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.binding {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid var(--rule-strong);
+  padding: 12px 16px;
+  margin: 22px 0 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.binding b { color: var(--ink); font-weight: 400; }
+
+/* ---------------- awaiting ---------------- */
+
+.awaiting {
+  border: 1px dashed var(--rule-strong);
+  padding: 26px 24px;
+  margin: 28px 0;
+  max-width: 76ch;
+}
+
+.awaiting-tag {
+  display: inline-block;
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  border: 1px solid var(--muted);
+  border-style: dashed;
+  padding: 3px 9px;
+  margin-bottom: 14px;
+}
+
+.awaiting p { margin: 0 0 12px; max-width: 72ch; }
+
+.awaiting-note { color: var(--muted); font-size: 0.84rem; }
+
+/* ---------------- the field ---------------- */
+
+.run-field {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15px, 1fr));
+  gap: 3px;
+  margin: 22px 0 14px;
+}
+
+.run-cell {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  background: var(--none);
+}
+
+.run-cell:hover { outline: 1px solid var(--ink); outline-offset: 1px; }
+
+.run-cell.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.st-none { background: var(--none); }
+.st-review { background: var(--review); }
+.st-abstain { background: var(--abstain); }
+
+/* Halted cells carry a hatch as well as a colour: the one state a reader must
+   never mistake for another is distinguishable without colour vision. */
+.st-halted {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--halted) 0 3px,
+    #b8695c 3px 6px
+  );
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  vertical-align: baseline;
+  margin-right: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.run-detail {
+  border-left: 2px solid var(--ink);
+  padding: 6px 0 6px 14px;
+  margin: 6px 0 20px;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+/* ---------------- tables on this surface ---------------- */
+
+.run .tbl { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin: 18px 0; }
+
+.run .tbl th {
+  text-align: left;
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 8px 12px 8px 0;
+}
+
+.run .tbl td {
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 12px 10px 0;
+  vertical-align: top;
+  line-height: 1.6;
+}
+
+.run .tbl .cap { font-weight: 700; white-space: nowrap; }
+
+.run .tbl .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.run .tbl .limit { display: block; color: var(--muted); font-size: 0.92em; margin-top: 4px; }
+
+.total-row td { border-top: 1px solid var(--ink); font-weight: 700; }
+
+.total-row td:last-child { font-weight: 400; color: var(--muted); }
+
+.reason {
+  display: inline-block;
+  border: 1px solid var(--rule-strong);
+  padding: 1px 6px;
+  margin: 0 4px 4px 0;
+  font-size: 0.92em;
+  color: var(--halted);
+}
+
+.not-exported { color: var(--muted); font-style: italic; }
+
+.mono-cell { font-weight: 400; }
+
+.claim-line {
+  border-left: 2px solid var(--halted);
+  padding: 6px 0 6px 14px;
+  margin: 20px 0;
+  max-width: 72ch;
+}
+
+.run .sec { padding: 34px 0; border-top: 1px solid var(--rule); }
+
+.run .sec-head { display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px; }
+
+.run .sec-num { color: var(--faint); font-size: 0.8rem; }
+
+.run .sec-head h2 { font-size: 0.94rem; font-weight: 700; margin: 0; letter-spacing: 0.02em; }
+
+.run .sec-claim { margin: 0 0 18px; color: #35373d; max-width: 72ch; }
+
+.run p { max-width: 72ch; }
+
+.run .caveat {
+  border-left: 2px solid var(--rule-strong);
+  padding: 4px 0 4px 14px;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .run-field { grid-template-columns: repeat(auto-fill, minmax(11px, 1fr)); }
+}
+
+/* ---------------- wired-export additions ---------------- */
+
+.hint { color: var(--muted); font-size: 0.8rem; margin: 4px 0 18px; }
+
+.run-detail p { margin: 4px 0; }
+
+.detail-roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+
+.role-chip {
+  font-size: 0.66rem;
+  border: 1px solid var(--rule-strong);
+  padding: 2px 7px;
+  letter-spacing: 0.04em;
+}
+
+.role-chip.role-complete { border-color: var(--abstain); color: var(--abstain); }
+.role-chip.role-incomplete { border-color: var(--halted); color: var(--halted); }
+.role-chip.role-absent { color: var(--muted); border-style: dashed; }
+
+.detail-hashes { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); }
+
+.tbl.funnel .num, .tbl.audit .num { font-variant-numeric: tabular-nums; }
+
+.tbl .num.fail { color: var(--halted); }
+
+.tbl .num.good { color: var(--abstain); }
+
+.tbl.audit td:first-child { width: 46%; }
+
+.run-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin: 18px 0;
+}
+
+.run-stat { background: #ffffff; padding: 14px 16px; }
+
+.stat-value { display: block; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.stat-label { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 3px; }

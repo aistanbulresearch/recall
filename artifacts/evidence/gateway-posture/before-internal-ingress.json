@@ -1,0 +1,32 @@
+{
+  "artifact": "gateway_posture_evidence",
+  "half": "before",
+  "posture": {
+    "ingress": "internal",
+    "iam": "run.invoker on three agent service accounts"
+  },
+  "captured_at_utc": "2026-08-24T22:00:18.594410+00:00",
+  "caller": "outside the perimeter (developer workstation)",
+  "service_url": "https://recall-tool-gateway-iczljmovgq-uc.a.run.app",
+  "claim": "With internal ingress, every request from outside the perimeter is answered 404 by the Google front end regardless of credentials. No authentication is evaluated, so the three cases are indistinguishable. Negative-auth tests run from here would all report a refusal before receipt or backend dispatch and would prove nothing about the auth path.",
+  "results": [
+    {
+      "case": "no_auth_root",
+      "http_code": "404",
+      "seconds": "0.495793",
+      "curl_exit": 0
+    },
+    {
+      "case": "no_auth_invoke",
+      "http_code": "404",
+      "seconds": "0.347359",
+      "curl_exit": 0
+    },
+    {
+      "case": "garbage_bearer",
+      "http_code": "404",
+      "seconds": "0.361685",
+      "curl_exit": 0
+    }
+  ]
+}

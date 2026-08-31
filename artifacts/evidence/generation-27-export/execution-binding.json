@@ -1,0 +1,26 @@
+{
+ "completed_at": "2026-08-31T14:07:21.265519Z",
+ "conditions": {
+  "Completed": "True",
+  "ContainerReady": "True",
+  "ResourcesAvailable": "True",
+  "Started": "True"
+ },
+ "deployed": {
+  "bundle_sha256": "db87ed31f01ef31166b4f029cc8f0453a823126495549cd5f497e8e6c7af654b",
+  "image_digest": "sha256:ca4a789c12795b4d968be86a57bac26526e0d4430d3e4e158bc8a22191c8be2c",
+  "plan_sha256": "8cb69fbd44403e299ccdc00a9a0c5fe3b18e70f5d7aa43c0d5d2ee48d7e424d7",
+  "source_commit": "63437d20e493f09296af73f50348eb60fbe11030",
+  "source_tree": "0d04d0c572bc3b4dbaa77ead3bf3adbdaac00a78"
+ },
+ "duration_seconds": 22239,
+ "execution_alias": "268909f40ea6ca25",
+ "job": "recall-cohort-daily",
+ "job_generation": "27",
+ "note": "The execution was identified by custody, not by recency: the launch receipt records the executions that existed before this attempt, and exactly one execution falls outside that baseline. Its raw name is never published.",
+ "recovery_prefix_bound": "dev_recall_final_p8cb69fbd_c6_r7713b27758_",
+ "region": "us-central1",
+ "started_at": "2026-08-31T07:56:41.975643Z",
+ "succeeded_count": 1,
+ "terminal_state": "SUCCEEDED"
+}

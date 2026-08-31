@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "capture_type": "MINIMAL_VERBATIM_EXCERPT",
+  "data_mode": "CAPTURED_REPLAY",
+  "retrieved_at": "2026-08-16T23:19:30Z",
+  "source_locator": "https://www.nature.com/articles/s41586-024-08349-1#data-availability",
+  "source_section": "Data availability",
+  "pmid": "39779848",
+  "doi": "10.1038/s41586-024-08349-1",
+  "geo_accession": "GSE248438",
+  "verbatim_excerpt": "The raw sequencing reads were deposited to the Gene Expression Omnibus (GEO) under accession GSE248438",
+  "excerpt_word_count": 15,
+  "transformation": "HTML tags around the accession were removed; the rest of the sentence and article were not retained.",
+  "full_article_captured": false,
+  "rights_boundary": "Short linkage excerpt only; no article, abstract, figure, table, or supplementary content is redistributed."
+}

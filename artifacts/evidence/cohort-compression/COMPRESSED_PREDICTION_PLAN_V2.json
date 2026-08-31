@@ -1,0 +1,201 @@
+{
+  "decision_reference": "DEC-2026-08-26-046",
+  "plan_version": "COMPRESSED_PREDICTION_PLAN_V2",
+  "schedule_mode": "COMPRESSED_MACHINE_TRIGGERED",
+  "schema_version": "2.8.0",
+  "window_semantics": "TRIGGER_START_ONLY",
+  "cycles": [
+    {
+      "cohort_due_date": "2026-08-26",
+      "cycle_id": "c1",
+      "cycle_index": 1,
+      "activation": "IMMUTABLE_EXECUTED",
+      "execution_profile": "CREATE_ONLY_V1",
+      "epoch_label": "PLAN3_C1_EXECUTED",
+      "evaluation_role": "IMMUTABLE_EXECUTED",
+      "execution_timeout_seconds": 600,
+      "write_timeout_seconds": 600,
+      "agent_timeout_seconds": 0,
+      "predecessor": null,
+      "runs_predicted": 3,
+      "trigger_policy": "ALWAYS",
+      "write_path": "EXTERNAL_IMMUTABLE",
+      "window_end": "2026-08-26T20:49:59Z",
+      "window_start": "2026-08-26T20:40:00Z"
+    },
+    {
+      "cohort_due_date": "2026-08-27",
+      "cycle_id": "c2",
+      "cycle_index": 2,
+      "activation": "IMMUTABLE_EXECUTED",
+      "execution_profile": "CREATE_ONLY_V1",
+      "epoch_label": "PLAN4_C2_EXECUTED",
+      "evaluation_role": "IMMUTABLE_EXECUTED",
+      "execution_timeout_seconds": 600,
+      "write_timeout_seconds": 600,
+      "agent_timeout_seconds": 0,
+      "predecessor": {
+        "binding": "EXTERNAL_PLAN",
+        "collection_prefix": "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_",
+        "cycle_id": "c1",
+        "manifest_artifact_id": "bd51bd00-fcf4-5d91-a45d-4d203e02127c",
+        "manifest_content_hash": "372b7e3e64805b1518793d944422bbf35e6f404c2d5b3392c3442c960427c02c",
+        "mode_receipt_artifact_id": "f4c677c8-e927-5ee6-a85f-cdd0c2fe4845",
+        "mode_receipt_content_hash": "4303d3e75fe88421ea21b8f5c2f353d86abea30ec0c56620c65c35693083694c",
+        "plan_sha256": "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4"
+      },
+      "runs_predicted": 2,
+      "trigger_policy": "ALWAYS",
+      "write_path": "EXTERNAL_IMMUTABLE",
+      "window_end": "2026-08-26T22:39:59Z",
+      "window_start": "2026-08-26T22:30:00Z"
+    },
+    {
+      "cohort_due_date": "2026-08-28",
+      "cycle_id": "c3",
+      "cycle_index": 3,
+      "activation": "HISTORICAL_ATTEMPTS_PRESERVED",
+      "execution_profile": "FULL_AUDIT_V1",
+      "epoch_label": "PLAN6_RAMP_FIRST_PASS_RETRY",
+      "evaluation_role": "RAMP_FIRST_PASS",
+      "execution_timeout_seconds": 3600,
+      "write_timeout_seconds": 600,
+      "agent_timeout_seconds": 3000,
+      "predecessor": {
+        "binding": "EXTERNAL_PLAN",
+        "collection_prefix": "dev_recall_m2_compressed_p4c2b5ededcf7_c2_20260827_",
+        "cycle_id": "c2",
+        "manifest_artifact_id": "d89d209e-22f4-5e9e-84ed-329857bb4a27",
+        "manifest_content_hash": "ba588c3777035bb2d72eecfa8951970472e1127efa1de480b44183aec2823505",
+        "mode_receipt_artifact_id": "d84f6ea0-3e5b-5a2a-b1c6-af632187e661",
+        "mode_receipt_content_hash": "c615e0c0e34e8a230aacd3d6298fa7d4103a517a4860fb025fc70187bfde4c3b",
+        "plan_sha256": "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89"
+      },
+      "runs_predicted": 20,
+      "trigger_policy": "PREDECESSOR_INTEGRITY_AND_MODEL_COST_GATE",
+      "write_path": "FIRESTORE_BATCH_V1",
+      "window_end": "2026-08-29T10:29:59Z",
+      "window_start": "2026-08-29T10:00:00Z"
+    },
+    {
+      "cohort_due_date": "2026-08-29",
+      "cycle_id": "c4",
+      "cycle_index": 4,
+      "activation": "RETIRED_TIMEBOX",
+      "execution_profile": "FULL_AUDIT_V1",
+      "epoch_label": "PLAN6_R2_80_ACTIVE",
+      "evaluation_role": "RAMP_FIRST_PASS",
+      "execution_timeout_seconds": 7200,
+      "write_timeout_seconds": 1200,
+      "agent_timeout_seconds": 6000,
+      "predecessor": null,
+      "runs_predicted": 80,
+      "trigger_policy": "R1_TELEMETRY_OWNER_COST_AND_RAMP_GATE",
+      "write_path": "FIRESTORE_BATCH_V1",
+      "window_end": "2026-08-29T12:54:59Z",
+      "window_start": "2026-08-29T10:55:00Z"
+    },
+    {
+      "cohort_due_date": "2026-08-30",
+      "cycle_id": "c5",
+      "cycle_index": 5,
+      "activation": "RETIRED_TIMEBOX",
+      "execution_profile": "FULL_AUDIT_V1",
+      "epoch_label": "PLAN6_R3_200_PROVISIONAL",
+      "evaluation_role": "RAMP_FIRST_PASS",
+      "execution_timeout_seconds": 14400,
+      "write_timeout_seconds": 1800,
+      "agent_timeout_seconds": 12600,
+      "predecessor": null,
+      "runs_predicted": 200,
+      "trigger_policy": "R2_TELEMETRY_AND_RAMP_GATE",
+      "write_path": "FIRESTORE_BATCH_V1",
+      "window_end": "2026-08-29T17:18:59Z",
+      "window_start": "2026-08-29T13:19:00Z"
+    },
+    {
+      "cohort_due_date": "2026-08-31",
+      "cycle_id": "c6",
+      "cycle_index": 6,
+      "activation": "ACTIVE",
+      "execution_profile": "FULL_AUDIT_V1",
+      "epoch_label": "PLAN6_FINAL_456_REASSESSMENT_ACTIVE",
+      "evaluation_role": "PORTFOLIO_REASSESSMENT",
+      "execution_timeout_seconds": 28800,
+      "write_timeout_seconds": 1800,
+      "agent_timeout_seconds": 27000,
+      "predecessor": null,
+      "runs_predicted": 456,
+      "trigger_policy": "OWNER_COST_APPROVAL_AND_R3_TELEMETRY_GATE",
+      "write_path": "FIRESTORE_BATCH_V1",
+      "window_end": "2026-08-29T23:43:59Z",
+      "window_start": "2026-08-29T16:00:00Z"
+    }
+  ],
+  "supersession": {
+    "mode": "FINAL_ONLY_TIMEBOX",
+    "superseded_plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
+    "owner_decision": "RETIRE_RAMP_DUE_TIMEBOX_AND_AUTHORIZE_FINAL_456",
+    "reason_code": "RAMP_TIMEBOX_EXHAUSTED",
+    "historical_evidence": [
+      {
+        "cycle_id": "c1",
+        "evidence_role": "IMMUTABLE_EXECUTED",
+        "execution_status": "COMPLETE",
+        "plan_sha256": "5f18998f11c17b8feef52f90edd9319532a36d525dbea9e9a40538425a28dfa4",
+        "collection_prefix": "dev_recall_m2_compressed_p5f18998f11c1_c1_20260826_",
+        "manifest_artifact_id": "bd51bd00-fcf4-5d91-a45d-4d203e02127c",
+        "manifest_content_hash": "372b7e3e64805b1518793d944422bbf35e6f404c2d5b3392c3442c960427c02c",
+        "mode_receipt_artifact_id": "f4c677c8-e927-5ee6-a85f-cdd0c2fe4845",
+        "mode_receipt_content_hash": "4303d3e75fe88421ea21b8f5c2f353d86abea30ec0c56620c65c35693083694c"
+      },
+      {
+        "cycle_id": "c2",
+        "evidence_role": "IMMUTABLE_EXECUTED",
+        "execution_status": "COMPLETE",
+        "plan_sha256": "4c2b5ededcf79472781d0d58eca23b46278dcd0a9cc3fcaeb8c307f7a6c84e89",
+        "collection_prefix": "dev_recall_m2_compressed_p4c2b5ededcf7_c2_20260827_",
+        "manifest_artifact_id": "d89d209e-22f4-5e9e-84ed-329857bb4a27",
+        "manifest_content_hash": "ba588c3777035bb2d72eecfa8951970472e1127efa1de480b44183aec2823505",
+        "mode_receipt_artifact_id": "d84f6ea0-3e5b-5a2a-b1c6-af632187e661",
+        "mode_receipt_content_hash": "c615e0c0e34e8a230aacd3d6298fa7d4103a517a4860fb025fc70187bfde4c3b"
+      },
+      {
+        "cycle_id": "c3",
+        "evidence_role": "HISTORICAL_ATTEMPT",
+        "execution_status": "INCOMPLETE",
+        "plan_sha256": "fe3a1d5650daf27fd72b31030d5f7e26cf75b7ffd6cb1f7220c5c86f4c869b61",
+        "collection_prefix": "dev_recall_m2_compressed_pfe3a1d5650da_c3_20260828_",
+        "manifest_artifact_id": "7fa158a0-e868-5c08-9825-c3abb69165ec",
+        "manifest_content_hash": "1234259c322d970587c93a8eaae096c082b19f54870ea3953a32d84423b42f09",
+        "mode_receipt_artifact_id": null,
+        "mode_receipt_content_hash": null
+      },
+      {
+        "cycle_id": "c3",
+        "evidence_role": "HISTORICAL_ATTEMPT",
+        "execution_status": "INCOMPLETE",
+        "plan_sha256": "c3e454c1b593c98a558c3f03c67b7de6f5d0e2d1e3c98efdfb91d4c5530a9791",
+        "collection_prefix": "dev_recall_m2_compressed_pc3e454c1b593_c3_20260828_",
+        "manifest_artifact_id": "eccd1eee-126b-5cb6-8e48-96adbd10a137",
+        "manifest_content_hash": "a17161bf65bbb95b6b4db1ef2521ee5ba7897a697fd6cbf0817a509a2cfc0471",
+        "mode_receipt_artifact_id": null,
+        "mode_receipt_content_hash": null
+      }
+    ],
+    "retired_cycles": [
+      {
+        "cycle_id": "c4",
+        "state": "RETIRED_TIMEBOX",
+        "execution_status": "NOT_EXECUTED",
+        "runs_created": 0
+      },
+      {
+        "cycle_id": "c5",
+        "state": "RETIRED_TIMEBOX",
+        "execution_status": "NOT_EXECUTED",
+        "runs_created": 0
+      }
+    ]
+  }
+}

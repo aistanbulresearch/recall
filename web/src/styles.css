@@ -1,0 +1,310 @@
+/* Recall reviewer surface. Colour is always redundant with text and status copy. */
+
+:root {
+  color-scheme: light dark;
+  --surface: #f6f7f9;
+  --panel: #ffffff;
+  --ink: #14181f;
+  --ink-soft: #4a5361;
+  --line: #d7dce4;
+  --neutral: #33507a;
+  --positive: #1c6b45;
+  --caution: #8a5a09;
+  --blocked: #9a2820;
+  --unknown: #5a5f6a;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #10141b;
+    --panel: #171d26;
+    --ink: #eef1f6;
+    --ink-soft: #aab3c0;
+    --line: #2b3441;
+    --neutral: #9db8e8;
+    --positive: #74d3a3;
+    --caution: #e8bb6e;
+    --blocked: #f09a92;
+    --unknown: #a8aeb9;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.app { max-width: 1400px; margin: 0 auto; padding: 1rem; }
+
+.fixture-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.fixture-label { font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.08em; }
+.fixture-note { font-size: 0.8rem; color: var(--ink-soft); flex-basis: 100%; }
+
+.fixture-button {
+  font: inherit;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.fixture-button.selected { border-color: var(--neutral); box-shadow: inset 0 0 0 1px var(--neutral); font-weight: 700; }
+.fixture-button:focus-visible { outline: 3px solid var(--neutral); outline-offset: 2px; }
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.masthead h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.01em; }
+.prototype-label { margin: 0.2rem 0 0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; color: var(--caution); }
+.masthead-fields { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 1rem;
+}
+
+.panel h2 { margin-top: 0; font-size: 1.05rem; }
+.panel h3 { font-size: 0.9rem; margin-bottom: 0.3rem; }
+.panel-copy { font-size: 0.85rem; color: var(--ink-soft); margin-top: 0; }
+.panel-empty { font-size: 0.85rem; color: var(--unknown); font-weight: 600; }
+
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+
+.field {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.field-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+.field-value { font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.field-hint, .field-status-copy { font-size: 0.75rem; color: var(--ink-soft); }
+
+.field[data-status='UNKNOWN'], .field[data-status='UNAVAILABLE'] { border-style: dashed; }
+.field[data-status='INCOMPLETE'] { border-color: var(--caution); }
+.field[data-status='STALE'] { border-color: var(--caution); border-style: dotted; }
+
+.severity-neutral { color: var(--neutral); }
+.severity-positive { color: var(--positive); }
+.severity-caution { color: var(--caution); }
+.severity-blocked { color: var(--blocked); }
+.severity-unknown { color: var(--unknown); }
+
+.badge {
+  display: inline-flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  max-width: 320px;
+}
+.badge-detail { font-size: 0.75rem; color: var(--ink-soft); }
+.badge-state[data-run-state='HALTED'] { border-width: 3px; border-style: double; border-color: var(--blocked); }
+.badge-outcome[data-outcome='ABSTAIN'] { border-style: dashed; border-color: var(--caution); }
+.badge-outcome[data-outcome='REVIEW_REQUIRED'] { border-color: var(--positive); }
+
+.lineage { margin-top: 0.35rem; font-size: 0.72rem; }
+.lineage summary { cursor: pointer; color: var(--ink-soft); }
+.lineage ul { margin: 0.3rem 0; padding-left: 1rem; }
+.lineage-id, .lineage-hash { overflow-wrap: anywhere; color: var(--ink-soft); }
+.lineage-empty { color: var(--unknown); font-weight: 600; }
+
+.roster { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.roster th, .roster td { text-align: left; border-bottom: 1px solid var(--line); padding: 0.35rem 0.3rem; }
+
+.transitions { font-size: 0.8rem; padding-left: 1.1rem; }
+.denial { border: 2px solid var(--blocked); border-radius: 8px; padding: 0.6rem; margin-top: 0.6rem; }
+.denial-detail dt { font-size: 0.72rem; text-transform: uppercase; color: var(--ink-soft); }
+.denial-detail dd { margin: 0 0 0.4rem; font-size: 0.85rem; }
+.reason-code { display: block; }
+
+.decision { font-size: 0.95rem; }
+.reasons ul { font-size: 0.82rem; padding-left: 1.1rem; }
+.authority-note { font-size: 0.8rem; color: var(--ink-soft); border-top: 1px solid var(--line); padding-top: 0.5rem; }
+
+.bindings { font-size: 0.8rem; padding-left: 1.1rem; }
+.provenance { margin-top: 1rem; font-size: 0.78rem; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* Evidence card. Every interval is computed from the dates above it, so the
+   day count and its span are shown together and never separated. Status is
+   carried in words as well as border, because only one interval is the
+   preregistered metric and a viewer must be able to tell which without colour. */
+.panel-evidence-card .case-identity {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.case-identity dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.case-identity dd { margin: 0.1rem 0 0; font-size: 0.85rem; }
+.case-identity code, .case-intervals code { font-size: 0.82rem; overflow-wrap: anywhere; }
+
+.case-intervals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.case-intervals li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.7rem;
+  align-items: baseline;
+}
+
+.interval-days {
+  font-size: 1.15rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--neutral);
+}
+
+.interval-label { font-size: 0.85rem; }
+
+.interval-status {
+  grid-column: 2;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.case-intervals li[data-status='preregistered'] { border-color: var(--neutral); }
+.case-intervals li[data-status='preregistered'] .interval-status { color: var(--neutral); font-weight: 600; }
+.case-intervals li[data-status='contextual'],
+.case-intervals li[data-status='not_in_governing_document'] { border-style: dashed; }
+.case-intervals li[data-status='not_in_governing_document'] .interval-status { color: var(--caution); }
+
+.case-caveat { font-size: 0.78rem; color: var(--ink-soft); margin: 0.8rem 0 0.4rem; }
+
+.case-honesty {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* Cohort panel. A case states its own composition, and any accession number
+   shows the capture file and hash it is anchored to on the same line. */
+.cohort-cases {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cohort-cases li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+
+.cohort-cases li[data-anchored='true'] { border-color: var(--neutral); }
+.cohort-cases li[data-anchored='false'] { border-style: dashed; }
+
+.cohort-case-id { font-weight: 700; }
+
+.cohort-case-mode {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.cohort-case-copy { color: var(--ink-soft); }
+.cohort-case-chain { overflow-wrap: anywhere; }
+.cohort-hash { color: var(--ink-soft); }
+.cohort-unanchored, .cohort-warning { color: var(--caution); }
+.cohort-warning { font-size: 0.8rem; margin: 0.6rem 0 0; }
+.cohort-withheld { color: var(--caution); }
+
+/* The headlined interval. The ruling permits it to lead only while the
+   preregistered interval is displayed beside it, so the emphasis is a border
+   and weight rather than hiding the other rows. */
+.case-intervals li[data-headline='true'] {
+  border-color: var(--neutral);
+  border-width: 2px;
+}
+
+.case-intervals li[data-headline='true'] .interval-days { font-size: 1.35rem; }
+
+/* Agreement between the manifest's running totals and the history they were
+   derived from. Disagreement is a finding, not a styling variant. */
+.cohort-agreement { font-size: 0.8rem; margin: 0.6rem 0 0; }
+.cohort-agreement[data-agrees='true'] { color: var(--positive); }
+.cohort-agreement[data-agrees='false'] { color: var(--blocked); font-weight: 600; }
+
+/* Incomplete days are named, never folded into the span. */
+.cohort-incomplete-days { list-style: none; margin: 0.4rem 0 0; padding: 0; font-size: 0.8rem; color: var(--caution); }
+
+/* The declared schedule mode, rendered only from the artifact field. */
+.cohort-schedule-mode { font-size: 0.78rem; font-weight: 600; color: var(--neutral); margin: 0 0 0.5rem; text-transform: none; }
+
+/* Epoch label and per-run outcomes. Audit status is three-valued and each
+   value renders in words; nothing collapses into a single success count. */
+.cohort-epoch { font-size: 0.8rem; margin: 0 0 0.5rem; color: var(--ink); }
+.cohort-outcomes { list-style: none; margin: 0.3rem 0 0; padding: 0; max-height: 16rem; overflow-y: auto; font-size: 0.75rem; }
+.cohort-outcomes li { display: flex; gap: 0.6rem; padding: 0.15rem 0; border-bottom: 1px solid var(--line); }
+.cohort-outcomes li[data-audit-status='INCOMPLETE'] .outcome-audit { color: var(--caution); }
+.cohort-outcomes li[data-audit-status='NOT_EVALUATED'] .outcome-audit { color: var(--unknown); }
+.outcome-epoch { margin-left: auto; color: var(--ink-soft); }

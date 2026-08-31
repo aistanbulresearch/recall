@@ -1,0 +1,1939 @@
+{
+  "cases": [
+    {
+      "case_id": "420c82a9-c37d-5d40-826a-bda26184ae34",
+      "cloud_bound_payload": {
+        "case_token": "420c82a9-c37d-5d40-826a-bda26184ae34",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "829d814a-64d4-5eac-af34-4ef157ca28ae",
+        "case_id": "420c82a9-c37d-5d40-826a-bda26184ae34",
+        "content_hash": "5b18b030f2d3440a31235e97591c1f76ada7ab8fd457131e9c204f3dc03db2d4",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "6cb1934f9d39224d72cada8152ca171dad34debb30e6315e3375dea2fd17245b",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "3a33a6a5076f24992be9fd2db6da7cd7d4bd1bf4f62419c9abd6bb91775ccbe6"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "1c1ae91a-ff7d-5012-9efb-abdeedbdcec7",
+        "attention_marker": null,
+        "case_id": "420c82a9-c37d-5d40-826a-bda26184ae34",
+        "content_hash": "e5a831fc09e179fd6e46e8536bdec7f9500d6478b4bcad6f779e4a1ebddebfd7",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "829d814a-64d4-5eac-af34-4ef157ca28ae"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-26T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day2-synthetic-002"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "504db62b-ae4e-5f79-a31e-31c0387ac4a4",
+      "cloud_bound_payload": {
+        "case_token": "504db62b-ae4e-5f79-a31e-31c0387ac4a4",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "2beb3f24-e165-5996-b7fc-a879cefebeaf",
+        "case_id": "504db62b-ae4e-5f79-a31e-31c0387ac4a4",
+        "content_hash": "27851200fb062c476569996d89fdcf001ec355df95ce652d1b9147ead8d37df7",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "04ad4873fd37e612cfb1c382c2f2729a5a11ecaa02d9e17b24549c01e568875d",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "b074c27711406a8617b6b4858ce1823ea3cfb3b5d4e6873bafa1a96e6f871d89"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "21d7ef92-5412-533d-8477-240147a30450",
+        "attention_marker": null,
+        "case_id": "504db62b-ae4e-5f79-a31e-31c0387ac4a4",
+        "content_hash": "08a4b8831df526d6be0ecf466f01bcbee70814b83dcfa4a6e0ba04d09d27a36d",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "2beb3f24-e165-5996-b7fc-a879cefebeaf"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-28T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day4-replay-negative-splice"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+      "cloud_bound_payload": {
+        "case_token": "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "2503ff8a-03e7-5d10-96d4-8cc4da4d8907",
+        "case_id": "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+        "content_hash": "eeed0c329b91f82d74df71caf9ee1f6db5f2e5f4bc2c49bfb39ed56fd52f6b01",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "318d3c9057770ab8eafa7005b6657ba78df01c8d3aa1941b200bb53389c9a5a5",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "env-local-key",
+          "signature": "ceb75fb24188e276bb5482eeeaf6b21b4e7c2bde167af03901507ad0c914952c"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "2b0496f2-ec8b-5218-a6b3-7f1cb28e675e",
+        "attention_marker": null,
+        "case_id": "6c0e023a-69de-57f3-8f0b-f1107ac7d1e4",
+        "content_hash": "ccb6c22a0ab16cdeaf65a010653379eb9251b0c99f76e973c2837bd5bc579cc5",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "2503ff8a-03e7-5d10-96d4-8cc4da4d8907"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T15:00:00Z",
+        "next_scan_at": "2026-08-27T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "day1-future-002"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "98f35092-2042-5979-b627-d5bb16f3fd38",
+      "cloud_bound_payload": {
+        "case_token": "98f35092-2042-5979-b627-d5bb16f3fd38",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "ea83e67a-f69a-5508-a1c4-716d6a28edd5",
+        "case_id": "98f35092-2042-5979-b627-d5bb16f3fd38",
+        "content_hash": "e6c6792d01573ae2022c5b804412a48fdaa11ccc3b6ba8b0083eacd5ffe9f021",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "d4fff40df396a693a1c76e499e9278fc671ff5ead83e00041806f0f81f653fec",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "3d7e2babd1e153bf011ff20a1e424892cc6baaa18beb15bb279cf7570f190a9b"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "20bf1cfe-6064-59db-b80f-ad6487ce89de",
+        "attention_marker": null,
+        "case_id": "98f35092-2042-5979-b627-d5bb16f3fd38",
+        "content_hash": "9f52d999ca0c78569320bb977982c4755c9fa62be395484ec6d8fc470db3b902",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "ea83e67a-f69a-5508-a1c4-716d6a28edd5"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-30T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day6-synthetic-001"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "9fc76e08-da69-5871-8d1a-a62dcb2cb85c",
+      "cloud_bound_payload": {
+        "case_token": "9fc76e08-da69-5871-8d1a-a62dcb2cb85c",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "427d065a-fddc-5db3-98d3-a23b7d3c5370",
+        "case_id": "9fc76e08-da69-5871-8d1a-a62dcb2cb85c",
+        "content_hash": "6cfcb02461130333ffcbc53d896f105c09c440ec7032ab3da026df212c8ff429",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "e6bceeb7f57a63132b7486527acc5c57b5fd1ab3d85bafe6912da7ed5724647f",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "04d82418558ba6d91727e3ed2ca667f4597c323dd1f0624c63ca4da45d67937b"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "c7a32680-b739-5f5d-998f-46b367486b71",
+        "attention_marker": null,
+        "case_id": "9fc76e08-da69-5871-8d1a-a62dcb2cb85c",
+        "content_hash": "71f5605e940e334fdcacc908292e65f1009fe842a8359df3760dd25748a54f06",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "427d065a-fddc-5db3-98d3-a23b7d3c5370"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-28T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day4-replay-negative-missense"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "a816bc0f-d08c-5dc4-aff9-e5143300ead9",
+      "cloud_bound_payload": {
+        "case_token": "a816bc0f-d08c-5dc4-aff9-e5143300ead9",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "9207be8b-aa75-50b7-804a-832e299220e4",
+        "case_id": "a816bc0f-d08c-5dc4-aff9-e5143300ead9",
+        "content_hash": "15d6baddfab4f9d69b07b89ed5dab0ff5fe93aeb88e8fd70a72c891172cb72c0",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "be08ffa9884fa2f42b9ad33c1e0872de873a5dc7a458c95d6069857f55ea31bb",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "b69ce531a6639c88f4a630b627c6b79510c468738fdde8711e7fe6bc2ec4ce64"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "f56bd43d-5f79-5583-b458-b36548f042e4",
+        "attention_marker": null,
+        "case_id": "a816bc0f-d08c-5dc4-aff9-e5143300ead9",
+        "content_hash": "4652aff4dd82848b1e072607e53ffba10b6f2d1bdefd0efd3135a08886476492",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "9207be8b-aa75-50b7-804a-832e299220e4"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-29T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day5-synthetic-001"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+      "cloud_bound_payload": {
+        "case_token": "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "4c1d3c2c-46c3-5330-a625-97535823484d",
+        "case_id": "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+        "content_hash": "5e958009144ac8d27eee503e734eb85573c99336656c3ec0f74cc4afe1db5773",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "510d4de7c2c5db4acc1ae23562cefee8e26b982555aa604dbabda1e216d308aa",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "env-local-key",
+          "signature": "a2654974611268d3a21d154591493baee48cd70b59be817996737c7d8bfa14d0"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "725d0107-fd7b-5834-a212-34a0fb9c5504",
+        "attention_marker": null,
+        "case_id": "b54d172c-d4c7-53d9-b6ea-a8ae154a84d3",
+        "content_hash": "1ad787713213f3030fdde1d4f6c85666a81c6fd0771318a801ae64e26667ae07",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "4c1d3c2c-46c3-5330-a625-97535823484d"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T15:00:00Z",
+        "next_scan_at": "2026-08-25T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "day1-due-001"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "b8390531-4c50-5f26-83da-0a1dadf07acf",
+      "cloud_bound_payload": {
+        "case_token": "b8390531-4c50-5f26-83da-0a1dadf07acf",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "119c1032-d18c-57f0-bd7a-78071d3a8793",
+        "case_id": "b8390531-4c50-5f26-83da-0a1dadf07acf",
+        "content_hash": "c8243a624506c2e338bfe53a5ae054c94106029d1f3151b7f8721dce5470cdd8",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "f3ec2d14e1709c70759712bbe55b8c77616100de3415d9d1b4a3bc6279c988ad",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "env-local-key",
+          "signature": "760dbf35a838e2288d9b11896848e957dfeefaa26b933c6b5c41b6a422cf3b50"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "cc96bc9d-f22b-5d48-804f-ff8bbfa21db3",
+        "attention_marker": null,
+        "case_id": "b8390531-4c50-5f26-83da-0a1dadf07acf",
+        "content_hash": "86514044f732257e9d2a44df3e21f9d94c382dc3d541a1e6775fbb68ba14236a",
+        "created_at": "2026-08-25T15:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "119c1032-d18c-57f0-bd7a-78071d3a8793"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T15:00:00Z",
+        "next_scan_at": "2026-08-26T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "day1-future-001"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "c4e45bde-971b-52ee-9ba3-f182432146fa",
+      "cloud_bound_payload": {
+        "case_token": "c4e45bde-971b-52ee-9ba3-f182432146fa",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "9b533a0f-3b61-5088-92ba-bbc79ba60c94",
+        "case_id": "c4e45bde-971b-52ee-9ba3-f182432146fa",
+        "content_hash": "114c1c4fb541230997e53d22ada469c84d77bdbaf13c400dba727e7e58422667",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "53ca86835982b755d0d9821f22d6381dc5f574e46ecdeb33da0e13b19a207714",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "84e265fbe8adaddbdd0b00fa348bb41e56ec47a5aedf4ad0f4db484f9aa5d5d1"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "21068bac-1ef2-534f-8b69-b1c3f171d155",
+        "attention_marker": null,
+        "case_id": "c4e45bde-971b-52ee-9ba3-f182432146fa",
+        "content_hash": "9da9284e8eb275d238eca3861108b11b862c3681bf8c12b2438cac8e669eebcd",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "9b533a0f-3b61-5088-92ba-bbc79ba60c94"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-26T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day2-replay-v1"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "da6252c8-585e-5803-8a2b-ec2e5ec16e41",
+      "cloud_bound_payload": {
+        "case_token": "da6252c8-585e-5803-8a2b-ec2e5ec16e41",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "f6dc3391-25fc-596a-835f-20e3c3253a13",
+        "case_id": "da6252c8-585e-5803-8a2b-ec2e5ec16e41",
+        "content_hash": "ad983ecfd14aec42907c4e1719938df6de0fe6a866b8764f113aad675e4365ed",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "c88f2746dfb8995b73e31bcdcf667ac8aea9d267989f6f01ea0a1bdd305a362c",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "4f05baa6a7bb89d8016391ce66ea6bfc9aae4694b78852a18981ec52bb2a6223"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "7955da8c-fb23-5d4a-95cd-9ffd4fcee4cb",
+        "attention_marker": null,
+        "case_id": "da6252c8-585e-5803-8a2b-ec2e5ec16e41",
+        "content_hash": "033abf32cf15e392ce161f85234bf383ff2a7dd8601103a2825f4be5aab52096",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "f6dc3391-25fc-596a-835f-20e3c3253a13"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-28T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day4-synthetic-002"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "ddedd554-a08d-5230-b72e-af38f7ad365c",
+      "cloud_bound_payload": {
+        "case_token": "ddedd554-a08d-5230-b72e-af38f7ad365c",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "4a62365a-9012-56d8-9ca4-ff12dd83125c",
+        "case_id": "ddedd554-a08d-5230-b72e-af38f7ad365c",
+        "content_hash": "7e809bf4d37b3015088b83cbb44b660d46ab1b287c41c2a7dad21f00272123ae",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "2d41df693c6e0c7bf407be4f6050878f2b8683a94b1d2742c6c498387feec816",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "cd02b62139d3273da69a4cf5b0ce3db521a87428b6c0529ac20c12e75e3d7562"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "1db00d6c-e9fe-56d5-b228-1654878f0d01",
+        "attention_marker": null,
+        "case_id": "ddedd554-a08d-5230-b72e-af38f7ad365c",
+        "content_hash": "530692d73a9aa2401749e8f3240411484b572fdd1003eea837759906b750a10a",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "4a62365a-9012-56d8-9ca4-ff12dd83125c"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-28T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day4-replay-v5"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    },
+    {
+      "case_id": "f453187b-b739-598d-a266-604dba66b6e5",
+      "cloud_bound_payload": {
+        "case_token": "f453187b-b739-598d-a266-604dba66b6e5",
+        "data_mode": "SYNTHETIC",
+        "payload_kind": "recall.privacy.cloud_bound_payload",
+        "payload_version": "1.0.0",
+        "region": "us-central1",
+        "tenant_id": "synthetic-contest-lab",
+        "variant": {
+          "assembly": "GRCh38",
+          "gene": "BRCA2",
+          "hgvs_c": "c.7522G>C",
+          "hgvs_p": "p.Gly2508Arg"
+        }
+      },
+      "privacy_receipt": {
+        "artifact_id": "9699c7bb-b9ff-5226-9f91-2b2a7b2dc09e",
+        "case_id": "f453187b-b739-598d-a266-604dba66b6e5",
+        "content_hash": "89542a3c6c7c433a1885cd97c58b6f725480a7b860edcdeafd05038e0865365c",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "decision": "ACCEPTED",
+        "detector_versions": {
+          "adjudicator": "span-adjudicator@1.0.0",
+          "deterministic": "deterministic-detectors@1.0.0",
+          "egress_profile": "STRUCTURED_ONLY@1.0.0",
+          "gemma_adapter": "gemma-span-adapter@1.1.0",
+          "lab_directory": "1.0.0",
+          "outbound_lexicon": "1.0.0",
+          "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+          "privacy_gate": "0.1.0",
+          "redactor": "deterministic-redactor@1.0.0"
+        },
+        "detectors": {
+          "deterministic": {
+            "approved_spans": [],
+            "version": "deterministic-detectors@1.0.0"
+          },
+          "gemma": {
+            "approved_residual_spans": [],
+            "invoked": false,
+            "schema_valid": false,
+            "version": "gemma-span-adapter@1.1.0"
+          }
+        },
+        "extensions": {},
+        "identifier_classes_checked": [
+          "ADDRESS",
+          "AGE",
+          "CLINICIAN_NAME",
+          "DATE_OF_BIRTH",
+          "EMAIL",
+          "EVENT_DATE",
+          "FACILITY_NAME",
+          "MEDICAL_RECORD_NUMBER",
+          "NATIONAL_ID",
+          "OCCUPATION",
+          "PERSON_NAME",
+          "PHONE",
+          "PROTOCOL_NUMBER",
+          "RELATIVE_NAME"
+        ],
+        "input_artifact_ids": [],
+        "outbound": {
+          "allowed_field_paths": [
+            "$.case_token",
+            "$.data_mode",
+            "$.payload_kind",
+            "$.payload_version",
+            "$.region",
+            "$.tenant_id",
+            "$.variant.assembly",
+            "$.variant.gene",
+            "$.variant.hgvs_c",
+            "$.variant.hgvs_p"
+          ],
+          "raw_text_field_count": 0,
+          "scan_status": "CLEAR"
+        },
+        "payload_hash": "7e1003b03406ef01cdd0ab791102489d67cf1f4304901b1504be2d7345008059",
+        "producer": {
+          "component": "local-privacy-gate",
+          "identity": "privacy-gate",
+          "version": "0.1.0"
+        },
+        "run_id": null,
+        "schema_name": "PrivacyReceipt",
+        "schema_version": "1.0.0",
+        "signature_ref": {
+          "algorithm": "HMAC-SHA256",
+          "key_id": "cohort-preparation-20260825-ephemeral",
+          "signature": "3d91cda1d6372e129b71ad98f13a5e5744f5911dfd53af9eec3e2578755c9e78"
+        },
+        "status": "VALID",
+        "warnings": [
+          {
+            "code": "local_model_not_configured",
+            "message_key": "privacy.gemma.local_model_not_configured",
+            "related_artifact_ids": []
+          }
+        ]
+      },
+      "watch_case": {
+        "artifact_id": "cae34a1f-9d98-56d3-a0aa-dd6bcbb9b322",
+        "attention_marker": null,
+        "case_id": "f453187b-b739-598d-a266-604dba66b6e5",
+        "content_hash": "5828235548e7276f7a4cf68fb821e35c5c06206da875640c5c27287d06ed3090",
+        "created_at": "2026-08-25T20:00:00Z",
+        "data_mode": "SYNTHETIC",
+        "extensions": {},
+        "input_artifact_ids": [
+          "9699c7bb-b9ff-5226-9f91-2b2a7b2dc09e"
+        ],
+        "last_verified_scan": {
+          "completed_at": null,
+          "run_id": null
+        },
+        "last_verified_snapshot_id": null,
+        "monitoring_policy": {
+          "policy_version": "1.0.1"
+        },
+        "monitoring_started_at": "2026-08-25T20:00:00Z",
+        "next_scan_at": "2026-08-27T15:00:00Z",
+        "open_review_task_id": null,
+        "pending_observation_hashes": [],
+        "producer": {
+          "component": "workflow-controller",
+          "identity": "controller",
+          "version": "0.1.0"
+        },
+        "region": "us-central1",
+        "retention_policy": {
+          "class": "contest-synthetic"
+        },
+        "run_id": null,
+        "schema_name": "WatchCase",
+        "schema_version": "2.0.0",
+        "source_cursors": {
+          "synthetic-source": "cohort-day3-replay-v4"
+        },
+        "state": "ACTIVE",
+        "status": "VALID",
+        "tenant_id": "synthetic-contest-lab",
+        "warnings": []
+      }
+    }
+  ],
+  "prepared_at": "2026-08-25T20:00:00Z",
+  "replay_observations": [
+    {
+      "artifact_id": "acfbe193-066c-5ef4-8eef-538b9f0686ac",
+      "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+      "content_hash": "cc6374d1944d23e035d31f95427d43d809f0ac8ed60e5250c5f755ffdf782d30",
+      "created_at": "2026-08-25T20:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "rcl-205-replay-connector",
+        "identity": "evidence-connector",
+        "version": "1.0.1"
+      },
+      "retrieval_status": "PASS",
+      "retrieved_at": "2026-08-16T23:18:29Z",
+      "run_id": "b8e9f231-8445-5f0c-a254-2ddd7ddc29d7",
+      "schema_name": "EvidenceObservation",
+      "schema_version": "1.0.0",
+      "source": "NCBI ClinVar",
+      "source_content_hash": "1d413a022d63aa68bf87a314f4beb6ac2fbed73a86d888784c18e3af55f9033d",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000051100.33/?report=printable",
+      "source_record_id": "clinvar_negative_missense",
+      "source_version": "rcl-205:1.0.1",
+      "status": "VALID",
+      "structured_fields": {
+        "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV000051100.33].",
+        "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV000051100.33.printable.html",
+        "redistribution_boundary": "Attributed public NCBI ClinVar record capture",
+        "rights_profile": "ncbi_public_record",
+        "semantic_anchor": "VCV000051100.33"
+      },
+      "warnings": []
+    },
+    {
+      "artifact_id": "f081beab-677b-5f17-8bfc-090114960740",
+      "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+      "content_hash": "60c5c99436fff6977673e18a7f3ca10e277d969b9728e7b2f8dde13f2b7c4bd9",
+      "created_at": "2026-08-25T20:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "rcl-205-replay-connector",
+        "identity": "evidence-connector",
+        "version": "1.0.1"
+      },
+      "retrieval_status": "PASS",
+      "retrieved_at": "2026-08-16T23:18:27Z",
+      "run_id": "b8e9f231-8445-5f0c-a254-2ddd7ddc29d7",
+      "schema_name": "EvidenceObservation",
+      "schema_version": "1.0.0",
+      "source": "NCBI ClinVar",
+      "source_content_hash": "7c5122b67ff0808d9d0aa300a089b12160d100a8a3f59739c74bae837974889c",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV000495460.24/?report=printable",
+      "source_record_id": "clinvar_negative_splice",
+      "source_version": "rcl-205:1.0.1",
+      "status": "VALID",
+      "structured_fields": {
+        "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV000495460.24].",
+        "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV000495460.24.printable.html",
+        "redistribution_boundary": "Attributed public NCBI ClinVar record capture",
+        "rights_profile": "ncbi_public_record",
+        "semantic_anchor": "VCV000495460.24"
+      },
+      "warnings": []
+    },
+    {
+      "artifact_id": "6b1bc9b4-907d-5be8-96bb-6a147001d4dd",
+      "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+      "content_hash": "06c6f294b3f96ee3a28cfcbc9cb457c7527adbd2520601098f5e29b4de86185a",
+      "created_at": "2026-08-25T20:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "rcl-205-replay-connector",
+        "identity": "evidence-connector",
+        "version": "1.0.1"
+      },
+      "retrieval_status": "PASS",
+      "retrieved_at": "2026-08-16T23:18:21Z",
+      "run_id": "b8e9f231-8445-5f0c-a254-2ddd7ddc29d7",
+      "schema_name": "EvidenceObservation",
+      "schema_version": "1.0.0",
+      "source": "NCBI ClinVar",
+      "source_content_hash": "f26600a16912d4473a4dd9af2af2628fa8feb5be3d037e1da02b482824a034aa",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.1/?report=printable",
+      "source_record_id": "clinvar_positive_v1",
+      "source_version": "rcl-205:1.0.1",
+      "status": "VALID",
+      "structured_fields": {
+        "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.1].",
+        "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.1.printable.html",
+        "redistribution_boundary": "Attributed public NCBI ClinVar record capture",
+        "rights_profile": "ncbi_public_record",
+        "semantic_anchor": "VCV002895953.1"
+      },
+      "warnings": []
+    },
+    {
+      "artifact_id": "2ea36c35-c5bb-54ee-802f-966d1978b825",
+      "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+      "content_hash": "7e5f3dd0ad9d1292efdb71e189eb85ea91f17dbb91403b8d07aabe32374400cf",
+      "created_at": "2026-08-25T20:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "rcl-205-replay-connector",
+        "identity": "evidence-connector",
+        "version": "1.0.1"
+      },
+      "retrieval_status": "PASS",
+      "retrieved_at": "2026-08-16T23:18:23Z",
+      "run_id": "b8e9f231-8445-5f0c-a254-2ddd7ddc29d7",
+      "schema_name": "EvidenceObservation",
+      "schema_version": "1.0.0",
+      "source": "NCBI ClinVar",
+      "source_content_hash": "a7b670532215705d2106ce9ffdf252341468d3f0fe34dbe9134ddd3e8582ddf6",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.4/?report=printable",
+      "source_record_id": "clinvar_positive_v4",
+      "source_version": "rcl-205:1.0.1",
+      "status": "VALID",
+      "structured_fields": {
+        "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.4].",
+        "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.4.printable.html",
+        "redistribution_boundary": "Attributed public NCBI ClinVar record capture",
+        "rights_profile": "ncbi_public_record",
+        "semantic_anchor": "VCV002895953.4"
+      },
+      "warnings": []
+    },
+    {
+      "artifact_id": "f37234a1-a14d-5874-8296-f04e3f9b2617",
+      "case_id": "a8c40ebf-00d5-5795-b8f4-cdffdc26544b",
+      "content_hash": "433211d47b0f81778ddeb630984e59e1f4e9d95f448d2879b1d8b0b3d4506f67",
+      "created_at": "2026-08-25T20:00:00Z",
+      "data_mode": "CAPTURED_REPLAY",
+      "extensions": {},
+      "input_artifact_ids": [],
+      "producer": {
+        "component": "rcl-205-replay-connector",
+        "identity": "evidence-connector",
+        "version": "1.0.1"
+      },
+      "retrieval_status": "PASS",
+      "retrieved_at": "2026-08-16T23:18:25Z",
+      "run_id": "b8e9f231-8445-5f0c-a254-2ddd7ddc29d7",
+      "schema_name": "EvidenceObservation",
+      "schema_version": "1.0.0",
+      "source": "NCBI ClinVar",
+      "source_content_hash": "d8d4eb4b9ab0a6bd3be9d740a0fb4aebb5911a8384113e6a037728f0688b7fbc",
+      "source_locator": "https://www.ncbi.nlm.nih.gov/clinvar/variation/VCV002895953.5/?report=printable",
+      "source_record_id": "clinvar_positive_v5",
+      "source_version": "rcl-205:1.0.1",
+      "status": "VALID",
+      "structured_fields": {
+        "attribution_text": "National Center for Biotechnology Information. ClinVar; [VCV002895953.5].",
+        "capture_path": "artifacts/evidence/rcl-205/clinvar/VCV002895953.5.printable.html",
+        "redistribution_boundary": "Attributed public NCBI ClinVar record capture",
+        "rights_profile": "ncbi_public_record",
+        "semantic_anchor": "VCV002895953.5"
+      },
+      "warnings": []
+    }
+  ],
+  "rights_note": "NCBI ClinVar captures are retained with attribution under the reviewed RCL-205 public-record rights profile; re-review before public release.",
+  "schema_version": "1.0.0",
+  "source_commit": "c65ee3d55524caf1d2d9d697c9bff712e35bca82"
+}

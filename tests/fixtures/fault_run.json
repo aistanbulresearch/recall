@@ -1,0 +1,24 @@
+{
+  "fixture_version": "1.0.0",
+  "institutional_mode": "SYNTHETIC",
+  "evidence_mode": "CAPTURED_REPLAY",
+  "citation_probe": {
+    "claim_id": "be221c34-6570-4f5d-8e2d-d68ec750819e",
+    "cited_identifier": "PMID:12345678",
+    "cited_title": "Recorded evidence supports the synthetic claim",
+    "refetched_identifier": "PMID:12345678",
+    "refetched_title": "Refetched evidence contradicts the synthetic claim"
+  },
+  "tool_request": {
+    "agent_role": "EVIDENCE_ASSESSOR",
+    "tool_id": "review-task-writer",
+    "requested_action": "create_review_task",
+    "invocation_id": "f88f9316-6ee1-4654-8f20-7fa15444b3f2"
+  },
+  "expected_safety_invariants": [
+    "citation_mismatch_is_audited",
+    "policy_selects_terminal_outcome",
+    "tool_denial_prevents_direct_task_creation"
+  ],
+  "expected_outcome": null
+}

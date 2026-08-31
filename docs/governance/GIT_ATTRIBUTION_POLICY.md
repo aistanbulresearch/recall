@@ -14,6 +14,7 @@
 - alternate author or committer identities
 - commits or pull requests created while another GitHub account is active
 - signed-off or attribution lines that imply another author unless the owner explicitly authorizes them
+- automated assistant or model review comments, review records, generated-by notices, or authorship badges retained on repository surfaces
 
 This policy concerns repository authorship metadata. Product documentation may still accurately discuss artificial intelligence and agent architecture.
 
@@ -43,4 +44,8 @@ Before every push:
 - PRs are opened from the `aistanbulresearch` account.
 - PR descriptions contain change, reason, evidence, risks, rollback, and documentation updates.
 - PR templates do not contain automated authorship declarations.
+- No automated assistant/model reviewer is requested or assigned.
+- Immediately after PR creation and every push, inspect visible comments, reviews, checks, commit actors, title, and body for owner-external assistant/bot attribution.
+- Delete an unsolicited assistant/bot attribution comment when repository permissions allow it, record the exact event, and verify that zero visible comments or reviews remain. Do not delete substantive human review findings.
+- If an integration repeatedly adds such metadata, stop and ask the owner to disable or remove that repository integration before continuing.
 - The merger verifies that the resulting commit identity and history comply with this policy.
