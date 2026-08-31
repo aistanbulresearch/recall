@@ -81,13 +81,13 @@ function CohortField({
   onSelect: (row: RunCase) => void;
 }) {
   return (
-    <div className="field" role="list" aria-label="Cohort cases by terminal state">
+    <div className="run-field" role="list" aria-label="Cohort cases by terminal state">
       {rows.map((row) => (
         <button
           key={row.run}
           type="button"
           role="listitem"
-          className={`cell ${STATE_CLASS[row.state]}${selected === row.run ? ' selected' : ''}`}
+          className={`run-cell ${STATE_CLASS[row.state]}${selected === row.run ? ' selected' : ''}`}
           title={`${row.run} — ${row.state}: ${STATE_LANGUAGE[row.state].short}`}
           aria-label={`${row.run}, ${row.state}`}
           onClick={() => onSelect(row)}
@@ -99,7 +99,7 @@ function CohortField({
 
 function CaseDetail({ row, halted }: { row: RunCase; halted: HaltedCase | undefined }) {
   return (
-    <div className="cell-detail">
+    <div className="run-detail">
       <p>
         <span className={`swatch ${STATE_CLASS[row.state]}`} aria-hidden />{' '}
         <code>{row.run}</code> — <b>{row.state}</b>: {STATE_LANGUAGE[row.state].short}.{' '}
@@ -467,24 +467,24 @@ export function RunSurface() {
         title="WHAT IT COST, AND WHAT THAT NUMBER IS"
         claim="Unit economics for a full cohort audit, reported as the projection it is."
       >
-        <div className="grid">
-          <div className="cell-stat">
+        <div className="run-grid">
+          <div className="run-stat">
             <span className="stat-value">${projected.toFixed(2)}</span>
             <span className="stat-label">projected for {cases.length} cases</span>
           </div>
-          <div className="cell-stat">
+          <div className="run-stat">
             <span className="stat-value">
               {(Number(cohort.tokens.total) / 1_000_000).toFixed(2)}M
             </span>
             <span className="stat-label">tokens across {String(gate.tool_call_ids)} calls</span>
           </div>
-          <div className="cell-stat">
+          <div className="run-stat">
             <span className="stat-value">{Math.round(cohort.latency_ms.p50 / 1000)}s</span>
             <span className="stat-label">
               p50 agent latency · p95 {Math.round(cohort.latency_ms.p95 / 1000)}s
             </span>
           </div>
-          <div className="cell-stat">
+          <div className="run-stat">
             <span className="stat-value">{hours(execution.duration_seconds)}</span>
             <span className="stat-label">unattended, machine-triggered</span>
           </div>

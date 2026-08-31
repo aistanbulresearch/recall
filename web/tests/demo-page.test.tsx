@@ -1,0 +1,122 @@
+/**
+ * The demo page: the first thing a juror sees, and the only thing they must
+ * understand to get started.
+ *
+ * These tests hold the two properties that make an answering interface
+ * trustworthy: every answer is a projection of the committed run artifacts, and
+ * a question outside them is refused rather than improvised. They also keep the
+ * landing itself simple — one heading, two sentences, and a way to ask.
+ */
+
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+
+import { DemoPage } from '../src/demo/DemoPage';
+import { ANSWERS, byId, match } from '../src/demo/answers';
+import { cohort, distributionFromCases, readBundle } from '../src/run/runBundle';
+
+const markup = renderToStaticMarkup(<DemoPage />);
+const { cases } = readBundle();
+const counts = distributionFromCases(cases);
+
+describe('the landing', () => {
+  it('opens with the welcome, what Recall is, and what you can do here', () => {
+    expect(markup).toContain('Welcome to the Recall demo.');
+    expect(markup).toContain('zero-trust institutional agent fleet');
+    expect(markup).toContain('Here you can interrogate a real run');
+  });
+
+  it('offers a way to ask before anything else is required', () => {
+    expect(markup).toContain('Try asking');
+    expect(markup).toContain('Ask');
+    expect(markup).toContain('aria-label="Ask about the run"');
+  });
+
+  it('states that answers are not generated on demand', () => {
+    expect(markup).toContain('Nothing is generated when you press Ask');
+    expect(markup).toContain('refused rather than improvised');
+  });
+
+  it('keeps the non-clinical frame on the first screen', () => {
+    expect(markup).toContain('NON-CLINICAL RESEARCH PROTOTYPE');
+    expect(markup).toContain('SYNTHETIC RECORDS');
+  });
+
+  it('shows no run figures before a question is asked', () => {
+    // The opening screen is a sentence and a prompt, not a dashboard.
+    const hero = markup.slice(0, markup.indexOf('Try asking'));
+    expect(hero).not.toContain(String(cohort.artifacts.documents));
+    expect(hero).not.toContain('9,543');
+  });
+});
+
+describe('questions route to the answer they name', () => {
+  it('gives every answer a distinct id, label and keywords', () => {
+    const ids = ANSWERS.map((answer) => answer.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const answer of ANSWERS) {
+      expect(answer.label.length).toBeGreaterThan(8);
+      expect(answer.keywords.length).toBeGreaterThan(2);
+      expect(byId(answer.id)).toBe(answer);
+    }
+  });
+
+  it('routes a typed question by its most specific word', () => {
+    expect(match('what happens when an agent times out?')?.id).toBe('failure');
+    expect(match('how much did the cohort cost')?.id).toBe('cost');
+    expect(match('what leaves the laboratory')?.id).toBe('privacy');
+    expect(match('why does this matter to a patient')?.id).toBe('why');
+  });
+
+  it('refuses rather than guessing when nothing matches', () => {
+    expect(match('what is the weather in Istanbul')).toBeNull();
+    expect(match('')).toBeNull();
+  });
+});
+
+describe('answers stand on the run, not on prose', () => {
+  it('reports the terminal states as the rows count them', () => {
+    const runAnswer = renderToStaticMarkup(<>{byId('run')!.body}</>);
+    expect(runAnswer).toContain(String(counts.NO_ACTION));
+    expect(runAnswer).toContain(String(counts.ABSTAIN));
+    expect(runAnswer).toContain(String(counts.HALTED));
+    expect(runAnswer).toContain('SUCCEEDED');
+    expect(runAnswer).toContain('INCOMPLETE');
+    expect(runAnswer).toContain('an infrastructure success is not an application success');
+  });
+
+  it('proves the containment claim with the closure counts', () => {
+    const failure = renderToStaticMarkup(<>{byId('failure')!.body}</>);
+    expect(failure).toContain('agent_timeout');
+    expect(failure).toContain('controller_failed');
+    expect(failure).toContain('None of them became an action');
+    expect(failure).toContain('the other 448 cases kept going');
+  });
+
+  it('answers the authority question with the gate’s own outcomes', () => {
+    const authority = renderToStaticMarkup(<>{byId('authority')!.body}</>);
+    expect(authority).toContain('445 NO_ACTION');
+    expect(authority).toContain('3 ABSTAIN');
+    expect(authority).toContain('citation_audit_incomplete');
+  });
+
+  it('keeps a dedicated answer for what cannot be proven', () => {
+    const limits = renderToStaticMarkup(<>{byId('limits')!.body}</>);
+    expect(limits).toContain('never verified against billing');
+    expect(limits).toContain('deferred');
+    expect(limits).toContain('non-clinical research prototype');
+    expect(limits).toContain('the cause is tracked separately');
+  });
+
+  it('publishes no raw identifier or credential in any answer', () => {
+    for (const answer of ANSWERS) {
+      const body = renderToStaticMarkup(<>{answer.body}</>);
+      expect(body).not.toMatch(
+        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
+      );
+      for (const forbidden of ['gserviceaccount', 'projects/', 'recall-aistanbul', 'AIza']) {
+        expect(body, answer.id).not.toContain(forbidden);
+      }
+    }
+  });
+});

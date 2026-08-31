@@ -89,14 +89,14 @@
 
 /* ---------------- the field ---------------- */
 
-.field {
+.run-field {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(15px, 1fr));
   gap: 3px;
   margin: 22px 0 14px;
 }
 
-.cell {
+.run-cell {
   aspect-ratio: 1;
   border: 1px solid transparent;
   padding: 0;
@@ -104,9 +104,9 @@
   background: var(--none);
 }
 
-.cell:hover { outline: 1px solid var(--ink); outline-offset: 1px; }
+.run-cell:hover { outline: 1px solid var(--ink); outline-offset: 1px; }
 
-.cell.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+.run-cell.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
 
 .st-none { background: var(--none); }
 .st-review { background: var(--review); }
@@ -131,7 +131,7 @@
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-.cell-detail {
+.run-detail {
   border-left: 2px solid var(--ink);
   padding: 6px 0 6px 14px;
   margin: 6px 0 20px;
@@ -210,14 +210,14 @@
 }
 
 @media (max-width: 720px) {
-  .field { grid-template-columns: repeat(auto-fill, minmax(11px, 1fr)); }
+  .run-field { grid-template-columns: repeat(auto-fill, minmax(11px, 1fr)); }
 }
 
 /* ---------------- wired-export additions ---------------- */
 
 .hint { color: var(--muted); font-size: 0.8rem; margin: 4px 0 18px; }
 
-.cell-detail p { margin: 4px 0; }
+.run-detail p { margin: 4px 0; }
 
 .detail-roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 
@@ -242,7 +242,7 @@
 
 .tbl.audit td:first-child { width: 46%; }
 
-.grid {
+.run-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1px;
@@ -251,7 +251,7 @@
   margin: 18px 0;
 }
 
-.cell-stat { background: #ffffff; padding: 14px 16px; }
+.run-stat { background: #ffffff; padding: 14px 16px; }
 
 .stat-value { display: block; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
 
