@@ -268,31 +268,37 @@
 
 /* ---------------- problem section ---------------- */
 
-.sub-head {
-  font-size: 0.86rem;
-  font-weight: 700;
-  margin: 40px 0 8px;
+/* The evidence card the storyboard keeps on screen: every date on this page
+   traceable to a source, in five rows. */
+.tbl.card {
+  border: 1px solid var(--rule-strong);
+  margin: 28px 0 20px;
+  font-size: 0.78rem;
 }
 
-/* The third row is the whole problem; it carries the weight of the table. */
-.tbl.verdicts td { padding-top: 14px; padding-bottom: 14px; }
-
-.tbl.verdicts .vus-row td {
-  border-top: 1px solid var(--ink);
-  border-bottom: 1px solid var(--ink);
-  background: #f4f3ef;
+.tbl.card caption {
+  text-align: left;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--rule);
 }
 
-.tbl.verdicts .vus-row .cap { color: var(--absent); }
+.tbl.card td { padding: 9px 14px; border-bottom: 1px solid var(--rule); }
 
-.hero-line {
-  border-left: 2px solid var(--ink);
-  padding: 10px 0 10px 18px;
-  margin: 30px 0;
-  max-width: 70ch;
+.tbl.card tr:last-child td { border-bottom: none; }
+
+.tbl.card .cap { color: var(--muted); font-weight: 400; width: 42%; }
+
+.punch {
+  font-size: 1.02rem;
+  line-height: 1.65;
+  margin: 26px 0 6px;
+  max-width: 66ch;
 }
 
-.timeline { margin: 28px 0 14px; }
+.timeline { margin: 22px 0 14px; }
 
 /* ---------------- steps ---------------- */
 

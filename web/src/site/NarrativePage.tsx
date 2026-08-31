@@ -19,7 +19,6 @@ import './site.css';
 import categoryFit from './data/category-fit.json';
 import liveRun from './data/live-run.json';
 import historicalCase from '../data/historical-case.json';
-import walkthroughCase from '../data/walkthrough-case.json';
 
 type BadgeKind = 'LIVE VERIFIED' | 'SOURCE VERIFIED' | 'DEFERRED' | 'NOT VERIFIED';
 
@@ -44,15 +43,11 @@ interface HeroFile {
   clinvar_vcv: string;
   qualifying_pmid: string;
   geo_accession: string;
-}
-
-interface WalkthroughFile {
-  world_evidence: { id: string; what: string; capture: { path: string } }[];
-  encounter: { result: { variant: string; gene: string } };
+  gene: string;
+  variant: string;
 }
 
 const hero = historicalCase as unknown as HeroFile;
-const wt = walkthroughCase as unknown as WalkthroughFile;
 const run = liveRun as unknown as {
   status: string;
   as_of_utc: string;
@@ -136,9 +131,6 @@ function EvidenceTimeline() {
             {days(hero.dates.qualifying_publication, hero.dates.clinvar_v5_public)} days in which
             the chart did not change
           </text>
-          <text x={(marks[1].at + 730) / 2} y="110" fontSize="9.5" fill="#6a6c73" textAnchor="middle">
-            the evidence was public and free to read the whole time
-          </text>
           {marks.map((mark, i) => (
             <g key={mark.date}>
               <circle cx={mark.at} cy="66" r="4.5" fill="#fbfbf9" stroke="#15161a" strokeWidth="1.5" />
@@ -169,9 +161,8 @@ function EvidenceTimeline() {
         </g>
       </svg>
       <figcaption className="fig-cap">
-        Fig 1. Drawn to scale from the dates in the governed case file. Nothing was hidden and
-        nothing failed; the evidence simply arrived somewhere nobody was watching on behalf of
-        the case.
+        Fig 1. Drawn to scale from the dates above. Nothing failed — the evidence simply
+        arrived where nobody was watching.
       </figcaption>
     </figure>
   );
@@ -269,24 +260,6 @@ export function NarrativePage() {
   const headlineDays = days(hero.dates[headline.from], hero.dates[headline.to]);
   const requiredDays = days(hero.dates[required.from], hero.dates[required.to]);
 
-  const chrono = [
-    {
-      date: hero.dates.geo_public,
-      what: 'Saturation genome editing data for this gene becomes public',
-      cap: wt.world_evidence[0].capture.path.split('/').pop(),
-    },
-    {
-      date: hero.dates.qualifying_publication,
-      what: 'The qualifying publication is indexed',
-      cap: wt.world_evidence[1].capture.path.split('/').pop(),
-    },
-    {
-      date: hero.dates.clinvar_v5_public,
-      what: 'The public variant record finally reflects the evidence',
-      cap: wt.world_evidence[2].capture.path.split('/').pop(),
-    },
-  ];
-
   return (
     <div className="site">
       <header className="site-head">
@@ -340,98 +313,68 @@ export function NarrativePage() {
 
         <Section
           num="01"
-          title="THE PROBLEM: A RESULT THAT MEANS “WE DO NOT KNOW YET”"
-          claim="Genetic testing has a third answer, and it is the most common one to go stale. Nobody owns it, so nobody re-opens it."
+          title="THE PROBLEM"
+          claim="Clinical genetics has an alert system. It fires when the paperwork changes — not when the evidence does."
         >
           <p>
-            A person with a strong family history of cancer is tested. The laboratory reads
-            their genes, finds a difference from the reference, and has to say what that
-            difference means. There are three possible answers, and only two of them are
-            answers.
+            You monitor dependencies for CVEs. Now imagine alerts only fired when the vendor
+            updated the changelog, not when the exploit went public. Clinical genetics works
+            that way today: the tools watch the changelog.
+          </p>
+          <p>
+            A cancer patient&rsquo;s genetic test comes back <b>“uncertain significance”</b> — a
+            classification that means <i>do not act, wait for evidence</i>. It cannot guide
+            screening, cannot guide prevention, and cannot be used to test her relatives. That
+            one label can stand between her and a drug approved for exactly her kind of tumour.
+          </p>
+          <p>
+            The evidence that would settle it does arrive — years later, in a public database,
+            with no connection to the chart it should change.
           </p>
 
-          <table className="tbl verdicts">
-            <thead>
-              <tr>
-                <th>The lab reports</th>
-                <th>What it means for care</th>
-              </tr>
-            </thead>
+          <table className="tbl card">
+            <caption>One real variant, and the sources for every date below.</caption>
             <tbody>
               <tr>
-                <td className="cap">Pathogenic</td>
+                <td className="cap">Variant</td>
                 <td>
-                  This change explains the risk. Screening, prevention and testing the rest of
-                  the family can all proceed from it.
+                  {hero.gene} <code>{hero.variant}</code>
                 </td>
               </tr>
               <tr>
-                <td className="cap">Benign</td>
+                <td className="cap">ClinVar</td>
                 <td>
-                  This change is not the cause. It is set aside and the search continues
-                  elsewhere.
+                  <code>{hero.clinvar_vcv}</code>
                 </td>
               </tr>
-              <tr className="vus-row">
-                <td className="cap">
-                  Uncertain
-                  <span className="limit">“variant of uncertain significance”, a VUS</span>
-                </td>
+              <tr>
+                <td className="cap">Functional data public</td>
                 <td>
-                  <b>Nothing.</b> The evidence available today does not support either
-                  answer, so the finding cannot guide screening, cannot guide prevention, and
-                  cannot be used to test relatives. It is not a warning and it is not an
-                  all-clear. It is an open question, written into a chart.
+                  GEO <code>{hero.geo_accession}</code>, {hero.dates.geo_public}
+                </td>
+              </tr>
+              <tr>
+                <td className="cap">Paper published</td>
+                <td>
+                  PMID <code>{hero.qualifying_pmid}</code>, {hero.dates.qualifying_publication}
+                </td>
+              </tr>
+              <tr>
+                <td className="cap">ClinVar first reflection</td>
+                <td>
+                  {hero.dates.clinvar_v5_public}, <code>{hero.clinvar_vcv}.5</code>
                 </td>
               </tr>
             </tbody>
           </table>
 
-          <p>
-            So the clinician does the responsible thing: they explain that the finding cannot
-            be acted on, they manage the patient on family history instead, and they say the
-            sentence every genetics clinic says — <i>this may be reclassified as more
-            evidence accumulates</i>. Then the report is filed.
-          </p>
-
-          <p>
-            That sentence is a promise nobody is assigned to keep. The evidence that would
-            settle the question does accumulate — in laboratories on other continents, in
-            functional studies, in public data deposits and in publications — and eventually
-            it reaches the public variant databases. But it arrives <b>years later</b>, in a
-            different system, with no connection to the chart it should change. Re-contact
-            practice varies between laboratories, and no standing process watches every closed
-            case on the clinic&rsquo;s behalf.
-          </p>
-
-          <p className="hero-line">
-            The person who carries this is the one nobody writes stories about: the clinical
-            genetics specialist holding a backlog of unresolved cases, each one a question
-            that was correct to leave open and that only they remember. Their real work is not
-            reading a variant. It is remembering, for years, that a question is still open —
-            and there is no system that remembers with them.
-          </p>
-
-          <h3 className="sub-head">What that costs, measured on one real case</h3>
-          <p>
-            Recall replays a documented case: a variant in <b>BRCA2</b>, one of the two genes
-            most associated with hereditary breast and ovarian cancer, filed as uncertain. The
-            evidence that moved it was deposited publicly, published, and only much later
-            reflected in the public record that clinics read. Every event below is captured
-            here as bytes and hashed, so the chronology can be checked rather than believed.
+          <p className="punch">
+            Laboratory evidence that this variant behaves like the harmful ones went public in
+            September 2024. The clinical record first moved in April 2026.{' '}
+            <b>{headlineDays} days</b> — and in between, nothing was watching.
           </p>
 
           <EvidenceTimeline />
-
-          <div className="chrono">
-            {chrono.map((row) => (
-              <div className="chrono-row" key={row.date}>
-                <span className="chrono-date">{row.date}</span>
-                <span className="chrono-what">{row.what}</span>
-                <span className="chrono-cap">captured · {row.cap}</span>
-              </div>
-            ))}
-          </div>
 
           <div className="gap-line">
             <div className="gap-item">
@@ -444,20 +387,10 @@ export function NarrativePage() {
             </div>
           </div>
 
-          <p>
-            {requiredDays} days is not a system outage. Nothing was broken and nobody was
-            negligent. For {requiredDays} days the decisive evidence was public, free and
-            searchable — and any clinic that had filed this variant as uncertain was still
-            reading the older record, because re-reading it was nobody&rsquo;s scheduled work.
-            That gap is the product: not a smarter model, but something that keeps watching
-            after the appointment ends.
-          </p>
-
           <p className="caveat">
-            Both intervals are shown together because neither stands alone, and the claim is
-            deliberately narrow. {hero.honesty_sentences.join(' ')} The day counts are computed
-            from the dates above when this page renders, so a number here can never disagree
-            with the dates beside it. Case chronology, not a product metric; governed by{' '}
+            Two intervals, two meanings, never one counter: {headlineDays} from the deposit,{' '}
+            {requiredDays} from the publication. {hero.honesty_sentences.join(' ')} Case
+            chronology, not a product metric, computed at render from{' '}
             <code>{hero.governing_document}</code>.
           </p>
         </Section>
