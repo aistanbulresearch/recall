@@ -239,6 +239,17 @@ class FirestoreTerminalMixin:
             else None
         )
 
+    def list_watch_cases(self) -> tuple[WatchCaseRecord, ...]:
+        values = []
+        for snapshot in self._collection("watch_cases").stream():
+            record = WatchCaseRecord.from_wire(snapshot.to_dict())
+            if str(snapshot.id) != record.watch_case_id:
+                raise ContractError(
+                    "ledger_integrity_failed", "watch_case_document_id"
+                )
+            values.append(record)
+        return tuple(sorted(values, key=lambda item: item.watch_case_id))
+
     def observe_state_hash(
         self,
         run_id: str,

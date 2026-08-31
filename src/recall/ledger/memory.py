@@ -231,6 +231,15 @@ class InMemoryLedger(InMemoryTerminalMixin):
         value = self._artifacts.get(artifact_id)
         return None if value is None else deepcopy(value)
 
+    def get_artifacts(
+        self, artifact_ids: Sequence[str]
+    ) -> Mapping[str, dict[str, object]]:
+        return {
+            artifact_id: deepcopy(self._artifacts[artifact_id])
+            for artifact_id in dict.fromkeys(artifact_ids)
+            if artifact_id in self._artifacts
+        }
+
     def list_by_run(self, run_id: str) -> tuple[dict[str, object], ...]:
         values = [
             deepcopy(value)
@@ -481,6 +490,9 @@ class InMemoryLedger(InMemoryTerminalMixin):
 
     def get_scan_run(self, run_id: str) -> ScanRunRecord | None:
         return self._scan_runs.get(run_id)
+
+    def list_scan_runs(self) -> tuple[ScanRunRecord, ...]:
+        return tuple(sorted(self._scan_runs.values(), key=lambda item: item.run_id))
 
     def list_scan_run_events(
         self, run_id: str

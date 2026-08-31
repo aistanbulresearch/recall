@@ -274,31 +274,74 @@ def build_final_execution_recovery_snapshot(
     scan_ids = []
     states: Counter[str] = Counter()
     expected_cases = cases_for_cycle(cycle)
+    expected_case_ids = {item.case_id for item in expected_cases}
     prepared_by_case = {
         item.case_id: item
         for item in bundle.cases
         if item.cycle_id == cycle.cycle_id
     }
+    watch_records = tuple(ledger.list_watch_cases())
+    watch_by_case = {item.watch_case_id: item for item in watch_records}
     if (
         len(prepared_by_case) != len(expected_cases)
-        or ledger.read_back_count("watch_cases") != len(expected_cases)
+        or len(watch_records) != len(expected_cases)
+        or len(watch_by_case) != len(watch_records)
+        or set(watch_by_case) != expected_case_ids
     ):
         raise RuntimeError("final_recovery_previous_watch_set_invalid")
-    if ledger.read_back_count("scan_runs") != len(expected_cases):
+
+    identities: dict[str, tuple[Mapping[str, str], str, str]] = {}
+    for item in expected_cases:
+        initial_source_cursors = {"synthetic-source": item.cursor}
+        key = scan_idempotency_key(
+            watch_case_id=item.case_id,
+            source_cursors=initial_source_cursors,
+            schedule_epoch=cycle.schedule_epoch,
+            data_mode=DataMode.SYNTHETIC.value,
+        )
+        identities[item.case_id] = (
+            initial_source_cursors,
+            key,
+            str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}")),
+        )
+    expected_run_ids = {value[2] for value in identities.values()}
+    run_records = tuple(ledger.list_scan_runs())
+    run_by_id = {item.run_id: item for item in run_records}
+    if (
+        len(run_records) != len(expected_cases)
+        or len(run_by_id) != len(run_records)
+        or set(run_by_id) != expected_run_ids
+    ):
         raise RuntimeError("final_recovery_previous_run_set_invalid")
+
+    manifest_id = manifest_artifact_id(plan, cycle)
+    mode_id = mode_receipt_artifact_id(plan, cycle)
+    batch_id = str(
+        uuid5(UUID(tick_run_id(plan, cycle)), "batch-execution-receipt")
+    )
+    artifact_ids = {manifest_id, mode_id, batch_id}
+    for item in expected_cases:
+        prepared = prepared_by_case[item.case_id]
+        artifact_ids.add(str(prepared.watch_case["artifact_id"]))
+        artifact_ids.add(str(prepared.privacy_receipt["artifact_id"]))
+        run = run_by_id[identities[item.case_id][2]]
+        if run.scan_run_artifact_id is None:
+            raise RuntimeError("final_recovery_previous_run_set_invalid")
+        artifact_ids.add(run.scan_run_artifact_id)
+    artifacts = ledger.get_artifacts(tuple(sorted(artifact_ids)))
+
     for item in expected_cases:
         prepared = prepared_by_case.get(item.case_id)
-        watch = ledger.get_watch_case(item.case_id)
+        watch = watch_by_case[item.case_id]
         if (
             prepared is None
-            or watch is None
             or watch.watch_case_id != item.case_id
             or watch.artifact_id != prepared.watch_case["artifact_id"]
         ):
             raise RuntimeError("final_recovery_previous_watch_set_invalid")
-        watch_wire = ledger.get_artifact(watch.artifact_id)
+        watch_wire = artifacts.get(watch.artifact_id)
         privacy_id = str(prepared.privacy_receipt["artifact_id"])
-        privacy_wire = ledger.get_artifact(privacy_id)
+        privacy_wire = artifacts.get(privacy_id)
         if (
             watch_wire is None
             or _wire_sha256(watch_wire) != _wire_sha256(prepared.watch_case)
@@ -332,22 +375,14 @@ def build_final_execution_recovery_snapshot(
             raise RuntimeError(
                 "final_recovery_previous_preparation_material_invalid"
             )
-        initial_source_cursors = {"synthetic-source": item.cursor}
-        key = scan_idempotency_key(
-            watch_case_id=item.case_id,
-            source_cursors=initial_source_cursors,
-            schedule_epoch=cycle.schedule_epoch,
-            data_mode=DataMode.SYNTHETIC.value,
-        )
-        run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
-        run = ledger.get_scan_run(run_id)
+        initial_source_cursors, key, run_id = identities[item.case_id]
+        run = run_by_id[run_id]
         if (
-            run is None
-            or run.run_id != run_id
+            run.run_id != run_id
             or run.scan_run_artifact_id is None
         ):
             raise RuntimeError("final_recovery_previous_run_set_invalid")
-        wire = ledger.get_artifact(run.scan_run_artifact_id)
+        wire = artifacts.get(run.scan_run_artifact_id)
         if wire is None:
             raise RuntimeError("final_recovery_previous_run_artifact_missing")
         parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
@@ -396,14 +431,9 @@ def build_final_execution_recovery_snapshot(
     observed_states = dict(sorted(states.items()))
     if observed_states != EXPECTED_CANCELLED_STATE_COUNTS:
         raise RuntimeError("final_recovery_previous_state_counts_invalid")
-    manifest_id = manifest_artifact_id(plan, cycle)
-    mode_id = mode_receipt_artifact_id(plan, cycle)
-    if ledger.get_artifact(manifest_id) is not None or ledger.get_artifact(mode_id) is not None:
+    if artifacts.get(manifest_id) is not None or artifacts.get(mode_id) is not None:
         raise RuntimeError("final_recovery_previous_manifest_present")
-    batch_id = str(
-        uuid5(UUID(tick_run_id(plan, cycle)), "batch-execution-receipt")
-    )
-    batch_wire = ledger.get_artifact(batch_id)
+    batch_wire = artifacts.get(batch_id)
     if batch_wire is None:
         raise RuntimeError("final_recovery_previous_batch_receipt_missing")
     batch = parse_artifact(batch_wire, authorized_producers=PRODUCER_REGISTRY)
@@ -418,8 +448,17 @@ def build_final_execution_recovery_snapshot(
         or batch.payload.measurement_status != "MEASURED"
     ):
         raise RuntimeError("final_recovery_previous_batch_receipt_invalid")
+    loaded_counts = {
+        "watch_cases": len(watch_records),
+        "scan_runs": len(run_records),
+    }
     collection_counts = {
-        name: ledger.read_back_count(name) for name in COLLECTION_NAMES
+        name: (
+            loaded_counts[name]
+            if name in loaded_counts
+            else ledger.read_back_count(name)
+        )
+        for name in COLLECTION_NAMES
     }
     snapshot_wire = {
         "schema_version": "1.0.0",

@@ -40,6 +40,7 @@ from .producers import PRODUCER_REGISTRY
 
 
 _PREFIX = re.compile(r"^[a-z0-9_]*$")
+_BULK_GET_CHUNK_SIZE = 250
 
 
 class FirestoreLedger(FirestoreTerminalMixin):
@@ -371,6 +372,36 @@ class FirestoreLedger(FirestoreTerminalMixin):
         snapshot = self._collection("artifacts").document(artifact_id).get()
         return snapshot.to_dict() if snapshot.exists else None
 
+    def get_artifacts(
+        self, artifact_ids: Sequence[str]
+    ) -> Mapping[str, dict[str, object]]:
+        ordered_ids = tuple(sorted(dict.fromkeys(artifact_ids)))
+        values: dict[str, dict[str, object]] = {}
+        collection = self._collection("artifacts")
+        for offset in range(0, len(ordered_ids), _BULK_GET_CHUNK_SIZE):
+            chunk = ordered_ids[offset : offset + _BULK_GET_CHUNK_SIZE]
+            requested = set(chunk)
+            references = [collection.document(artifact_id) for artifact_id in chunk]
+            for snapshot in self._client.get_all(references):
+                artifact_id = str(snapshot.id)
+                if artifact_id not in requested:
+                    raise ContractError(
+                        "ledger_integrity_failed", "bulk_artifact_document_id"
+                    )
+                if not snapshot.exists:
+                    continue
+                wire = snapshot.to_dict()
+                if str(wire.get("artifact_id")) != artifact_id:
+                    raise ContractError(
+                        "ledger_integrity_failed", "bulk_artifact_document_id"
+                    )
+                if artifact_id in values:
+                    raise ContractError(
+                        "ledger_integrity_failed", "bulk_artifact_duplicate"
+                    )
+                values[artifact_id] = wire
+        return values
+
     def list_by_run(self, run_id: str) -> tuple[dict[str, object], ...]:
         query = self._collection("artifacts").where(
             filter=FieldFilter("run_id", "==", run_id)
@@ -678,6 +709,17 @@ class FirestoreLedger(FirestoreTerminalMixin):
     def get_scan_run(self, run_id: str) -> ScanRunRecord | None:
         snapshot = self._collection("scan_runs").document(run_id).get()
         return ScanRunRecord.from_wire(snapshot.to_dict()) if snapshot.exists else None
+
+    def list_scan_runs(self) -> tuple[ScanRunRecord, ...]:
+        values = []
+        for snapshot in self._collection("scan_runs").stream():
+            record = ScanRunRecord.from_wire(snapshot.to_dict())
+            if str(snapshot.id) != record.run_id:
+                raise ContractError(
+                    "ledger_integrity_failed", "scan_run_document_id"
+                )
+            values.append(record)
+        return tuple(sorted(values, key=lambda item: item.run_id))
 
     def list_scan_run_events(
         self, run_id: str

@@ -64,6 +64,50 @@ PREVIOUS_IMAGE_DIGEST = "sha256:" + "d" * 64
 RECOVERY_ATTEMPT_ID = "84d24091-3c09-44d9-a236-a31dbc45e763"
 CURRENT_SOURCE_COMMIT = "d7725f3e5cc2750c346928cbb94677e57ef06be3"
 CURRENT_IMAGE_DIGEST = "sha256:" + "e" * 64
+BASELINE_CANCELLED_SNAPSHOT_SHA256 = (
+    "5e9b1f7795da8ce7ec357d34c6f02d151bbc95945abfea2793d00c59258d5abe"
+)
+
+
+class _BulkReadCountingLedger(InMemoryLedger):
+    def __init__(self) -> None:
+        super().__init__()
+        self.read_calls = {
+            "list_watch_cases": 0,
+            "list_scan_runs": 0,
+            "get_artifacts": 0,
+            "get_watch_case": 0,
+            "get_scan_run": 0,
+            "get_artifact": 0,
+        }
+
+    def list_watch_cases(self):
+        self.read_calls["list_watch_cases"] += 1
+        return tuple(self._watch_cases.values())
+
+    def list_scan_runs(self):
+        self.read_calls["list_scan_runs"] += 1
+        return tuple(self._scan_runs.values())
+
+    def get_artifacts(self, artifact_ids):
+        self.read_calls["get_artifacts"] += 1
+        return {
+            artifact_id: deepcopy(self._artifacts[artifact_id])
+            for artifact_id in dict.fromkeys(artifact_ids)
+            if artifact_id in self._artifacts
+        }
+
+    def get_watch_case(self, watch_case_id):
+        self.read_calls["get_watch_case"] += 1
+        return super().get_watch_case(watch_case_id)
+
+    def get_scan_run(self, run_id):
+        self.read_calls["get_scan_run"] += 1
+        return super().get_scan_run(run_id)
+
+    def get_artifact(self, artifact_id):
+        self.read_calls["get_artifact"] += 1
+        return super().get_artifact(artifact_id)
 
 
 def _plan_bundle():
@@ -205,6 +249,36 @@ def _cancelled_source_ledger():
 @pytest.fixture(scope="module")
 def recovery_source():
     return _cancelled_source_ledger()
+
+
+def test_recovery_snapshot_uses_bounded_bulk_reads_and_preserves_bytes(
+    recovery_source,
+) -> None:
+    plan, bundle, cycle, old, _outcomes, _started = recovery_source
+    counting = _BulkReadCountingLedger()
+    counting._artifacts = deepcopy(old._artifacts)
+    counting._watch_cases = deepcopy(old._watch_cases)
+    counting._scan_runs = deepcopy(old._scan_runs)
+    counting._scan_run_events = deepcopy(old._scan_run_events)
+    counting._review_tasks = deepcopy(old._review_tasks)
+
+    snapshot = build_final_execution_recovery_snapshot(
+        counting,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+
+    assert snapshot.snapshot_sha256 == BASELINE_CANCELLED_SNAPSHOT_SHA256
+    assert counting.read_calls == {
+        "list_watch_cases": 1,
+        "list_scan_runs": 1,
+        "get_artifacts": 1,
+        "get_watch_case": 0,
+        "get_scan_run": 0,
+        "get_artifact": 0,
+    }
 
 
 def _recovery(plan, cycle, snapshot: FinalExecutionRecoverySnapshot):

@@ -163,6 +163,11 @@ class InMemoryTerminalMixin:
     def get_watch_case(self, watch_case_id: str) -> WatchCaseRecord | None:
         return self._watch_cases.get(watch_case_id)
 
+    def list_watch_cases(self) -> tuple[WatchCaseRecord, ...]:
+        return tuple(
+            sorted(self._watch_cases.values(), key=lambda item: item.watch_case_id)
+        )
+
     def observe_state_hash(
         self,
         run_id: str,
