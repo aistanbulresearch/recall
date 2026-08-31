@@ -1,0 +1,328 @@
+{
+ "halted_count": 8,
+ "note": "Every case that ended in the technical terminal HALTED, with the agent receipt that failed, the controller's typed failure receipt, and the closure checks: no policy decision and no review task may exist for a halted case.",
+ "rows": [
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "35a0e7bfb5f685794c7030b1a2787a5dc1d46c5d7b2e3118eaaa550a328b01c8",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 121057,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 51,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 35300,
+      "prompt_tokens": 1875,
+      "thoughts_tokens": 65,
+      "total_tokens": 1991,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-f80b1a229a",
+   "closure": {
+    "artifact_count": 12,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "EVIDENCE_ASSESSOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "403425576ad63ffcf0fe641b2013e34d5e00b62c97f264b7a4e7ed31ab77fb7b",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "EVIDENCE_ASSESSOR",
+    "status": "REJECTED"
+   },
+   "run": "R-912e21f0ab",
+   "trace": "T-57a54c4656"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "a7fa66f14f2f8c34ca34ca8d797cb7f808a6a568cf30b1f172b9d6f568ee35a1",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 120907,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 51,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 12721,
+      "prompt_tokens": 953,
+      "thoughts_tokens": 70,
+      "total_tokens": 1074,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-7445e20905",
+   "closure": {
+    "artifact_count": 17,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "CITATION_AUDITOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "7c085497f5747c5a54ffc39dd71fb3d86088a985965e5abfdd6da27e900c7b89",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "CITATION_AUDITOR",
+    "status": "REJECTED"
+   },
+   "run": "R-35b87372e2",
+   "trace": "T-3108e8b442"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "f565114d2defa865eb5e9372942bf494afe1e3bd0837ede09d65510a8619433c",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 121187,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 50,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 83875,
+      "prompt_tokens": 952,
+      "thoughts_tokens": 111,
+      "total_tokens": 1113,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-ac18b42b40",
+   "closure": {
+    "artifact_count": 17,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "CITATION_AUDITOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "91d5170759a88c7bb728b5ab82a1b21702517e5a224264c39aa00c4a9b8d84da",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "CITATION_AUDITOR",
+    "status": "REJECTED"
+   },
+   "run": "R-68497de297",
+   "trace": "T-660a42619b"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "636796b457d362d71cad2bb2cf19db25d24655c0d7623e6a16aeb0b80dc7b138",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 120934,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": []
+   },
+   "case": "C-62ed23201b",
+   "closure": {
+    "artifact_count": 16,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "CITATION_AUDITOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "e7e1193b548e4eeca0e6e52245c6a3a5328e3922131c344eb098abfee67aebc4",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "CITATION_AUDITOR",
+    "status": "REJECTED"
+   },
+   "run": "R-9bfdaa1216",
+   "trace": "T-5b0642f5aa"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "113e7dfb617ba1a52190f65d7dacaa5c9f4038f3eb5ece65260c2e129e859c6e",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 120765,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 10,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 12219,
+      "prompt_tokens": 594,
+      "thoughts_tokens": 0,
+      "total_tokens": 604,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-85beea65fe",
+   "closure": {
+    "artifact_count": 6,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "EVIDENCE_WATCHER",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "b046ab63a5754054f5db994d429c3d42efe540cd8624bc5ae1bc2cd7c0dea484",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "EVIDENCE_WATCHER",
+    "status": "REJECTED"
+   },
+   "run": "R-51a6a2dd6e",
+   "trace": "T-6bc7b2abf7"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "e83ea66f37d21ab9bbf7394aa3b4a16a12bb5dc222ad5675c04ab7507a685aa2",
+    "execution_status": "FAILED",
+    "http_429_count": 0,
+    "latency_ms": 120870,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": []
+   },
+   "case": "C-82ef59c48a",
+   "closure": {
+    "artifact_count": 16,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "CITATION_AUDITOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "dd0cf129bdbc4a391c395ea037c6417b3dc6ccbb628bdbe5c2fc55f7802197e5",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "CITATION_AUDITOR",
+    "status": "REJECTED"
+   },
+   "run": "R-234e9652fd",
+   "trace": "T-bf3116f9c3"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "0b561429564e6a3cff821bc0a07c5793298dbf4fb987b0a0e16e13573f93fcb5",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 120754,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 49,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 2358,
+      "prompt_tokens": 952,
+      "thoughts_tokens": 100,
+      "total_tokens": 1101,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-692fafc088",
+   "closure": {
+    "artifact_count": 17,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "CITATION_AUDITOR",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "22c7bc3d8430b00503ecdd13eac2bc8cee0f11da87602da9fe3831860b655805",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "CITATION_AUDITOR",
+    "status": "REJECTED"
+   },
+   "run": "R-bc6c2835c1",
+   "trace": "T-f047751711"
+  },
+  {
+   "agent_execution_receipt": {
+    "attempt": 1,
+    "content_hash": "6605dc027a807521275d559c1cfb4013e40beac0d8049311b9ccea23bffac3f7",
+    "execution_status": "FAILED",
+    "http_429_count": 1,
+    "latency_ms": 122009,
+    "status": "INCOMPLETE",
+    "technical_code": "agent_timeout",
+    "turns": [
+     {
+      "candidate_tokens": 10,
+      "finish_reason": "STOP",
+      "function_call_emitted": true,
+      "latency_ms": 113140,
+      "prompt_tokens": 594,
+      "thoughts_tokens": 28,
+      "total_tokens": 632,
+      "turn_index": 1
+     }
+    ]
+   },
+   "case": "C-12b7ddc6ce",
+   "closure": {
+    "artifact_count": 6,
+    "policy_decisions": 0,
+    "review_tasks": 0,
+    "terminal_policy_decision_id": null
+   },
+   "failed_role": "EVIDENCE_WATCHER",
+   "failure_receipt": {
+    "budget_state": "WITHIN_LIMIT",
+    "content_hash": "b4b3f44d5d04f30611662ed30058740860c41e67f6860c4ef107bc7728b63683",
+    "controller_code": "controller_failed",
+    "operator_action": "inspect_agent_execution_receipts",
+    "retryable": false,
+    "safe_terminal": "HALTED",
+    "stage": "EVIDENCE_WATCHER",
+    "status": "REJECTED"
+   },
+   "run": "R-6bc8daf583",
+   "trace": "T-93f93a8071"
+  }
+ ]
+}

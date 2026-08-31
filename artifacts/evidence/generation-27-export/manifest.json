@@ -1,0 +1,80 @@
+{
+ "agent_execution_summary": {
+  "actual_billed_cost_state": "NOT_VERIFIED",
+  "complete_runs": 446,
+  "concurrency": 2,
+  "endpoint_class": "VERTEX_AI_GLOBAL",
+  "execution_profile": "FULL_AUDIT_V1",
+  "halted_runs": 8,
+  "http_429_count": 60,
+  "incomplete_runs": 2,
+  "model_id": "gemini-3.7-flash",
+  "not_evaluated_runs": 8,
+  "p50_latency_ms": 88898,
+  "p95_latency_ms": 150968,
+  "pricing_policy_sha256": "2c0e664a66707e30b536fade39cf36ce6a7ca556be7633051722fb0ae1312703",
+  "projected_cost_usd_micros": 6545526,
+  "reserved_cost_usd_micros": 6785142,
+  "runtime_class": "IN_PROCESS_ADK_CLOUD_RUN",
+  "total_agent_invocations": 1363,
+  "total_candidate_tokens": 286835,
+  "total_prompt_tokens": 3564443,
+  "total_runs": 456,
+  "total_thoughts_tokens": 215719,
+  "total_tokens": 4066997
+ },
+ "case_count": 456,
+ "cohort_due_date": "2026-08-31",
+ "content_hash": "c181709700567185898b9827a027e5bd4c70363b4ba66b0120dc186536341ded",
+ "cumulative": {
+  "compressed_cycles_completed": 2,
+  "distinct_execution_dates": 3,
+  "historical_incomplete_attempts": 2,
+  "logical_days_covered": 4,
+  "runs_created": 501,
+  "runs_predicted": 501,
+  "successful_compressed_cycles": 2
+ },
+ "cycle_index": 6,
+ "data_mode": "SYNTHETIC",
+ "day_index": 7,
+ "deadline_policy": {
+  "agent_completed_at": "2026-08-31T14:07:12.831943Z",
+  "agent_deadline": "2026-08-31T15:31:01.545648Z",
+  "agent_timeout_seconds": 27000,
+  "authoritative_end_to_end_deadline": "2026-08-31T15:58:58.660558Z",
+  "execution_timeout_seconds": 28800,
+  "trigger_started_at": "2026-08-31T07:58:58.660558Z",
+  "trigger_window_end": "2026-08-31T07:58:58.660558Z",
+  "write_completed_at": "2026-08-31T08:01:01.545648Z",
+  "write_deadline": "2026-08-31T08:28:58.660558Z",
+  "write_timeout_seconds": 1800
+ },
+ "delta_shape": {
+  "authoritative_run_ids": 456,
+  "excluded_case_ids": 6,
+  "newly_created_run_ids": 456,
+  "prediction_match": true,
+  "reused_run_ids": 0,
+  "runs_predicted": 456,
+  "selected_case_ids": 456
+ },
+ "epoch_label": "PLAN6_FINAL_456_REASSESSMENT_ACTIVE",
+ "evaluation_role": "PORTFOLIO_REASSESSMENT",
+ "final_only_supersession_shape": {
+  "execution_statuses": [
+   "COMPLETE",
+   "INCOMPLETE"
+  ],
+  "historical_evidence_entries": 4,
+  "roles": [
+   "HISTORICAL_ATTEMPT",
+   "IMMUTABLE_EXECUTED"
+  ]
+ },
+ "image_digest": "sha256:ca4a789c12795b4d968be86a57bac26526e0d4430d3e4e158bc8a22191c8be2c",
+ "note": "The cohort day manifest as stored, reduced to its non-identifying wire fields. Its own status is INCOMPLETE and is reported as such: the manifest describes a cohort in which eight cases reached a technical terminal.",
+ "schema": "CohortDayManifest/3.4.0",
+ "source_commit": "63437d20e493f09296af73f50348eb60fbe11030",
+ "status": "INCOMPLETE"
+}
