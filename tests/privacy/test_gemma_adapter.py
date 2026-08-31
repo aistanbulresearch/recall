@@ -221,4 +221,3 @@ def test_authenticated_requests_refuse_redirects() -> None:
     handler = _RefuseRedirects()
     with pytest.raises(TransportUnavailable, match="redirect refused"):
         handler.redirect_request(None, None, 302, "Found", {}, "https://elsewhere/x")
-

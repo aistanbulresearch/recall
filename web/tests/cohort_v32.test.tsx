@@ -285,4 +285,3 @@ describe('adversarial regressions, closed', () => {
     expect(fields['UI-COHORT-DEADLINE-POLICY'].status).toBe('KNOWN');
   });
 });
-
