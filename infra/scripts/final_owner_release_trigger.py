@@ -738,30 +738,57 @@ def _execution_state(execution: Mapping[str, Any]) -> str:
     if not isinstance(running_count, int):
         running_count = 0
 
-    condition_success = False
-    condition_failed = False
     conditions = _nested(execution, ("status", "conditions"), ("conditions",))
-    if isinstance(conditions, list):
-        for condition in conditions:
-            if not isinstance(condition, Mapping):
-                continue
-            if condition.get("type") != "Completed":
-                continue
-            state = str(condition.get("state", "")).upper()
-            status = str(condition.get("status", "")).upper()
-            reason = str(condition.get("reason", "")).upper()
-            if state in {"CONDITION_FAILED", "FAILED"}:
-                condition_failed = True
-            if state in {"CONDITION_SUCCEEDED", "SUCCEEDED"}:
-                condition_success = True
-            if status in {"TRUE", "CONDITION_SUCCEEDED", "SUCCEEDED"}:
-                condition_success = True
-            if status in {"FALSE", "CONDITION_FAILED", "FAILED"} and (
-                "FAIL" in reason or failed_count > 0
-            ):
-                condition_failed = True
-    if failed_count > 0 or condition_failed:
-        return "CONTRADICTORY" if condition_success or succeeded_count > 0 else "FAILED"
+    completed_conditions = (
+        [
+            condition
+            for condition in conditions
+            if isinstance(condition, Mapping) and condition.get("type") == "Completed"
+        ]
+        if isinstance(conditions, list)
+        else []
+    )
+    if len(completed_conditions) != 1:
+        return "UNKNOWN"
+
+    completed = completed_conditions[0]
+    state = str(completed.get("state", "")).strip().upper()
+    status = str(completed.get("status", "")).strip().upper()
+    reason = str(completed.get("reason", "")).strip().upper()
+    message = str(completed.get("message", "")).strip().lower()
+    condition_success = state in {"CONDITION_SUCCEEDED", "SUCCEEDED"} or status in {
+        "TRUE",
+        "CONDITION_SUCCEEDED",
+        "SUCCEEDED",
+    }
+    failure_shaped = state in {"CONDITION_FAILED", "FAILED"} or status in {
+        "FALSE",
+        "CONDITION_FAILED",
+        "FAILED",
+    }
+    cancelled = reason in {"CANCELLED", "CANCELED"} or re.fullmatch(
+        r"(?:the )?execution (?:(?:was|has been) )?(?:cancelled|canceled)"
+        r"(?: by (?:the )?(?:user|client))?[.!]?",
+        message,
+    ) is not None
+    condition_failed = state in {"CONDITION_FAILED", "FAILED"} or (
+        status in {"FALSE", "CONDITION_FAILED", "FAILED"}
+        and ("FAIL" in reason or failed_count > 0 or cancelled)
+    )
+    if cancelled and not failure_shaped:
+        return "CONTRADICTORY" if condition_success or succeeded_count > 0 else "UNKNOWN"
+    if failed_count > 0 and not condition_failed:
+        return (
+            "CONTRADICTORY"
+            if condition_success or succeeded_count > 0 or running_count > 0
+            else "UNKNOWN"
+        )
+    if condition_failed:
+        return (
+            "CONTRADICTORY"
+            if condition_success or succeeded_count > 0 or running_count > 0
+            else "FAILED"
+        )
     if condition_success:
         return (
             "SUCCEEDED"

@@ -1503,6 +1503,189 @@ def test_auxiliary_success_or_running_terminal_success_is_not_pass(
     assert report["state"] in {"UNKNOWN", "CONTRADICTORY"}
 
 
+@pytest.mark.parametrize(
+    ("reason", "message"),
+    [
+        ("Cancelled", "Execution was cancelled."),
+        ("Canceled", ""),
+        ("", "The execution has been canceled."),
+    ],
+)
+def test_single_completed_cancelled_condition_is_terminal_failure(
+    tmp_path: Path,
+    monkeypatch,
+    reason: str,
+    message: str,
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    candidate = _execution(
+        "recall-cohort-daily-terminal-cancelled",
+        marker=identity.intent_sha256,
+    )
+    candidate["status"] = {
+        "conditions": [
+            {
+                "type": "Completed",
+                "status": "False",
+                "reason": reason,
+                "message": message,
+            }
+        ],
+        "failedCount": 0,
+        "succeededCount": 0,
+        "runningCount": 0,
+    }
+
+    def run(*args: str, **_kwargs):
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([candidate])
+        return _completed(candidate)
+
+    report = trigger.reconcile(identity, project=PROJECT, run_fn=run)
+
+    assert report["verdict"] == "FAIL"
+    assert report["state"] == "TERMINAL_FAILED"
+    report_wire = json.dumps(report)
+    if reason:
+        assert reason not in report_wire
+    if message:
+        assert message not in report_wire
+
+
+@pytest.mark.parametrize(
+    ("conditions", "failed", "succeeded", "running"),
+    [
+        (
+            [
+                {
+                    "type": "Completed",
+                    "status": "True",
+                    "reason": "Cancelled",
+                }
+            ],
+            0,
+            1,
+            0,
+        ),
+        (
+            [
+                {
+                    "type": "Completed",
+                    "status": "False",
+                    "reason": "Cancelled",
+                }
+            ],
+            0,
+            0,
+            1,
+        ),
+        (
+            [
+                {
+                    "type": "Completed",
+                    "status": "False",
+                    "reason": "Cancelled",
+                },
+                {
+                    "type": "Completed",
+                    "status": "False",
+                    "reason": "Cancelled",
+                },
+            ],
+            0,
+            0,
+            0,
+        ),
+        ([], 1, 0, 0),
+        ([{"type": "Completed", "status": "Unknown"}], 1, 0, 0),
+    ],
+)
+def test_cancelled_terminal_requires_one_uncontradicted_completed_condition(
+    tmp_path: Path,
+    monkeypatch,
+    conditions: list[dict[str, str]],
+    failed: int,
+    succeeded: int,
+    running: int,
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    candidate = _execution(
+        "recall-cohort-daily-terminal-cancelled-contradiction",
+        marker=identity.intent_sha256,
+    )
+    candidate["status"] = {
+        "conditions": conditions,
+        "failedCount": failed,
+        "succeededCount": succeeded,
+        "runningCount": running,
+    }
+
+    def run(*args: str, **_kwargs):
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([candidate])
+        return _completed(candidate)
+
+    report = trigger.reconcile(identity, project=PROJECT, run_fn=run)
+
+    assert report["verdict"] == "NOT_VERIFIED"
+    assert report["state"] in {"UNKNOWN", "CONTRADICTORY"}
+
+
+@pytest.mark.parametrize(
+    ("reason", "message"),
+    [
+        ("CancellationRequested", ""),
+        ("NotCancelled", ""),
+        ("", "Execution was not cancelled."),
+        ("", "Cancellation requested."),
+        ("", "uncancelled"),
+    ],
+)
+def test_cancelled_terminal_rejects_substring_and_negated_false_positives(
+    tmp_path: Path,
+    monkeypatch,
+    reason: str,
+    message: str,
+) -> None:
+    trigger = _load()
+    _bind_receipt_root(trigger, monkeypatch, tmp_path)
+    identity = _identity(trigger)
+    trigger.write_intent_receipt(identity, baseline_aliases=())
+    candidate = _execution(
+        "recall-cohort-daily-terminal-cancelled-false-positive",
+        marker=identity.intent_sha256,
+    )
+    candidate["status"] = {
+        "conditions": [
+            {
+                "type": "Completed",
+                "status": "False",
+                "reason": reason,
+                "message": message,
+            }
+        ],
+        "failedCount": 0,
+        "succeededCount": 0,
+        "runningCount": 0,
+    }
+
+    def run(*args: str, **_kwargs):
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return _completed([candidate])
+        return _completed(candidate)
+
+    report = trigger.reconcile(identity, project=PROJECT, run_fn=run)
+
+    assert report["verdict"] == "NOT_VERIFIED"
+    assert report["state"] == "UNKNOWN"
+
+
 def test_trigger_sha_and_coordinator_identity_are_separate_from_deployed_image() -> None:
     trigger = _load()
     identity = _identity(trigger)
