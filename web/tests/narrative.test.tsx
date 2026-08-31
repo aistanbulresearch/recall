@@ -104,28 +104,35 @@ describe('the problem, in the locked narration terms', () => {
 });
 
 describe('the live run block', () => {
-  it('is stamped with the instant it was read and its source', () => {
+  it('is stamped with the run’s own clock', () => {
     expect(markup).toContain(liveRun.as_of_utc);
-    expect(markup).toContain(liveRun.snapshot_source);
-    expect(markup).toContain('RUNNING');
+    expect(markup).toContain('COMPLETED');
   });
 
-  it('never claims a completed cohort or a final manifest', () => {
-    for (const forbidden of [
-      '456 successfully completed',
-      'successfully completed',
-      'final manifest',
-      'cost reconciliation is',
-    ]) {
+  it('never claims a clean cohort: the eight technical terminals stay visible', () => {
+    for (const forbidden of ['456 successfully completed', 'all 456 cases succeeded']) {
       expect(markup.toLowerCase()).not.toContain(forbidden.toLowerCase());
     }
+    expect(markup).toContain(String(liveRun.terminal_states.HALTED));
+    expect(markup).toContain('stopped rather than guessed');
   });
 
-  it('lists the finals as explicitly not claimed', () => {
-    expect(markup).toContain('Not claimed yet');
-    for (const item of liveRun.pending_until_terminal_evidence) {
-      expect(markup).toContain(item);
-    }
+  it('reports the run as completed, with both terminal statements', () => {
+    expect(liveRun.status).toBe('COMPLETED');
+    expect(markup).toContain('SUCCEEDED');
+    expect(markup).toContain('INCOMPLETE');
+    expect(markup).toContain('the infrastructure finished, and eight cases inside it');
+  });
+
+  it('states the cost as a projection with its verification state', () => {
+    expect(liveRun.actual_billed_cost_state).toBe('NOT_VERIFIED');
+    expect(markup).toContain('NOT_VERIFIED');
+    expect(markup).toContain('it is a projection and is labelled as one');
+  });
+
+  it('separates rate limiting from failed cases', () => {
+    expect(liveRun.governance.cases_failed_by_rate_limiting).toBe(0);
+    expect(markup).toContain('without a single');
   });
 
   it('binds the run to its source commit and image digest', () => {

@@ -212,3 +212,47 @@
 @media (max-width: 720px) {
   .field { grid-template-columns: repeat(auto-fill, minmax(11px, 1fr)); }
 }
+
+/* ---------------- wired-export additions ---------------- */
+
+.hint { color: var(--muted); font-size: 0.8rem; margin: 4px 0 18px; }
+
+.cell-detail p { margin: 4px 0; }
+
+.detail-roles { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+
+.role-chip {
+  font-size: 0.66rem;
+  border: 1px solid var(--rule-strong);
+  padding: 2px 7px;
+  letter-spacing: 0.04em;
+}
+
+.role-chip.role-complete { border-color: var(--abstain); color: var(--abstain); }
+.role-chip.role-incomplete { border-color: var(--halted); color: var(--halted); }
+.role-chip.role-absent { color: var(--muted); border-style: dashed; }
+
+.detail-hashes { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.72rem; color: var(--muted); }
+
+.tbl.funnel .num, .tbl.audit .num { font-variant-numeric: tabular-nums; }
+
+.tbl .num.fail { color: var(--halted); }
+
+.tbl .num.good { color: var(--abstain); }
+
+.tbl.audit td:first-child { width: 46%; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin: 18px 0;
+}
+
+.cell-stat { background: #ffffff; padding: 14px 16px; }
+
+.stat-value { display: block; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+
+.stat-label { display: block; font-size: 0.68rem; color: var(--muted); margin-top: 3px; }

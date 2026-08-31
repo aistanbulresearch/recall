@@ -51,15 +51,16 @@ const hero = historicalCase as unknown as HeroFile;
 const run = liveRun as unknown as {
   status: string;
   as_of_utc: string;
-  as_of_local: string;
   snapshot_source: string;
   binding: Record<string, string>;
-  scan_runs: Record<string, number>;
-  role_failures: Record<string, number>;
-  round_trips: Record<string, number>;
+  terminal_states: Record<string, number>;
   artifacts: Record<string, number>;
-  faults: Record<string, string | number>;
-  pending_until_terminal_evidence: string[];
+  governance: Record<string, number>;
+  duration_seconds: number;
+  cloud_run_terminal_state: string;
+  manifest_status: string;
+  cost_projected_usd_micros: number;
+  actual_billed_cost_state: string;
 };
 const fit = categoryFit as unknown as {
   note: string;
@@ -496,10 +497,11 @@ export function NarrativePage() {
             The agents hold no write access to the ledger at all. Each role runs under its own
             service identity with a role-scoped capability, and every tool call passes an
             authorization gate that emits a receipt: without a receipt there is no backend
-            authority. In the run described below, the watcher, assessor and auditor recorded{' '}
-            <b>zero</b> failures, and {run.round_trips.authorization_linked} of{' '}
-            {run.round_trips.completed_model_tool_round_trips} completed round-trips carry
-            authorization, gateway and trace linkage.
+            authority. In the run described below, all {run.governance.tool_calls} tool calls
+            carry an authorization decision and a trace, and{' '}
+            <b>{run.governance.unauthorized_calls}</b> were unauthorized. The roles that did
+            fail failed loudly: {run.terminal_states.HALTED} cases stopped with a typed receipt
+            naming the role and the stage, rather than passing an unfinished result forward.
           </p>
         </Section>
 
@@ -560,64 +562,69 @@ export function NarrativePage() {
         <Section
           id="run"
           num="05"
-          title="LIVE ON GOOGLE CLOUD"
-          claim="The fleet is not a diagram. A long-running Cloud Run Job was executing the cohort while this page was written."
+          title="THE RUN THAT HAPPENED"
+          claim="Not a diagram. A long-running Cloud Run Job took the whole cohort through the fleet, unattended, and every figure below comes from its own artifacts."
         >
           <span className="stamp">
-            {run.status} · snapshot as of {run.as_of_utc} ({run.as_of_local}) ·{' '}
-            {run.snapshot_source}
+            COMPLETED · generation 27 · {run.duration_seconds ? `${Math.floor(run.duration_seconds / 3600)}h ${Math.round((run.duration_seconds % 3600) / 60)}m` : ''} unattended · finished{' '}
+            {run.as_of_utc}
           </span>
           <div className="grid">
             <div className="cell">
-              <span className="cell-value">{run.scan_runs.total}</span>
-              <span className="cell-label">ScanRuns in this execution</span>
+              <span className="cell-value">{run.terminal_states.NO_ACTION}</span>
+              <span className="cell-label">cases with nothing to raise</span>
             </div>
             <div className="cell">
-              <span className="cell-value">{run.scan_runs.terminal_no_action}</span>
-              <span className="cell-label">terminal NO_ACTION at snapshot</span>
+              <span className="cell-value">{run.terminal_states.ABSTAIN}</span>
+              <span className="cell-label">refused to decide on incomplete proof</span>
             </div>
             <div className="cell">
-              <span className="cell-value">{run.artifacts.valid.toLocaleString('en-US')}</span>
-              <span className="cell-label">valid artifacts · {run.artifacts.invalid} invalid</span>
+              <span className="cell-value">{run.terminal_states.HALTED}</span>
+              <span className="cell-label">stopped rather than guessed</span>
+            </div>
+            <div className="cell">
+              <span className="cell-value">{run.artifacts.documents.toLocaleString('en-US')}</span>
+              <span className="cell-label">
+                artifacts, {run.artifacts.parse_failures} parse failures
+              </span>
             </div>
             <div className="cell">
               <span className="cell-value">
-                {run.round_trips.authorization_linked}/
-                {run.round_trips.completed_model_tool_round_trips}
+                {run.governance.authorizations}/{run.governance.tool_calls}
               </span>
-              <span className="cell-label">round-trips with authorization, gateway and trace linkage</span>
+              <span className="cell-label">
+                tool calls authorized · {run.governance.unauthorized_calls} unauthorized
+              </span>
             </div>
             <div className="cell">
-              <span className="cell-value">0</span>
-              <span className="cell-label">watcher, assessor and auditor failures</span>
-            </div>
-            <div className="cell">
-              <span className="cell-value">0</span>
-              <span className="cell-label">IAM, startup, schema or traceback failures</span>
+              <span className="cell-value">{run.governance.trace_chains}</span>
+              <span className="cell-label">trace chains, one per case</span>
             </div>
           </div>
           <p className="kv">
-            <b>execution</b> {run.binding.execution} · <b>source commit</b>{' '}
-            {run.binding.source_commit}
+            <b>source commit</b> {run.binding.source_commit}
           </p>
           <p className="kv">
             <b>image digest</b> {run.binding.image_digest}
           </p>
           <p>
-            One HTTP 429 was encountered and recovered with no failed receipt. That is the
-            failure-tolerance claim in its smallest form: pressure produced a typed, recorded
-            recovery rather than a silent gap.
+            Three of those cases are the whole argument in miniature. A model produced a
+            material claim, the Citation Auditor could not verify its sources, and the gate
+            emitted ABSTAIN with the reason codes attached — no task, no downstream action, no
+            invented certainty. Eight more met an agent timeout and stopped at a technical
+            terminal with a typed receipt rather than taking the cohort down with them.
           </p>
-          <div className="pending-list">
-            <Badge kind="DEFERRED" /> <b>Not claimed yet.</b> The run had not reached a
-            terminal state when this page was built, so the following are deliberately absent
-            rather than estimated:
-            <ul>
-              {run.pending_until_terminal_evidence.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
+          <p className="caveat">
+            Cloud Run reports <b>{run.cloud_run_terminal_state}</b> and the cohort day manifest
+            reports <b>{run.manifest_status}</b>. Both are true and both are shown: the
+            infrastructure finished, and eight cases inside it never reached a decision. The
+            run also absorbed {run.governance.http_429} rate-limit responses without a single
+            case failing because of one. Projected cost for the cohort is $
+            {(Number(run.cost_projected_usd_micros) / 1_000_000).toFixed(2)} against a pinned
+            pricing policy; its own <code>actual_billed_cost_state</code> reads{' '}
+            {run.actual_billed_cost_state}, so it is a projection and is labelled as one.{' '}
+            <a href="#/demo/">Open the run, case by case →</a>
+          </p>
         </Section>
 
         <Section
