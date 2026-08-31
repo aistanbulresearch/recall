@@ -66,6 +66,8 @@ from .schemas import (
 
 
 __all__ = [
+    "DEFAULT_LEASE_DURATION_SECONDS",
+    "DEFAULT_ROLE_TIMEOUT_SECONDS",
     "FullAuditCoordinator",
     "FullAuditRunOutcome",
     "PreparedRunEvidence",
@@ -73,6 +75,20 @@ __all__ = [
     "RoleRunResult",
     "TurnTelemetry",
 ]
+
+
+DEFAULT_ROLE_TIMEOUT_SECONDS = 300
+DEFAULT_LEASE_DURATION_SECONDS = 900
+_LEASE_COMMIT_SAFETY_SECONDS = 30
+_TIMEOUT_SUBSTAGES = frozenset(
+    {
+        "provider_limiter",
+        "provider_call",
+        "provider_backoff",
+        "adk_runtime",
+        "lease_guard",
+    }
+)
 
 
 class FullAuditCoordinator:
@@ -84,11 +100,15 @@ class FullAuditCoordinator:
         invocation_store: GatewayInvocationStore,
         cost_ledger: ModelCostLedger,
         cost_policy: ModelCostPolicy,
-        role_timeout_seconds: int = 120,
-        lease_duration_seconds: int = 900,
+        role_timeout_seconds: int = DEFAULT_ROLE_TIMEOUT_SECONDS,
+        lease_duration_seconds: int = DEFAULT_LEASE_DURATION_SECONDS,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if role_timeout_seconds < 1 or lease_duration_seconds < 1:
+        if (
+            role_timeout_seconds < 1
+            or lease_duration_seconds < 1
+            or role_timeout_seconds >= lease_duration_seconds
+        ):
             raise ValueError("full_audit_timeout_invalid")
         self._ledger = ledger
         self._runner = role_runner
@@ -421,6 +441,11 @@ class FullAuditCoordinator:
         assessor_candidate: Mapping[str, object] | None = None,
         assessor_snapshot: Mapping[str, object] | None = None,
     ) -> tuple[int, Mapping[str, object], RoleRunResult]:
+        _, initial_lease_remaining = self._lease_time_remaining(
+            run_id, now=now
+        )
+        if initial_lease_remaining <= 0:
+            raise RoleExecutionError("agent_timeout:lease_guard")
         abandoned = self._open_started_receipt(run_id, role)
         if abandoned is not None:
             abandoned_started_at = datetime.fromisoformat(
@@ -560,20 +585,36 @@ class FullAuditCoordinator:
                 if reservation.state != "RESERVED":
                     raise RuntimeError("model_cost_cap_exceeded")
                 reservations.append(reservation_id)
-            remaining_seconds = (deadline_at - now).total_seconds()
+            timeout_now, lease_remaining = self._lease_time_remaining(
+                run_id, now=now
+            )
+            remaining_seconds = (deadline_at - timeout_now).total_seconds()
             if remaining_seconds <= 0:
                 raise RoleExecutionError("agent_execution_deadline_exceeded")
+            if lease_remaining <= 0:
+                raise RoleExecutionError("agent_timeout:lease_guard")
+            wait_timeout = min(
+                self._role_timeout,
+                remaining_seconds,
+                lease_remaining,
+            )
+            timeout_substage = (
+                "lease_guard"
+                if lease_remaining
+                <= min(self._role_timeout, remaining_seconds)
+                else "adk_runtime"
+            )
             try:
                 result = await asyncio.wait_for(
                     self._runner.execute(role, prompt, tools, context),
-                    timeout=min(self._role_timeout, remaining_seconds),
+                    timeout=wait_timeout,
                 )
             except RoleExecutionError as exc:
                 captured_turns = exc.turns
                 raise failed_role_error(exc) from exc
             except TimeoutError as exc:
                 raise RoleExecutionError(
-                    "agent_timeout",
+                    f"agent_timeout:{timeout_substage}",
                     tool_records=tuple(tool_records),
                 ) from exc
             result = replace(result, tool_records=tuple(tool_records))
@@ -632,6 +673,23 @@ class FullAuditCoordinator:
                     )
                     raise exc from reconciliation_error
             raise
+
+    def _lease_time_remaining(
+        self, run_id: str, *, now: datetime
+    ) -> tuple[datetime, float]:
+        timeout_now = now if self._clock is None else self._clock()
+        if timeout_now.tzinfo is None:
+            raise ValueError("full_audit_clock_timezone_required")
+        timeout_now = max(now, timeout_now.astimezone(UTC))
+        current = self._required_run(run_id)
+        if current.lease_expires_at is None:
+            if current.state in {ScanRunState.CREATED, ScanRunState.QUEUED}:
+                return timeout_now, float("inf")
+            return timeout_now, 0.0
+        lease_remaining = (
+            current.lease_expires_at - timeout_now
+        ).total_seconds() - _LEASE_COMMIT_SAFETY_SECONDS
+        return timeout_now, lease_remaining
 
     def _halt(
         self,
@@ -857,9 +915,18 @@ class FullAuditCoordinator:
     @staticmethod
     def _agent_failure_code(error: Exception) -> str:
         if isinstance(error, TimeoutError) or (
-            isinstance(error, RoleExecutionError) and error.code == "agent_timeout"
+            isinstance(error, RoleExecutionError)
+            and (
+                error.code == "agent_timeout"
+                or error.code.startswith("agent_timeout:")
+            )
         ):
             return "agent_timeout"
+        if (
+            isinstance(error, RoleExecutionError)
+            and error.code == "agent_final_turn_tool_violation"
+        ):
+            return "agent_final_turn_tool_violation"
         if isinstance(error, RoleExecutionError) and (
             error.code == "agent_schema_invalid"
             or error.code.startswith("agent_schema_invalid:")
@@ -1197,6 +1264,16 @@ class FullAuditCoordinator:
     def _schema_failure_detail(error: Exception) -> str | None:
         if not isinstance(error, RoleExecutionError):
             return None
+        if error.code.startswith("agent_timeout:"):
+            substage = error.code.removeprefix("agent_timeout:")
+            if substage not in _TIMEOUT_SUBSTAGES:
+                substage = "unclassified"
+            return f"timeout_substage:{substage}"
+        if error.code == "agent_final_turn_tool_violation":
+            return (
+                "effective_final_request:mode_none:tools_zero:"
+                "function_call_returned"
+            )
         mismatch_prefix = (
             "agent_schema_invalid:artifact_contract:"
             "assessor_output_binding_invalid:"

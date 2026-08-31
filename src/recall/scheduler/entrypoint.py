@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from recall.ledger.firestore import FirestoreLedger
-from recall.agents.full_audit import FullAuditCoordinator
+from recall.agents.full_audit import (
+    DEFAULT_LEASE_DURATION_SECONDS,
+    DEFAULT_ROLE_TIMEOUT_SECONDS,
+    FullAuditCoordinator,
+)
 from recall.agents.in_process_runtime import InProcessAdkRoleRunner
 from recall.agents.provider_pacing import provider_rpm_from_environment
 from recall.connectors import PubMedConnector
@@ -588,6 +592,8 @@ def _build_full_audit_coordinator(
             hard_cap_usd_micros=DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros,
         ),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
+        role_timeout_seconds=DEFAULT_ROLE_TIMEOUT_SECONDS,
+        lease_duration_seconds=DEFAULT_LEASE_DURATION_SECONDS,
         clock=lambda: datetime.now(timezone.utc),
     )
 

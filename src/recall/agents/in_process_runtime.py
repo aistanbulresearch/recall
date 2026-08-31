@@ -132,6 +132,10 @@ class InProcessAdkRoleRunner:
             )
             if "429" in error_code or "429" in error_message:
                 http_429_count += 1
+            function_call_emitted = any(
+                getattr(part, "function_call", None) is not None
+                for part in parts or ()
+            )
             turns.append(
                 TurnTelemetry(
                     len(turns) + 1,
@@ -140,13 +144,20 @@ class InProcessAdkRoleRunner:
                     _usage_count(usage, "thoughts_token_count"),
                     _usage_count(usage, "total_token_count"),
                     finish_reason or "UNKNOWN",
-                    any(
-                        getattr(part, "function_call", None) is not None
-                        for part in parts or ()
-                    ),
+                    function_call_emitted,
                     round((monotonic() - started) * 1000),
                 )
             )
+            if (
+                role in _TWO_TURN_TOOL_PLAN_ROLES
+                and len(turns) == MAX_MODEL_TURNS_PER_ROLE
+                and function_call_emitted
+            ):
+                raise RoleExecutionError(
+                    "agent_final_turn_tool_violation",
+                    turns=tuple(turns),
+                    http_429_count=http_429_count,
+                )
 
         bundle = build_agent_bundle(
             role,
@@ -160,6 +171,7 @@ class InProcessAdkRoleRunner:
             provider_limiter=self._provider_limiter,
             backoff_sleeper=self._backoff_sleeper,
             max_429_retries=self._max_429_retries,
+            enforce_final_turn_no_tools=role in _TWO_TURN_TOOL_PLAN_ROLES,
         )
         agent = bundle.agent.model_copy(
             update={
@@ -181,8 +193,16 @@ class InProcessAdkRoleRunner:
             events = await runner.run_debug(prompt, quiet=True)
         except asyncio.CancelledError as exc:
             absorb_provider_429_count()
+            timeout_substage = request_bound_model.timeout_substage
+            if timeout_substage not in {
+                "provider_limiter",
+                "provider_call",
+                "provider_backoff",
+                "adk_runtime",
+            }:
+                timeout_substage = "adk_runtime"
             raise RoleExecutionError(
-                "agent_timeout",
+                f"agent_timeout:{timeout_substage}",
                 turns=tuple(turns),
                 http_429_count=http_429_count,
             ) from exc
@@ -390,11 +410,18 @@ class RequestBoundLlm(BaseLlm):
     provider_limiter: ProviderRateLimiter
     backoff_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep
     max_429_retries: int = 3
+    enforce_final_turn_no_tools: bool = False
     _http_429_count: int = PrivateAttr(default=0)
+    _logical_request_count: int = PrivateAttr(default=0)
+    _timeout_substage: str = PrivateAttr(default="adk_runtime")
 
     @property
     def http_429_count(self) -> int:
         return self._http_429_count
+
+    @property
+    def timeout_substage(self) -> str:
+        return self._timeout_substage
 
     @property
     def capabilities(self):
@@ -403,14 +430,25 @@ class RequestBoundLlm(BaseLlm):
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
+        self._logical_request_count += 1
+        if self.enforce_final_turn_no_tools and self._logical_request_count == 2:
+            llm_request.config.tool_config = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode=types.FunctionCallingConfigMode.NONE
+                )
+            )
+            llm_request.config.tools = []
+            llm_request.tools_dict.clear()
         if len(_effective_request_bytes(llm_request)) > self.max_request_bytes:
             raise RoleExecutionError("model_request_budget_exceeded")
         if stream:
             raise RoleExecutionError("provider_streaming_retry_unsupported")
         for attempt in range(self.max_429_retries + 1):
+            self._timeout_substage = "provider_limiter"
             await self.provider_limiter.acquire()
             responses: list[LlmResponse] = []
             try:
+                self._timeout_substage = "provider_call"
                 async for response in self.delegate.generate_content_async(
                     llm_request, False
                 ):
@@ -421,6 +459,7 @@ class RequestBoundLlm(BaseLlm):
                 self._http_429_count += 1
                 if attempt >= self.max_429_retries:
                     raise
+                self._timeout_substage = "provider_backoff"
                 await self.backoff_sleeper(float(2**attempt))
                 continue
             if any(_is_rate_limit_response(response) for response in responses):
@@ -430,8 +469,10 @@ class RequestBoundLlm(BaseLlm):
                         "agent_provider_call_failed",
                         http_429_count=self._http_429_count,
                     )
+                self._timeout_substage = "provider_backoff"
                 await self.backoff_sleeper(float(2**attempt))
                 continue
+            self._timeout_substage = "adk_runtime"
             for response in responses:
                 yield response
             return

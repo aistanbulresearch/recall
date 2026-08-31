@@ -34,6 +34,19 @@ ASSESSOR_OUTPUT_BINDING_FIELDS = (
     "evidence_delta.removed_observation_refs",
 )
 
+_RUNTIME_FAILURE_DETAILS = frozenset(
+    {
+        "effective_final_request:mode_none:tools_zero:function_call_returned",
+        "timeout_substage:adk_runtime",
+        "timeout_substage:lease_guard",
+        "timeout_substage:provider_backoff",
+        "timeout_substage:provider_call",
+        "timeout_substage:provider_limiter",
+        "timeout_substage:unclassified",
+    }
+)
+_RUNTIME_FAILURE_FALLBACK = "runtime_failure:unclassified"
+
 
 def prepared_tool_records(
     evidence: PreparedRunEvidence, *, observed_at: datetime
@@ -624,6 +637,18 @@ def _agent_receipt(
             }
         )
     )
+    warning_code = "agent_schema_failure"
+    warning_detail = schema_failure_detail
+    if schema_failure_detail is not None and (
+        schema_failure_detail.startswith("timeout_substage:")
+        or schema_failure_detail.startswith("effective_final_request:")
+    ):
+        warning_code = "agent_runtime_failure"
+        warning_detail = (
+            schema_failure_detail
+            if schema_failure_detail in _RUNTIME_FAILURE_DETAILS
+            else _RUNTIME_FAILURE_FALLBACK
+        )
     return _artifact(
         "AgentExecutionReceipt", "1.0.0", artifact_id, case_id, run_id,
         "controller-agent-executor", data_mode, completed_at or started_at,
@@ -650,11 +675,11 @@ def _agent_receipt(
         status=ArtifactStatus.VALID if status != "FAILED" else ArtifactStatus.INCOMPLETE,
         warnings=(
             ()
-            if schema_failure_detail is None
+            if warning_detail is None
             else (
                 {
-                    "code": "agent_schema_failure",
-                    "message_key": schema_failure_detail,
+                    "code": warning_code,
+                    "message_key": warning_detail,
                     "related_artifact_ids": [],
                 },
             )

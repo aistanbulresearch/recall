@@ -29,7 +29,10 @@ from recall.agents.full_audit_models import (
     FullAuditRunOutcome,
     RoleExecutionError,
 )
-from recall.agents.full_audit_artifacts import build_started_receipt
+from recall.agents.full_audit_artifacts import (
+    build_failed_receipt,
+    build_started_receipt,
+)
 from recall.agents.in_process_runtime import InProcessAdkRoleRunner
 from recall.agents.schemas import (
     AssessmentAgentOutput,
@@ -1698,6 +1701,135 @@ def test_one_case_failure_halts_only_that_run_without_policy_decision() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("runtime_code", "warning_detail"),
+    [
+        ("agent_timeout:provider_limiter", "timeout_substage:provider_limiter"),
+        ("agent_timeout:provider_call", "timeout_substage:provider_call"),
+        ("agent_timeout:provider_backoff", "timeout_substage:provider_backoff"),
+        ("agent_timeout:adk_runtime", "timeout_substage:adk_runtime"),
+        ("agent_timeout:lease_guard", "timeout_substage:lease_guard"),
+        ("agent_timeout:raw secret value", "timeout_substage:unclassified"),
+    ],
+)
+def test_runtime_timeout_detail_is_closed_and_failure_class_stays_stable(
+    runtime_code: str, warning_detail: str
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class BrokenRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt, tools, context
+            raise RoleExecutionError(runtime_code)
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=BrokenRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert failed["failure_code"] == "agent_timeout"
+    assert failed["warnings"] == [
+        {
+            "code": "agent_runtime_failure",
+            "message_key": warning_detail,
+            "related_artifact_ids": [],
+        }
+    ]
+    warning_wire = json.dumps(failed["warnings"])
+    assert "raw secret value" not in warning_wire
+    assert evidence.case_id not in warning_wire
+    assert run_id not in warning_wire
+
+
+def test_final_turn_tool_violation_is_typed_and_safely_described() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class BrokenRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            del role, prompt, tools, context
+            raise RoleExecutionError(
+                "agent_final_turn_tool_violation",
+                turns=(
+                    TurnTelemetry(1, 10, 2, 0, 12, "STOP", True, 10),
+                    TurnTelemetry(2, 12, 2, 0, 14, "STOP", True, 11),
+                ),
+            )
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=BrokenRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    assert outcome.technical_failure_codes == ("controller_failed",)
+    assert failed["failure_code"] == "agent_final_turn_tool_violation"
+    assert failed["warnings"] == [
+        {
+            "code": "agent_runtime_failure",
+            "message_key": (
+                "effective_final_request:mode_none:tools_zero:"
+                "function_call_returned"
+            ),
+            "related_artifact_ids": [],
+        }
+    ]
+    assert len(failed["turns"]) == 2
+
+
+def test_failed_receipt_rejects_unrecognized_runtime_warning_detail() -> None:
+    receipt = build_failed_receipt(
+        case_id=CASE_ID,
+        run_id="3dc2e659-73a7-4f4d-bd23-0e0826a173ec",
+        role=AgentRole.EVIDENCE_WATCHER,
+        attempt=1,
+        started_receipt_id="71e0e8d4-652f-43ac-b911-4281831c847e",
+        trace_id="fa3fcd17-4d9b-4304-9aa4-c03e334091f0",
+        invocation_id="3c179906-b72b-4c90-8920-90ad2e856fd0",
+        data_mode=DataMode.SYNTHETIC,
+        started_at=NOW,
+        failed_at=NOW + timedelta(seconds=1),
+        failure_code="agent_timeout",
+        schema_failure_detail="timeout_substage:secret-provider-payload",
+    )
+
+    assert receipt["warnings"] == [
+        {
+            "code": "agent_runtime_failure",
+            "message_key": "runtime_failure:unclassified",
+            "related_artifact_ids": [],
+        }
+    ]
+    assert "secret-provider-payload" not in json.dumps(receipt)
+
+
 def test_failed_agent_receipt_uses_authoritative_failure_time() -> None:
     ledger, run_id, evidence = _full_audit_run()
 
@@ -1733,6 +1865,7 @@ def test_failed_agent_receipt_uses_authoritative_failure_time() -> None:
 
 def test_expired_lease_without_takeover_cannot_be_halted_by_old_owner() -> None:
     ledger, run_id, evidence = _full_audit_run()
+    clock_values = iter((NOW, NOW, NOW + timedelta(seconds=31)))
 
     class BrokenRunner(FakeRoleRunner):
         async def execute(self, role, prompt, tools, context):
@@ -1745,8 +1878,9 @@ def test_expired_lease_without_takeover_cannot_be_halted_by_old_owner() -> None:
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
-        lease_duration_seconds=1,
-        clock=lambda: NOW + timedelta(seconds=1),
+        role_timeout_seconds=1,
+        lease_duration_seconds=31,
+        clock=lambda: next(clock_values),
     )
 
     with pytest.raises(ContractError, match="lease_expired"):
@@ -1868,6 +2002,108 @@ def test_role_timeout_is_capped_by_remaining_end_to_end_budget() -> None:
     assert [item["failure_code"] for item in failed] == ["agent_timeout"]
 
 
+def test_role_timeout_uses_fresh_clock_for_shared_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    observed_timeouts: list[float] = []
+
+    async def capture_wait_for(awaitable, *, timeout):
+        observed_timeouts.append(timeout)
+        return await awaitable
+
+    monkeypatch.setattr(full_audit_module.asyncio, "wait_for", capture_wait_for)
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        role_timeout_seconds=300,
+        lease_duration_seconds=900,
+        clock=lambda: NOW + timedelta(seconds=650),
+    )
+
+    asyncio.run(
+        coordinator._execute_role(
+            AgentRole.EVIDENCE_WATCHER,
+            run_id=run_id,
+            evidence=evidence,
+            input_artifact_ids=(),
+            trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+            now=NOW,
+            deadline_at=NOW + timedelta(seconds=800),
+        )
+    )
+
+    assert observed_timeouts == [150]
+
+
+def test_three_role_timeouts_leave_lease_commit_safety_margin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    observed_timeouts: list[float] = []
+    clock_values = iter(
+        (
+            NOW,
+            NOW,
+            NOW + timedelta(seconds=300),
+            NOW + timedelta(seconds=300),
+            NOW + timedelta(seconds=600),
+            NOW + timedelta(seconds=600),
+        )
+    )
+
+    async def capture_wait_for(awaitable, *, timeout):
+        observed_timeouts.append(timeout)
+        return await awaitable
+
+    monkeypatch.setattr(full_audit_module.asyncio, "wait_for", capture_wait_for)
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=FakeRoleRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+        role_timeout_seconds=300,
+        lease_duration_seconds=900,
+        clock=lambda: next(clock_values),
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(
+            run_id,
+            evidence=evidence,
+            now=NOW,
+            deadline_at=NOW + timedelta(seconds=27_000),
+        )
+    )
+
+    assert outcome.terminal_state == "NO_ACTION"
+    assert observed_timeouts == [300, 300, 270]
+
+
+@pytest.mark.parametrize("role_timeout", [900, 901])
+def test_role_timeout_must_remain_strictly_below_lease(
+    role_timeout: int,
+) -> None:
+    ledger, _, _ = _full_audit_run()
+
+    with pytest.raises(ValueError, match="full_audit_timeout_invalid"):
+        FullAuditCoordinator(
+            ledger,
+            role_runner=FakeRoleRunner(),
+            invocation_store=InMemoryGatewayInvocationStore(),
+            cost_ledger=InMemoryModelCostLedger(
+                hard_cap_usd_micros=75_000_000
+            ),
+            cost_policy=DEFAULT_MODEL_COST_POLICY,
+            role_timeout_seconds=role_timeout,
+            lease_duration_seconds=900,
+        )
+
+
 def test_open_started_attempt_is_closed_and_role_resumes_once() -> None:
     ledger, run_id, evidence = _full_audit_run()
     runner = FakeRoleRunner()
@@ -1877,7 +2113,8 @@ def test_open_started_attempt_is_closed_and_role_resumes_once() -> None:
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
-        lease_duration_seconds=1,
+        role_timeout_seconds=1,
+        lease_duration_seconds=31,
     )
     current = coordinator._prepare_run(run_id, evidence=evidence, now=NOW)
     assert current.state.value == "WATCHING"
@@ -1897,7 +2134,7 @@ def test_open_started_attempt_is_closed_and_role_resumes_once() -> None:
 
     outcome = asyncio.run(
         coordinator.execute_run(
-            run_id, evidence=evidence, now=NOW + timedelta(seconds=1)
+            run_id, evidence=evidence, now=NOW + timedelta(seconds=31)
         )
     )
 
@@ -2228,6 +2465,7 @@ def test_hard_crash_after_data_mode_append_resumes_byte_identically() -> None:
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
+        role_timeout_seconds=59,
         lease_duration_seconds=60,
     )
     evaluate = coordinator._controller.evaluate_and_commit
@@ -2267,6 +2505,7 @@ def test_hard_crash_after_data_mode_append_resumes_byte_identically() -> None:
 def test_expired_old_worker_cannot_halt_new_lease_owner() -> None:
     ledger, run_id, evidence = _full_audit_run()
     controller = Controller(ledger)
+    clock_values = iter((NOW, NOW, NOW + timedelta(seconds=62)))
 
     class LeaseStealingRunner(FakeRoleRunner):
         async def execute(self, role, prompt, tools, context):
@@ -2276,8 +2515,8 @@ def test_expired_old_worker_cannot_halt_new_lease_owner() -> None:
                 run_id,
                 expected_version=current.version,
                 new_epoch=current.lease_epoch + 1,
-                expires_at=NOW + timedelta(seconds=2),
-                now=NOW + timedelta(seconds=1),
+                expires_at=NOW + timedelta(seconds=62),
+                now=NOW + timedelta(seconds=31),
             )
             raise TimeoutError("old worker failed after ownership changed")
 
@@ -2287,8 +2526,9 @@ def test_expired_old_worker_cannot_halt_new_lease_owner() -> None:
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,
-        lease_duration_seconds=1,
-        clock=lambda: NOW + timedelta(seconds=2),
+        role_timeout_seconds=1,
+        lease_duration_seconds=31,
+        clock=lambda: next(clock_values),
     )
 
     with pytest.raises(ContractError, match="stale_write_rejected"):

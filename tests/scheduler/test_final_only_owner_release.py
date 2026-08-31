@@ -41,6 +41,8 @@ def test_default_full_audit_coordinator_clock_returns_aware_utc() -> None:
     observed = coordinator._clock()
     assert observed.tzinfo is timezone.utc
     assert observed.utcoffset() == timedelta(0)
+    assert coordinator._role_timeout == 300
+    assert coordinator._lease_duration == 900
 
 
 def test_owner_release_is_exact_final_only_c6_and_actual_start_bound() -> None:

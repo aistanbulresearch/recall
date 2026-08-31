@@ -358,6 +358,8 @@ class AuditorParallelToolsUnlessFinalTurnIsLockedLlm(BaseLlm):
     _modes: list[types.FunctionCallingConfigMode | None] = PrivateAttr(
         default_factory=list
     )
+    _tool_counts: list[int] = PrivateAttr(default_factory=list)
+    _tool_dict_counts: list[int] = PrivateAttr(default_factory=list)
 
     def __init__(self, assessment_id: str, claim_ids: tuple[str, ...]) -> None:
         super().__init__(model="gemini-3.7-flash")
@@ -367,6 +369,14 @@ class AuditorParallelToolsUnlessFinalTurnIsLockedLlm(BaseLlm):
     @property
     def modes(self) -> tuple[types.FunctionCallingConfigMode | None, ...]:
         return tuple(self._modes)
+
+    @property
+    def tool_counts(self) -> tuple[int, ...]:
+        return tuple(self._tool_counts)
+
+    @property
+    def tool_dict_counts(self) -> tuple[int, ...]:
+        return tuple(self._tool_dict_counts)
 
     @property
     def capabilities(self) -> LlmCapabilities:
@@ -384,6 +394,8 @@ class AuditorParallelToolsUnlessFinalTurnIsLockedLlm(BaseLlm):
         )
         mode = None if function_config is None else function_config.mode
         self._modes.append(mode)
+        self._tool_counts.append(len(llm_request.config.tools or ()))
+        self._tool_dict_counts.append(len(llm_request.tools_dict))
         if mode is types.FunctionCallingConfigMode.NONE:
             output = {
                 "assessment_id": self._assessment_id,
@@ -425,6 +437,96 @@ class AuditorParallelToolsUnlessFinalTurnIsLockedLlm(BaseLlm):
             content=types.Content(role="model", parts=parts),
             partial=False,
         )
+
+
+class FinalTurnFunctionCallDespiteNoneLlm(BaseLlm):
+    """Return a forbidden second function call even after the final lock."""
+
+    _calls: int = PrivateAttr(default=0)
+    _modes: list[types.FunctionCallingConfigMode | None] = PrivateAttr(
+        default_factory=list
+    )
+    _tool_counts: list[int] = PrivateAttr(default_factory=list)
+
+    def __init__(self, assessment_id: str) -> None:
+        super().__init__(model="gemini-3.7-flash")
+        self._assessment_id = assessment_id
+
+    @property
+    def modes(self) -> tuple[types.FunctionCallingConfigMode | None, ...]:
+        return tuple(self._modes)
+
+    @property
+    def tool_counts(self) -> tuple[int, ...]:
+        return tuple(self._tool_counts)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del stream
+        self._calls += 1
+        function_config = (
+            None
+            if llm_request.config.tool_config is None
+            else llm_request.config.tool_config.function_calling_config
+        )
+        self._modes.append(None if function_config is None else function_config.mode)
+        self._tool_counts.append(len(llm_request.config.tools or ()))
+        yield LlmResponse(
+            content=types.Content(
+                role="model",
+                parts=[
+                    types.Part.from_function_call(
+                        name="ledger_read",
+                        args={"artifact_id": self._assessment_id},
+                    )
+                ],
+            ),
+            partial=False,
+        )
+
+
+class ProviderCallStallLlm(BaseLlm):
+    """Stall before a response, optionally after one real tool round-trip."""
+
+    _calls: int = PrivateAttr(default=0)
+    _first_turn_tool: bool = PrivateAttr()
+    _stalled: asyncio.Event = PrivateAttr(default_factory=asyncio.Event)
+
+    def __init__(self, *, first_turn_tool: bool) -> None:
+        super().__init__(model="gemini-3.7-flash")
+        self._first_turn_tool = first_turn_tool
+
+    @property
+    def stalled(self) -> asyncio.Event:
+        return self._stalled
+
+    @property
+    def capabilities(self) -> LlmCapabilities:
+        return LlmCapabilities(output_schema_and_tools=True)
+
+    async def generate_content_async(
+        self, llm_request: LlmRequest, stream: bool = False
+    ) -> AsyncGenerator[LlmResponse, None]:
+        del llm_request, stream
+        self._calls += 1
+        if self._first_turn_tool and self._calls == 1:
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part.from_function_call(
+                            name="evidence_connector",
+                            args={},
+                        )
+                    ],
+                ),
+                partial=False,
+            )
+            return
+        self._stalled.set()
+        await asyncio.Event().wait()
+        yield  # pragma: no cover - preserves async-generator shape
 
 
 class OversizedSecondTurnLlm(BaseLlm):
@@ -819,7 +921,9 @@ def test_in_process_runner_refuses_third_provider_dispatch() -> None:
     )
     model = ThreeTurnLlm()
 
-    with pytest.raises(RoleExecutionError, match="model_turn_budget_exceeded"):
+    with pytest.raises(
+        RoleExecutionError, match="agent_final_turn_tool_violation"
+    ):
         asyncio.run(
             _runner(model).execute(
                 AgentRole.EVIDENCE_WATCHER,
@@ -949,6 +1053,10 @@ def test_auditor_executes_declared_parallel_tool_plan_then_schema_only() -> None
     )
 
     assert model.modes == (None, types.FunctionCallingConfigMode.NONE)
+    assert model.tool_counts[0] > 0
+    assert model.tool_counts[1] == 0
+    assert model.tool_dict_counts[0] > 0
+    assert model.tool_dict_counts[1] == 0
     assert ledger_calls == [assessment_id]
     assert sorted(refetch_calls) == list(claim_ids)
     assert len(result.turns) == 2
@@ -962,6 +1070,45 @@ def test_auditor_executes_declared_parallel_tool_plan_then_schema_only() -> None
         "refetch:claim-2",
     }
     assert result.output.audit_status == "COMPLETE"
+
+
+def test_auditor_forbidden_final_function_call_fails_before_repeat_tool() -> None:
+    assessment_id = "00000000-0000-4000-8000-000000000020"
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(assessment_id,),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    model = FinalTurnFunctionCallDespiteNoneLlm(assessment_id)
+    ledger_calls: list[str] = []
+
+    with pytest.raises(
+        RoleExecutionError, match="agent_final_turn_tool_violation"
+    ) as captured:
+        asyncio.run(
+            _runner(model).execute(
+                AgentRole.CITATION_AUDITOR,
+                f"Read AssessmentReceipt {assessment_id}, then return JSON.",
+                {
+                    "ledger_read": lambda artifact_id, **_: (
+                        ledger_calls.append(artifact_id)
+                        or {"schema_name": "AssessmentReceipt"}
+                    ),
+                    "refetch_metadata": lambda **_: {},
+                },
+                context,
+            )
+        )
+
+    assert model.modes == (None, types.FunctionCallingConfigMode.NONE)
+    assert model.tool_counts[0] > 0
+    assert model.tool_counts[1] == 0
+    assert ledger_calls == [assessment_id]
+    assert len(captured.value.turns) == 2
+    assert all(item.function_call_emitted for item in captured.value.turns)
 
 
 def test_in_process_runner_refuses_oversized_second_request_before_dispatch() -> None:
@@ -1058,5 +1205,98 @@ def test_runner_cancellation_after_429_preserves_count_as_agent_timeout() -> Non
 
     captured = asyncio.run(cancel_during_backoff())
 
-    assert captured.code == "agent_timeout"
+    assert captured.code == "agent_timeout:provider_backoff"
     assert captured.http_429_count == 1
+
+
+def test_runner_cancellation_while_waiting_for_provider_slot_is_typed() -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+
+    async def exercise() -> RoleExecutionError:
+        limiter_entered = asyncio.Event()
+
+        async def blocking_limiter(_seconds: float) -> None:
+            limiter_entered.set()
+            await asyncio.Event().wait()
+
+        runner = InProcessAdkRoleRunner(
+            model=ToolThenJsonLlm(),
+            provider_rpm=1,
+            provider_clock=lambda: 0.0,
+            provider_sleeper=blocking_limiter,
+        )
+        await runner.provider_limiter.acquire()
+        task = asyncio.create_task(
+            runner.execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call once.",
+                {"evidence_connector": lambda **_: {"records": []}},
+                context,
+            )
+        )
+        await asyncio.wait_for(limiter_entered.wait(), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except RoleExecutionError as exc:
+            return exc
+        raise AssertionError("cancelled provider wait did not stay typed")
+
+    captured = asyncio.run(exercise())
+
+    assert captured.code == "agent_timeout:provider_limiter"
+    assert captured.turns == ()
+
+
+@pytest.mark.parametrize("first_turn_tool", [False, True])
+def test_runner_cancellation_inside_provider_call_preserves_prior_turn(
+    first_turn_tool: bool,
+) -> None:
+    context = RoleExecutionContext(
+        case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+        run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+        attempt=1,
+        invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+        input_artifact_ids=(),
+        trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+    )
+    model = ProviderCallStallLlm(first_turn_tool=first_turn_tool)
+    tool_calls: list[str] = []
+
+    async def exercise() -> RoleExecutionError:
+        task = asyncio.create_task(
+            _runner(model).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call the connector once, then return JSON.",
+                {
+                    "evidence_connector": lambda **_: (
+                        tool_calls.append("evidence_connector")
+                        or {"records": []}
+                    )
+                },
+                context,
+            )
+        )
+        await asyncio.wait_for(model.stalled.wait(), timeout=1)
+        task.cancel()
+        try:
+            await task
+        except RoleExecutionError as exc:
+            return exc
+        raise AssertionError("cancelled provider call did not stay typed")
+
+    captured = asyncio.run(exercise())
+
+    assert captured.code == "agent_timeout:provider_call"
+    assert len(captured.turns) == int(first_turn_tool)
+    assert tuple(item.function_call_emitted for item in captured.turns) == (
+        (True,) if first_turn_tool else ()
+    )
+    assert tool_calls == (["evidence_connector"] if first_turn_tool else [])
