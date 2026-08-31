@@ -36,7 +36,7 @@ Prerequisites: Git, Python `>=3.12`, `uv`, Node.js, and Corepack (providing pnpm
 cd recall
 uv sync --frozen
 uv run --frozen pytest -q -p no:cacheprovider tests/contracts/test_canonical.py
-uv run --frozen python scripts/run_fixture.py --all --backend memory
+uv run --frozen python scripts/run_fixture.py --fixture tests/fixtures/audited_change.json --backend memory
 corepack enable
 pnpm install --frozen-lockfile
 pnpm --dir web test
