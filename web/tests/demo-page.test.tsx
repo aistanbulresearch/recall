@@ -60,6 +60,31 @@ describe('the landing', () => {
     expect(markup).toContain('refused rather than improvised');
   });
 
+  it('names the hackathon and the category it was built for', () => {
+    expect(markup).toContain('All Things Agentic Hackathon');
+    expect(markup).toContain('Fortified Enterprise Fleet');
+  });
+
+  it('never hides the rules behind an animation that might not run', () => {
+    // A paused or skipped entry animation leaves an element at its first
+    // keyframe, so that frame must be visible: full width, and no start state
+    // of zero opacity or zero scale.
+    const keyframes = demoCss.slice(demoCss.indexOf('@keyframes settle'));
+    const from = keyframes.slice(0, keyframes.indexOf('to {'));
+    expect(from).not.toMatch(/opacity:\s*0\s*;/);
+    expect(from).not.toMatch(/scaleX\(0\)/);
+    expect(from).toMatch(/opacity:\s*0\.[5-9]/);
+    expect(demoCss).not.toMatch(/\.rule\s*\{[^}]*width:\s*0/);
+  });
+
+  it('animates once, and not at all for a reader who asked it not to', () => {
+    // The four hairlines are decoration; they must not be the reason someone
+    // cannot read the page.
+    expect(markup).toContain('class="rules"');
+    expect(markup).toContain('aria-hidden');
+    expect(demoCss).toContain('prefers-reduced-motion');
+  });
+
   it('keeps the non-clinical frame on the first screen', () => {
     expect(markup).toContain('NON-CLINICAL RESEARCH PROTOTYPE');
     expect(markup).toContain('SYNTHETIC RECORDS');

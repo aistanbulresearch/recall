@@ -122,6 +122,18 @@ export function DemoPage() {
     <div className="demo">
       <div className="demo-wrap">
         <header className="demo-hero">
+          {/* Four hairlines that draw themselves in, in the Google palette. The
+              only motion on the page, and it happens once. */}
+          <div className="rules" aria-hidden>
+            <span className="rule blue" />
+            <span className="rule red" />
+            <span className="rule yellow" />
+            <span className="rule green" />
+          </div>
+          <p className="event">
+            Built for the All Things Agentic Hackathon, in the Fortified Enterprise Fleet
+            category.
+          </p>
           <h1>Welcome to the Recall demo.</h1>
           <p className="lede">
             Recall is a zero-trust institutional agent fleet that keeps watching closed genomic
