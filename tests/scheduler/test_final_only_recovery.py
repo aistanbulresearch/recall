@@ -10,7 +10,7 @@ from uuid import NAMESPACE_URL, uuid5
 import pytest
 
 from recall.contracts import content_hash, parse_artifact
-from recall.contracts.enums import ScanRunState
+from recall.contracts.enums import ScanRunState, WatchCaseState
 from recall.controller.hashes import scan_idempotency_key
 from recall.ledger.memory import InMemoryLedger
 from recall.ledger.models import COLLECTION_NAMES
@@ -155,6 +155,16 @@ def _cancelled_source_ledger():
             ledger._scan_runs[outcome.run_record.run_id] = replace(
                 current,
                 state=state,
+                terminal_policy_decision_id=(
+                    str(uuid5(NAMESPACE_URL, f"policy:{current.run_id}"))
+                    if state is ScanRunState.NO_ACTION
+                    else None
+                ),
+                failure_receipt_ids=(
+                    (str(uuid5(NAMESPACE_URL, f"failure:{current.run_id}")),)
+                    if state is ScanRunState.HALTED
+                    else ()
+                ),
                 lease_epoch=(1 if state in {ScanRunState.AUDITING, ScanRunState.WATCHING} else 0),
                 lease_expires_at=(
                     actual_start + timedelta(minutes=15)
@@ -162,6 +172,32 @@ def _cancelled_source_ledger():
                     else None
                 ),
             )
+            watch = ledger._watch_cases[outcome.case.case_id]
+            if state is ScanRunState.HALTED:
+                ledger._watch_cases[outcome.case.case_id] = replace(
+                    watch,
+                    state=WatchCaseState.ATTENTION_REQUIRED,
+                    version=watch.version + 1,
+                    attention_reason_codes=("controller_failed",),
+                    next_scan_at=None,
+                    updated_at=actual_start + timedelta(seconds=1),
+                )
+            elif state is ScanRunState.NO_ACTION:
+                initial_cursor = dict(watch.source_cursors)["synthetic-source"]
+                ledger._watch_cases[outcome.case.case_id] = replace(
+                    watch,
+                    state=WatchCaseState.ACTIVE,
+                    version=watch.version + 1,
+                    source_cursors=(
+                        ("synthetic-source", f"{initial_cursor}:verified"),
+                    ),
+                    last_verified_snapshot_id=str(
+                        uuid5(NAMESPACE_URL, f"snapshot:{outcome.case.case_id}")
+                    ),
+                    pending_observation_hashes=(),
+                    attention_reason_codes=(),
+                    updated_at=actual_start + timedelta(seconds=1),
+                )
         offset += count
     return plan, bundle, cycle, ledger, outcomes, actual_start
 
@@ -304,6 +340,402 @@ def test_previous_snapshot_drift_fails_before_any_target_write(recovery_source) 
     assert {name: target.read_back_count(name) for name in COLLECTION_NAMES} == {
         name: 0 for name in COLLECTION_NAMES
     }
+
+
+def _assert_target_empty(target: InMemoryLedger) -> None:
+    assert {name: target.read_back_count(name) for name in COLLECTION_NAMES} == {
+        name: 0 for name in COLLECTION_NAMES
+    }
+
+
+def _reject_recovery(
+    *,
+    old: InMemoryLedger,
+    plan,
+    bundle,
+    cycle,
+    recovery,
+    started,
+    reason: str,
+) -> None:
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+    with pytest.raises(RuntimeError, match=reason):
+        install_final_only_recovery(
+            previous_ledger=old,
+            target_ledger=target,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            recovery=recovery,
+            source_commit=CURRENT_SOURCE_COMMIT,
+            image_digest=CURRENT_IMAGE_DIGEST,
+            cost_snapshot=CostSnapshot(1_200, 900),
+            now=started + timedelta(hours=1),
+        )
+    _assert_target_empty(target)
+
+
+def test_cancelled_fixture_is_lifecycle_faithful_and_snapshotable(
+    recovery_source,
+) -> None:
+    plan, bundle, cycle, old, outcomes, _started = recovery_source
+    observed: dict[ScanRunState, int] = {}
+    for outcome in outcomes:
+        run = old.get_scan_run(outcome.run_record.run_id)
+        watch = old.get_watch_case(outcome.case.case_id)
+        assert run is not None and watch is not None
+        observed[run.state] = observed.get(run.state, 0) + 1
+        if run.state is ScanRunState.HALTED:
+            assert watch.state is WatchCaseState.ATTENTION_REQUIRED
+            assert watch.next_scan_at is None
+            assert run.failure_receipt_ids
+        elif run.state is ScanRunState.NO_ACTION:
+            assert watch.state is WatchCaseState.ACTIVE
+            assert watch.last_verified_snapshot_id is not None
+            assert dict(watch.source_cursors) != {
+                "synthetic-source": outcome.case.cursor
+            }
+            assert run.terminal_policy_decision_id is not None
+        else:
+            assert watch.state is WatchCaseState.ACTIVE
+            assert watch.version == 1
+    assert observed == {
+        ScanRunState.CREATED: 417,
+        ScanRunState.HALTED: 14,
+        ScanRunState.NO_ACTION: 23,
+        ScanRunState.AUDITING: 1,
+        ScanRunState.WATCHING: 1,
+    }
+    build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra", "substituted"])
+def test_previous_watch_identity_set_drift_is_zero_write(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    first_id = outcomes[0].case.case_id
+    first = old._watch_cases[first_id]
+    extra_id = "f99e3d5e-cba3-5f57-bbf3-51e879177f72"
+    try:
+        if mutation == "missing":
+            del old._watch_cases[first_id]
+        elif mutation == "extra":
+            old._watch_cases[extra_id] = replace(first, watch_case_id=extra_id)
+        else:
+            second = old._watch_cases[outcomes[1].case.case_id]
+            old._watch_cases[first_id] = replace(
+                first, artifact_id=second.artifact_id
+            )
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_watch_set_invalid",
+        )
+    finally:
+        old._watch_cases[first_id] = first
+        old._watch_cases.pop(extra_id, None)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["tenant", "monitoring_policy", "data_mode", "privacy_receipt"],
+)
+def test_previous_preparation_material_drift_is_zero_write(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    case_id = outcomes[0].case.case_id
+    prepared = next(item for item in bundle.cases if item.case_id == case_id)
+    watch_id = str(prepared.watch_case["artifact_id"])
+    privacy_id = str(prepared.privacy_receipt["artifact_id"])
+    artifact_id = privacy_id if mutation == "privacy_receipt" else watch_id
+    original = deepcopy(old._artifacts[artifact_id])
+    drifted = deepcopy(original)
+    if mutation == "tenant":
+        drifted["tenant_id"] = "tenant-substituted"
+    elif mutation == "monitoring_policy":
+        drifted["monitoring_policy"] = {"policy": "substituted"}
+    elif mutation == "data_mode":
+        drifted["data_mode"] = "CAPTURED_REPLAY"
+    else:
+        drifted["warnings"] = ["substituted"]
+    drifted["content_hash"] = content_hash(drifted)
+    old._artifacts[artifact_id] = drifted
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason=(
+                "final_recovery_previous_privacy_material_invalid"
+                if mutation == "privacy_receipt"
+                else "final_recovery_previous_watch_material_invalid"
+            ),
+        )
+    finally:
+        old._artifacts[artifact_id] = original
+
+
+@pytest.mark.parametrize(
+    "mutation", ["scheduled_for", "idempotency", "input_closure", "profile"]
+)
+def test_previous_scan_run_immutable_closure_drift_is_zero_write(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    run = old._scan_runs[outcomes[0].run_record.run_id]
+    artifact_id = str(run.scan_run_artifact_id)
+    original = deepcopy(old._artifacts[artifact_id])
+    drifted = deepcopy(original)
+    if mutation == "scheduled_for":
+        drifted["scheduled_for"] = "2026-08-30T00:00:00Z"
+    elif mutation == "idempotency":
+        drifted["idempotency_key"] = "f" * 64
+    elif mutation == "input_closure":
+        drifted["input_artifact_ids"] = drifted["input_artifact_ids"][:1]
+    else:
+        drifted["schema_version"] = "1.0.0"
+        del drifted["execution_profile"]
+    drifted["content_hash"] = content_hash(drifted)
+    old._artifacts[artifact_id] = drifted
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_run_binding_invalid",
+        )
+    finally:
+        old._artifacts[artifact_id] = original
+
+
+def test_extra_previous_scan_run_is_zero_write(recovery_source) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    original = old._scan_runs[outcomes[0].run_record.run_id]
+    extra_id = str(uuid5(NAMESPACE_URL, "unexpected-previous-scan-run"))
+    old._scan_runs[extra_id] = replace(original, run_id=extra_id)
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_run_set_invalid",
+        )
+    finally:
+        del old._scan_runs[extra_id]
+
+
+def test_embedded_previous_scan_run_id_mismatch_is_zero_write(
+    recovery_source,
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    run_id = outcomes[0].run_record.run_id
+    original = old._scan_runs[run_id]
+    old._scan_runs[run_id] = replace(
+        original, run_id=str(uuid5(NAMESPACE_URL, "substituted-run-id"))
+    )
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_run_set_invalid",
+        )
+    finally:
+        old._scan_runs[run_id] = original
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["last_repeated_state_hash", "repeated_state_count"],
+)
+def test_previous_scan_run_loop_pointer_drift_changes_snapshot_and_writes_nothing(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    run_id = outcomes[0].run_record.run_id
+    original = old._scan_runs[run_id]
+    change = (
+        {"last_repeated_state_hash": "f" * 64}
+        if mutation == "last_repeated_state_hash"
+        else {"repeated_state_count": original.repeated_state_count + 1}
+    )
+    old._scan_runs[run_id] = replace(original, **change)
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_snapshot_drift",
+        )
+    finally:
+        old._scan_runs[run_id] = original
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["version", "source_cursor", "snapshot_id", "updated_at"],
+)
+def test_legal_current_watch_pointer_drift_changes_snapshot_and_writes_nothing(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    outcome = next(
+        item
+        for item in outcomes
+        if old._scan_runs[item.run_record.run_id].state is ScanRunState.NO_ACTION
+    )
+    case_id = outcome.case.case_id
+    original = old._watch_cases[case_id]
+    changes = {
+        "version": {"version": original.version + 1},
+        "source_cursor": {
+            "source_cursors": (("synthetic-source", "verified-drift"),)
+        },
+        "snapshot_id": {
+            "last_verified_snapshot_id": str(
+                uuid5(NAMESPACE_URL, f"drift:{case_id}")
+            )
+        },
+        "updated_at": {"updated_at": original.updated_at + timedelta(seconds=1)},
+    }
+    old._watch_cases[case_id] = replace(original, **changes[mutation])
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_snapshot_drift",
+        )
+    finally:
+        old._watch_cases[case_id] = original
+
+
+@pytest.mark.parametrize("mutation", ["state", "next_scan_at"])
+def test_illegal_current_watch_pointer_drift_is_zero_write(
+    recovery_source, mutation: str
+) -> None:
+    plan, bundle, cycle, old, outcomes, started = recovery_source
+    snapshot = build_final_execution_recovery_snapshot(
+        old,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    recovery = _recovery(plan, cycle, snapshot)
+    outcome = next(
+        item
+        for item in outcomes
+        if old._scan_runs[item.run_record.run_id].state is ScanRunState.NO_ACTION
+    )
+    case_id = outcome.case.case_id
+    original = old._watch_cases[case_id]
+    change = (
+        {"state": WatchCaseState.ATTENTION_REQUIRED}
+        if mutation == "state"
+        else {"next_scan_at": None}
+    )
+    old._watch_cases[case_id] = replace(original, **change)
+    try:
+        _reject_recovery(
+            old=old,
+            plan=plan,
+            bundle=bundle,
+            cycle=cycle,
+            recovery=recovery,
+            started=started,
+            reason="final_recovery_previous_watch_pointer_invalid",
+        )
+    finally:
+        old._watch_cases[case_id] = original
 
 
 @pytest.mark.parametrize(

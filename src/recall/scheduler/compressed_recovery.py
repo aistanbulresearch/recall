@@ -5,7 +5,6 @@ from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from recall.contracts import (
@@ -16,9 +15,9 @@ from recall.contracts import (
     canonical_json_bytes,
     parse_artifact,
 )
-from recall.contracts.enums import ScanRunState
+from recall.contracts.enums import ScanRunState, WatchCaseState
 from recall.controller.hashes import scan_idempotency_key
-from recall.ledger.models import COLLECTION_NAMES
+from recall.ledger.models import COLLECTION_NAMES, ScanRunRecord, WatchCaseRecord
 from recall.ledger.port import LedgerPort
 from recall.ledger.producers import PRODUCER_REGISTRY
 
@@ -75,6 +74,94 @@ class FinalOnlyRecoveryReady:
     collection_prefix: str
     previous_snapshot_sha256: str
     prepared_case_count: int
+
+
+def _wire_sha256(value: Mapping[str, object]) -> str:
+    return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
+
+
+def _watch_pointer_row(watch: WatchCaseRecord) -> dict[str, object]:
+    return {
+        "watch_case_id": watch.watch_case_id,
+        "artifact_id": watch.artifact_id,
+        "state": watch.state.value,
+        "version": watch.version,
+        "source_cursors": dict(sorted(watch.source_cursors)),
+        "last_verified_snapshot_id": watch.last_verified_snapshot_id,
+        "pending_observation_hashes": list(watch.pending_observation_hashes),
+        "open_review_task_id": watch.open_review_task_id,
+        "attention_reason_codes": list(watch.attention_reason_codes),
+        "next_scan_at": watch.next_scan_at,
+        "updated_at": _timestamp(watch.updated_at),
+    }
+
+
+def _run_pointer_row(run: ScanRunRecord) -> dict[str, object]:
+    return {
+        "run_id": run.run_id,
+        "state": run.state.value,
+        "version": run.version,
+        "lease_epoch": run.lease_epoch,
+        "lease_expires_at": _optional_timestamp(run.lease_expires_at),
+        "updated_at": _timestamp(run.updated_at),
+        "scan_run_artifact_id": run.scan_run_artifact_id,
+        "terminal_policy_decision_id": run.terminal_policy_decision_id,
+        "failure_receipt_ids": list(run.failure_receipt_ids),
+        "last_repeated_state_hash": run.last_repeated_state_hash,
+        "repeated_state_count": run.repeated_state_count,
+    }
+
+
+def _require_runtime_watch_closure(
+    watch: WatchCaseRecord,
+    run: ScanRunRecord,
+    *,
+    initial_source_cursors: Mapping[str, str],
+    schedule_epoch: str,
+) -> None:
+    if run.state in {
+        ScanRunState.CREATED,
+        ScanRunState.WATCHING,
+        ScanRunState.AUDITING,
+    }:
+        valid = (
+            watch.state is WatchCaseState.ACTIVE
+            and watch.version == 1
+            and dict(watch.source_cursors) == dict(initial_source_cursors)
+            and watch.last_verified_snapshot_id is None
+            and watch.open_review_task_id is None
+            and not watch.attention_reason_codes
+            and watch.next_scan_at == schedule_epoch
+            and run.terminal_policy_decision_id is None
+            and not run.failure_receipt_ids
+        )
+    elif run.state is ScanRunState.HALTED:
+        valid = (
+            watch.state is WatchCaseState.ATTENTION_REQUIRED
+            and watch.version >= 2
+            and watch.open_review_task_id is None
+            and bool(watch.attention_reason_codes)
+            and watch.next_scan_at is None
+            and run.terminal_policy_decision_id is None
+            and bool(run.failure_receipt_ids)
+        )
+    elif run.state is ScanRunState.NO_ACTION:
+        valid = (
+            watch.state is WatchCaseState.ACTIVE
+            and watch.version >= 2
+            and bool(watch.source_cursors)
+            and watch.last_verified_snapshot_id is not None
+            and not watch.pending_observation_hashes
+            and watch.open_review_task_id is None
+            and not watch.attention_reason_codes
+            and watch.next_scan_at == schedule_epoch
+            and run.terminal_policy_decision_id is not None
+            and not run.failure_receipt_ids
+        )
+    else:
+        valid = False
+    if not valid:
+        raise RuntimeError("final_recovery_previous_watch_pointer_invalid")
 
 
 def recovery_collection_prefix(
@@ -182,25 +269,83 @@ def build_final_execution_recovery_snapshot(
         raise RuntimeError("final_recovery_previous_execution_invalid")
     expected_runs = []
     rows: list[Mapping[str, object]] = []
+    watch_rows: list[Mapping[str, object]] = []
+    preparation_rows: list[Mapping[str, object]] = []
     scan_ids = []
     states: Counter[str] = Counter()
-    for item in cases_for_cycle(cycle):
+    expected_cases = cases_for_cycle(cycle)
+    prepared_by_case = {
+        item.case_id: item
+        for item in bundle.cases
+        if item.cycle_id == cycle.cycle_id
+    }
+    if (
+        len(prepared_by_case) != len(expected_cases)
+        or ledger.read_back_count("watch_cases") != len(expected_cases)
+    ):
+        raise RuntimeError("final_recovery_previous_watch_set_invalid")
+    if ledger.read_back_count("scan_runs") != len(expected_cases):
+        raise RuntimeError("final_recovery_previous_run_set_invalid")
+    for item in expected_cases:
+        prepared = prepared_by_case.get(item.case_id)
         watch = ledger.get_watch_case(item.case_id)
         if (
-            watch is None
-            or watch.next_scan_at != cycle.schedule_epoch
-            or dict(watch.source_cursors) != {"synthetic-source": item.cursor}
+            prepared is None
+            or watch is None
+            or watch.watch_case_id != item.case_id
+            or watch.artifact_id != prepared.watch_case["artifact_id"]
         ):
             raise RuntimeError("final_recovery_previous_watch_set_invalid")
+        watch_wire = ledger.get_artifact(watch.artifact_id)
+        privacy_id = str(prepared.privacy_receipt["artifact_id"])
+        privacy_wire = ledger.get_artifact(privacy_id)
+        if (
+            watch_wire is None
+            or _wire_sha256(watch_wire) != _wire_sha256(prepared.watch_case)
+        ):
+            raise RuntimeError("final_recovery_previous_watch_material_invalid")
+        if (
+            privacy_wire is None
+            or _wire_sha256(privacy_wire)
+            != _wire_sha256(prepared.privacy_receipt)
+        ):
+            raise RuntimeError("final_recovery_previous_privacy_material_invalid")
+        try:
+            parsed_watch = parse_artifact(
+                watch_wire, authorized_producers=PRODUCER_REGISTRY
+            )
+            parsed_privacy = parse_artifact(
+                privacy_wire, authorized_producers=PRODUCER_REGISTRY
+            )
+        except ContractError as exc:
+            raise RuntimeError(
+                "final_recovery_previous_preparation_material_invalid"
+            ) from exc
+        if (
+            parsed_watch.schema_name != "WatchCase"
+            or parsed_watch.case_id != item.case_id
+            or parsed_watch.input_artifact_ids != (privacy_id,)
+            or parsed_privacy.schema_name != "PrivacyReceipt"
+            or parsed_privacy.schema_version != "1.1.0"
+            or parsed_privacy.case_id != item.case_id
+        ):
+            raise RuntimeError(
+                "final_recovery_previous_preparation_material_invalid"
+            )
+        initial_source_cursors = {"synthetic-source": item.cursor}
         key = scan_idempotency_key(
             watch_case_id=item.case_id,
-            source_cursors=dict(watch.source_cursors),
+            source_cursors=initial_source_cursors,
             schedule_epoch=cycle.schedule_epoch,
             data_mode=DataMode.SYNTHETIC.value,
         )
         run_id = str(uuid5(NAMESPACE_URL, f"recall:scan-run:{key}"))
         run = ledger.get_scan_run(run_id)
-        if run is None or run.scan_run_artifact_id is None:
+        if (
+            run is None
+            or run.run_id != run_id
+            or run.scan_run_artifact_id is None
+        ):
             raise RuntimeError("final_recovery_previous_run_set_invalid")
         wire = ledger.get_artifact(run.scan_run_artifact_id)
         if wire is None:
@@ -208,27 +353,44 @@ def build_final_execution_recovery_snapshot(
         parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
         if (
             parsed.schema_name != "ScanRun"
+            or parsed.schema_version != "1.1.0"
+            or parsed.artifact_id
+            != str(uuid5(UUID(run_id), "scan-run-artifact"))
             or parsed.run_id != run_id
             or parsed.case_id != item.case_id
+            or parsed.data_mode is not DataMode.SYNTHETIC
+            or parsed.input_artifact_ids
+            != tuple(sorted((privacy_id, watch.artifact_id)))
+            or parsed.payload.watch_case_id != item.case_id
             or parsed.payload.scheduled_for != cycle.schedule_epoch
             or parsed.payload.idempotency_key != key
+            or parsed.payload.execution_profile is None
+            or parsed.payload.execution_profile.value != "FULL_AUDIT_V1"
         ):
             raise RuntimeError("final_recovery_previous_run_binding_invalid")
+        _require_runtime_watch_closure(
+            watch,
+            run,
+            initial_source_cursors=initial_source_cursors,
+            schedule_epoch=cycle.schedule_epoch,
+        )
         expected_runs.append(run_id)
         scan_ids.append(run.scan_run_artifact_id)
         states[run.state.value] += 1
+        watch_rows.append(_watch_pointer_row(watch))
+        preparation_rows.append(
+            {
+                "case_id": item.case_id,
+                "watch_artifact_id": watch.artifact_id,
+                "watch_content_hash": parsed_watch.content_hash,
+                "privacy_receipt_id": privacy_id,
+                "privacy_content_hash": parsed_privacy.content_hash,
+            }
+        )
         rows.append(
             {
                 "case_id": item.case_id,
-                "run_id": run_id,
-                "state": run.state.value,
-                "version": run.version,
-                "lease_epoch": run.lease_epoch,
-                "lease_expires_at": _optional_timestamp(run.lease_expires_at),
-                "updated_at": _timestamp(run.updated_at),
-                "scan_run_artifact_id": run.scan_run_artifact_id,
-                "terminal_policy_decision_id": run.terminal_policy_decision_id,
-                "failure_receipt_ids": list(run.failure_receipt_ids),
+                **_run_pointer_row(run),
             }
         )
     observed_states = dict(sorted(states.items()))
@@ -272,6 +434,14 @@ def build_final_execution_recovery_snapshot(
         "batch_receipt_hash": batch.content_hash,
         "state_counts": observed_states,
         "collection_counts": collection_counts,
+        "preparation_material_sha256": hashlib.sha256(
+            canonical_json_bytes(
+                sorted(preparation_rows, key=lambda item: str(item["case_id"]))
+            )
+        ).hexdigest(),
+        "watch_cases": sorted(
+            watch_rows, key=lambda item: str(item["watch_case_id"])
+        ),
         "runs": sorted(rows, key=lambda item: str(item["run_id"])),
     }
     return FinalExecutionRecoverySnapshot(
