@@ -2746,6 +2746,8 @@ def test_incomplete_final_manifest_cannot_bypass_recovery_isolation(
             "artifact_id": manifest_artifact_id(plan, cycle),
             "run_id": tick_run_id(plan, cycle),
             "plan_sha256": plan.sha256,
+            "status": "INCOMPLETE",
+            "write_measurement_status": "NOT_EVALUATED",
         }
     )
     incomplete["execution_history"][-1]["execution_status"] = "INCOMPLETE"
