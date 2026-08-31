@@ -1,0 +1,139 @@
+{
+ "changed_files": [],
+ "cohort_manifests": {
+  "c1": {
+   "data_mode": "SYNTHETIC",
+   "schema": "CohortDayManifest/3.0.0",
+   "semantic_drift": false,
+   "source_commit": "2d8bebbe97794865f77f037dea518a39e8f75e38",
+   "status": "PASS"
+  },
+  "c2": {
+   "data_mode": "SYNTHETIC",
+   "schema": "CohortDayManifest/3.0.0",
+   "semantic_drift": false,
+   "source_commit": "b5cd5a815baad5980a3d62bfb49ab980b63e3057",
+   "status": "PASS"
+  }
+ },
+ "current_validator_commit": "63437d20e493f09296af73f50348eb60fbe11030",
+ "fingerprint_matches_manifest": true,
+ "frozen_run_re_executed": false,
+ "input_closure": {
+  "bound": 462,
+  "checked": 462,
+  "unbound": 0
+ },
+ "inventory": {
+  "cohort.c1_manifest": {
+   "bytes": 26407,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\artifacts\\evidence\\cohort-compression\\executed-manifests\\c1-manifest.json",
+   "sha256": "093f4bff34db09278dde20cfdb540ad62256e9c7efba6aa0a4b5d400cb5e6b3d"
+  },
+  "cohort.c2_manifest": {
+   "bytes": 26855,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\artifacts\\evidence\\cohort-compression\\executed-manifests\\c2-manifest.json",
+   "sha256": "113f6e5e0c433e9512012cca6542c27dd3629743b72818241f681e3d37e84ab9"
+  },
+  "frozen_run.manifest": {
+   "bytes": 1315,
+   "path": "C:\\Users\\oacav\\AppData\\Local\\Temp\\claude\\C--Users-oacav\\d7c89174-bae8-464e-9ba2-d2ed4f1335a4\\scratchpad\\intv4-697aa6e\\artifacts\\evidence\\full-cohort-receipts\\RUN_MANIFEST.json",
+   "sha256": "a429a247ba4ee9da2653a2d5c91db5d210709014e55c18c07870e54782183924"
+  },
+  "frozen_run.receipts": {
+   "bytes": 1373966,
+   "path": "C:\\Users\\oacav\\AppData\\Local\\Temp\\claude\\C--Users-oacav\\d7c89174-bae8-464e-9ba2-d2ed4f1335a4\\scratchpad\\intv4-697aa6e\\artifacts\\evidence\\full-cohort-receipts\\privacy-receipts.json",
+   "sha256": "70ccfc251d37dffa8174d82842feedcef1227399a285d13b9ba9e82979fab901"
+  },
+  "notes.corpus": {
+   "bytes": 442095,
+   "path": "C:\\Users\\oacav\\AppData\\Local\\Temp\\claude\\C--Users-oacav\\d7c89174-bae8-464e-9ba2-d2ed4f1335a4\\scratchpad\\intv4-697aa6e\\corpus\\onboarding\\notes.json",
+   "sha256": "ce71a0b7b50601148c49b65457bc603efca929b3569ed37179902424c8d36af6"
+  },
+  "p1.corrected_view": {
+   "bytes": 47811,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\artifacts\\evidence\\p1-frozen-001\\p1-frozen-001.corrected-view.json",
+   "sha256": "49a66122eee0eba7e50ef57835bea4f7b4fe0a7eda7a2a1fe5a0ddf542763e15"
+  },
+  "p1.erratum": {
+   "bytes": 19403,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\corpus\\ERRATUM_001_p1-frozen-001.md",
+   "sha256": "82c81bdd5a05744506cf2b3e3d92b29034852a131ef0666076d3fd7556bca3af"
+  },
+  "p1.records": {
+   "bytes": 207234,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\artifacts\\evidence\\p1-frozen-001\\records.jsonl",
+   "sha256": "d90175a7566460eb104c8033ce321394e64ce2243441ec669c6bff4ddb41170b"
+  },
+  "p1.report_raw": {
+   "bytes": 46312,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-final-integration\\artifacts\\evidence\\p1-frozen-001\\p1-privacy-report.json",
+   "sha256": "95fbece58f848b24fdcce5d26597a1c05cd11b51faeea8e11d6f503ac8edfd8a"
+  },
+  "page_copy.c1_manifest": {
+   "bytes": 26407,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-l3\\web\\src\\data\\c1-manifest.json",
+   "sha256": "093f4bff34db09278dde20cfdb540ad62256e9c7efba6aa0a4b5d400cb5e6b3d"
+  },
+  "page_copy.c2_manifest": {
+   "bytes": 26855,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-l3\\web\\src\\data\\c2-manifest.json",
+   "sha256": "113f6e5e0c433e9512012cca6542c27dd3629743b72818241f681e3d37e84ab9"
+  },
+  "page_copy.gemma_manifest": {
+   "bytes": 1315,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-l3\\web\\src\\data\\gemma-run-manifest.json",
+   "sha256": "a429a247ba4ee9da2653a2d5c91db5d210709014e55c18c07870e54782183924"
+  },
+  "page_copy.p1_report": {
+   "bytes": 46312,
+   "path": "C:\\Users\\oacav\\.codex\\worktrees\\recall-l3\\web\\src\\data\\p1-privacy-report.json",
+   "sha256": "95fbece58f848b24fdcce5d26597a1c05cd11b51faeea8e11d6f503ac8edfd8a"
+  }
+ },
+ "original_bytes_unchanged": true,
+ "original_measurement_commit": "697aa6ebcf691f39b486f384b1d6a3f7f84eb8af",
+ "production_loader": {
+  "receipts_loaded": 462,
+  "source_lock": {
+   "algorithm": "HMAC-SHA256",
+   "key_fingerprint_sha256": "fa70a3d2d397209ea3fb6f5b09363e3b5cfc2bf6a0742c0f3ca7932031b92b08",
+   "key_id": "full-cohort-receipt-run-v1",
+   "source_sha256": "70ccfc251d37dffa8174d82842feedcef1227399a285d13b9ba9e82979fab901"
+  },
+  "status": "PASS"
+ },
+ "receipt_validation": {
+  "artifact_count": 462,
+  "data_modes": [
+   "SYNTHETIC"
+  ],
+  "decisions": [
+   "ACCEPTED"
+  ],
+  "execution_locus_combinations": [
+   "LAB_LOCAL/PRIVATE_SERVICE/OLLAMA_VERTEX_ENDPOINT/gemma4:e4b-it-qat"
+  ],
+  "failures": [],
+  "parse_failure": 0,
+  "parse_success": 462,
+  "producers": [
+   "local-privacy-gate@0.1.0 identity=privacy-gate"
+  ],
+  "schema_versions": [
+   "PrivacyReceipt/1.1.0"
+  ],
+  "semantic_drift_examples": [],
+  "semantic_drift_receipts": 0,
+  "signature_algorithms": [
+   "HMAC-SHA256"
+  ],
+  "signature_invalid": 0,
+  "signature_valid": 462
+ },
+ "revalidation_kind": "historical frozen measurement, current-contract compatibility",
+ "signing_key_note": "Signing key held outside every repository; only the verifier-lock fingerprint is published.",
+ "verdict": "PASS",
+ "write_attempt_detail": [],
+ "write_attempts": 0
+}

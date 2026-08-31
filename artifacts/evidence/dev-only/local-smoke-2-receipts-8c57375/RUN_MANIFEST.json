@@ -1,0 +1,38 @@
+{
+ "code_source_commit": "8c57375ee0a3704885f4214790d1d27d2a23c480",
+ "code_source_dirty": true,
+ "concurrency": 1,
+ "elapsed_minutes": 2.1,
+ "final_publish_run_id": "50fcf4399c048983",
+ "finished_at": "2026-08-27T16:20:16.730957Z",
+ "held_out_inherit_binding": [],
+ "locus": {
+  "endpoint_class": "OLLAMA_LOCAL",
+  "execution_locus": "LAB_LOCAL",
+  "model_id": "gemma4:e4b-it-qat",
+  "model_revision": "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+  "transport_class": "LOCAL_PROCESS"
+ },
+ "notes_sha256": "ce71a0b7b50601148c49b65457bc603efca929b3569ed37179902424c8d36af6",
+ "posture": "local",
+ "receipt_count": 2,
+ "receipts_file": "artifacts\\evidence\\full-cohort-receipts\\privacy-receipts.json",
+ "receipts_sha256": "899456f1c23bf33744a1da8681295ecff8a20332353431fc1d687b3e44475268",
+ "signer_key_id": "full-cohort-receipt-run-v1",
+ "started_at": "2026-08-27T16:18:09.866917Z",
+ "transport": {
+  "authenticated": false,
+  "endpoint": "/api/chat",
+  "format": "json",
+  "keep_alive": "30m",
+  "options": {
+   "num_ctx": 2048,
+   "num_predict": 1024,
+   "num_thread": 14,
+   "temperature": 0.0
+  },
+  "server_kind": "ollama",
+  "think": false
+ },
+ "verifier_lock_fingerprint_sha256": "c6710f162a56880a4d860f48e2789c1ec96147b14e8f41763abe796142fd9fb9"
+}
