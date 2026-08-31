@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid5
 
 from recall.agents.full_audit_models import RoleRunResult, TurnTelemetry
 from recall.agents.schemas import (
@@ -19,17 +20,19 @@ class DeterministicFullAuditRunner:
     async def execute(self, role, prompt, tools, context):
         del prompt
         self.roles.append(role)
+        tool_results = {}
         if role is AgentRole.EVIDENCE_WATCHER:
             result = tools["evidence_connector"](
                 stage="prepared",
                 tool_context=context.tool_context("watcher-call"),
             )
+            tool_results["evidence_connector"] = result
             output = EvidenceSnapshotOutput.model_validate(
                 {
                     "effective_at": self.now.isoformat(),
                     "observation_ids": [],
                     "coverage_status": "PASS" if result["records"] else "FAIL",
-                    "source_cursors": {"clinvar": "42"},
+                    "source_cursors": result["source_cursors"],
                     "normalized_facts": {
                         "observation_count": len(result["records"]),
                         "scope": "synthetic",
@@ -40,16 +43,17 @@ class DeterministicFullAuditRunner:
             )
         elif role is AgentRole.EVIDENCE_ASSESSOR:
             candidate_id = context.input_artifact_ids[0]
-            tools["ledger_read"](
+            candidate = tools["ledger_read"](
                 artifact_id=candidate_id,
                 tool_context=context.tool_context("assessor-call"),
             )
+            tool_results[f"ledger:{candidate_id}"] = candidate
             output = AssessmentAgentOutput.model_validate(
                 {
                     "evidence_delta": {
-                        "candidate_receipt_id": candidate_id,
-                        "previous_snapshot_id": None,
-                        "current_snapshot_id": context.input_artifact_ids[1],
+                        "candidate_receipt_id": candidate["artifact_id"],
+                        "previous_snapshot_id": candidate["previous_snapshot_id"],
+                        "current_snapshot_id": candidate["current_snapshot_id"],
                         "added_observation_refs": [],
                         "removed_observation_refs": [],
                         "change_items": [],
@@ -62,7 +66,9 @@ class DeterministicFullAuditRunner:
                         "counter_evidence_refs": [],
                     },
                     "assessment_receipt": {
-                        "delta_id": "00000000-0000-4000-8000-000000000001",
+                        "delta_id": str(
+                            uuid5(UUID(context.run_id), "evidence-delta")
+                        ),
                         "material_claims": [],
                         "counter_evidence_set": [],
                         "uncertainty_codes": [],
@@ -72,13 +78,14 @@ class DeterministicFullAuditRunner:
             )
         else:
             assessment_id = context.input_artifact_ids[0]
-            tools["ledger_read"](
+            assessment = tools["ledger_read"](
                 artifact_id=assessment_id,
                 tool_context=context.tool_context("auditor-call"),
             )
+            tool_results[f"ledger:{assessment_id}"] = assessment
             output = CitationAuditOutput.model_validate(
                 {
-                    "assessment_id": assessment_id,
+                    "assessment_id": assessment["artifact_id"],
                     "audit_status": "COMPLETE",
                     "claim_results": [],
                     "metadata_refetches": [],
@@ -102,4 +109,5 @@ class DeterministicFullAuditRunner:
             started_at=self.now,
             completed_at=self.now + timedelta(milliseconds=100),
             http_429_count=0,
+            tool_results=tool_results,
         )

@@ -14,13 +14,21 @@ sys.path.insert(0, str(SCRIPTS))
 
 from isolated_smoke_trigger import (  # noqa: E402
     DeploymentExpectation,
+    PositiveSmokeLaunchIdentity,
     SmokePair,
+    _positive_parser,
+    build_positive_execute_args,
     build_cloud_build_config,
+    positive_receipt_path,
+    reconcile_positive,
+    main,
     parse_execution_markers,
     parse_build_id,
+    submit_positive_once,
     submit_smoke_pair,
     validate_job_snapshot,
 )
+import isolated_smoke_trigger as smoke_trigger  # noqa: E402
 from gcloud_redacted import scrub  # noqa: E402
 
 
@@ -120,6 +128,125 @@ def _job() -> dict[str, object]:
         }
     }
     return json.loads(scrub(json.dumps(raw), PROJECT, None, None))
+
+
+def _positive_identity() -> PositiveSmokeLaunchIdentity:
+    return PositiveSmokeLaunchIdentity.create(
+        smoke_id="smoke1234",
+        deployed_source_commit=COMMIT,
+        deployed_source_tree=TREE,
+        deployed_image_digest=DIGEST,
+        plan_sha256=PLAN,
+        bundle_sha256=BUNDLE,
+        expected_project_sha256=PROJECT_HASH,
+        expected_generation=27,
+        coordinator_commit="1" * 40,
+        coordinator_tree="2" * 40,
+        coordinator_trigger_sha256="3" * 64,
+    )
+
+
+def _positive_cli_args(action: str = "positive-submit") -> list[str]:
+    return [
+        action,
+        "--smoke-id",
+        "smoke1234",
+        "--deployed-source-commit",
+        COMMIT,
+        "--deployed-source-tree",
+        TREE,
+        "--deployed-image-digest",
+        DIGEST,
+        "--plan-sha256",
+        PLAN,
+        "--bundle-sha256",
+        BUNDLE,
+        "--expected-project-sha256",
+        PROJECT_HASH,
+        "--expected-generation",
+        "27",
+        "--coordinator-commit",
+        "1" * 40,
+        "--coordinator-tree",
+        "2" * 40,
+        "--coordinator-trigger-sha256",
+        "3" * 64,
+    ]
+
+
+def _ready_job() -> dict[str, object]:
+    job = _job()
+    job["metadata"] = {"generation": 27}
+    job["status"] = {
+        "observedGeneration": 27,
+        "conditions": [{"type": "Ready", "status": "True"}],
+    }
+    return job
+
+
+def _positive_execution(
+    identity: PositiveSmokeLaunchIdentity,
+    *,
+    name: str = "recall-cohort-daily-pos12",
+    args: list[str] | None = None,
+    marker: str | None = None,
+) -> dict[str, object]:
+    return {
+        "metadata": {
+            "name": name,
+            "labels": {"run.googleapis.com/jobGeneration": "27"},
+            "annotations": {"run.googleapis.com/creator": "<principal>"},
+        },
+        "spec": {
+            "template": {
+                "spec": {
+                    "containers": [
+                        {
+                            "image": "registry/<project>/job@" + DIGEST,
+                            "args": list(
+                                args
+                                if args is not None
+                                else identity.entrypoint_args()
+                            ),
+                            "env": [
+                                {"name": "RECALL_SOURCE_COMMIT", "value": COMMIT},
+                                {"name": "RECALL_SOURCE_TREE", "value": TREE},
+                                {"name": "RECALL_IMAGE_DIGEST", "value": DIGEST},
+                                {
+                                    "name": "RECALL_COMPRESSED_PREPARATION_SHA256",
+                                    "value": BUNDLE,
+                                },
+                                {
+                                    "name": "RECALL_EXPECTED_PROJECT_SHA256",
+                                    "value": PROJECT_HASH,
+                                },
+                                {"name": "RECALL_SCHEDULER_MODE", "value": "COMPRESSED_V3"},
+                                {"name": "RECALL_PROVIDER_RPM", "value": "8"},
+                                {"name": "FULL_AUDIT_CONCURRENCY", "value": "2"},
+                                {
+                                    "name": "RECALL_SMOKE_EXPECTED_PLAN_SHA256",
+                                    "value": PLAN,
+                                },
+                                {
+                                    "name": "RECALL_SMOKE_EXPECTED_IMAGE_DIGEST",
+                                    "value": DIGEST,
+                                },
+                                {"name": "RECALL_SMOKE_JOB_MAX_RETRIES", "value": "0"},
+                                {
+                                    "name": "RECALL_POSITIVE_SMOKE_INTENT_SHA256",
+                                    "value": marker or identity.intent_sha256,
+                                },
+                            ],
+                        }
+                    ]
+                }
+            }
+        },
+        "status": {
+            "runningCount": 1,
+            "conditions": [{"type": "Completed", "status": "Unknown"}],
+        },
+    }
 
 
 def test_generated_build_is_source_less_machine_trigger_with_two_explicit_overrides() -> None:
@@ -244,6 +371,24 @@ def test_job_preflight_rejects_candidate_identity_or_binding_drift(
         DeploymentExpectation.from_pair(_pair(), project=PROJECT),
     )
     assert failure in failures
+
+
+@pytest.mark.parametrize("name", sorted(smoke_trigger.REQUIRED_SECRET_ENV))
+def test_job_preflight_requires_exactly_one_secret_only_binding(name: str) -> None:
+    duplicate = _job()
+    rows = duplicate["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["env"]  # type: ignore[index]
+    rows.append({"name": name, "value": "inline-forbidden"})
+    assert "required_secret_binding_invalid" in validate_job_snapshot(
+        duplicate, DeploymentExpectation.from_pair(_pair(), project=PROJECT)
+    )
+
+    mixed = _job()
+    rows = mixed["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["env"]  # type: ignore[index]
+    row = next(item for item in rows if item["name"] == name)
+    row["value"] = "inline-forbidden"
+    assert "required_secret_binding_missing" in validate_job_snapshot(
+        mixed, DeploymentExpectation.from_pair(_pair(), project=PROJECT)
+    )
 
 
 def test_project_hash_is_derived_from_project_not_plan() -> None:
@@ -376,3 +521,387 @@ def test_submit_stops_before_build_when_job_preflight_fails(tmp_path: Path) -> N
         )
     assert len(calls) == 1
     assert not (tmp_path / "receipt.json").exists()
+
+
+def test_positive_identity_is_exact_four_case_contract_without_negative_surface() -> None:
+    identity = _positive_identity()
+
+    assert identity.case_count == 4
+    assert identity.turn_limit == 24
+    assert identity.positive_prefix == (
+        f"dev_recall_smoke_{COMMIT[:12]}_{PLAN[:12]}_positive_smoke1234_"
+    )
+    assert identity.entrypoint_args() == (
+        "--smoke-mode",
+        "positive",
+        "--smoke-id",
+        "smoke1234",
+        "--smoke-prefix",
+        identity.positive_prefix,
+    )
+    wire = json.dumps(identity.to_receipt(), sort_keys=True)
+    assert "negative" not in wire
+    assert "_c6_" not in wire
+    assert "456" not in wire
+
+
+def test_positive_identity_never_constructs_pair_and_fails_on_core_contract_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        SmokePair,
+        "create",
+        classmethod(lambda cls, **kwargs: (_ for _ in ()).throw(AssertionError())),
+    )
+    _positive_identity()
+
+    monkeypatch.setattr(smoke_trigger, "_positive_core_contract", lambda: (5, 24))
+    with pytest.raises(RuntimeError, match="positive_smoke_core_contract_mismatch"):
+        _positive_identity()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("smoke_id", "short", "smoke_id_invalid"),
+        ("deployed_source_commit", "a" * 39, "source_commit_invalid"),
+        ("deployed_source_tree", "b" * 39, "source_tree_invalid"),
+        ("deployed_image_digest", "sha256:bad", "image_digest_invalid"),
+        ("plan_sha256", "c" * 63, "plan_sha256_invalid"),
+        ("bundle_sha256", "d" * 63, "bundle_sha256_invalid"),
+        ("expected_project_sha256", "f" * 63, "project_sha256_invalid"),
+        ("expected_generation", 0, "generation_invalid"),
+        ("coordinator_commit", "1" * 39, "coordinator_commit_invalid"),
+        ("coordinator_tree", "2" * 39, "coordinator_tree_invalid"),
+        ("coordinator_trigger_sha256", "3" * 63, "trigger_sha256_invalid"),
+    ],
+)
+def test_positive_identity_rejects_missing_or_malformed_authority_fields(
+    field: str, value: object, error: str
+) -> None:
+    values: dict[str, object] = {
+        "smoke_id": "smoke1234",
+        "deployed_source_commit": COMMIT,
+        "deployed_source_tree": TREE,
+        "deployed_image_digest": DIGEST,
+        "plan_sha256": PLAN,
+        "bundle_sha256": BUNDLE,
+        "expected_project_sha256": PROJECT_HASH,
+        "expected_generation": 27,
+        "coordinator_commit": "1" * 40,
+        "coordinator_tree": "2" * 40,
+        "coordinator_trigger_sha256": "3" * 64,
+    }
+    values[field] = value
+    with pytest.raises(ValueError, match=error):
+        PositiveSmokeLaunchIdentity.create(**values)  # type: ignore[arg-type]
+
+
+def test_positive_execute_args_are_async_exact_once_and_have_no_negative_or_wait() -> None:
+    args = build_positive_execute_args(_positive_identity(), PROJECT)
+    encoded = " ".join(args)
+
+    assert args[:4] == ["run", "jobs", "execute", "recall-cohort-daily"]
+    assert encoded.count("--args=") == 1
+    assert "--smoke-mode,positive,--smoke-id,smoke1234,--smoke-prefix," in encoded
+    assert encoded.count("RECALL_POSITIVE_SMOKE_INTENT_SHA256=") == 1
+    assert "RECALL_SMOKE_JOB_MAX_RETRIES=0" in encoded
+    assert "negative" not in encoded
+    assert "--wait" not in args
+    assert "--async" in args
+
+
+def test_positive_cli_is_source_controlled_and_rejects_duplicate_missing_or_prefix_args(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    parsed = _positive_parser().parse_args(_positive_cli_args())
+    assert parsed.action == "positive-submit"
+    assert parsed.smoke_id == "smoke1234"
+
+    with pytest.raises(SystemExit):
+        _positive_parser().parse_args(
+            _positive_cli_args() + ["--smoke-id", "smoke5678"]
+        )
+    with pytest.raises(SystemExit):
+        _positive_parser().parse_args(_positive_cli_args()[0:-2])
+    with pytest.raises(SystemExit):
+        _positive_parser().parse_args(
+            _positive_cli_args()
+            + ["--smoke-prefix", "dev_recall_smoke_caller_override_"]
+        )
+
+    calls: list[PositiveSmokeLaunchIdentity] = []
+    monkeypatch.setattr(smoke_trigger, "resolve_project", lambda: PROJECT)
+    monkeypatch.setattr(
+        smoke_trigger,
+        "submit_positive_once",
+        lambda identity, *, project: (
+            calls.append(identity)
+            or {
+                "verdict": "SUBMIT_ACCEPTED_NOT_RECONCILED",
+                "execute_count": 1,
+                "attempt_alias": identity.attempt_key[:16],
+            }
+        ),
+    )
+    assert main(_positive_cli_args()) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "SUBMIT_ACCEPTED_NOT_RECONCILED"
+    assert len(calls) == 1
+    assert calls[0].positive_prefix == _positive_identity().positive_prefix
+
+
+def test_positive_submit_writes_o_excl_intent_before_cloud_and_executes_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    calls: list[tuple[str, ...]] = []
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        assert positive_receipt_path(identity).exists()
+        calls.append(args)
+        if args[:3] == ("run", "jobs", "describe"):
+            return subprocess.CompletedProcess([], 0, json.dumps(_ready_job()), "")
+        if args[:5] == ("run", "jobs", "executions", "list", "--job=recall-cohort-daily"):
+            return subprocess.CompletedProcess([], 0, "[]", "")
+        assert args[:4] == ("run", "jobs", "execute", "recall-cohort-daily")
+        return subprocess.CompletedProcess([], 0, "{}", "")
+
+    report = submit_positive_once(identity, project=PROJECT, run_fn=run_fn)
+
+    assert report["verdict"] == "SUBMIT_ACCEPTED_NOT_RECONCILED"
+    assert report["execute_count"] == 1
+    assert len([call for call in calls if call[:3] == ("run", "jobs", "execute")]) == 1
+    assert json.loads(positive_receipt_path(identity).read_text(encoding="utf-8")) == (
+        identity.to_receipt()
+    )
+
+
+@pytest.mark.parametrize("exit_code", [1, 124])
+def test_positive_submit_nonzero_is_unknown_and_same_attempt_never_resubmits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    execute_count = 0
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        nonlocal execute_count
+        if args[:3] == ("run", "jobs", "describe"):
+            return subprocess.CompletedProcess([], 0, json.dumps(_ready_job()), "")
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return subprocess.CompletedProcess([], 0, "[]", "")
+        execute_count += 1
+        return subprocess.CompletedProcess([], exit_code, "", "safe-error")
+
+    first = submit_positive_once(identity, project=PROJECT, run_fn=run_fn)
+    second = submit_positive_once(identity, project=PROJECT, run_fn=run_fn)
+
+    assert first["verdict"] == "OUTCOME_UNKNOWN"
+    assert first["execute_count"] == 1
+    assert second["verdict"] == "FAIL"
+    assert second["codes"] == ["attempt_receipt_exists"]
+    assert execute_count == 1
+
+
+def test_positive_submit_timeout_is_unknown_and_o_excl_blocks_resubmit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    execute_count = 0
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        nonlocal execute_count
+        if args[:3] == ("run", "jobs", "describe"):
+            return subprocess.CompletedProcess([], 0, json.dumps(_ready_job()), "")
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return subprocess.CompletedProcess([], 0, "[]", "")
+        execute_count += 1
+        raise subprocess.TimeoutExpired(args, timeout_seconds)
+
+    first = submit_positive_once(identity, project=PROJECT, run_fn=run_fn)
+    second = submit_positive_once(identity, project=PROJECT, run_fn=run_fn)
+
+    assert first["verdict"] == "OUTCOME_UNKNOWN"
+    assert first["submit_exit_code"] is None
+    assert second["codes"] == ["attempt_receipt_exists"]
+    assert execute_count == 1
+
+
+def test_positive_submit_fails_closed_on_readiness_or_existing_marker_before_execute(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    not_ready = _ready_job()
+    not_ready["status"]["conditions"][0]["status"] = "False"  # type: ignore[index]
+
+    def not_ready_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, json.dumps(not_ready), "")
+
+    result = submit_positive_once(identity, project=PROJECT, run_fn=not_ready_fn)
+    assert result["execute_count"] == 0
+    assert "job_not_ready" in result["codes"]
+
+    other = PositiveSmokeLaunchIdentity.create(
+        smoke_id="smoke5678",
+        deployed_source_commit=COMMIT,
+        deployed_source_tree=TREE,
+        deployed_image_digest=DIGEST,
+        plan_sha256=PLAN,
+        bundle_sha256=BUNDLE,
+        expected_project_sha256=PROJECT_HASH,
+        expected_generation=27,
+        coordinator_commit="1" * 40,
+        coordinator_tree="2" * 40,
+        coordinator_trigger_sha256="3" * 64,
+    )
+
+    # Bind the existing row to the fresh attempt marker to prove duplicate detection.
+    existing = _positive_execution(other, marker=other.intent_sha256)
+    def exact_marker_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ("run", "jobs", "describe"):
+            return subprocess.CompletedProcess([], 0, json.dumps(_ready_job()), "")
+        return subprocess.CompletedProcess([], 0, json.dumps([existing]), "")
+
+    result = submit_positive_once(other, project=PROJECT, run_fn=exact_marker_fn)
+    assert result["execute_count"] == 0
+    assert result["codes"] == ["intent_marker_already_present"]
+
+
+def test_positive_reconcile_requires_exact_single_candidate_and_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    positive_receipt_path(identity).write_text(
+        json.dumps(identity.to_receipt(), sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    execution = _positive_execution(identity)
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        if args[:4] == ("run", "jobs", "executions", "list"):
+            return subprocess.CompletedProcess([], 0, json.dumps([execution]), "")
+        return subprocess.CompletedProcess([], 0, json.dumps(execution), "")
+
+    report = reconcile_positive(identity, project=PROJECT, run_fn=run_fn)
+    assert report["verdict"] == "PASS"
+    assert report["execution_count"] == 1
+    assert "recall-cohort-daily" not in json.dumps(report)
+
+    def duplicate_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            [],
+            0,
+            json.dumps(
+                [
+                    execution,
+                    _positive_execution(identity, name="recall-cohort-daily-pos34"),
+                ]
+            ),
+            "",
+        )
+
+    ambiguous = reconcile_positive(identity, project=PROJECT, run_fn=duplicate_fn)
+    assert ambiguous["verdict"] == "FAIL"
+    assert ambiguous["codes"] == ["multiple_execution_candidates"]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["prefix", "missing_arg", "duplicate_arg", "marker", "generation", "digest"],
+)
+def test_positive_reconcile_rejects_argument_marker_or_deployment_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutation: str
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    positive_receipt_path(identity).write_text(
+        json.dumps(identity.to_receipt(), sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    execution = _positive_execution(identity)
+    container = execution["spec"]["template"]["spec"]["containers"][0]  # type: ignore[index]
+    if mutation == "prefix":
+        container["args"][-1] = "dev_recall_smoke_deadbeefdead_deadbeefdead_positive_smoke1234_"
+    elif mutation == "missing_arg":
+        container["args"].pop()
+    elif mutation == "duplicate_arg":
+        container["args"].extend(["--smoke-mode", "positive"])
+    elif mutation == "marker":
+        next(
+            row
+            for row in container["env"]
+            if row["name"] == "RECALL_POSITIVE_SMOKE_INTENT_SHA256"
+        )["value"] = "0" * 64
+    elif mutation == "generation":
+        execution["metadata"]["labels"]["run.googleapis.com/jobGeneration"] = "26"  # type: ignore[index]
+    else:
+        container["image"] = "registry/<project>/job@sha256:" + "f" * 64
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        payload: object = (
+            [execution]
+            if args[:4] == ("run", "jobs", "executions", "list")
+            else execution
+        )
+        return subprocess.CompletedProcess([], 0, json.dumps(payload), "")
+
+    report = reconcile_positive(identity, project=PROJECT, run_fn=run_fn)
+    assert report["verdict"] != "PASS"
+    expected = {
+        "prefix": "execution_args_mismatch",
+        "missing_arg": "execution_args_mismatch",
+        "duplicate_arg": "execution_args_mismatch",
+        "marker": None,
+        "generation": "execution_generation_mismatch",
+        "digest": "execution_image_digest_mismatch",
+    }[mutation]
+    if expected is None:
+        assert report["state"] == "PENDING"
+    else:
+        assert expected in report["codes"]
+
+
+def test_positive_reconcile_rejects_receipt_tamper_without_cloud_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    identity = _positive_identity()
+    monkeypatch.setattr(smoke_trigger, "POSITIVE_RECEIPT_ROOT", tmp_path)
+    monkeypatch.setattr(
+        smoke_trigger, "verify_positive_coordinator_checkout", lambda _identity: ()
+    )
+    wire = identity.to_receipt()
+    wire["intent_sha256"] = "0" * 64
+    positive_receipt_path(identity).write_text(json.dumps(wire), encoding="utf-8")
+    cloud_calls = 0
+
+    def run_fn(*args: str, timeout_seconds: int = 600) -> subprocess.CompletedProcess[str]:
+        nonlocal cloud_calls
+        cloud_calls += 1
+        return subprocess.CompletedProcess([], 0, "[]", "")
+
+    report = reconcile_positive(identity, project=PROJECT, run_fn=run_fn)
+    assert report["codes"] == ["attempt_receipt_invalid"]
+    assert cloud_calls == 0
