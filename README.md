@@ -14,14 +14,14 @@ Only the deterministic Policy Gate can emit `NO_ACTION`, `ABSTAIN`, or `REVIEW_R
 
 ## Architecture and data flow
 
-```text
-accepted PrivacyReceipt
-        -> durable WatchCase / bounded ScanRun
-        -> Controller -> Watcher -> Assessor -> Citation Auditor
-        -> typed receipts and Evidence Ledger
-        -> deterministic Policy Gate
-        -> NO_ACTION | ABSTAIN | simulated REVIEW_REQUIRED task
-```
+![Recall Google Cloud architecture](docs/demo/recall-google-cloud-architecture.png)
+
+Cloud Scheduler invokes the Google ADK workload as a Cloud Run Job. The
+deterministic Controller resolves the versioned agent manifest and coordinates
+the Evidence Watcher, Evidence Assessor, and Citation Auditor. Their structured
+model turns use Gemini on Vertex AI, while bounded tool calls pass through the
+separate Tool Gateway Cloud Run service. Firestore remains the authoritative
+state of record for cases, runs, artifacts, receipts, and policy decisions.
 
 The authoritative design and contracts are [`Target Architecture`](docs/architecture/TARGET_ARCHITECTURE.md), [`Artifact Contracts`](docs/contracts/ARTIFACT_CONTRACTS.md), [`Lifecycle State Machines`](docs/contracts/LIFECYCLE_STATE_MACHINES.md), [`Deterministic Policy Spec`](docs/policy/DETERMINISTIC_POLICY_SPEC.md), and [`Threat Model`](docs/security/THREAT_MODEL.md). The managed entrypoint and its zero-write preflight are documented in [`COHORT_JOB_ENTRYPOINT`](docs/platform/COHORT_JOB_ENTRYPOINT.md).
 
@@ -62,7 +62,7 @@ The two listed Python commands are bounded, deterministic, and use the in-memory
 - [`Frozen 462-receipt privacy evidence`](artifacts/evidence/privacy/full-cohort-receipts-697aa6e/) — byte-preserved privacy receipts and compatibility report.
 - [`Claim Evidence Ledger`](docs/evidence/CLAIM_EVIDENCE_LEDGER.md) — approved wording and evidence boundaries.
 - [`Demo Evidence Log`](docs/evidence/DEMO_EVIDENCE_LOG.md) — what may be shown and what remains planned.
-- [`Architecture diagram draft`](docs/demo/ARCHITECTURE_DIAGRAM_DRAFT.md) and [`four-minute storyboard`](docs/demo/FOUR_MINUTE_STORYBOARD.md) — judge-facing product flow and demo context.
+- [`Google Cloud architecture diagram`](docs/demo/recall-google-cloud-architecture.png) and [`four-minute storyboard`](docs/demo/FOUR_MINUTE_STORYBOARD.md) — judge-facing product flow and demo context.
 
 The two evidence populations have different denominators and must not be combined. All examples are synthetic institutional records or source-attributed public evidence.
 
@@ -86,13 +86,25 @@ Deployment and managed execution are owner-controlled and optional for local eva
 
 Recall is not a clinical device, does not provide medical advice, and makes no clinical-performance, privacy-accuracy, regulatory, or production-readiness claim.
 
-## Reproducibility and evidence language
+## How to read the evidence
 
-- **EXECUTED** — a bounded action has direct, retained output (for example, a local test or read-only export).
-- **MECHANISM_PROVED** — source behavior is covered by deterministic tests and independent review; deployment or live-provider behavior is not implied.
-- **NOT VERIFIED** — required runtime, cloud, billing, or external evidence is absent; it must not be presented as success.
+Recall includes two complementary evidence layers: retained outputs from real
+bounded executions, and deterministic source-level verification for the latest
+implementation. The labels below state exactly what supports each claim:
 
-Every displayed number must be derived from the committed artifact behind it. Historical, synthetic, replayed, cached, and mocked data cannot be generalized into clinical accuracy or safety claims.
+- **EXECUTED** — directly observed evidence from a bounded action, preserved in committed outputs including run artifacts, manifests, test results, and read-only exports.
+- **MECHANISM_PROVED** — implementation behavior verified through deterministic tests and independent review.
+- **NOT VERIFIED** — used only for the live positive smoke of the latest post-run fixes, which was not completed. This does not invalidate the retained Generation-27 execution evidence or the source-level proof for those fixes.
+
+These are claim-scoped evidence labels, not project-wide pass/fail grades. This
+repository contains retained Generation-27 Cloud Run evidence and
+mechanism-proved reliability fixes; only their final live positive-smoke
+confirmation remains not verified.
+
+Every displayed metric is traceable to a committed artifact. Historical,
+synthetic, replayed, cached, and mocked inputs are explicitly identified so that
+operational and architectural evidence is not misrepresented as clinical
+accuracy or clinical-safety validation.
 
 ## Contributing and license
 
