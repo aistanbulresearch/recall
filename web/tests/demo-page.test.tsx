@@ -15,6 +15,12 @@ import { DemoPage } from '../src/demo/DemoPage';
 import { ANSWERS, byId, match } from '../src/demo/answers';
 import { cohort, distributionFromCases, readBundle } from '../src/run/runBundle';
 
+// Vite hands CSS through its own pipeline, so `?inline` is what yields the
+// stylesheet text; `?raw` comes back empty for .css files.
+const demoCss = Object.values(
+  import.meta.glob('../src/demo/demo.css', { query: '?inline', import: 'default', eager: true }),
+)[0] as string;
+
 const markup = renderToStaticMarkup(<DemoPage />);
 const { cases } = readBundle();
 const counts = distributionFromCases(cases);
@@ -118,5 +124,37 @@ describe('answers stand on the run, not on prose', () => {
         expect(body, answer.id).not.toContain(forbidden);
       }
     }
+  });
+});
+
+describe('answer layout cannot collapse its own content', () => {
+  /**
+   * A list item holds inline content — bold figures, code spans, links. Making
+   * one a grid or flex container turns each of those into its own track, which
+   * is how `agent_timeout` once rendered one letter per line. The markers are
+   * positioned instead, and this guards that decision.
+   */
+  it('never lays out list items as grid or flex containers', () => {
+    const blocks = demoCss.split('}');
+    for (const block of blocks) {
+      const [selector = '', body = ''] = block.split('{');
+      if (!/li\s*$/.test(selector.trim())) {
+        continue;
+      }
+      expect(body, `${selector.trim()} must not be a grid or flex container`).not.toMatch(
+        /display:\s*(grid|flex)/,
+      );
+    }
+  });
+
+  it('keeps code spans inline so they wrap as text', () => {
+    expect(demoCss).toContain('display: inline');
+    expect(demoCss).toContain('overflow-wrap: anywhere');
+  });
+
+  it('sets the hero in a sans face and the conversation in mono', () => {
+    expect(demoCss).toMatch(/--sans:[^;]*sans-serif/);
+    expect(demoCss).toMatch(/\.demo-hero h1 \{[^}]*font-family: var\(--sans\)/);
+    expect(demoCss).toMatch(/\.demo \{[^}]*font-family: var\(--mono\)/);
   });
 });

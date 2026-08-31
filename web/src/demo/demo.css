@@ -13,6 +13,7 @@
   --accent: #1d6b45;
   --halt: #8d3b2f;
   --mono: "IBM Plex Mono", "Cascadia Mono", ui-monospace, monospace;
+  --sans: "Archivo", "Inter", "Segoe UI", system-ui, sans-serif;
 
   background: #ffffff;
   color: var(--ink);
@@ -40,7 +41,8 @@
 .demo-hero { margin-bottom: 46px; }
 
 .demo-hero h1 {
-  font-size: clamp(1.9rem, 4.4vw, 2.7rem);
+  font-family: var(--sans);
+  font-size: clamp(2rem, 4.8vw, 3rem);
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.2;
@@ -48,7 +50,9 @@
 }
 
 .demo-hero .lede {
-  font-size: 1.02rem;
+  font-family: var(--sans);
+  font-size: 1.06rem;
+  line-height: 1.6;
   color: var(--soft);
   margin: 0 0 14px;
   max-width: 66ch;
@@ -101,29 +105,49 @@
 
 .bubble .codes { display: flex; gap: 6px; flex-wrap: wrap; }
 
+/* Markers are positioned, never laid out as grid or flex children: a list item
+   holds inline content — bold figures, code spans — and turning it into a grid
+   container would make each of those its own narrow track. */
 .bubble ol.chain { counter-reset: step; list-style: none; padding-left: 0; }
 
 .bubble ol.chain li {
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  gap: 8px;
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 9px;
 }
 
 .bubble ol.chain li::before {
   counter-increment: step;
   content: counter(step) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
   color: var(--quiet);
 }
 
 .bubble ul.checks { list-style: none; padding-left: 0; }
 
 .bubble ul.checks li {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 8px;
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 9px;
 }
 
-.bubble ul.checks li::before { content: "[*]"; color: var(--quiet); font-size: 0.8em; }
+.bubble ul.checks li::before {
+  content: "[*]";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--quiet);
+  font-size: 0.8em;
+}
+
+/* Code spans sit in running text; they must never become block-level. */
+.bubble code {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 
 .more {
   display: inline-block;
