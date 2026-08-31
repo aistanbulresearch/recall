@@ -44,6 +44,28 @@ Public metrics for the P1 study come from
 with the committed erratum `corpus/ERRATUM_001_p1-frozen-001.md` — not from the
 raw report, whose arm-declaration labels were superseded by amendment 001.
 
+## Findings from the compatibility report, and where they stand
+
+`COMPATIBILITY_REPORT.md` is a frozen document: it records the state at the
+moment of revalidation and is never edited afterwards. Two of the four findings
+it lists were resolved by the commit that created this directory. This table is
+the current status; read it alongside the report, not instead of it.
+
+| # | Finding in the report | Status |
+|---|---|---|
+| 1 | Receipts existed only in a temporary directory | **RESOLVED by `7879ca06`** — byte-exact durable copy committed here |
+| 2 | A two-receipt smoke result sat at the canonical evidence path | **RESOLVED by `7879ca06`** — relocated to `artifacts/evidence/dev-only/local-smoke-2-receipts-8c57375/` and explicitly excluded from all submission material |
+| 3 | Published P1 arm labels must come from the corrected view | **PRESENTATION RULE** — use `p1-frozen-001.corrected-view.json` plus `corpus/ERRATUM_001_p1-frozen-001.md`; the raw report's arm declarations were superseded by amendment 001 |
+| 4 | 462 receipts and 180 P1 records are separate populations | **PRESENTATION RULE** — never combined, never used as one denominator |
+
+## Retention rule for the temporary originals
+
+The Temp originals of `privacy-receipts.json` and `RUN_MANIFEST.json` are still
+in place and **must not be deleted yet**. This evidence currently exists in one
+local feature-branch commit only. They may be removed once that commit has been
+pushed to a secure remote and the hashes above have been reproduced from a clean
+checkout of it. Merge and push remain owner-controlled decisions.
+
 ## Files
 
 | File | What it is |
