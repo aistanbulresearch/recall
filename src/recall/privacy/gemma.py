@@ -13,6 +13,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable
 
@@ -175,6 +176,13 @@ OLLAMA_DEFAULT_OPTIONS: dict[str, Any] = {
 OLLAMA_DEFAULT_KEEP_ALIVE = "30m"
 
 
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Raises on every redirect; used whenever a request carries credentials."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: D102
+        raise TransportUnavailable(f"redirect refused on authenticated request: {code}")
+
+
 @dataclass
 class OllamaChatTransport:
     """Client for a laboratory-local Ollama server.
@@ -194,17 +202,32 @@ class OllamaChatTransport:
     keep_alive: str = OLLAMA_DEFAULT_KEEP_ALIVE
     think: bool = False
     response_format: str | None = None
+    # Called per request, so a short-lived credential (a Cloud Run ID token
+    # expires in about an hour) stays fresh across a multi-hour run. A static
+    # header dict would authenticate the first hour and fail the rest. The
+    # provider is injected from outside; this module never mints credentials
+    # and never logs what the provider returns.
+    auth_header_provider: Callable[[], Mapping[str, str]] | None = None
+    # "/api/chat" for a direct Ollama server. Empty string for a managed
+    # frontend (Vertex rawPredict) whose base_url IS the full invoke URL and
+    # forwards the body to the container's chat route itself.
+    api_path: str = "/api/chat"
 
     def request_settings(self) -> dict[str, Any]:
-        """Exactly what this transport sends, for the manifest."""
+        """Exactly what this transport sends, for the manifest.
+
+        Auth is reported as a flag, never as header values: credentials do not
+        belong in evidence.
+        """
 
         return {
             "server_kind": "ollama",
-            "endpoint": "/api/chat",
+            "endpoint": self.api_path or "rawPredict-passthrough",
             "options": dict(self.options),
             "keep_alive": self.keep_alive,
             "think": self.think,
             "format": self.response_format,
+            "authenticated": self.auth_header_provider is not None,
         }
 
     def __call__(self, note_text: str, timeout_seconds: float) -> str:
@@ -221,14 +244,26 @@ class OllamaChatTransport:
         }
         if self.response_format:
             body["format"] = self.response_format
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        authenticated = self.auth_header_provider is not None
+        if authenticated:
+            headers.update(self.auth_header_provider())
         request = urllib.request.Request(
-            url=f"{self.base_url.rstrip('/')}/api/chat",
+            url=f"{self.base_url.rstrip('/')}{self.api_path}",
             data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            if authenticated:
+                # A redirect would re-send the Authorization header to whatever
+                # location the server names, so an authenticated request never
+                # follows one: any 3xx is a hard transport failure.
+                opener = urllib.request.build_opener(_RefuseRedirects)
+                context_manager = opener.open(request, timeout=timeout_seconds)
+            else:
+                context_manager = urllib.request.urlopen(request, timeout=timeout_seconds)
+            with context_manager as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except TimeoutError as error:  # pragma: no cover - environment dependent
             raise TransportTimeout(str(error)) from error

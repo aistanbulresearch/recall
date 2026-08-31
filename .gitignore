@@ -59,3 +59,11 @@ artifacts/raw/
 
 # Project operating contract must override any machine-global ignore rule
 !AGENTS.md
+
+# Receipt-run working files: the lease, the checkpoint and staging temps are
+# process state, never evidence. Only the final wire and manifest of a REAL
+# run are committed, deliberately.
+artifacts/evidence/full-cohort-receipts/run.lease
+artifacts/evidence/full-cohort-receipts/checkpoint.jsonl
+artifacts/evidence/full-cohort-receipts/*.tmp
+artifacts/evidence/full-cohort-receipts/COMMIT_MARKER.json

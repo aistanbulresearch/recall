@@ -4,6 +4,8 @@ import type { ViewModel } from '../viewmodel/types';
 import { reasonCodeCopy } from '../viewmodel/semantics';
 import { DataModeBadge, PolicyOutcomeBadge, RunStateBadge } from './Badges';
 import { FieldValue, formatValue } from './FieldValue';
+import { CohortPanel } from './CohortPanel';
+import { EvidenceCard } from './EvidenceCard';
 import { FleetBoard } from './FleetBoard';
 import { PrivacyPanel } from './PrivacyPanel';
 import { RegistryView } from './RegistryView';
@@ -38,7 +40,7 @@ export function MissionControl({ model }: { model: ViewModel }) {
       <header className="masthead">
         <div className="masthead-identity">
           <h1>Recall</h1>
-          <p className="prototype-label">NON-CLINICAL RESEARCH PROTOTYPE — synthetic institutional records only</p>
+          <p className="prototype-label">NON-CLINICAL RESEARCH PROTOTYPE, synthetic institutional records only</p>
         </div>
         <div className="masthead-fields">
           <DataModeBadge field={model['UI-GLOBAL-MODE']} />
@@ -68,6 +70,10 @@ export function MissionControl({ model }: { model: ViewModel }) {
             <ReasonList model={model} fieldId="UI-WATCH-ATTENTION" heading="Attention" />
           ) : null}
         </section>
+
+        <CohortPanel model={model} />
+
+        <EvidenceCard />
 
         <FleetBoard model={model} />
 

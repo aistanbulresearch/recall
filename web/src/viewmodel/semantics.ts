@@ -85,6 +85,73 @@ export function privacyDecisionCopy(value: string | number | null): SemanticEntr
   return lookup(PRIVACY_DECISIONS, value);
 }
 
+const RESOLUTION_MODES: Record<string, SemanticEntry> = {
+  REGISTRY: {
+    plain: 'Resolved from the live agent registry.',
+    severity: 'neutral',
+  },
+  MANUAL_SERVICE: {
+    plain: 'Resolved from a manually registered service entry, not registry discovery.',
+    severity: 'caution',
+  },
+  PINNED_FALLBACK: {
+    plain: 'Resolved from a pinned manifest because registry discovery was unavailable.',
+    severity: 'caution',
+  },
+};
+
+export function resolutionModeCopy(value: string | number | null): SemanticEntry {
+  return lookup(RESOLUTION_MODES, value);
+}
+
+/**
+ * What kind of source the resolution mode came from.
+ *
+ * No production path emits a RegistryResolutionReceipt today. The only emitter
+ * is a fixture carrying a string constant on a SYNTHETIC artifact with no
+ * bindings, so the mode reports what the fixture was written to say rather than
+ * what any resolver did. The badge states that rather than leaving a reader to
+ * assume a measurement.
+ */
+export function resolutionSourceCopy(dataMode: string | number | null): SemanticEntry {
+  if (dataMode === 'SYNTHETIC' || dataMode === 'MOCK') {
+    return {
+      plain: 'Declared by a fixture, not observed from a live resolution.',
+      severity: 'caution',
+    };
+  }
+  if (dataMode === null) {
+    return UNKNOWN_ENTRY;
+  }
+  return { plain: 'Observed from a live resolution.', severity: 'neutral' };
+}
+
+/**
+ * One sentence naming who was refused, what they asked for, and why.
+ *
+ * The comprehension gate asks whether a first-time viewer understands what was
+ * refused and why. A DENIED headline alone answers neither: it reports that a
+ * refusal happened and leaves the tool and the reason in a definition list
+ * nobody reads at speed. Every part of this sentence is a field of the receipt,
+ * so the label is a view of the artifact and never a caption typed over it.
+ */
+export function denialHeadline(properties: Record<string, unknown>): string | null {
+  const role = properties.agent_role;
+  const tool = properties.tool_id;
+  const action = properties.requested_action;
+  if (typeof role !== 'string' || typeof tool !== 'string') {
+    return null;
+  }
+  const actor = role.toLowerCase().replace(/_/g, ' ');
+  const codes = Array.isArray(properties.reason_codes) ? properties.reason_codes : [];
+  const first = codes.find((code): code is string => typeof code === 'string');
+  const because = first ? reasonCodeCopy(first) : null;
+  const asked = typeof action === 'string' ? `${tool} for ${action.replace(/_/g, ' ')}` : tool;
+  return because
+    ? `The ${actor} was refused ${asked}. ${because}`
+    : `The ${actor} was refused ${asked}.`;
+}
+
 export function authorizationCopy(value: string | number | null): SemanticEntry {
   return lookup(AUTHORIZATION_DECISIONS, value);
 }

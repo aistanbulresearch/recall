@@ -259,6 +259,13 @@ def build_bundle(scenario: str) -> dict[str, Any]:
             {
                 **envelope("RegistryResolutionReceipt", "1.0.0", f"registry-{scenario}", case_id=case_id, run_id=run_id,
                            component="workflow-controller", identity="controller-service"),
+                # Mirrors the value the demo fixture carries. That value is a
+                # string constant on a SYNTHETIC artifact with no bindings, not
+                # the output of any resolver: no production path emits this
+                # receipt today. Recorded here so the stand-in says what the
+                # fixture says, and the surface shows the data mode alongside it
+                # so a constant never reads as a live fact.
+                "resolution_mode": "PINNED_FALLBACK",
                 "requested_capabilities": [capability for capability, *_ in roles],
                 "bindings": [
                     {

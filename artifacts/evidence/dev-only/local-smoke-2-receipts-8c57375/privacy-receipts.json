@@ -1,0 +1,202 @@
+{
+ "receipts": [
+  {
+   "artifact_id": "9afcbb66-6187-595c-b01c-15fda4a40c04",
+   "case_id": "001acedb-6a83-5271-a277-6cc8627e5d4f",
+   "content_hash": "efbaa91787e22eeeebdc1de7a895062ca2771be448d14eca2a67b46dceb50f7a",
+   "created_at": "2026-08-27T16:19:31Z",
+   "data_mode": "SYNTHETIC",
+   "decision": "ACCEPTED",
+   "detector_versions": {
+    "adjudicator": "span-adjudicator@1.0.0",
+    "deterministic": "deterministic-detectors@1.0.0",
+    "egress_profile": "STRUCTURED_ONLY@1.0.0",
+    "gemma_adapter": "gemma-span-adapter@1.1.0",
+    "lab_directory": "1.0.0",
+    "outbound_lexicon": "1.0.0",
+    "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+    "privacy_gate": "0.1.0",
+    "redactor": "deterministic-redactor@1.0.0"
+   },
+   "detectors": {
+    "deterministic": {
+     "approved_spans": [
+      "1fa46b7dab85d5bc8561e0d67cd58e6d044b6902029406dc09b6f9753762b150",
+      "2349e1613c8187abac8ccbe50e7a4fc0b2df44760494bb885e9f63cbf1793bac",
+      "b31fc6464397c3ce02257ed99aa833c7ba9b152270cdcb0aa00d23dd0cd0f291",
+      "c588e039b18682b869ca239b1448e393322ca371a7c4bbf945ac2643d836776c"
+     ],
+     "version": "deterministic-detectors@1.0.0"
+    },
+    "gemma": {
+     "approved_residual_spans": [
+      "05c3dd9155720870021138c9fd65ea2fc0692db990dd9b2ef2900d5e05130753"
+     ],
+     "invoked": true,
+     "schema_valid": true,
+     "version": "gemma-span-adapter@1.1.0"
+    }
+   },
+   "endpoint_class": "OLLAMA_LOCAL",
+   "execution_locus": "LAB_LOCAL",
+   "extensions": {},
+   "identifier_classes_checked": [
+    "ADDRESS",
+    "AGE",
+    "CLINICIAN_NAME",
+    "DATE_OF_BIRTH",
+    "EMAIL",
+    "EVENT_DATE",
+    "FACILITY_NAME",
+    "MEDICAL_RECORD_NUMBER",
+    "NATIONAL_ID",
+    "OCCUPATION",
+    "PERSON_NAME",
+    "PHONE",
+    "PROTOCOL_NUMBER",
+    "RELATIVE_NAME"
+   ],
+   "input_artifact_ids": [],
+   "model_id": "gemma4:e4b-it-qat",
+   "model_revision": "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+   "outbound": {
+    "allowed_field_paths": [
+     "$.case_token",
+     "$.data_mode",
+     "$.payload_kind",
+     "$.payload_version",
+     "$.region",
+     "$.tenant_id",
+     "$.variant.assembly",
+     "$.variant.gene",
+     "$.variant.hgvs_c",
+     "$.variant.hgvs_p"
+    ],
+    "raw_text_field_count": 0,
+    "scan_status": "CLEAR"
+   },
+   "payload_hash": "1a4e0336af033009f31e75663be7ce6f2705fa1ec914920ecebde16c7a370fa5",
+   "producer": {
+    "component": "local-privacy-gate",
+    "identity": "privacy-gate",
+    "version": "0.1.0"
+   },
+   "run_id": null,
+   "schema_name": "PrivacyReceipt",
+   "schema_version": "1.1.0",
+   "signature_ref": {
+    "algorithm": "HMAC-SHA256",
+    "key_id": "full-cohort-receipt-run-v1",
+    "signature": "810fda9359f072058fb9f93f72797db5be1b4a591fbdf046b44e8769f70594f3"
+   },
+   "status": "VALID",
+   "transport_class": "LOCAL_PROCESS",
+   "warnings": [
+    {
+     "code": "proposal_overlaps_deterministic_span",
+     "message_key": "privacy.adjudication.proposal_overlaps_deterministic_span",
+     "related_artifact_ids": []
+    }
+   ]
+  },
+  {
+   "artifact_id": "6dd56f9f-90f0-56b8-a3a4-3b8ad5f1911d",
+   "case_id": "005bede0-4d38-5e0a-ab56-21d7dacbb82a",
+   "content_hash": "ab154b6184fea69314012081823b7db3c350b1b519c5dd5a1a452e76577cd96f",
+   "created_at": "2026-08-27T16:20:16Z",
+   "data_mode": "SYNTHETIC",
+   "decision": "ACCEPTED",
+   "detector_versions": {
+    "adjudicator": "span-adjudicator@1.0.0",
+    "deterministic": "deterministic-detectors@1.0.0",
+    "egress_profile": "STRUCTURED_ONLY@1.0.0",
+    "gemma_adapter": "gemma-span-adapter@1.1.0",
+    "lab_directory": "1.0.0",
+    "outbound_lexicon": "1.0.0",
+    "outbound_scanner": "outbound-allowlist-scanner@1.1.0",
+    "privacy_gate": "0.1.0",
+    "redactor": "deterministic-redactor@1.0.0"
+   },
+   "detectors": {
+    "deterministic": {
+     "approved_spans": [
+      "527a48ea1e6e1abc508d04a862e234a5b9c421f2e28b6791c5ae9d98e444ae8c"
+     ],
+     "version": "deterministic-detectors@1.0.0"
+    },
+    "gemma": {
+     "approved_residual_spans": [
+      "2feb903e9bf2ccb1b499262f1b7a8c863e26ed1f8e83ed4e1bd811945ad4d4ce",
+      "6f40112d99508e5dfb4aabd05192cd8d86762970566653a529896efb479a08a5",
+      "fc30da102322750d3e5de6c857d05a22baf7ca081315fc4e335b1ea9ec64b653"
+     ],
+     "invoked": true,
+     "schema_valid": true,
+     "version": "gemma-span-adapter@1.1.0"
+    }
+   },
+   "endpoint_class": "OLLAMA_LOCAL",
+   "execution_locus": "LAB_LOCAL",
+   "extensions": {},
+   "identifier_classes_checked": [
+    "ADDRESS",
+    "AGE",
+    "CLINICIAN_NAME",
+    "DATE_OF_BIRTH",
+    "EMAIL",
+    "EVENT_DATE",
+    "FACILITY_NAME",
+    "MEDICAL_RECORD_NUMBER",
+    "NATIONAL_ID",
+    "OCCUPATION",
+    "PERSON_NAME",
+    "PHONE",
+    "PROTOCOL_NUMBER",
+    "RELATIVE_NAME"
+   ],
+   "input_artifact_ids": [],
+   "model_id": "gemma4:e4b-it-qat",
+   "model_revision": "sha256:e8b6a059ba86947a44ace84d6e5679795bc41862c25c30513142588f0e9dba1d",
+   "outbound": {
+    "allowed_field_paths": [
+     "$.case_token",
+     "$.data_mode",
+     "$.payload_kind",
+     "$.payload_version",
+     "$.region",
+     "$.tenant_id",
+     "$.variant.assembly",
+     "$.variant.gene",
+     "$.variant.hgvs_c",
+     "$.variant.hgvs_p"
+    ],
+    "raw_text_field_count": 0,
+    "scan_status": "CLEAR"
+   },
+   "payload_hash": "04dae9546aee0cf151ddbc859bc0a0e6bd4d1fd2a21a263ad4ac3d62a6adf3be",
+   "producer": {
+    "component": "local-privacy-gate",
+    "identity": "privacy-gate",
+    "version": "0.1.0"
+   },
+   "run_id": null,
+   "schema_name": "PrivacyReceipt",
+   "schema_version": "1.1.0",
+   "signature_ref": {
+    "algorithm": "HMAC-SHA256",
+    "key_id": "full-cohort-receipt-run-v1",
+    "signature": "450fe567e84cf6e59714b99d5cc390d4ba820e6eaff40ec162cdb554ee5fa8d9"
+   },
+   "status": "VALID",
+   "transport_class": "LOCAL_PROCESS",
+   "warnings": [
+    {
+     "code": "proposal_overlaps_deterministic_span",
+     "message_key": "privacy.adjudication.proposal_overlaps_deterministic_span",
+     "related_artifact_ids": []
+    }
+   ]
+  }
+ ],
+ "schema_version": "1.0.0"
+}

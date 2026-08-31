@@ -1,0 +1,837 @@
+{
+ "chains": [
+  {
+   "artifacts": [
+    {
+     "artifact": "A-0e3d7172ee",
+     "content_hash": "fe433a035d6feb1fecf21361e487e6f425a3c643e060e212acc04e0385455e5f",
+     "inputs": [
+      "A-55b47ac92c",
+      "A-5a3b282886"
+     ],
+     "produced_by": "controller",
+     "schema": "ScanRun/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-75c4e23277",
+     "content_hash": "1a75f904d6770f7dd687ae8b2cf08a9ce4b3241803cc53b4c1aded9e415aa369",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-c0bfa81bb5",
+     "content_hash": "ca1e306befefdf8fcceaf2e521e4724606a112d05c8a75ae51b0c29783725336",
+     "inputs": [],
+     "produced_by": "controller",
+     "schema": "RegistryResolutionReceipt/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-9b570ac0c0",
+     "content_hash": "43d8337eb3201a077c77330b87c3f392854db35cd8d5067505eed3fad6d8092d",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-3ceb14afd2",
+     "content_hash": "73c19b976b8e06769617575e3045023a57873ad03576aa100dfc90110b1eb516",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-6a47ff04b5",
+     "content_hash": "257de5937bcdc5bc2fdb26dc6b8b1c5d66ed93419fb1cefd807a0fd394d2cd75",
+     "inputs": [
+      "A-75c4e23277",
+      "A-9b570ac0c0"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-7fdccae461",
+     "content_hash": "5c4d006595c21c052acc256844a35448934104f4c28d3bffaf05fe550280c828",
+     "inputs": [
+      "A-31a3de4cb0"
+     ],
+     "produced_by": "evidence-normalizer",
+     "schema": "CandidateDeltaReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-661c5f0711",
+     "content_hash": "ac8f6ffe2e95bb8a21e7b30935dca4990d13d738318c6a3778f1ab76925a3fe5",
+     "inputs": [],
+     "produced_by": "evidence-connector",
+     "schema": "EvidenceObservation/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-31a3de4cb0",
+     "content_hash": "ee1fbecda7a18f65124305b3058ef39c88d184031f86d00c90a4d416ac8d23d6",
+     "inputs": [
+      "A-661c5f0711"
+     ],
+     "produced_by": "evidence-watcher",
+     "schema": "EvidenceSnapshot/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-14db5cbd3f",
+     "content_hash": "04dde628771cb96c98670c3cf04173bb2ecc1372c81f6122328c510578ef1525",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-bda5b6bb27",
+     "content_hash": "e2672090fb8d6e282e29f84e9c9575982d4b6bf32cd6c90c274bf78b75c6186c",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-f2ee92f6cd",
+     "content_hash": "0fdc4a1888c6437f8e39dd22803d4d2a33e28b363040d6249fb18009f6913e1f",
+     "inputs": [
+      "A-3ceb14afd2",
+      "A-14db5cbd3f"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-ea7222756f",
+     "content_hash": "23fbcfeb25676415e9b1135b76ff292e18f46b929a62f1204cf97bf43cde311e",
+     "inputs": [
+      "A-b744dd755a"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "AssessmentReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-b744dd755a",
+     "content_hash": "ee2f65cdf2245466b662c44c8cd3b5f6bb11aa18bfa8796f5e158ee84b6531f9",
+     "inputs": [
+      "A-31a3de4cb0",
+      "A-7fdccae461"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "EvidenceDelta/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-48774d16c9",
+     "content_hash": "c3541a905ca2c14bbfd48d35c0f6ff6c0648c9a611c73e6842be948a3a75d630",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-d1368aae2c",
+     "content_hash": "a68f18d04f8f3faab6f1cdaec2787350607e1ebe3d5b4b41a662208d26df849c",
+     "inputs": [
+      "A-48774d16c9",
+      "A-bda5b6bb27"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-bc77806937",
+     "content_hash": "87ebbb472cb795499c026cadf0471a63849abc1ee3fa1c7aeb70f0a3a1ca97f0",
+     "inputs": [
+      "A-ea7222756f"
+     ],
+     "produced_by": "citation-auditor",
+     "schema": "CitationAuditReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-4552b2e180",
+     "content_hash": "acdeaed2e68edc14f9bc2fe695c38c9d045f6fcd4593bb48ad3a6f64b50bae68",
+     "inputs": [
+      "A-3ceb14afd2",
+      "A-75c4e23277",
+      "A-31a3de4cb0",
+      "A-661c5f0711",
+      "A-48774d16c9",
+      "A-7fdccae461",
+      "A-0e3d7172ee",
+      "A-6a47ff04b5",
+      "A-bda5b6bb27",
+      "A-9b570ac0c0",
+      "A-c0bfa81bb5",
+      "A-f2ee92f6cd",
+      "A-d1368aae2c",
+      "A-bc77806937",
+      "A-b744dd755a",
+      "A-14db5cbd3f",
+      "A-ea7222756f"
+     ],
+     "produced_by": "controller-mode-gate",
+     "schema": "DataModeReceipt/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-6e966b761d",
+     "content_hash": "765343a01828259d8aada0db44ef389ee9aa16890e16392a327cc263e84e8502",
+     "inputs": [
+      "A-0e3d7172ee"
+     ],
+     "produced_by": "policy-gate",
+     "schema": "PolicyDecision/2.0.0",
+     "status": "VALID"
+    }
+   ],
+   "run": "R-0145220c9f",
+   "state": "NO_ACTION"
+  },
+  {
+   "artifacts": [
+    {
+     "artifact": "A-bac46f7478",
+     "content_hash": "b7f1ded27b16b4f07c9cfc5c770186ab53d750ca8efd46ef48d6e7c692ab2eaa",
+     "inputs": [
+      "A-61134b20ba",
+      "A-616c8b909d"
+     ],
+     "produced_by": "controller",
+     "schema": "ScanRun/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-d23fdf841e",
+     "content_hash": "11b33944d10ed0dc670b530cfff2917160a4ce7a8737c59bbcf4e18d85a0ffa7",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-afdacf0b9f",
+     "content_hash": "020db8372694ebd9c0d289d513165acc6a7c07f77dedcdfcdfe213c3285edf5b",
+     "inputs": [],
+     "produced_by": "controller",
+     "schema": "RegistryResolutionReceipt/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-e3376919b6",
+     "content_hash": "2672279415e09d62a62ce6de783e1ae4937330e210b66fd43cc7dd69c5113e67",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-85edbaa489",
+     "content_hash": "b175914a54ec8627b36b14c700c4f98b803b0aa1acab26d2dc60a1e1e5021056",
+     "inputs": [
+      "A-e3376919b6",
+      "A-d23fdf841e"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-b51c086644",
+     "content_hash": "6aea996a95885b6b31d53db96a085c20a312c42a25738975d21963f1b13ba1f2",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-81470fe0ac",
+     "content_hash": "4358f0b4607a2fcaefb0f3a59281edd345125b845c2484179c680ce48db8b383",
+     "inputs": [
+      "A-a81a33c096"
+     ],
+     "produced_by": "evidence-normalizer",
+     "schema": "CandidateDeltaReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-7e1e7d6e55",
+     "content_hash": "cf20d101029909932ce080ad13f572a6745a6b578fea626145f97ebf5fa86b78",
+     "inputs": [],
+     "produced_by": "evidence-connector",
+     "schema": "EvidenceObservation/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-a81a33c096",
+     "content_hash": "50bc4141390d0dcb5a10603f80ae79105380bb789303f42bcd6d11febb7d6291",
+     "inputs": [
+      "A-7e1e7d6e55"
+     ],
+     "produced_by": "evidence-watcher",
+     "schema": "EvidenceSnapshot/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-e8f776f1fa",
+     "content_hash": "cb68ee5c2127a33109569304c589e8e1be32a8412e977543faab78aaea56c9ac",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-4e5941c5f2",
+     "content_hash": "b3aaddf90fe7471173b46cd091fd21248402e84e2101d0113aa6cfd987695a78",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-90d8620938",
+     "content_hash": "57f397f6e76e70f06b674c19486f3d3d1731308676c421eb9202ea258e55c3e2",
+     "inputs": [
+      "A-b51c086644",
+      "A-e8f776f1fa"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-9d24bb83a2",
+     "content_hash": "71e733e2f60e7a87af81e1e072410403949f177a098407ec213c88cc641e62ce",
+     "inputs": [
+      "A-fa6290a7df"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "AssessmentReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-fa6290a7df",
+     "content_hash": "59a1116f6b0b0f70d75e0142ee54fd709a76c327886de2803d566792d73ccc41",
+     "inputs": [
+      "A-a81a33c096",
+      "A-81470fe0ac"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "EvidenceDelta/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-bf13ff8356",
+     "content_hash": "0b1a04efc840bfa0683d062c9624d59a8eda8cf0fa6424cbf5b6938b871dfcde",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-eb016ba492",
+     "content_hash": "c9760fb932b9b5c431138e794a8e5e8cf25128b9f7a3a208bd295c9683354867",
+     "inputs": [
+      "A-4e5941c5f2",
+      "A-bf13ff8356"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-f3383dc155",
+     "content_hash": "0466eda9c78fec0e89b42845093bf510097e7fb9fc17f83f422b394272eda8ae",
+     "inputs": [
+      "A-9d24bb83a2"
+     ],
+     "produced_by": "citation-auditor",
+     "schema": "CitationAuditReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-cd97514ac4",
+     "content_hash": "6fdfbdf96f64513b715dd43365eb39a7aa82263c1ce32014b76a3c5ed285a1a9",
+     "inputs": [
+      "A-9d24bb83a2",
+      "A-bac46f7478",
+      "A-a81a33c096",
+      "A-85edbaa489",
+      "A-b51c086644",
+      "A-f3383dc155",
+      "A-7e1e7d6e55",
+      "A-fa6290a7df",
+      "A-4e5941c5f2",
+      "A-90d8620938",
+      "A-e3376919b6",
+      "A-bf13ff8356",
+      "A-e8f776f1fa",
+      "A-eb016ba492",
+      "A-d23fdf841e",
+      "A-afdacf0b9f",
+      "A-81470fe0ac"
+     ],
+     "produced_by": "controller-mode-gate",
+     "schema": "DataModeReceipt/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-0898a7439d",
+     "content_hash": "1ef6a4b10e81eb16a65ec9b566f6d7160734894d662b1479133b787ba9c1294a",
+     "inputs": [
+      "A-bac46f7478"
+     ],
+     "produced_by": "policy-gate",
+     "schema": "PolicyDecision/2.0.0",
+     "status": "VALID"
+    }
+   ],
+   "run": "R-018983b25d",
+   "state": "NO_ACTION"
+  },
+  {
+   "artifacts": [
+    {
+     "artifact": "A-fae03082c2",
+     "content_hash": "402d9352892789ef714fbe2890fa8bbaf2f4a71e384ff3951e814a5869243c25",
+     "inputs": [
+      "A-9b477c765a",
+      "A-7f714a037f"
+     ],
+     "produced_by": "controller",
+     "schema": "ScanRun/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-1a6e6838f6",
+     "content_hash": "5768e7818e442d87991fd6f5f9901c8b40176179617ccdb2408aed7caf665e27",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-bd0278d678",
+     "content_hash": "d68c475a23d063a749a71681f6a65c44699fd04d01d60fec6b43be0b6c969614",
+     "inputs": [],
+     "produced_by": "controller",
+     "schema": "RegistryResolutionReceipt/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-44738d7d0f",
+     "content_hash": "da63e3a0a19600ab7045f9202d5c593004842ad01cddaf43a0aa94e7d89dca66",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-6f243bf75f",
+     "content_hash": "2cf958fc6f82184cd8aa05677ce70f8fc4111f528412d6a4c16e884ccdc75bd9",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-c1882df538",
+     "content_hash": "19b37265a9a2dde0cbcde7ba2837ef556ac253caaa475dc8ec02e12d4dddb535",
+     "inputs": [
+      "A-1a6e6838f6",
+      "A-44738d7d0f"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-0e4c08825f",
+     "content_hash": "373865bad588340e789b5cfe4b36fcf5cfba74b7c177b125402060ea9cf1278f",
+     "inputs": [
+      "A-1b339df41a"
+     ],
+     "produced_by": "evidence-normalizer",
+     "schema": "CandidateDeltaReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-9720d3b943",
+     "content_hash": "100dba14e5511497ba3b5f9b632e68619e0c49c1a999b8ce1fdd3543bea29d45",
+     "inputs": [],
+     "produced_by": "evidence-connector",
+     "schema": "EvidenceObservation/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-923d529951",
+     "content_hash": "99c18272ceb1d00e6d2261ce56fb3261cb29cda192637e7f752a920201225add",
+     "inputs": [],
+     "produced_by": "evidence-connector",
+     "schema": "EvidenceObservation/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-1b339df41a",
+     "content_hash": "820f63e48acdc568b91fe5c429f12a4366a410c177c8fa5455c4c0e7a82fcc68",
+     "inputs": [
+      "A-9720d3b943",
+      "A-923d529951"
+     ],
+     "produced_by": "evidence-watcher",
+     "schema": "EvidenceSnapshot/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-070455d892",
+     "content_hash": "853f331d9589f9059ad4277ec8441a18f8619158b51df1e9e8a9ceab3a1d81cf",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-61db81a8f8",
+     "content_hash": "41bbb8f909f8db72a418ec3a8e3ab5f5d44c4ea75c68df449906982430e95959",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-a7a7e39788",
+     "content_hash": "54fa2b86549d0bdff25f1b8c5d3eb3b54ead4ca55563c468cceaf7d7e65cb814",
+     "inputs": [
+      "A-6f243bf75f",
+      "A-070455d892"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-ebaf88bca1",
+     "content_hash": "1c9fa8991acdc2c2f9eee9c0037d7eaf9b8d0f8ac32eff98001c48f8e2e0df7e",
+     "inputs": [
+      "A-a441ce2a5c"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "AssessmentReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-a441ce2a5c",
+     "content_hash": "bda65fd301df0c85c752f0235fefd9c972c0d032546e7b00284b17d4fb8ea3c9",
+     "inputs": [
+      "A-1b339df41a",
+      "A-0e4c08825f"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "EvidenceDelta/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-d18f138759",
+     "content_hash": "d44c539bef5074e7c2a0a0ae4ff9ea5fb0ecc73c23e2d6f90d4d9dfa997ada1d",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-c033d3253f",
+     "content_hash": "02a54f26f604ce26c0d7a3f4cdac01d2074ffefaada84a44b5e40c2c7af0a1a6",
+     "inputs": [
+      "A-61db81a8f8",
+      "A-d18f138759"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-fe8f21e184",
+     "content_hash": "cd0006d25e82172b23a0113d72ddf59e98ffed4a8dea5010d609db724247ffe4",
+     "inputs": [
+      "A-ebaf88bca1"
+     ],
+     "produced_by": "citation-auditor",
+     "schema": "CitationAuditReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-73056f7f59",
+     "content_hash": "0cf45252e3c273315f049b923161a81ae6dc64e0624585028dee29c936c7cb6b",
+     "inputs": [
+      "A-bd0278d678",
+      "A-61db81a8f8",
+      "A-6f243bf75f",
+      "A-fe8f21e184",
+      "A-ebaf88bca1",
+      "A-d18f138759",
+      "A-a7a7e39788",
+      "A-070455d892",
+      "A-c033d3253f",
+      "A-1b339df41a",
+      "A-9720d3b943",
+      "A-a441ce2a5c",
+      "A-1a6e6838f6",
+      "A-0e4c08825f",
+      "A-c1882df538",
+      "A-923d529951",
+      "A-fae03082c2",
+      "A-44738d7d0f"
+     ],
+     "produced_by": "controller-mode-gate",
+     "schema": "DataModeReceipt/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-a5a4dbce4b",
+     "content_hash": "29f8993d6c5fc9444e4a7f0eb596449aeb09e21da72199a7754ea776eff28050",
+     "inputs": [
+      "A-fae03082c2"
+     ],
+     "produced_by": "policy-gate",
+     "schema": "PolicyDecision/2.0.0",
+     "status": "VALID"
+    }
+   ],
+   "run": "R-07b2fceae2",
+   "state": "ABSTAIN"
+  },
+  {
+   "artifacts": [
+    {
+     "artifact": "A-8251a195d6",
+     "content_hash": "aff664dd3b2df41d8d002ce696cd9d649d14576036d477596e994a18cbdcecbc",
+     "inputs": [
+      "A-d2b5c3ed34",
+      "A-655f53e79d"
+     ],
+     "produced_by": "controller",
+     "schema": "ScanRun/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-ae8ebd5fdc",
+     "content_hash": "4033092db141d5e9f9e5a5bdee4087418e0cde8fba92e8e5c7539fdaae68acfd",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-55a1e998e1",
+     "content_hash": "701c15845483bb77af9e69aa1144ca00e5dc814afb4e55dd0832ca26bd975af7",
+     "inputs": [],
+     "produced_by": "controller",
+     "schema": "RegistryResolutionReceipt/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-5421c6eeb5",
+     "content_hash": "92ce248e6bb9ff453fc60e2876be1329c85823db37f4f68138dbdbdcb882af99",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-38c4dc3143",
+     "content_hash": "912983ad916058f08ebb6c43103e2ae095071f02828de2a7cbb3747edc3afe69",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-907ed153ee",
+     "content_hash": "60ff221d97566fa4dd4a606a01fe1ef1bbef4affc739573e1ea4496674b90011",
+     "inputs": [
+      "A-ae8ebd5fdc",
+      "A-5421c6eeb5"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-b42afacb94",
+     "content_hash": "bbe4a8bf611969a4426c2b60f3321a2cc8b1fa65fc0fa6b17a4e519dfffdf759",
+     "inputs": [
+      "A-849ada835d"
+     ],
+     "produced_by": "evidence-normalizer",
+     "schema": "CandidateDeltaReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-3a4e29bdbd",
+     "content_hash": "5edda69c7658893d35a0e35656e2cc64db5b1860b13bbe0fe1dab1e90886fe5f",
+     "inputs": [],
+     "produced_by": "evidence-connector",
+     "schema": "EvidenceObservation/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-849ada835d",
+     "content_hash": "6bc3e6001c25104958c5a29f0e8c6097d10b9901114d45a281ee63b03fd0b755",
+     "inputs": [
+      "A-3a4e29bdbd"
+     ],
+     "produced_by": "evidence-watcher",
+     "schema": "EvidenceSnapshot/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-f3f837148e",
+     "content_hash": "d8587c61299a45b70981eb81d0b95a002d6b1c08bcbf58c0948250e4f353f4d9",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-a8240d231f",
+     "content_hash": "383d64a16c31f9ebe494af3f1340f4dd65d7e76a16f43ed38cf3e98373f0d8ce",
+     "inputs": [
+      "A-f3f837148e",
+      "A-38c4dc3143"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-d9dbda015e",
+     "content_hash": "804372682ec694d3e623f342cf5f5b53ea0f582b580a46f0c2d4d9ec9bec4afd",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-36b600ed27",
+     "content_hash": "91b18c4b9ad3e707b9e16589f4f2ab81736221b12c316171332b5c3064118a48",
+     "inputs": [
+      "A-2744c64169"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "AssessmentReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-2744c64169",
+     "content_hash": "9528218eae2593a6af85c41f28bcfe2ee64ea646b0a5517f28b8b804f984e5e3",
+     "inputs": [
+      "A-b42afacb94",
+      "A-849ada835d"
+     ],
+     "produced_by": "evidence-assessor",
+     "schema": "EvidenceDelta/2.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-399e916aec",
+     "content_hash": "e83ea66f37d21ab9bbf7394aa3b4a16a12bb5dc222ad5675c04ab7507a685aa2",
+     "inputs": [
+      "A-d9dbda015e"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "INCOMPLETE"
+    },
+    {
+     "artifact": "A-75043ef264",
+     "content_hash": "dd0cf129bdbc4a391c395ea037c6417b3dc6ccbb628bdbe5c2fc55f7802197e5",
+     "inputs": [
+      "A-8251a195d6"
+     ],
+     "produced_by": "controller-failure-recorder",
+     "schema": "FailureReceipt/1.0.0",
+     "status": "REJECTED"
+    }
+   ],
+   "run": "R-234e9652fd",
+   "state": "HALTED"
+  },
+  {
+   "artifacts": [
+    {
+     "artifact": "A-aff8d52538",
+     "content_hash": "b0377ee43950023c06293b871aac9237b834e95e2f8f8794b03ceecdf171fddf",
+     "inputs": [
+      "A-1e335a70bb",
+      "A-af11149099"
+     ],
+     "produced_by": "controller",
+     "schema": "ScanRun/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-48cb4b5a3e",
+     "content_hash": "e0b0df6f38a244069e989d410cbb6e44505f9929883ac0cb8745fa2e6950027f",
+     "inputs": [],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-cdfda2fedb",
+     "content_hash": "f64b58dbc7ac266b37404e554491daea35cabf2d5d264e9635b6edf6e36372a4",
+     "inputs": [],
+     "produced_by": "controller",
+     "schema": "RegistryResolutionReceipt/1.1.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-52a1cf958e",
+     "content_hash": "ad76fa4698fb92e65799c2d83ee337d448790abd602ecf39cbc4296b060f4301",
+     "inputs": [],
+     "produced_by": "controller-authorizer",
+     "schema": "ToolAuthorizationReceipt/1.0.0",
+     "status": "VALID"
+    },
+    {
+     "artifact": "A-67801aab57",
+     "content_hash": "113e7dfb617ba1a52190f65d7dacaa5c9f4038f3eb5ece65260c2e129e859c6e",
+     "inputs": [
+      "A-52a1cf958e",
+      "A-48cb4b5a3e"
+     ],
+     "produced_by": "controller-agent-executor",
+     "schema": "AgentExecutionReceipt/1.0.0",
+     "status": "INCOMPLETE"
+    },
+    {
+     "artifact": "A-ab37a10fa8",
+     "content_hash": "b046ab63a5754054f5db994d429c3d42efe540cd8624bc5ae1bc2cd7c0dea484",
+     "inputs": [
+      "A-aff8d52538"
+     ],
+     "produced_by": "controller-failure-recorder",
+     "schema": "FailureReceipt/1.0.0",
+     "status": "REJECTED"
+    }
+   ],
+   "run": "R-51a6a2dd6e",
+   "state": "HALTED"
+  }
+ ],
+ "note": "Five artifact chains, selected deterministically by sorted alias so the choice cannot be curated. Each row carries schema, status, content hash and the aliases of its inputs; no model content appears anywhere.",
+ "selection_rule": "first two NO_ACTION and first ABSTAIN by sorted run alias; two HALTED with distinct controller failure stages, also by sorted alias"
+}

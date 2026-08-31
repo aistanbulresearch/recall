@@ -430,7 +430,7 @@
         }
       ],
       "case_id": "ad56b121-3803-5893-b518-715e8edda9ab",
-      "content_hash": "440d90a703e12ce85576577b67aabf5744d5417aa00acbc91894d768797ade58",
+      "content_hash": "bab6471da95aaa67b195b51df7c3bf00a20559f85eade3f6af5cca7a02603fbb",
       "created_at": "2026-08-22T09:00:00Z",
       "data_mode": "SYNTHETIC",
       "extensions": {},
@@ -447,6 +447,7 @@
         "evidence.assess",
         "citation.audit"
       ],
+      "resolution_mode": "PINNED_FALLBACK",
       "run_id": "da27d090-997e-57cc-863a-a581cef01456",
       "schema_name": "RegistryResolutionReceipt",
       "schema_version": "1.0.0",

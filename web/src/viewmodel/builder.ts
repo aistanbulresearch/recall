@@ -34,7 +34,7 @@ const REQUIRED_ENVELOPE_FIELDS = [
 
 /** Contract versions this surface knows how to read. */
 export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
-  PrivacyReceipt: ['1.0.0'],
+  PrivacyReceipt: ['1.0.0', '1.1.0'],
   WatchCase: ['2.0.0'],
   ScanRun: ['1.0.0'],
   ScanRunEvent: ['1.0.0'],
@@ -51,6 +51,27 @@ export const SUPPORTED_SCHEMA_VERSIONS: Record<string, readonly string[]> = {
   FailureReceipt: ['1.0.0'],
   DeploymentReceipt: ['1.0.0'],
   ManagedPathReceipt: ['1.0.0'],
+  // Cohort day manifest. Both versions, mirroring the producer's own schema
+  // map, which keeps 2.0.0 as a legacy read beside 2.1.0: day-2 was emitted as
+  // 2.0.0 and day-3 onward emits 2.1.0. 1.0.0 stays out; nothing ever emitted
+  // it. Each day's bundle carries ONE manifest in one version, so a mixed
+  // history never occurs inside an artifact: the version split is across days,
+  // which this surface never stitches (one-manifest-per-bundle rule).
+  // 3.0.0 is the compressed-session contract (2026-08-26); 2.0.0/2.1.0 stay as
+  // historical reads, mirroring the producer's own legacy map. 2.0.0 never
+  // produced a real manifest; 2.1.0's real-world validation was pre-empted by
+  // the failed 16:00Z tick, so both are contract-and-example verified only.
+  // 3.1.0 adds the epoch/parity/write-metrics block, 3.2.0 the agent-execution
+  // summary and per-run outcomes. Earlier versions stay as historical reads,
+  // matching the producer's own map.
+  CohortDayManifest: ['2.0.0', '2.1.0', '3.0.0', '3.1.0', '3.2.0', '3.3.0'],
+  // Typed receipts a history row may reference; bundles carry them as inputs.
+  CohortDayFailureReceipt: ['1.0.0'],
+  CohortHistoryReceipt: ['1.0.0'],
+  CompressedCycleFailureReceipt: ['1.0.0'],
+  CohortHeadroomReceipt: ['1.0.0'],
+  CohortRampGateReceipt: ['1.0.0'],
+  AgentExecutionReceipt: ['1.0.0'],
 };
 
 export interface RejectedArtifact {
@@ -186,6 +207,11 @@ function buildField(
   const resolved = resolvePath(artifact, spec.jsonPath);
   if (!resolved.found || resolved.value === null) {
     return missingField(spec, derivedAt);
+  }
+  if (spec.validate && !spec.validate(resolved.value)) {
+    // Present but malformed: INCOMPLETE, never KNOWN. The surface must not
+    // accept what the core parser would reject.
+    return { ...missingField(spec, derivedAt), status: 'INCOMPLETE', hidden: false };
   }
 
   const base: ViewField = {

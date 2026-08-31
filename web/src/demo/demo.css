@@ -1,0 +1,363 @@
+/*
+ * The demo page. White, quiet, and large enough to read across a room.
+ *
+ * Every class here is namespaced under `.demo` so nothing on this page can be
+ * reached, or reshaped, by the other surfaces' stylesheets.
+ */
+
+.demo {
+  --ink: #14161a;
+  --soft: #4d5157;
+  --quiet: #7b8087;
+  --rule: #e8e7e3;
+  --accent: #1d6b45;
+  --halt: #8d3b2f;
+  --mono: "IBM Plex Mono", "Cascadia Mono", ui-monospace, monospace;
+  --sans: "Archivo", "Inter", "Segoe UI", system-ui, sans-serif;
+
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--mono);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.demo *,
+.demo *::before,
+.demo *::after { box-sizing: border-box; }
+
+.demo-wrap {
+  width: min(74ch, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 92px 0 70px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ---------------- hero ---------------- */
+
+.demo-hero { margin-bottom: 46px; }
+
+/* Four hairlines in the Google palette, drawn once on load. They are the only
+   motion on the page: the reader should notice the page arriving, not watch it
+   perform. Reduced-motion readers get the finished state immediately. */
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 30px;
+}
+
+/* The drawn-in state is the DEFAULT and the animation runs towards it, so a
+   rule that never animates (a background tab, a reduced-motion setting, a
+   browser that skips it) is simply there rather than invisible. */
+/* The motion adds rather than reveals. A rule is always at full width and at
+   least half visible, so an animation that is paused at its first frame (a
+   background tab) or never runs at all still leaves four coloured hairlines on
+   the page. The stagger comes from four durations rather than four delays,
+   because a delay with backwards fill would hold the first frame indefinitely. */
+.rule {
+  display: block;
+  height: 3px;
+  animation: settle 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.rule.blue { background: #4285f4; width: 220px; animation-duration: 520ms; }
+.rule.red { background: #ea4335; width: 148px; animation-duration: 700ms; }
+.rule.yellow { background: #fbbc04; width: 96px; animation-duration: 880ms; }
+.rule.green { background: #34a853; width: 184px; animation-duration: 1060ms; }
+
+@keyframes settle {
+  from { opacity: 0.5; transform: translateX(-14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rule { animation: none; transform: none; }
+}
+
+.event {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--quiet);
+  margin: 0 0 18px;
+  max-width: 60ch;
+}
+
+.demo-hero h1 {
+  font-family: var(--sans);
+  font-size: clamp(2rem, 4.8vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  margin: 0 0 26px;
+}
+
+.demo-hero .lede {
+  font-family: var(--sans);
+  font-size: 1.06rem;
+  line-height: 1.6;
+  color: var(--soft);
+  margin: 0 0 14px;
+  max-width: 66ch;
+}
+
+/* ---------------- thread ---------------- */
+
+.thread { display: flex; flex-direction: column; gap: 26px; }
+
+/* A little air above the question when it is scrolled to the top. */
+.turn {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 16px;
+  align-items: start;
+  scroll-margin-top: 24px;
+}
+
+.who {
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  color: var(--quiet);
+  padding-top: 5px;
+  text-transform: uppercase;
+}
+
+.turn.you .bubble {
+  font-size: 1.02rem;
+  border-left: 2px solid var(--ink);
+  padding-left: 16px;
+}
+
+.turn.recall .bubble {
+  border-left: 2px solid var(--accent);
+  padding-left: 16px;
+}
+
+.bubble p { margin: 0 0 12px; max-width: 62ch; }
+
+.bubble p:last-child { margin-bottom: 0; }
+
+.bubble ul, .bubble ol { margin: 0 0 12px; padding-left: 20px; max-width: 62ch; }
+
+.bubble li { margin-bottom: 7px; }
+
+.bubble b { font-weight: 700; }
+
+.bubble code {
+  font-size: 0.86em;
+  background: #f5f5f2;
+  border: 1px solid var(--rule);
+  padding: 1px 5px;
+  word-break: break-all;
+}
+
+.bubble .quiet { color: var(--quiet); font-size: 0.9em; }
+
+.bubble .codes { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Markers are positioned, never laid out as grid or flex children: a list item
+   holds inline content, bold figures, code spans, and turning it into a grid
+   container would make each of those its own narrow track. */
+.bubble ol.chain { counter-reset: step; list-style: none; padding-left: 0; }
+
+.bubble ol.chain li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 9px;
+}
+
+.bubble ol.chain li::before {
+  counter-increment: step;
+  content: counter(step) ".";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--quiet);
+}
+
+.bubble ul.checks { list-style: none; padding-left: 0; }
+
+.bubble ul.checks li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 9px;
+}
+
+.bubble ul.checks li::before {
+  content: "[*]";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--quiet);
+  font-size: 0.8em;
+}
+
+/* Code spans sit in running text; they must never become block-level. */
+.bubble code {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.more {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.86rem;
+  border-bottom: 1px solid currentColor;
+}
+
+.inline-chip {
+  font-family: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--soft);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.inline-chip:hover { border-color: var(--ink); color: var(--ink); }
+
+/* ---------------- suggestions and composer ---------------- */
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 38px 0 20px;
+}
+
+.chip-group { display: flex; flex-direction: column; gap: 8px; }
+
+.group-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--quiet);
+  text-transform: uppercase;
+}
+
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* An asked question stays on screen and dims, so the map never shrinks. */
+.chip.asked { color: var(--quiet); border-style: dashed; }
+
+.chip {
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 8px 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chip:hover { border-color: var(--ink); background: #fafaf8; }
+
+.composer { display: flex; gap: 8px; margin-top: auto; padding-top: 22px; }
+
+.composer input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.96rem;
+  padding: 13px 16px;
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.composer input:focus { outline: none; border-color: var(--ink); }
+
+.composer input::placeholder { color: var(--quiet); }
+
+.composer button {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 13px 26px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.composer button:hover { background: #000000; }
+
+.ground {
+  font-size: 0.76rem;
+  color: var(--quiet);
+  margin: 14px 0 0;
+  max-width: 72ch;
+}
+
+/* ---------------- footer ---------------- */
+
+.demo-foot {
+  margin-top: 44px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.demo-foot a { color: var(--soft); text-decoration: none; border-bottom: 1px solid var(--rule); }
+
+.demo-foot a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+.demo-foot .frame {
+  margin-left: auto;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--quiet);
+}
+
+@media (max-width: 640px) {
+  .demo-wrap { padding-top: 56px; }
+  .turn { grid-template-columns: 1fr; gap: 6px; }
+  .demo-foot .frame { margin-left: 0; }
+}
+
+/* ---------------- capability table inside an answer ---------------- */
+
+.bubble table.fit {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin: 14px 0;
+}
+
+.bubble table.fit td {
+  border-bottom: 1px solid var(--rule);
+  padding: 9px 10px 9px 0;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.bubble table.fit tr:last-child td { border-bottom: none; }
+
+.fit-name { font-weight: 700; white-space: nowrap; width: 26%; }
+
+.fit-mech { color: var(--soft); }
+
+.fit-evidence { display: block; color: var(--quiet); font-size: 0.92em; margin-top: 4px; }
+
+.fit-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.fit-badge.live { color: #1d6b45; }
+.fit-badge.source { color: #2c4a7c; }
+.fit-badge.deferred { color: var(--quiet); border-style: dashed; }
+.fit-badge.absent { color: var(--halt); }

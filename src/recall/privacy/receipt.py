@@ -33,6 +33,20 @@ def build_warning(code: str, message_key: str, related_artifact_ids: Iterable[st
     return {"code": code, "message_key": message_key, "related_artifact_ids": sorted(related_artifact_ids)}
 
 
+SCHEMA_VERSION_V11 = "1.1.0"
+
+# The five 1.1 locus fields, all-or-nothing: a receipt either declares where
+# the model leg ran (1.1) or predates the question (1.0). A partial block is a
+# bug, never a wire shape.
+LOCUS_FIELDS = (
+    "execution_locus",
+    "transport_class",
+    "endpoint_class",
+    "model_id",
+    "model_revision",
+)
+
+
 def build_privacy_receipt(
     *,
     artifact_id: str,
@@ -49,6 +63,7 @@ def build_privacy_receipt(
     payload_hash: str,
     warnings: Iterable[dict[str, Any]],
     signer: LocalSigner,
+    execution_locus_block: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Assemble, hash, and sign one receipt.
 
@@ -59,10 +74,19 @@ def build_privacy_receipt(
 
     if decision not in (DECISION_ACCEPTED, DECISION_QUARANTINED):
         raise ValueError(f"unregistered privacy decision: {decision}")
+    if execution_locus_block is not None:
+        missing = [f for f in LOCUS_FIELDS if not execution_locus_block.get(f)]
+        extra = [f for f in execution_locus_block if f not in LOCUS_FIELDS]
+        if missing or extra:
+            raise ValueError(f"locus block malformed: missing={missing} extra={extra}")
+        if not str(execution_locus_block["model_revision"]).startswith("sha256:"):
+            raise ValueError("model_revision must be sha256-prefixed")
 
     receipt: dict[str, Any] = {
         "schema_name": SCHEMA_NAME,
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION
+        if execution_locus_block is None
+        else SCHEMA_VERSION_V11,
         "artifact_id": artifact_id,
         "case_id": case_id,
         "run_id": None,
@@ -87,6 +111,10 @@ def build_privacy_receipt(
         "outbound": outbound,
         "payload_hash": payload_hash,
     }
+    if execution_locus_block is not None:
+        # Inserted BEFORE signing, so the declaration is covered by the
+        # signature like every other claim in the receipt.
+        receipt.update({f: execution_locus_block[f] for f in LOCUS_FIELDS})
 
     signed_body_hash = content_hash(receipt)
     receipt["signature_ref"] = signer.signature_ref(signed_body_hash)

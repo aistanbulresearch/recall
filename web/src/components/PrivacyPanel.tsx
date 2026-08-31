@@ -20,7 +20,7 @@ export function PrivacyPanel({ model }: { model: ViewModel }) {
         className={`decision severity-${decision.status === 'KNOWN' ? semantics.severity : 'unknown'}`}
         data-privacy-decision={decision.status === 'KNOWN' ? String(decision.value) : decision.status}
       >
-        <strong>{formatValue(decision)}</strong> — {decision.status === 'KNOWN' ? semantics.plain : 'No privacy receipt resolved.'}
+        <strong>{formatValue(decision)}</strong>, {decision.status === 'KNOWN' ? semantics.plain : 'No privacy receipt resolved.'}
       </p>
       <div className="field-grid">
         <FieldValue field={model['UI-PRIVACY-DETERMINISTIC-SPANS']} />

@@ -2,7 +2,7 @@
 
 - Status: corrected design; implementation tests pending
 - Task: RCL-208
-- Updated: 2026-08-17
+- Updated: 2026-08-26
 
 ## Purpose
 
@@ -44,6 +44,8 @@ Every rendered field uses this structure:
 | UI-GLOBAL-TRACE-ID | Trace | `ScanRun $.trace_id` | Exact correlation ID | Show `UNAVAILABLE`; cloud-proof claim disabled |
 | UI-GLOBAL-UPDATED | Updated | newest authoritative artifact `$.created_at` | Format timestamp in viewer locale; preserve raw value in lineage | Show `UNKNOWN` |
 | UI-CLOUD-RUNTIME-REV | Cloud revision | `DeploymentReceipt $.runtime.revision` | Exact deployed revision | Show `UNAVAILABLE`; no managed-run claim |
+| UI-CLOUD-RESOLUTION-MODE | How the agents were resolved | `RegistryResolutionReceipt $.resolution_mode` | Exact registered mode enum; render only beside `UI-CLOUD-RESOLUTION-SOURCE` | `UNKNOWN`; no resolution claim |
+| UI-CLOUD-RESOLUTION-SOURCE | Resolution source | `RegistryResolutionReceipt $.data_mode` | Exact data mode of the artifact the resolution mode came from, so a fixture constant never reads as a live fact | `UNKNOWN` |
 | UI-CLOUD-REGISTRY-COUNT | Bound agents | `RegistryResolutionReceipt $.bindings[*]` | Count validated bindings | Show `INCOMPLETE`; never zero |
 | UI-CLOUD-TRANSITIONS | Persisted transitions | authoritative `ScanRunEvent[]` for run | Count unique `$.event_id` values | Show `UNKNOWN` |
 | UI-CLOUD-HEALTH | Managed path | `ManagedPathReceipt $.managed_status` | Exact typed status and reason | Show `UNAVAILABLE`, never healthy by default |
@@ -97,6 +99,45 @@ worked.
 | UI-TOOL-DENIAL | Blocked action | `ToolAuthorizationReceipt $.decision` | Render only `DENIED` receipt with tool, role, and reason code | Hide panel if no denial; never fabricate a pass |
 | UI-LOOP-HOPS | Hop count | `FailureReceipt $.details.hop_count` | Exact integer only for loop-related receipt | Hide when not applicable; `UNKNOWN` if required receipt malformed |
 | UI-FAILURE-CODE | Failure code | `FailureReceipt $.failure_code` | Render the exact registered failure code; never infer failure from a missing receipt | Hide only when the authoritative run has no failure receipt; malformed or missing required receipt is `INCOMPLETE` |
+
+## Cohort day fields
+
+One `CohortDayManifest` per bundle. When more than one is present, every field
+below is refused on screen, because the builder resolves scalars from the first
+match and a stale day would otherwise display unmarked. Accepted schema
+versions mirror the producer's own map (2.0.0-3.1.0 legacy, 3.2.0 current). Counters
+are read from the manifest, never accumulated by the surface; day figures count
+by identity (id-list lengths), never `authoritative_run_ids`, which includes
+reused runs.
+
+| Field ID | UI label | Source artifact and path | Deterministic rule | Missing behavior |
+|---|---|---|---|---|
+| UI-COHORT-MANIFEST-DAYS | Manifest days present | `CohortDayManifest $.day_index` (collect across artifacts) | Ambiguity guard: panel refuses all cohort figures when count > 1 | `UNKNOWN`, panel hidden |
+| UI-COHORT-DAY-INDEX | Day | `CohortDayManifest $.day_index` | Exact integer | `UNKNOWN`, panel hidden |
+| UI-COHORT-CASES-DELTA | Cases selected today | `CohortDayManifest $.delta.selected_case_ids[*]` | Count of ids, expandable to the ids themselves | `UNKNOWN` |
+| UI-COHORT-RUNS-DELTA | Runs created today | `CohortDayManifest $.delta.newly_created_run_ids[*]` | Count of ids; never `authoritative_run_ids` | `UNKNOWN` |
+| UI-COHORT-RUNS-TOTAL | Runs created to date | `CohortDayManifest $.cumulative.runs_created` | Producer figure, compared against panel-derived sum from `$.execution_history` (agreement line) | `UNKNOWN` |
+| UI-COHORT-CYCLES-TOTAL | Daily cycles to date | `CohortDayManifest $.cumulative.daily_cycles` | Producer figure; COMPLETE rows only per contract; compared against panel derivation | `UNKNOWN` |
+| UI-COHORT-DISTINCT-DATES | Distinct execution dates | `CohortDayManifest $.cumulative.distinct_execution_dates` | Producer figure over COMPLETE rows; compared against panel derivation | `UNKNOWN` |
+| UI-COHORT-IMAGE-DIGEST | Image digest | `CohortDayManifest $.image_digest` | Exact digest; render only beside `UI-COHORT-DATA-MODE`, a synthetic sentinel must never read as a deployed digest | `UNKNOWN` |
+| UI-COHORT-SOURCE-COMMIT | Source commit | `CohortDayManifest $.source_commit` | Exact value | `UNKNOWN` |
+| UI-COHORT-DATA-MODE | Manifest data mode | `CohortDayManifest $.data_mode` | Exact enum | `UNKNOWN` |
+| UI-COHORT-CASES | Cohort cases | `CohortDayManifest $.cases[*]` | Per-case row with own `data_mode` (contract: vcv null iff `SYNTHETIC_ONLY`); one badge never describes a mixed cohort | `UNKNOWN`, list hidden |
+| UI-COHORT-VCV-ANCHORS | Capture anchors | `CohortDayManifest $.vcv_anchors[*]` | Every rendered VCV resolves in one step to `capture_path` + `sha256`; unanchored VCVs are marked, never shown bare | `UNKNOWN` |
+| UI-COHORT-SCHEDULE-MODE | Schedule mode | `CohortDayManifest $.schedule_mode` | 3.0.0 declared mode; the compressed-session label renders from this field or not at all | `UNKNOWN`; no label |
+| UI-COHORT-CYCLE-ID | Cycle | `CohortDayManifest $.cycle_id` | Exact compressed cycle id | `UNKNOWN` |
+| UI-COHORT-PLAN-SHA256 | Prediction plan | `CohortDayManifest $.plan_sha256` | Exact hash chaining every cycle's counters to the pre-committed plan | `UNKNOWN` |
+| UI-COHORT-COMPRESSED-TOTAL | Compressed cycles completed | `CohortDayManifest $.cumulative.compressed_cycles_completed` | Producer figure over declared compressed rows only; compared against panel derivation | `UNKNOWN` |
+| UI-COHORT-DEADLINE-POLICY | Declared deadline | `CohortDayManifest $.deadline_policy` | Authoritative end-to-end deadline with write/agent milestones beside it; lateness judged against the declared boundary only | `UNKNOWN` |
+| UI-COHORT-EPOCH-LABEL | Epoch | `CohortDayManifest $.epoch_label` | 3.1+ epoch of this evaluation; re-runs are the same case in a new epoch, never a different case | `UNKNOWN`; no label |
+| UI-COHORT-EVALUATION-ROLE | Evaluation role | `CohortDayManifest $.evaluation_role` | Exact enum | `UNKNOWN` |
+| UI-COHORT-PARITY | Run parity | `CohortDayManifest $.parity` | parity_match with expected/actual new and reused counts beside it; reused runs never count as today's work | `UNKNOWN` |
+| UI-COHORT-AGENT-SUMMARY | Agent execution | `CohortDayManifest $.agent_execution_summary` | total_runs with complete/incomplete/not_evaluated as separate counts, never collapsed | `UNKNOWN` |
+| UI-COHORT-RUN-OUTCOMES | Run outcomes | `CohortDayManifest $.run_outcomes[*]` | One row per run with its own three-valued audit_status and epoch label | `UNKNOWN` |
+| UI-COHORT-EXECUTIONS | Execution history | `CohortDayManifest $.execution_history[*]` | Elapsed-days sentence derived, withheld with a stated reason unless proven (distinct ordered dates, selection date equals execution date, selection evidence); 2.1.0 INCOMPLETE rows are named with their typed failure receipt, never folded into the span | `UNKNOWN` |
+
+The elapsed-days sentence never upgrades: several cycles on one calendar date
+render as `N daily cycles recorded` with the reason, by design.
 
 ## Evidence and citation fields
 
