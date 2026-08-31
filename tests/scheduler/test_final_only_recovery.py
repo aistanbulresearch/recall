@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 
@@ -62,6 +62,8 @@ PREVIOUS_EXECUTION_ID = "recall-cohort-daily-5tqxh"
 PREVIOUS_SOURCE_COMMIT = "787ceb7be92132853c800837b49059c20e902f6b"
 PREVIOUS_IMAGE_DIGEST = "sha256:" + "d" * 64
 RECOVERY_ATTEMPT_ID = "84d24091-3c09-44d9-a236-a31dbc45e763"
+SECOND_RECOVERY_ATTEMPT_ID = "3f08d9a0-f8f9-4e1b-a4f1-b9d0a28a0f55"
+SECOND_PREVIOUS_EXECUTION_ID = "recall-cohort-daily-recovery-cancelled"
 CURRENT_SOURCE_COMMIT = "d7725f3e5cc2750c346928cbb94677e57ef06be3"
 CURRENT_IMAGE_DIGEST = "sha256:" + "e" * 64
 BASELINE_CANCELLED_SNAPSHOT_SHA256 = (
@@ -110,6 +112,18 @@ class _BulkReadCountingLedger(InMemoryLedger):
         return super().get_artifact(artifact_id)
 
 
+def _clone_ledger(source: InMemoryLedger) -> InMemoryLedger:
+    cloned = InMemoryLedger(
+        privacy_receipt_verifier=source._privacy_receipt_verifier
+    )
+    cloned._artifacts = deepcopy(source._artifacts)
+    cloned._watch_cases = deepcopy(source._watch_cases)
+    cloned._scan_runs = deepcopy(source._scan_runs)
+    cloned._scan_run_events = deepcopy(source._scan_run_events)
+    cloned._review_tasks = deepcopy(source._review_tasks)
+    return cloned
+
+
 def _plan_bundle():
     plan = load_compressed_plan(REPO_ROOT)
     bundle = load_compressed_bundle(
@@ -149,35 +163,7 @@ def _write_metrics(cycle, count: int) -> dict[str, object]:
     }
 
 
-def _cancelled_source_ledger():
-    plan, bundle, cycle = _plan_bundle()
-    ledger = InMemoryLedger(
-        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
-    )
-    from recall.scheduler.compressed_preparation import install_prepared_cycle
-
-    install_prepared_cycle(ledger, bundle, plan, cycle, now=cycle.window_start)
-    actual_start = cycle.window_end + timedelta(seconds=1)
-    release = authorize_final_only_owner_release(
-        plan,
-        token=FINAL_ONLY_OWNER_RELEASE_TOKEN,
-        reason=FINAL_ONLY_OWNER_RELEASE_REASON,
-        actual_start=actual_start,
-        max_retries=0,
-    )
-    scheduler = CompressedCycleScheduler(
-        ledger,
-        plan=plan,
-        cycle=cycle,
-        bundle=bundle,
-        source_commit=PREVIOUS_SOURCE_COMMIT,
-        image_digest=PREVIOUS_IMAGE_DIGEST,
-        owner_release=release,
-    )
-    outcomes = tuple(
-        scheduler._create_case(item, now=actual_start)
-        for item in cases_for_cycle(cycle)
-    )
+def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) -> None:
     persist_or_reconcile_batch_execution(
         ledger=ledger,
         plan=plan,
@@ -243,12 +229,112 @@ def _cancelled_source_ledger():
                     updated_at=actual_start + timedelta(seconds=1),
                 )
         offset += count
+
+
+def _cancelled_source_ledger():
+    plan, bundle, cycle = _plan_bundle()
+    ledger = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+    from recall.scheduler.compressed_preparation import install_prepared_cycle
+
+    install_prepared_cycle(ledger, bundle, plan, cycle, now=cycle.window_start)
+    actual_start = cycle.window_end + timedelta(seconds=1)
+    release = authorize_final_only_owner_release(
+        plan,
+        token=FINAL_ONLY_OWNER_RELEASE_TOKEN,
+        reason=FINAL_ONLY_OWNER_RELEASE_REASON,
+        actual_start=actual_start,
+        max_retries=0,
+    )
+    scheduler = CompressedCycleScheduler(
+        ledger,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        source_commit=PREVIOUS_SOURCE_COMMIT,
+        image_digest=PREVIOUS_IMAGE_DIGEST,
+        owner_release=release,
+    )
+    outcomes = tuple(
+        scheduler._create_case(item, now=actual_start)
+        for item in cases_for_cycle(cycle)
+    )
+    _mark_cancelled_execution(
+        ledger,
+        outcomes,
+        plan=plan,
+        cycle=cycle,
+        actual_start=actual_start,
+    )
     return plan, bundle, cycle, ledger, outcomes, actual_start
 
 
 @pytest.fixture(scope="module")
 def recovery_source():
     return _cancelled_source_ledger()
+
+
+def _cancelled_first_recovery_ledger():
+    plan, bundle, cycle, base, _base_outcomes, started = _cancelled_source_ledger()
+    base_snapshot = build_final_execution_recovery_snapshot(
+        base,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=PREVIOUS_EXECUTION_ID,
+    )
+    first_recovery = _recovery(plan, cycle, base_snapshot)
+    first = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+    install_final_only_recovery(
+        previous_ledger=base,
+        target_ledger=first,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        recovery=first_recovery,
+        source_commit=CURRENT_SOURCE_COMMIT,
+        image_digest=CURRENT_IMAGE_DIGEST,
+        cost_snapshot=CostSnapshot(1_200, 900),
+        now=started + timedelta(minutes=30),
+    )
+    recovery_start = started + timedelta(hours=1)
+    release = authorize_final_only_owner_release(
+        plan,
+        token=FINAL_ONLY_OWNER_RELEASE_TOKEN,
+        reason=FINAL_ONLY_OWNER_RELEASE_REASON,
+        actual_start=recovery_start,
+        max_retries=0,
+        recovery=first_recovery,
+    )
+    scheduler = CompressedCycleScheduler(
+        first,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        source_commit=CURRENT_SOURCE_COMMIT,
+        image_digest=CURRENT_IMAGE_DIGEST,
+        owner_release=release,
+    )
+    outcomes = tuple(
+        scheduler._create_case(item, now=recovery_start)
+        for item in cases_for_cycle(cycle)
+    )
+    _mark_cancelled_execution(
+        first,
+        outcomes,
+        plan=plan,
+        cycle=cycle,
+        actual_start=recovery_start,
+    )
+    return plan, bundle, cycle, first, first_recovery, recovery_start
+
+
+@pytest.fixture(scope="module")
+def chained_recovery_source():
+    return _cancelled_first_recovery_ledger()
 
 
 def test_recovery_snapshot_uses_bounded_bulk_reads_and_preserves_bytes(
@@ -292,6 +378,289 @@ def _recovery(plan, cycle, snapshot: FinalExecutionRecoverySnapshot):
         previous_image_digest=PREVIOUS_IMAGE_DIGEST,
         previous_snapshot_sha256=snapshot.snapshot_sha256,
     )
+
+
+def _prior_recovery_receipt_hash(ledger: InMemoryLedger) -> str:
+    receipt_id = str(
+        uuid5(UUID(RECOVERY_ATTEMPT_ID), "final-execution-recovery-receipt")
+    )
+    return str(ledger._artifacts[receipt_id]["content_hash"])
+
+
+def _second_recovery(
+    plan,
+    cycle,
+    snapshot: FinalExecutionRecoverySnapshot,
+    *,
+    previous_recovery_receipt_hash: str,
+):
+    return authorize_final_only_recovery(
+        plan,
+        cycle=cycle,
+        recovery_attempt_id=SECOND_RECOVERY_ATTEMPT_ID,
+        owner_recovery_reason=FINAL_ONLY_RECOVERY_REASON,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+        previous_snapshot_sha256=snapshot.snapshot_sha256,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=previous_recovery_receipt_hash,
+    )
+
+
+def test_second_generation_snapshot_binds_verified_prior_scope_and_receipt(
+    chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, first_recovery, _started = (
+        chained_recovery_source
+    )
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+    )
+    prior_receipt_id = str(
+        uuid5(UUID(RECOVERY_ATTEMPT_ID), "final-execution-recovery-receipt")
+    )
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+    installed = install_final_only_recovery(
+        previous_ledger=previous,
+        target_ledger=target,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        recovery=recovery,
+        source_commit="6" * 40,
+        image_digest="sha256:" + "7" * 64,
+        cost_snapshot=CostSnapshot(1_500, 1_100),
+        now=_started + timedelta(hours=1),
+    )
+    receipt = parse_artifact(
+        target.get_artifact(installed.recovery_receipt_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+
+    assert len(snapshot.scan_run_artifact_ids) == 456
+    assert snapshot.previous_recovery_receipt_id == prior_receipt_id
+    assert snapshot.previous_identity_scope == first_recovery.identity_scope
+    assert recovery.previous_collection_prefix == first_recovery.collection_prefix
+    assert recovery.previous_recovery_attempt_id == RECOVERY_ATTEMPT_ID
+    assert recovery.collection_prefix != first_recovery.collection_prefix
+    assert prior_receipt_id in receipt.input_artifact_ids
+    assert target.read_back_count("watch_cases") == 456
+    assert target.read_back_count("scan_runs") == 0
+
+
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        ("receipt_id", "final_recovery_previous_receipt_missing"),
+        ("identity_scope", "final_recovery_previous_receipt_binding_invalid"),
+        ("previous_prefix", "final_recovery_previous_receipt_binding_invalid"),
+        ("target_prefix", "final_recovery_previous_receipt_binding_invalid"),
+        ("target_source", "final_recovery_previous_receipt_binding_invalid"),
+        ("target_image", "final_recovery_previous_receipt_binding_invalid"),
+        ("target_plan", "final_recovery_previous_receipt_binding_invalid"),
+        ("target_bundle", "final_recovery_previous_receipt_binding_invalid"),
+        ("cost", "final_recovery_previous_receipt_binding_invalid"),
+        ("previous_execution", "final_recovery_previous_receipt_binding_invalid"),
+        ("previous_source", "final_recovery_previous_receipt_binding_invalid"),
+        ("previous_image", "final_recovery_previous_receipt_binding_invalid"),
+        ("previous_snapshot", "final_recovery_previous_receipt_binding_invalid"),
+        ("batch_hash", "final_recovery_previous_receipt_binding_invalid"),
+        ("cost_lower", "final_recovery_previous_receipt_binding_invalid"),
+    ],
+)
+def test_second_generation_receipt_chain_drift_is_zero_write(
+    chained_recovery_source,
+    mutation: str,
+    error: str,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = chained_recovery_source
+    previous = _clone_ledger(source)
+    expected_receipt_hash = _prior_recovery_receipt_hash(source)
+    receipt_id = str(
+        uuid5(UUID(RECOVERY_ATTEMPT_ID), "final-execution-recovery-receipt")
+    )
+    wire = deepcopy(previous._artifacts[receipt_id])
+    if mutation == "receipt_id":
+        previous._artifacts.pop(receipt_id)
+    else:
+        payload = wire
+        if mutation == "identity_scope":
+            payload["identity_scope"] = "final-only-recovery:" + "f" * 64
+        elif mutation == "previous_prefix":
+            payload["previous_collection_prefix"] = "dev_recall_wrong_base_"
+        elif mutation == "target_prefix":
+            payload["target_collection_prefix"] = "dev_recall_final_wrong_"
+        elif mutation == "target_source":
+            payload["target_source_commit"] = "1" * 40
+        elif mutation == "target_image":
+            payload["target_image_digest"] = "sha256:" + "2" * 64
+        elif mutation == "target_plan":
+            payload["previous_plan_sha256"] = "3" * 64
+            payload["target_plan_sha256"] = "3" * 64
+            payload["plan_cost_collection"] = "recall_plan6_cost_" + "3" * 16
+        elif mutation == "target_bundle":
+            payload["previous_bundle_sha256"] = "4" * 64
+            payload["target_bundle_sha256"] = "4" * 64
+        elif mutation == "cost":
+            payload["hard_cap_usd_micros"] += 1
+        elif mutation == "previous_execution":
+            payload["previous_execution_id"] = "recall-cohort-daily-drifted"
+        elif mutation == "previous_source":
+            payload["previous_source_commit"] = "5" * 40
+        elif mutation == "previous_image":
+            payload["previous_image_digest"] = "sha256:" + "6" * 64
+        elif mutation == "previous_snapshot":
+            payload["previous_snapshot_sha256"] = "7" * 64
+        elif mutation == "batch_hash":
+            payload["previous_batch_receipt_hash"] = "8" * 64
+        else:
+            payload["baseline_reserved_usd_micros"] = 0
+            payload["baseline_reconciled_usd_micros"] = 0
+        wire["content_hash"] = content_hash(wire)
+        previous._artifacts[receipt_id] = wire
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+
+    with pytest.raises(RuntimeError, match=error):
+        snapshot = build_final_execution_recovery_snapshot(
+            previous,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+            previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+            previous_recovery_receipt_hash=expected_receipt_hash,
+            previous_source_commit=CURRENT_SOURCE_COMMIT,
+            previous_image_digest=CURRENT_IMAGE_DIGEST,
+        )
+        install_final_only_recovery(
+            previous_ledger=previous,
+            target_ledger=target,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            recovery=_second_recovery(
+                plan,
+                cycle,
+                snapshot,
+                previous_recovery_receipt_hash=expected_receipt_hash,
+            ),
+            source_commit="6" * 40,
+            image_digest="sha256:" + "7" * 64,
+            cost_snapshot=CostSnapshot(1_200, 900),
+            now=started + timedelta(hours=1),
+        )
+    _assert_target_empty(target)
+
+
+def test_second_generation_snapshot_drift_is_zero_write(
+    chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, _first_recovery, started = (
+        chained_recovery_source
+    )
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    recovery = authorize_final_only_recovery(
+        plan,
+        cycle=cycle,
+        recovery_attempt_id=SECOND_RECOVERY_ATTEMPT_ID,
+        owner_recovery_reason=FINAL_ONLY_RECOVERY_REASON,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+        previous_snapshot_sha256="5" * 64,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+    )
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+
+    with pytest.raises(RuntimeError, match="final_recovery_previous_snapshot_drift"):
+        install_final_only_recovery(
+            previous_ledger=previous,
+            target_ledger=target,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            recovery=recovery,
+            source_commit="6" * 40,
+            image_digest="sha256:" + "7" * 64,
+            cost_snapshot=CostSnapshot(1_200, 900),
+            now=started + timedelta(hours=1),
+        )
+    assert snapshot.snapshot_sha256 != recovery.previous_snapshot_sha256
+    _assert_target_empty(target)
+
+
+def test_second_generation_cost_continuity_drift_is_zero_write(
+    chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = chained_recovery_source
+    previous = _clone_ledger(source)
+    expected_receipt_hash = _prior_recovery_receipt_hash(previous)
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=expected_receipt_hash,
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+
+    with pytest.raises(RuntimeError, match="final_recovery_cost_continuity_invalid"):
+        install_final_only_recovery(
+            previous_ledger=previous,
+            target_ledger=target,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            recovery=_second_recovery(
+                plan,
+                cycle,
+                snapshot,
+                previous_recovery_receipt_hash=expected_receipt_hash,
+            ),
+            source_commit="6" * 40,
+            image_digest="sha256:" + "7" * 64,
+            cost_snapshot=CostSnapshot(1_199, 899),
+            now=started + timedelta(hours=1),
+        )
+    _assert_target_empty(target)
 
 
 def test_recovery_namespace_and_run_identity_are_attempt_scoped(recovery_source) -> None:
@@ -1181,8 +1550,36 @@ def test_recovery_authority_fails_closed(attempt_id: str, reason: str, error: st
         )
 
 
+@pytest.mark.parametrize(
+    ("previous_attempt_id", "error"),
+    [
+        ("not-a-uuid", "final_recovery_attempt_id_invalid"),
+        (SECOND_RECOVERY_ATTEMPT_ID, "final_recovery_previous_attempt_invalid"),
+    ],
+)
+def test_previous_recovery_attempt_authority_fails_closed(
+    previous_attempt_id: str,
+    error: str,
+) -> None:
+    plan, _bundle, cycle = _plan_bundle()
+    with pytest.raises(RuntimeError, match=error):
+        authorize_final_only_recovery(
+            plan,
+            cycle=cycle,
+            recovery_attempt_id=SECOND_RECOVERY_ATTEMPT_ID,
+            owner_recovery_reason=FINAL_ONLY_RECOVERY_REASON,
+            previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+            previous_source_commit=CURRENT_SOURCE_COMMIT,
+            previous_image_digest=CURRENT_IMAGE_DIGEST,
+            previous_snapshot_sha256="a" * 64,
+            previous_recovery_attempt_id=previous_attempt_id,
+        )
+
+
+@pytest.mark.parametrize("previous_attempt_id", [None, RECOVERY_ATTEMPT_ID])
 def test_entrypoint_routes_explicit_recovery_to_strict_new_prefix(
     monkeypatch: pytest.MonkeyPatch,
+    previous_attempt_id: str | None,
 ) -> None:
     plan, _bundle, cycle = _plan_bundle()
     prefixes: list[str] = []
@@ -1206,14 +1603,18 @@ def test_entrypoint_routes_explicit_recovery_to_strict_new_prefix(
         )
 
     monkeypatch.setattr(CompressedCycleScheduler, "trigger", fake_trigger)
-    result = execute(
-        [
+    current_attempt_id = (
+        RECOVERY_ATTEMPT_ID
+        if previous_attempt_id is None
+        else SECOND_RECOVERY_ATTEMPT_ID
+    )
+    argv = [
             "--owner-release-token",
             FINAL_ONLY_OWNER_RELEASE_TOKEN,
             "--owner-release-reason",
             FINAL_ONLY_OWNER_RELEASE_REASON,
             "--recovery-attempt-id",
-            RECOVERY_ATTEMPT_ID,
+            current_attempt_id,
             "--owner-recovery-reason",
             FINAL_ONLY_RECOVERY_REASON,
             "--recovery-previous-execution-id",
@@ -1224,7 +1625,18 @@ def test_entrypoint_routes_explicit_recovery_to_strict_new_prefix(
             PREVIOUS_IMAGE_DIGEST,
             "--recovery-previous-snapshot-sha256",
             "a" * 64,
-        ],
+        ]
+    if previous_attempt_id is not None:
+        argv.extend(
+            [
+                "--previous-recovery-attempt-id",
+                previous_attempt_id,
+                "--previous-recovery-receipt-hash",
+                "c" * 64,
+            ]
+        )
+    result = execute(
+        argv,
         environment={
             "RECALL_SCHEDULER_MODE": "COMPRESSED_V3",
             "RECALL_PROVIDER_RPM": "8",
@@ -1248,14 +1660,27 @@ def test_entrypoint_routes_explicit_recovery_to_strict_new_prefix(
         recovery.previous_collection_prefix,
     ]
     assert result["collection_prefix"] == recovery.collection_prefix
-    assert result["owner_release"]["recovery_attempt_id"] == RECOVERY_ATTEMPT_ID
+    assert result["owner_release"]["recovery_attempt_id"] == current_attempt_id
+    assert (
+        result["owner_release"]["previous_recovery_attempt_id"]
+        == previous_attempt_id
+    )
+    assert result["owner_release"]["previous_recovery_receipt_hash"] == (
+        None if previous_attempt_id is None else "c" * 64
+    )
     assert observed["previous"] is not None
+    assert recovery.previous_recovery_attempt_id == previous_attempt_id
+    if previous_attempt_id is not None:
+        assert recovery.previous_recovery_receipt_hash == "c" * 64
+        assert recovery.previous_collection_prefix.startswith("dev_recall_final_")
 
 
 @pytest.mark.parametrize(
     "argv",
     [
         ["--recovery-attempt-id", RECOVERY_ATTEMPT_ID],
+        ["--previous-recovery-attempt-id", RECOVERY_ATTEMPT_ID],
+        ["--previous-recovery-receipt-hash", "c" * 64],
         [
             "--owner-release-token",
             FINAL_ONLY_OWNER_RELEASE_TOKEN,
@@ -1286,3 +1711,28 @@ def test_entrypoint_rejects_partial_recovery_contract_before_ledger(
             ledger_factory=forbidden_ledger,
         )
     assert calls == 0
+
+
+@pytest.mark.parametrize(
+    "receipt_hash",
+    [None, "A" * 64, "a" * 63, "not-a-hash"],
+)
+def test_previous_recovery_receipt_hash_authority_fails_closed(
+    receipt_hash: str | None,
+) -> None:
+    plan, _bundle, cycle = _plan_bundle()
+    with pytest.raises(
+        RuntimeError, match="final_recovery_previous_receipt_hash_invalid"
+    ):
+        authorize_final_only_recovery(
+            plan,
+            cycle=cycle,
+            recovery_attempt_id=SECOND_RECOVERY_ATTEMPT_ID,
+            owner_recovery_reason=FINAL_ONLY_RECOVERY_REASON,
+            previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+            previous_source_commit=CURRENT_SOURCE_COMMIT,
+            previous_image_digest=CURRENT_IMAGE_DIGEST,
+            previous_snapshot_sha256="a" * 64,
+            previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+            previous_recovery_receipt_hash=receipt_hash,
+        )

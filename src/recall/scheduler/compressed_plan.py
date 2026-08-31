@@ -174,6 +174,8 @@ class FinalOnlyRecoverySpec:
     previous_source_commit: str
     previous_image_digest: str
     previous_snapshot_sha256: str
+    previous_recovery_attempt_id: str | None
+    previous_recovery_receipt_hash: str | None
     identity_scope: str
     collection_prefix: str
 
@@ -240,13 +242,26 @@ def authorize_final_only_recovery(
     previous_source_commit: str,
     previous_image_digest: str,
     previous_snapshot_sha256: str,
+    previous_recovery_attempt_id: str | None = None,
+    previous_recovery_receipt_hash: str | None = None,
 ) -> FinalOnlyRecoverySpec:
-    try:
-        canonical_attempt = str(UUID(recovery_attempt_id))
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError("final_recovery_attempt_id_invalid") from exc
-    if canonical_attempt != recovery_attempt_id:
-        raise RuntimeError("final_recovery_attempt_id_invalid")
+    canonical_attempt = _canonical_recovery_attempt_id(recovery_attempt_id)
+    canonical_previous_attempt = (
+        None
+        if previous_recovery_attempt_id is None
+        else _canonical_recovery_attempt_id(previous_recovery_attempt_id)
+    )
+    if canonical_previous_attempt == canonical_attempt:
+        raise RuntimeError("final_recovery_previous_attempt_invalid")
+    if (canonical_previous_attempt is None) != (
+        previous_recovery_receipt_hash is None
+    ):
+        raise RuntimeError("final_recovery_previous_receipt_hash_invalid")
+    if (
+        previous_recovery_receipt_hash is not None
+        and not _SHA256.fullmatch(previous_recovery_receipt_hash)
+    ):
+        raise RuntimeError("final_recovery_previous_receipt_hash_invalid")
     if owner_recovery_reason != FINAL_ONLY_RECOVERY_REASON:
         raise RuntimeError("final_recovery_reason_invalid")
     if (
@@ -264,14 +279,14 @@ def authorize_final_only_recovery(
         raise RuntimeError("final_recovery_previous_image_invalid")
     if not _SHA256.fullmatch(previous_snapshot_sha256):
         raise RuntimeError("final_recovery_previous_snapshot_invalid")
-    attempt_hash = hashlib.sha256(canonical_attempt.encode("ascii")).hexdigest()
-    identity_scope = f"final-only-recovery:{attempt_hash}"
-    prefix = (
-        f"dev_recall_final_p{plan.sha256[:8]}_c6_r{attempt_hash[:10]}_"
-    )
+    attempt_hash = final_recovery_attempt_hash(canonical_attempt)
+    identity_scope = final_recovery_identity_scope(canonical_attempt)
+    prefix = final_recovery_collection_prefix(plan, canonical_attempt)
     old_prefix = (
         f"dev_recall_m2_compressed_p{plan.sha256[:12]}_c6_"
         f"{cycle.cohort_due_date:%Y%m%d}_"
+        if canonical_previous_attempt is None
+        else final_recovery_collection_prefix(plan, canonical_previous_attempt)
     )
     if (
         prefix == old_prefix
@@ -286,9 +301,38 @@ def authorize_final_only_recovery(
         previous_source_commit=previous_source_commit,
         previous_image_digest=previous_image_digest,
         previous_snapshot_sha256=previous_snapshot_sha256,
+        previous_recovery_attempt_id=canonical_previous_attempt,
+        previous_recovery_receipt_hash=previous_recovery_receipt_hash,
         identity_scope=identity_scope,
         collection_prefix=prefix,
     )
+
+
+def _canonical_recovery_attempt_id(value: str) -> str:
+    try:
+        canonical = str(UUID(value))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("final_recovery_attempt_id_invalid") from exc
+    if canonical != value:
+        raise RuntimeError("final_recovery_attempt_id_invalid")
+    return canonical
+
+
+def final_recovery_attempt_hash(recovery_attempt_id: str) -> str:
+    canonical = _canonical_recovery_attempt_id(recovery_attempt_id)
+    return hashlib.sha256(canonical.encode("ascii")).hexdigest()
+
+
+def final_recovery_identity_scope(recovery_attempt_id: str) -> str:
+    return f"final-only-recovery:{final_recovery_attempt_hash(recovery_attempt_id)}"
+
+
+def final_recovery_collection_prefix(
+    plan: CompressedPlan,
+    recovery_attempt_id: str,
+) -> str:
+    attempt_hash = final_recovery_attempt_hash(recovery_attempt_id)
+    return f"dev_recall_final_p{plan.sha256[:8]}_c6_r{attempt_hash[:10]}_"
 
 
 def load_compressed_plan(repo_root: Path) -> CompressedPlan:

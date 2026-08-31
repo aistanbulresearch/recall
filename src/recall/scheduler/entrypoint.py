@@ -111,6 +111,8 @@ def execute(
     parser.add_argument("--recovery-previous-source-commit")
     parser.add_argument("--recovery-previous-image-digest")
     parser.add_argument("--recovery-previous-snapshot-sha256")
+    parser.add_argument("--previous-recovery-attempt-id")
+    parser.add_argument("--previous-recovery-receipt-hash")
     args = parser.parse_args(list(argv))
     release_values = (args.owner_release_token, args.owner_release_reason)
     if any(item is not None for item in release_values):
@@ -126,7 +128,7 @@ def execute(
             )
         ):
             raise RuntimeError("final_only_owner_release_cli_invalid")
-    recovery_values = (
+    recovery_required_values = (
         args.recovery_attempt_id,
         args.owner_recovery_reason,
         args.recovery_previous_execution_id,
@@ -134,10 +136,19 @@ def execute(
         args.recovery_previous_image_digest,
         args.recovery_previous_snapshot_sha256,
     )
+    previous_recovery_values = (
+        args.previous_recovery_attempt_id,
+        args.previous_recovery_receipt_hash,
+    )
+    recovery_values = (*recovery_required_values, *previous_recovery_values)
     if any(item is not None for item in recovery_values) and (
-        not all(recovery_values)
+        not all(recovery_required_values)
         or args.owner_release_token is None
         or args.owner_recovery_reason != FINAL_ONLY_RECOVERY_REASON
+        or (
+            any(item is not None for item in previous_recovery_values)
+            and not all(previous_recovery_values)
+        )
     ):
         raise RuntimeError("final_recovery_cli_invalid")
     smoke_values = (args.smoke_mode, args.smoke_id, args.smoke_prefix)
@@ -341,6 +352,10 @@ def execute(
                 previous_source_commit=args.recovery_previous_source_commit,
                 previous_image_digest=args.recovery_previous_image_digest,
                 previous_snapshot_sha256=args.recovery_previous_snapshot_sha256,
+                previous_recovery_attempt_id=args.previous_recovery_attempt_id,
+                previous_recovery_receipt_hash=(
+                    args.previous_recovery_receipt_hash
+                ),
             )
         owner_release = authorize_final_only_owner_release(
             plan,
@@ -508,6 +523,16 @@ def execute(
                     None
                     if owner_release.recovery is None
                     else owner_release.recovery.previous_execution_id
+                ),
+                "previous_recovery_attempt_id": (
+                    None
+                    if owner_release.recovery is None
+                    else owner_release.recovery.previous_recovery_attempt_id
+                ),
+                "previous_recovery_receipt_hash": (
+                    None
+                    if owner_release.recovery is None
+                    else owner_release.recovery.previous_recovery_receipt_hash
                 ),
             }
         ),

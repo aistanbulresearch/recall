@@ -35,6 +35,8 @@ from .compressed_plan import (
     CompressedPlan,
     FinalOnlyRecoverySpec,
     authorize_final_only_recovery,
+    final_recovery_collection_prefix,
+    final_recovery_identity_scope,
 )
 from .compressed_preparation import (
     CompressedPreparationBundle,
@@ -66,6 +68,11 @@ class FinalExecutionRecoverySnapshot:
     batch_receipt_hash: str
     scan_run_artifact_ids: tuple[str, ...]
     run_rows: tuple[Mapping[str, object], ...]
+    previous_recovery_receipt_id: str | None
+    previous_recovery_receipt_hash: str | None
+    previous_identity_scope: str | None
+    previous_reserved_usd_micros: int | None
+    previous_reconciled_usd_micros: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +263,98 @@ def require_recovery_for_started_final_prefix(
         raise RuntimeError("final_recovery_required")
 
 
+def _verified_prior_recovery_binding(
+    ledger: LedgerPort,
+    *,
+    plan: CompressedPlan,
+    cycle: CompressedCycle,
+    bundle: CompressedPreparationBundle,
+    previous_recovery_attempt_id: str | None,
+    previous_recovery_receipt_hash: str | None,
+    previous_source_commit: str | None,
+    previous_image_digest: str | None,
+) -> Mapping[str, object] | None:
+    supplied_lineage = (
+        previous_source_commit is not None or previous_image_digest is not None
+    )
+    if previous_recovery_attempt_id is None:
+        if supplied_lineage or previous_recovery_receipt_hash is not None:
+            raise RuntimeError("final_recovery_previous_receipt_binding_invalid")
+        return None
+    if previous_source_commit is None or previous_image_digest is None:
+        raise RuntimeError("final_recovery_previous_receipt_binding_invalid")
+    try:
+        attempt_id = str(UUID(previous_recovery_attempt_id))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("final_recovery_previous_attempt_invalid") from exc
+    if attempt_id != previous_recovery_attempt_id:
+        raise RuntimeError("final_recovery_previous_attempt_invalid")
+    if previous_recovery_receipt_hash is None:
+        raise RuntimeError("final_recovery_previous_receipt_hash_invalid")
+    receipt_id = str(
+        uuid5(UUID(attempt_id), "final-execution-recovery-receipt")
+    )
+    wire = ledger.get_artifact(receipt_id)
+    if wire is None:
+        raise RuntimeError("final_recovery_previous_receipt_missing")
+    try:
+        parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    except ContractError as exc:
+        raise RuntimeError(
+            "final_recovery_previous_receipt_binding_invalid"
+        ) from exc
+    payload = parsed.payload
+    expected_scope = final_recovery_identity_scope(attempt_id)
+    expected_prefix = final_recovery_collection_prefix(plan, attempt_id)
+    expected_base_prefix = collection_prefix(plan, cycle)
+    if (
+        parsed.schema_name != "FinalExecutionRecoveryReceipt"
+        or parsed.schema_version != "1.0.0"
+        or parsed.artifact_id != receipt_id
+        or parsed.content_hash != previous_recovery_receipt_hash
+        or parsed.case_id != COHORT_ID
+        or parsed.run_id != tick_run_id(plan, cycle)
+        or parsed.status is not ArtifactStatus.VALID
+        or parsed.producer.component != "final-execution-recovery-controller"
+        or parsed.producer.version != "1.0.0"
+        or parsed.producer.identity != "cohort-scheduler"
+        or len(parsed.input_artifact_ids) != 457
+        or payload.previous_batch_receipt_id not in parsed.input_artifact_ids
+        or payload.recovery_attempt_id != attempt_id
+        or payload.identity_scope != expected_scope
+        or payload.previous_collection_prefix != expected_base_prefix
+        or payload.target_collection_prefix != expected_prefix
+        or payload.target_source_commit != previous_source_commit
+        or payload.target_image_digest != previous_image_digest
+        or payload.previous_plan_sha256 != plan.sha256
+        or payload.target_plan_sha256 != plan.sha256
+        or payload.previous_bundle_sha256 != bundle.bundle_sha256
+        or payload.target_bundle_sha256 != bundle.bundle_sha256
+        or payload.target_case_count != 456
+        or payload.plan_cost_collection != plan_cost_collection_name(plan.sha256)
+        or payload.hard_cap_usd_micros
+        != DEFAULT_MODEL_COST_POLICY.hard_cap_usd_micros
+    ):
+        raise RuntimeError("final_recovery_previous_receipt_binding_invalid")
+    return {
+        "receipt_id": parsed.artifact_id,
+        "receipt_hash": parsed.content_hash,
+        "recovery_attempt_id": attempt_id,
+        "identity_scope": expected_scope,
+        "previous_execution_id": payload.previous_execution_id,
+        "previous_collection_prefix": payload.previous_collection_prefix,
+        "previous_snapshot_sha256": payload.previous_snapshot_sha256,
+        "target_collection_prefix": expected_prefix,
+        "target_source_commit": payload.target_source_commit,
+        "target_image_digest": payload.target_image_digest,
+        "plan_cost_collection": payload.plan_cost_collection,
+        "hard_cap_usd_micros": payload.hard_cap_usd_micros,
+        "baseline_reserved_usd_micros": payload.baseline_reserved_usd_micros,
+        "baseline_reconciled_usd_micros": payload.baseline_reconciled_usd_micros,
+        "collection_prefix": expected_prefix,
+    }
+
+
 def build_final_execution_recovery_snapshot(
     ledger: LedgerPort,
     *,
@@ -263,6 +362,10 @@ def build_final_execution_recovery_snapshot(
     cycle: CompressedCycle,
     bundle: CompressedPreparationBundle,
     previous_execution_id: str,
+    previous_recovery_attempt_id: str | None = None,
+    previous_recovery_receipt_hash: str | None = None,
+    previous_source_commit: str | None = None,
+    previous_image_digest: str | None = None,
 ) -> FinalExecutionRecoverySnapshot:
     _require_final_only(plan, cycle, bundle)
     if not previous_execution_id.startswith("recall-cohort-daily-"):
@@ -274,6 +377,24 @@ def build_final_execution_recovery_snapshot(
     scan_ids = []
     states: Counter[str] = Counter()
     expected_cases = cases_for_cycle(cycle)
+    prior_recovery = _verified_prior_recovery_binding(
+        ledger,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_recovery_attempt_id=previous_recovery_attempt_id,
+        previous_recovery_receipt_hash=previous_recovery_receipt_hash,
+        previous_source_commit=previous_source_commit,
+        previous_image_digest=previous_image_digest,
+    )
+    previous_identity_scope = (
+        None if prior_recovery is None else prior_recovery["identity_scope"]
+    )
+    previous_collection_prefix = (
+        collection_prefix(plan, cycle)
+        if prior_recovery is None
+        else str(prior_recovery["collection_prefix"])
+    )
     expected_case_ids = {item.case_id for item in expected_cases}
     prepared_by_case = {
         item.case_id: item
@@ -298,6 +419,7 @@ def build_final_execution_recovery_snapshot(
             source_cursors=initial_source_cursors,
             schedule_epoch=cycle.schedule_epoch,
             data_mode=DataMode.SYNTHETIC.value,
+            identity_scope=previous_identity_scope,
         )
         identities[item.case_id] = (
             initial_source_cursors,
@@ -463,7 +585,7 @@ def build_final_execution_recovery_snapshot(
     snapshot_wire = {
         "schema_version": "1.0.0",
         "previous_execution_id": previous_execution_id,
-        "previous_collection_prefix": collection_prefix(plan, cycle),
+        "previous_collection_prefix": previous_collection_prefix,
         "plan_sha256": plan.sha256,
         "bundle_sha256": bundle.bundle_sha256,
         "manifest_status": "MISSING_AFTER_CANCELLED_EXECUTION",
@@ -483,6 +605,8 @@ def build_final_execution_recovery_snapshot(
         ),
         "runs": sorted(rows, key=lambda item: str(item["run_id"])),
     }
+    if prior_recovery is not None:
+        snapshot_wire["previous_recovery_receipt"] = dict(prior_recovery)
     return FinalExecutionRecoverySnapshot(
         snapshot_sha256=hashlib.sha256(
             canonical_json_bytes(snapshot_wire)
@@ -493,6 +617,23 @@ def build_final_execution_recovery_snapshot(
         batch_receipt_hash=batch.content_hash,
         scan_run_artifact_ids=tuple(sorted(scan_ids)),
         run_rows=tuple(snapshot_wire["runs"]),
+        previous_recovery_receipt_id=(
+            None if prior_recovery is None else str(prior_recovery["receipt_id"])
+        ),
+        previous_recovery_receipt_hash=(
+            None if prior_recovery is None else str(prior_recovery["receipt_hash"])
+        ),
+        previous_identity_scope=previous_identity_scope,
+        previous_reserved_usd_micros=(
+            None
+            if prior_recovery is None
+            else int(prior_recovery["baseline_reserved_usd_micros"])
+        ),
+        previous_reconciled_usd_micros=(
+            None
+            if prior_recovery is None
+            else int(prior_recovery["baseline_reconciled_usd_micros"])
+        ),
     )
 
 
@@ -614,6 +755,20 @@ def _verify_previous(
         cycle=cycle,
         bundle=bundle,
         previous_execution_id=recovery.previous_execution_id,
+        previous_recovery_attempt_id=recovery.previous_recovery_attempt_id,
+        previous_recovery_receipt_hash=(
+            recovery.previous_recovery_receipt_hash
+        ),
+        previous_source_commit=(
+            None
+            if recovery.previous_recovery_attempt_id is None
+            else recovery.previous_source_commit
+        ),
+        previous_image_digest=(
+            None
+            if recovery.previous_recovery_attempt_id is None
+            else recovery.previous_image_digest
+        ),
     )
     if snapshot.snapshot_sha256 != recovery.previous_snapshot_sha256:
         raise RuntimeError("final_recovery_previous_snapshot_drift")
@@ -637,6 +792,15 @@ def _build_receipt(
         or cost_snapshot.reconciled_usd_micros > cost_snapshot.reserved_usd_micros
     ):
         raise RuntimeError("final_recovery_cost_snapshot_invalid")
+    if snapshot.previous_reserved_usd_micros is not None:
+        previous_reconciled = snapshot.previous_reconciled_usd_micros
+        if (
+            previous_reconciled is None
+            or cost_snapshot.reserved_usd_micros
+            < snapshot.previous_reserved_usd_micros
+            or cost_snapshot.reconciled_usd_micros < previous_reconciled
+        ):
+            raise RuntimeError("final_recovery_cost_continuity_invalid")
     return build_artifact(
         schema_name="FinalExecutionRecoveryReceipt",
         schema_version="1.0.0",
@@ -649,14 +813,7 @@ def _build_receipt(
             "identity": "cohort-scheduler",
         },
         created_at=_timestamp(now),
-        input_artifact_ids=tuple(
-            sorted(
-                {
-                    snapshot.batch_receipt_id,
-                    *snapshot.scan_run_artifact_ids,
-                }
-            )
-        ),
+        input_artifact_ids=tuple(sorted(_recovery_receipt_inputs(snapshot))),
         data_mode=DataMode.SYNTHETIC,
         status=ArtifactStatus.VALID,
         payload={
@@ -706,9 +863,7 @@ def _verify_receipt(
         raise RuntimeError("final_recovery_receipt_missing")
     parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
     payload = parsed.payload
-    expected_inputs = tuple(
-        sorted({snapshot.batch_receipt_id, *snapshot.scan_run_artifact_ids})
-    )
+    expected_inputs = tuple(sorted(_recovery_receipt_inputs(snapshot)))
     if (
         parsed.schema_name != "FinalExecutionRecoveryReceipt"
         or parsed.schema_version != "1.0.0"
@@ -751,16 +906,35 @@ def _receipt_id(recovery: FinalOnlyRecoverySpec) -> str:
     )
 
 
+def _recovery_receipt_inputs(
+    snapshot: FinalExecutionRecoverySnapshot,
+) -> set[str]:
+    values = {snapshot.batch_receipt_id, *snapshot.scan_run_artifact_ids}
+    if snapshot.previous_recovery_receipt_id is not None:
+        values.add(snapshot.previous_recovery_receipt_id)
+    return values
+
+
 def _require_recovery_binding(
     plan: CompressedPlan,
     cycle: CompressedCycle,
     recovery: FinalOnlyRecoverySpec,
 ) -> None:
     _require_final_only(plan, cycle, None)
+    expected_previous_prefix = (
+        collection_prefix(plan, cycle)
+        if recovery.previous_recovery_attempt_id is None
+        else final_recovery_collection_prefix(
+            plan, recovery.previous_recovery_attempt_id
+        )
+    )
     if (
-        recovery.previous_collection_prefix != collection_prefix(plan, cycle)
+        recovery.previous_collection_prefix != expected_previous_prefix
         or recovery.collection_prefix == recovery.previous_collection_prefix
-        or not recovery.identity_scope.startswith("final-only-recovery:")
+        or recovery.collection_prefix
+        != final_recovery_collection_prefix(plan, recovery.recovery_attempt_id)
+        or recovery.identity_scope
+        != final_recovery_identity_scope(recovery.recovery_attempt_id)
     ):
         raise RuntimeError("final_recovery_binding_invalid")
 
