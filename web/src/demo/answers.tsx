@@ -10,6 +10,7 @@
 
 import type { ReactNode } from 'react';
 
+import categoryFit from '../site/data/category-fit.json';
 import correctedView from '../data/p1-corrected-view.json';
 import gemmaRunManifest from '../data/gemma-run-manifest.json';
 import historicalCase from '../data/historical-case.json';
@@ -43,6 +44,23 @@ const p1 = correctedView as unknown as {
   structured_only_egress: { combined: { document_level: Record<string, number> } };
   frozen_test_run_id: string;
   record_count: number;
+};
+
+const fit = categoryFit as unknown as {
+  capabilities: {
+    capability: string;
+    mechanism: string;
+    badge: string;
+    evidence: string;
+    limit: string;
+  }[];
+};
+
+const BADGE_CLASS: Record<string, string> = {
+  'LIVE VERIFIED': 'live',
+  'SOURCE VERIFIED': 'source',
+  DEFERRED: 'deferred',
+  'NOT VERIFIED': 'absent',
 };
 
 const gemmaRun = gemmaRunManifest as unknown as {
@@ -85,8 +103,12 @@ export function Fact({ children, source }: { children: ReactNode; source: string
   );
 }
 
+export type AnswerGroup = 'Start here' | 'How it works' | 'The proof' | 'The limits';
+
 export interface Answer {
   id: string;
+  /** Which cluster the question is offered under. */
+  group: AnswerGroup;
   /** What the juror clicks. */
   label: string;
   /** Words that route a typed question here. */
@@ -102,6 +124,7 @@ const sampleHalted = halted[0];
 export const ANSWERS: Answer[] = [
   {
     id: 'about',
+    group: 'Start here',
     label: 'What is Recall?',
     keywords: [
       'what is recall',
@@ -135,6 +158,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'run',
+    group: 'Start here',
     label: 'What happened in the run?',
     keywords: ['the run', 'execution', 'overall', 'summary', 'how many cases', 'what happened in the run'],
     body: (
@@ -172,6 +196,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'failure',
+    group: 'The proof',
     label: 'What happened when something failed?',
     keywords: ['fail', 'failure', 'error', 'crash', 'halt', 'timeout', 'time out', 'times out', 'timed out', 'went wrong', 'break'],
     body: (
@@ -215,6 +240,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'authority',
+    group: 'How it works',
     label: 'Can a model’s output become an action?',
     keywords: ['become an action', 'hallucinat', 'authority', 'decide', 'decision', 'policy gate', 'trust the model'],
     body: (
@@ -246,6 +272,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'agents',
+    group: 'How it works',
     label: 'Who are the agents, and who checks them?',
     keywords: ['who are the agents', 'fleet', 'watcher', 'assessor', 'auditor', 'separation', 'roles'],
     body: (
@@ -277,6 +304,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'governance',
+    group: 'The proof',
     label: 'What can an auditor actually check?',
     keywords: [
       'auditor can check',
@@ -330,6 +358,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'why',
+    group: 'Start here',
     label: 'Why does any of this matter?',
     keywords: [
       'why',
@@ -366,6 +395,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'privacy',
+    group: 'How it works',
     label: 'What leaves the laboratory?',
     keywords: ['privacy', 'redact', 'laboratory', 'leaves the lab', 'leave the lab', 'gemma', 'personal data', 'patient data'],
     body: (
@@ -392,6 +422,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'cost',
+    group: 'The limits',
     label: 'What did it cost to run?',
     keywords: ['cost', 'price', 'money', 'token', 'spend', 'economics', 'cheap', 'expensive'],
     body: (
@@ -416,6 +447,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'limits',
+    group: 'The limits',
     label: 'What can’t you prove?',
     keywords: ['limit', 'cannot prove', "can't prove", 'weakness', 'not proven', 'caveat', 'what is missing'],
     body: (
@@ -452,6 +484,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'case',
+    group: 'The proof',
     label: 'Show me one case in detail',
     keywords: ['one case', 'a case', 'single case', 'example', 'case in detail', 'show me a case'],
     body: (
@@ -490,6 +523,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'stack',
+    group: 'How it works',
     label: 'What is it built on?',
     keywords: [
       'built on',
@@ -542,6 +576,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'registry',
+    group: 'How it works',
     label: 'How would another team find and reuse these agents?',
     keywords: [
       'registry',
@@ -582,6 +617,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'memory',
+    group: 'How it works',
     label: 'How does it remember between scans?',
     keywords: [
       'remember',
@@ -620,6 +656,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'identity',
+    group: 'How it works',
     label: 'What stops an agent doing something it should not?',
     keywords: [
       'permission',
@@ -665,6 +702,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'observability',
+    group: 'The proof',
     label: 'If something goes wrong, can you reconstruct it?',
     keywords: [
       'observab',
@@ -704,6 +742,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'innovation',
+    group: 'Start here',
     label: 'What is actually new here?',
     keywords: [
       'innovat',
@@ -747,6 +786,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'scale',
+    group: 'The limits',
     label: 'Does this scale?',
     keywords: [
       'scale',
@@ -784,6 +824,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'verify',
+    group: 'The proof',
     label: 'How can I check any of this myself?',
     keywords: [
       'verify',
@@ -824,6 +865,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'architecture',
+    group: 'How it works',
     label: 'Show me the architecture',
     keywords: [
       'architecture',
@@ -864,6 +906,7 @@ export const ANSWERS: Answer[] = [
   },
   {
     id: 'gemma',
+    group: 'How it works',
     label: 'What does the local model actually add?',
     keywords: [
       'gemma',
@@ -922,6 +965,113 @@ export const ANSWERS: Answer[] = [
         </p>
       </>
     ),
+  },
+  {
+    id: 'capabilities',
+    group: 'The proof',
+    label: 'How do you map to the category requirements?',
+    keywords: [
+      'rubric',
+      'category',
+      'requirement',
+      'capabilit',
+      'criteria',
+      'fortified',
+      'enterprise fleet',
+      'map to',
+      'checklist',
+      'score',
+    ],
+    body: (
+      <>
+        <p>
+          Each capability the category asks for, the mechanism that provides it, and how far
+          that claim has actually been proven. <b>LIVE VERIFIED</b> means observed in this run;{' '}
+          <b>SOURCE VERIFIED</b> means the mechanism is in the executable source and readable
+          there, without a live capture attached; <b>DEFERRED</b> means deliberately not
+          integrated.
+        </p>
+        <table className="fit">
+          <tbody>
+            {fit.capabilities.map((row) => (
+              <tr key={row.capability}>
+                <td className="fit-name">{row.capability}</td>
+                <td className="fit-mech">
+                  {row.mechanism}
+                  <span className="fit-evidence">{row.evidence}</span>
+                </td>
+                <td>
+                  <span className={`fit-badge ${BADGE_CLASS[row.badge] ?? 'source'}`}>
+                    {row.badge}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="quiet">
+          No row is upgraded by association with another, and every row carries its own limit.
+          The badges are claims about evidence, not about ambition.
+        </p>
+      </>
+    ),
+    more: { href: '#/story#platform', label: 'The same table with every limit spelled out' },
+  },
+  {
+    id: 'governance-value',
+    group: 'The proof',
+    label: 'Why is governance the point, rather than model quality?',
+    keywords: [
+      'governance',
+      'why does governance',
+      'enterprise value',
+      'risk',
+      'compliance',
+      'why should we care',
+      'business value',
+      'model quality',
+    ],
+    body: (
+      <>
+        <p>
+          The institutional risk is not that a model is sometimes wrong. Every model is
+          sometimes wrong. The risk is that a wrong or unfinished output crosses an authority
+          boundary and becomes an action nobody authorised.
+        </p>
+        <p>
+          So the question worth asking of a fleet is not how good its answers are; it is what
+          happens to a bad one. In this run:
+        </p>
+        <ul className="checks">
+          <li>
+            A model produced a material claim in {counts.ABSTAIN} cases and the Citation Auditor
+            could not verify the sources. The gate emitted <b>ABSTAIN</b> and created nothing.
+          </li>
+          <li>
+            {halted.length} cases lost a role to a timeout. Each recorded a typed failure
+            receipt, reached a technical terminal, and produced{' '}
+            {halted.reduce((sum, row) => sum + row.closure.policy_decisions, 0)} policy decisions
+            and {halted.reduce((sum, row) => sum + row.closure.review_tasks, 0)} tasks.
+          </li>
+          <li>
+            {String(gate.tool_call_ids)} tool calls ran, every one with an authorization
+            decision recorded against it, and{' '}
+            {governance.tool_calls_without_authorization} without.
+          </li>
+          <li>
+            The ledger holds <b>{cohort.review_tasks_in_ledger}</b> review tasks in total. On
+            this cohort nothing met the bar, and the system did not invent something to show
+            for six hours of work.
+          </li>
+        </ul>
+        <p>
+          That is the difference between a system that is impressive and one an institution can
+          adopt: the failure modes are typed, bounded, attributable to a case and a stage, and
+          incapable of producing an action on their own.
+        </p>
+      </>
+    ),
+    more: { href: '#/run', label: 'The auditor’s table for this run' },
   },
 ];
 

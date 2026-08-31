@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DemoPage } from '../src/demo/DemoPage';
 import { ANSWERS, byId, match } from '../src/demo/answers';
+import categoryFit from '../src/site/data/category-fit.json';
 import { cohort, distributionFromCases, readBundle } from '../src/run/runBundle';
 
 // Vite hands CSS through its own pipeline, so `?inline` is what yields the
@@ -33,9 +34,25 @@ describe('the landing', () => {
   });
 
   it('offers a way to ask before anything else is required', () => {
-    expect(markup).toContain('Try asking');
     expect(markup).toContain('Ask');
     expect(markup).toContain('aria-label="Ask about the run"');
+  });
+
+  it('shows every question on the first screen, grouped', () => {
+    // A juror who scans rather than types must still see the whole map, so
+    // nothing may be hidden behind having asked something first.
+    for (const answer of ANSWERS) {
+      expect(markup, `${answer.id} is not offered`).toContain(answer.label);
+    }
+    for (const group of ['Start here', 'How it works', 'The proof', 'The limits']) {
+      expect(markup).toContain(group);
+    }
+  });
+
+  it('puts the rubric mapping and the governance argument on screen', () => {
+    // The two a jury needs and would not think to type for.
+    expect(markup).toContain('How do you map to the category requirements?');
+    expect(markup).toContain('Why is governance the point, rather than model quality?');
   });
 
   it('states that answers are not generated on demand', () => {
@@ -240,5 +257,33 @@ describe('the questions a jury actually asks', () => {
     // must not present a pinned endpoint as a catalogued one.
     expect(registry).toContain('PINNED_FALLBACK');
     expect(registry).toContain('not claimed as catalogue-resolved in this run');
+  });
+});
+
+describe('the rubric mapping and the governance argument', () => {
+  it('renders every capability with a declared verification level', () => {
+    const markup = renderToStaticMarkup(<>{byId('capabilities')!.body}</>);
+    for (const row of categoryFit.capabilities) {
+      expect(markup, row.capability).toContain(row.capability);
+      expect(markup, `${row.capability} badge`).toContain(row.badge);
+    }
+    expect(markup).toContain('claims about evidence, not about ambition');
+  });
+
+  it('argues governance from what happened to bad output, not from adjectives', () => {
+    const markup = renderToStaticMarkup(<>{byId('governance-value')!.body}</>);
+    expect(markup).toContain('not that a model is sometimes wrong');
+    expect(markup).toContain('crosses an authority boundary');
+    // Every leg of the argument carries a figure from the run.
+    expect(markup).toContain('ABSTAIN');
+    expect(markup).toContain(String(cohort.review_tasks_in_ledger));
+    expect(markup).toContain('did not invent something to show');
+  });
+
+  it('gives every answer a group so none can be orphaned from the map', () => {
+    const groups = new Set(['Start here', 'How it works', 'The proof', 'The limits']);
+    for (const answer of ANSWERS) {
+      expect(groups.has(answer.group), `${answer.id}: ${answer.group}`).toBe(true);
+    }
   });
 });

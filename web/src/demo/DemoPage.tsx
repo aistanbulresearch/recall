@@ -17,6 +17,7 @@ import type { ReactNode } from 'react';
 import './demo.css';
 
 import { ANSWERS, byId, match } from './answers';
+import type { AnswerGroup } from './answers';
 
 interface Turn {
   id: number;
@@ -25,11 +26,15 @@ interface Turn {
   more?: { href: string; label: string };
 }
 
-/** The five a jury reaches for first: what, why, what ran, what broke, what is new. */
-const OPENER_IDS = ['about', 'why', 'run', 'failure', 'innovation'];
-const OPENERS = OPENER_IDS.map((id) => ANSWERS.find((answer) => answer.id === id)!).filter(
-  Boolean,
-);
+/**
+ * The whole map, in reading order. A juror who scans rather than types should
+ * be able to see every question the demo can answer without doing anything.
+ */
+const GROUP_ORDER: AnswerGroup[] = ['Start here', 'How it works', 'The proof', 'The limits'];
+const GROUPED = GROUP_ORDER.map((group) => ({
+  group,
+  answers: ANSWERS.filter((answer) => answer.group === group),
+})).filter((entry) => entry.answers.length > 0);
 
 export function DemoPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -97,8 +102,6 @@ export function DemoPage() {
     ask(question);
   }
 
-  const remaining = ANSWERS.filter((answer) => !asked.has(answer.id));
-  const suggestions = (turns.length === 0 ? OPENERS : remaining).slice(0, 5);
 
   return (
     <div className="demo">
@@ -140,21 +143,25 @@ export function DemoPage() {
           <div ref={endRef} />
         </div>
 
-        {suggestions.length > 0 ? (
-          <div className="suggestions">
-            {turns.length === 0 ? <span className="try">Try asking</span> : null}
-            {suggestions.map((answer) => (
-              <button
-                key={answer.id}
-                type="button"
-                className="chip"
-                onClick={() => ask(answer.label, answer.id)}
-              >
-                {answer.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <div className="suggestions">
+          {GROUPED.map((entry) => (
+            <section className="chip-group" key={entry.group}>
+              <span className="group-label">{entry.group}</span>
+              <div className="chip-row">
+                {entry.answers.map((answer) => (
+                  <button
+                    key={answer.id}
+                    type="button"
+                    className={asked.has(answer.id) ? 'chip asked' : 'chip'}
+                    onClick={() => ask(answer.label, answer.id)}
+                  >
+                    {answer.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
 
         <form className="composer" onSubmit={submit}>
           <input

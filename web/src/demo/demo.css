@@ -174,13 +174,24 @@
 
 .suggestions {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin: 34px 0 18px;
+  flex-direction: column;
+  gap: 18px;
+  margin: 38px 0 20px;
 }
 
-.try { font-size: 0.68rem; letter-spacing: 0.14em; color: var(--quiet); text-transform: uppercase; }
+.chip-group { display: flex; flex-direction: column; gap: 8px; }
+
+.group-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  color: var(--quiet);
+  text-transform: uppercase;
+}
+
+.chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* An asked question stays on screen and dims, so the map never shrinks. */
+.chip.asked { color: var(--quiet); border-style: dashed; }
 
 .chip {
   font-family: inherit;
@@ -259,3 +270,41 @@
   .turn { grid-template-columns: 1fr; gap: 6px; }
   .demo-foot .frame { margin-left: 0; }
 }
+
+/* ---------------- capability table inside an answer ---------------- */
+
+.bubble table.fit {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin: 14px 0;
+}
+
+.bubble table.fit td {
+  border-bottom: 1px solid var(--rule);
+  padding: 9px 10px 9px 0;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.bubble table.fit tr:last-child td { border-bottom: none; }
+
+.fit-name { font-weight: 700; white-space: nowrap; width: 26%; }
+
+.fit-mech { color: var(--soft); }
+
+.fit-evidence { display: block; color: var(--quiet); font-size: 0.92em; margin-top: 4px; }
+
+.fit-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.fit-badge.live { color: #1d6b45; }
+.fit-badge.source { color: #2c4a7c; }
+.fit-badge.deferred { color: var(--quiet); border-style: dashed; }
+.fit-badge.absent { color: var(--halt); }
