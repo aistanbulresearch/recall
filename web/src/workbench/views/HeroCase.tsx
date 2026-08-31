@@ -54,7 +54,7 @@ export function HeroCase() {
 
   return (
     <section className="hero-case">
-      <a className="crumb" href="#/worklist">
+      <a className="crumb" href="#/demo/">
         ← Worklist
       </a>
       <header className="view-head">

@@ -81,7 +81,7 @@ export function Worklist({
       </header>
 
       <div className="work-card hero-row">
-        <a className="work-row" href="#/case/hero">
+        <a className="work-row" href="#/demo/case/hero">
           <div className="work-case">
             <span className="work-title">
               {String(HERO_CASE_FIELDS['EV-HERO-GENE'].value)}{' '}
@@ -101,7 +101,7 @@ export function Worklist({
           const fields = models[scenario.id].fields;
           const stamp = recordStamp(fields);
           return (
-            <a className="work-row" key={scenario.id} href={`#/case/${scenario.id}`}>
+            <a className="work-row" key={scenario.id} href={`#/demo/case/${scenario.id}`}>
               <div className="work-case">
                 <span className="work-title">{scenario.clinicalLabel}</span>
                 <span className="work-meta">

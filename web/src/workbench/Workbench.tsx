@@ -59,13 +59,17 @@ export const SCENARIOS: readonly Scenario[] = [
   },
 ];
 
+/** Routes live under `#/demo`; the prefix is dropped before dispatch. */
+export const DEMO_BASE = '#/demo';
+
 function parseRoute(hash: string): string[] {
-  return hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  return parts[0] === 'demo' ? parts.slice(1) : parts;
 }
 
 const NAV = [
-  { path: '', label: 'Walkthrough' },
-  { path: 'worklist', label: 'Worklist' },
+  { path: '', label: 'Worklist' },
+  { path: 'walkthrough', label: 'Walkthrough' },
   { path: 'cohort', label: 'Cohort ledger' },
   { path: 'privacy', label: 'Privacy desk' },
   { path: 'dossier', label: 'Evidence dossier' },
@@ -103,27 +107,29 @@ export function Workbench() {
     view = <PrivacyDesk />;
   } else if (head === 'dossier') {
     view = <Dossier scenarios={SCENARIOS} models={models} />;
-  } else if (head === 'worklist') {
-    view = <Worklist scenarios={SCENARIOS} models={models} />;
-  } else {
+  } else if (head === 'walkthrough') {
     view = <Walkthrough />;
+  } else {
+    view = <Worklist scenarios={SCENARIOS} models={models} />;
   }
 
-  const activeNav = head === 'case' ? 'worklist' : head;
+  const activeNav = head === 'case' ? '' : head;
 
   return (
     <StripProvider>
       <div className="workbench">
         <header className="wb-chrome">
           <div className="wb-identity">
-            <span className="wb-mark">RECALL</span>
-            <span className="wb-app">Clinical Evidence Workbench</span>
+            <a className="wb-mark" href="#/">
+              RECALL
+            </a>
+            <span className="wb-app">Evidence surface</span>
           </div>
           <nav className="wb-nav" aria-label="Workbench sections">
             {NAV.map((item) => (
               <a
                 key={item.path}
-                href={`#/${item.path}`}
+                href={item.path ? `${DEMO_BASE}/${item.path}` : `${DEMO_BASE}/`}
                 className={activeNav === item.path ? 'wb-nav-item active' : 'wb-nav-item'}
               >
                 {item.label}

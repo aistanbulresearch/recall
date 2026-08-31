@@ -1,0 +1,47 @@
+{
+  "note": "Operator snapshot of the cohort run that was still executing when this page was built. Every figure below is stamped with the instant it was read; none of them is a final result. Final counts, the CohortDayManifest, the DataModeReceipt and cost reconciliation are deliberately absent until the run reaches a terminal state and its evidence is collected.",
+  "status": "RUNNING",
+  "as_of_utc": "2026-08-31T09:37:00Z",
+  "as_of_local": "2026-08-31 12:37 TRT",
+  "snapshot_source": "operator snapshot relayed through the Director / L1 platform evidence chain",
+  "binding": {
+    "execution": "Cloud Run Job, generation 27",
+    "source_commit": "63437d20e493f09296af73f50348eb60fbe11030",
+    "image_digest": "sha256:ca4a789c12795b4d968be86a57bac26526e0d4430d3e4e158bc8a22191c8be2c"
+  },
+  "scan_runs": {
+    "total": 456,
+    "terminal_no_action": 128,
+    "created": 326,
+    "watching": 1,
+    "assessing": 1
+  },
+  "role_failures": {
+    "watcher": 0,
+    "assessor": 0,
+    "auditor": 0
+  },
+  "round_trips": {
+    "completed_model_tool_round_trips": 385,
+    "authorization_linked": 385,
+    "gateway_linked": 385,
+    "trace_linked": 385
+  },
+  "artifacts": {
+    "valid": 3689,
+    "invalid": 0
+  },
+  "faults": {
+    "http_429": "1 encountered, recovered, no failed receipt",
+    "iam_failures": 0,
+    "startup_failures": 0,
+    "schema_failures": 0,
+    "unhandled_tracebacks": 0
+  },
+  "pending_until_terminal_evidence": [
+    "final outcome distribution across the cohort",
+    "CohortDayManifest for the run",
+    "DataModeReceipt for the run",
+    "cost reconciliation"
+  ]
+}

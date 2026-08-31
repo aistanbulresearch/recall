@@ -313,8 +313,8 @@ export function Walkthrough() {
             <p>
               The gate is lexical and reason-coded: same receipts, same ruling, every time. And it
               is three-valued — when evidence does not verify it{' '}
-              <a href="#/case/fault">abstains</a>; when integrity cannot be proven it{' '}
-              <a href="#/case/halted">halts</a>. Both are honest endings, recorded like any other.
+              <a href="#/demo/case/fault">abstains</a>; when integrity cannot be proven it{' '}
+              <a href="#/demo/case/halted">halts</a>. Both are honest endings, recorded like any other.
             </p>
             <p className="behind-evidence">
               this scene renders the audited replay bundle's derived fields — outcome and reason
@@ -360,7 +360,7 @@ export function Walkthrough() {
             </p>
             <p className="behind-evidence">
               day counts computed at render time from the governed case file · full chronology and
-              honesty sentences: <a href="#/case/hero">the hero case page</a>
+              honesty sentences: <a href="#/demo/case/hero">the hero case page</a>
             </p>
           </>
         }
@@ -403,7 +403,7 @@ export function Walkthrough() {
               the live gate on a private Vertex endpoint.
             </p>
             <p className="behind-evidence">
-              full figures, hashes and locus: <a href="#/privacy">the privacy desk</a>
+              full figures, hashes and locus: <a href="#/demo/privacy">the privacy desk</a>
             </p>
           </>
         }
@@ -416,10 +416,10 @@ export function Walkthrough() {
           of every figure on this page. Keep going:
         </p>
         <nav className="wt-links">
-          <a href="#/worklist">Worklist</a>
-          <a href="#/cohort">Cohort ledger</a>
-          <a href="#/privacy">Privacy desk</a>
-          <a href="#/dossier">Evidence dossier</a>
+          <a href="#/demo/">Worklist</a>
+          <a href="#/demo/cohort">Cohort ledger</a>
+          <a href="#/demo/privacy">Privacy desk</a>
+          <a href="#/demo/dossier">Evidence dossier</a>
         </nav>
       </footer>
     </div>

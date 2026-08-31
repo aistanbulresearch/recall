@@ -1,0 +1,68 @@
+{
+  "note": "Fortified Enterprise Fleet capability mapping. The badge states how far each claim has actually been proven, and no row is upgraded by association with another. LIVE VERIFIED means observed in the run described on this page; SOURCE VERIFIED means the mechanism is in the executable source and its behaviour is provable by reading it, without a live capture attached here; DEFERRED means deliberately not integrated; NOT VERIFIED means no evidence is claimed.",
+  "capabilities": [
+    {
+      "capability": "Agent Registry",
+      "mechanism": "Approved agent definitions with revisions and capability bindings; the resolution mode travels as a first-class contract field, and the catalog is digest-addressed.",
+      "badge": "SOURCE VERIFIED",
+      "evidence": "src/recall/platform/registry.py — CapabilityBinding, catalog_digest, resolution_mode",
+      "limit": "No live registry console capture is attached, so nothing here is claimed as deployed."
+    },
+    {
+      "capability": "Agent Runtime",
+      "mechanism": "A long-running Cloud Run Job drives the cohort; each role executes as a bounded, typed step rather than a free-running loop.",
+      "badge": "LIVE VERIFIED",
+      "evidence": "current run, generation 27, bound to its source commit and image digest",
+      "limit": "The run had not reached a terminal state when this page was built."
+    },
+    {
+      "capability": "Persistent context",
+      "mechanism": "Firestore holds the durable WatchCase and every independent ScanRun; artifacts are appended to a ledger that agents cannot rewrite.",
+      "badge": "LIVE VERIFIED",
+      "evidence": "3,689 valid artifacts and 0 invalid in the current run",
+      "limit": "Firestore is the authority. Model memory never is."
+    },
+    {
+      "capability": "Memory Bank boundary",
+      "mechanism": "Only admitted, non-authoritative operational context may ever be carried; no decision may rest on it.",
+      "badge": "DEFERRED",
+      "evidence": "ADR-0002 — Firestore authority and Memory Bank boundary",
+      "limit": "No Memory Bank runtime is deployed or claimed. The boundary is a rule, not a running component."
+    },
+    {
+      "capability": "Agent Identity",
+      "mechanism": "Each role runs under its own service identity with role-scoped authority, and the agents hold no ledger write access at all.",
+      "badge": "SOURCE VERIFIED",
+      "evidence": "src/recall/platform/identity.py — identity_for_role, declared_inventory, agents_hold_no_ledger_access",
+      "limit": "The current run recorded 0 IAM failures; account names and project identifiers are deliberately not published."
+    },
+    {
+      "capability": "Agent Gateway",
+      "mechanism": "Every tool call passes an authorization gate that emits a receipt; without a receipt there is no backend authority.",
+      "badge": "LIVE VERIFIED",
+      "evidence": "385 of 385 completed round-trips carry authorization, gateway and trace linkage",
+      "limit": "Counted at the snapshot instant; the run was still adding round-trips."
+    },
+    {
+      "capability": "Model Armor",
+      "mechanism": "Template-driven screening for injection, jailbreak, sensitive data and malicious URIs, producing a decision and findings that never carry the screened text.",
+      "badge": "SOURCE VERIFIED",
+      "evidence": "src/recall/platform/armor.py — evaluate_sanitization, armor_receipt, ArmorFinding",
+      "limit": "No separate live capture is attached, so no Model Armor activity is attributed to the current run."
+    },
+    {
+      "capability": "Observability",
+      "mechanism": "Receipts, logs and typed lifecycle events share trace and span identity; managed component status is aggregated rather than assumed.",
+      "badge": "LIVE VERIFIED",
+      "evidence": "trace linkage on 385 of 385 round-trips; src/recall/platform/observability.py — traceparent, aggregate_managed_status",
+      "limit": "Trace linkage is counted from the run. A console trace capture is pending and is not claimed here."
+    },
+    {
+      "capability": "Long-running state",
+      "mechanism": "A WatchCase outlives any single scan; each ScanRun has its own bounded lifecycle and terminal state.",
+      "badge": "LIVE VERIFIED",
+      "evidence": "456 ScanRuns under one cohort execution, 128 already terminal at the snapshot",
+      "limit": "ADR-0001 governs the durable-case and bounded-scan split."
+    }
+  ]
+}
