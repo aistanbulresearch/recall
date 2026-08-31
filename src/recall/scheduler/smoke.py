@@ -38,6 +38,9 @@ SMOKE_SCHEMA_VERSION = "1.0.0"
 SMOKE_CONCURRENCY = 2
 SMOKE_PROVIDER_MAX_429_RETRIES = 0
 SMOKE_AGGREGATE_TURN_LIMIT = 26
+SMOKE_EXECUTION_TIMEOUT_SECONDS = 28_800
+SMOKE_WRITE_TIMEOUT_SECONDS = 1_800
+SMOKE_AGENT_TIMEOUT_SECONDS = 27_000
 SMOKE_MODE_CASE_COUNTS = {"positive": 4, "negative": 1}
 SMOKE_MODE_TURN_LIMITS = {"positive": 24, "negative": 2}
 SMOKE_NEGATIVE_PROBE = "WATCHER_SCHEMA_INVALID_AFTER_TOOL_ROUND_TRIP"
@@ -179,6 +182,12 @@ def execute_isolated_smoke(
     cycle = plan.by_id("c6")
     if contract.plan_sha256 != plan.sha256:
         raise RuntimeError("smoke_plan_sha256_mismatch")
+    execution_deadline_at, agent_deadline_at = _smoke_deadlines(
+        contract=contract,
+        plan=plan,
+        cycle=cycle,
+        now=now,
+    )
     _require_empty_namespace(ledger)
     selected = select_smoke_cases(plan, bundle, mode=contract.mode)
     _install_smoke_cases(ledger, bundle, cycle, selected, now=now)
@@ -195,7 +204,12 @@ def execute_isolated_smoke(
     )
     batch = execute_verified_batch(
         selected,
-        create_one=lambda item: scheduler._create_case(item, now=now),
+        create_one=lambda item: scheduler._create_case(
+            item,
+            now=now,
+            smoke_execution_deadline_at=execution_deadline_at,
+            smoke_collection_prefix=contract.collection_prefix,
+        ),
         ledger=ledger,
         started_at=now,
     )
@@ -212,7 +226,7 @@ def execute_isolated_smoke(
             contract.collection_prefix
         ),
         checkpoint_run_id=smoke_tick_run_id(contract.collection_prefix),
-        agent_deadline_at=now + timedelta(seconds=cycle.agent_timeout_seconds),
+        agent_deadline_at=agent_deadline_at,
         clock=lambda: now,
     )
     result = collect_isolated_smoke_result(
@@ -229,6 +243,44 @@ def execute_isolated_smoke(
         result=result,
         now=now,
     )
+
+
+def _smoke_deadlines(
+    *,
+    contract: IsolatedSmokeContract,
+    plan: CompressedPlan,
+    cycle: CompressedCycle,
+    now: datetime,
+) -> tuple[datetime, datetime]:
+    if (
+        not isinstance(now, datetime)
+        or now.tzinfo is None
+        or now.utcoffset() != timedelta(0)
+        or plan.schema_version != "2.8.0"
+        or cycle.cycle_id != "c6"
+        or cycle.activation != "ACTIVE"
+        or cycle.execution_profile != "FULL_AUDIT_V1"
+        or not contract.collection_prefix.startswith("dev_recall_smoke_")
+        or contract.plan_sha256 != plan.sha256
+        or (
+            cycle.execution_timeout_seconds,
+            cycle.write_timeout_seconds,
+            cycle.agent_timeout_seconds,
+        )
+        != (
+            SMOKE_EXECUTION_TIMEOUT_SECONDS,
+            SMOKE_WRITE_TIMEOUT_SECONDS,
+            SMOKE_AGENT_TIMEOUT_SECONDS,
+        )
+    ):
+        raise RuntimeError("smoke_deadline_contract_invalid")
+    execution_deadline_at = now + timedelta(
+        seconds=SMOKE_EXECUTION_TIMEOUT_SECONDS
+    )
+    agent_deadline_at = now + timedelta(seconds=SMOKE_AGENT_TIMEOUT_SECONDS)
+    if agent_deadline_at > execution_deadline_at:
+        raise RuntimeError("smoke_deadline_contract_invalid")
+    return execution_deadline_at, agent_deadline_at
 
 
 def collect_isolated_smoke_result(

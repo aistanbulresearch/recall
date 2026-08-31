@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
@@ -24,7 +24,9 @@ from recall.scheduler.model_cost import (
     InMemoryModelCostLedger,
 )
 from recall.scheduler.smoke import (
+    build_smoke_contract,
     derive_smoke_prefix,
+    execute_isolated_smoke,
     smoke_manifest_artifact_id,
     smoke_mode_receipt_artifact_id,
     verify_persisted_smoke_artifacts,
@@ -96,8 +98,9 @@ def _environment(plan_sha: str) -> dict[str, str]:
     }
 
 
-def _factory(runner):
+def _factory(runner, *, now: datetime | None = None):
     coordinators: list[FullAuditCoordinator] = []
+    effective_now = now or datetime(2026, 8, 29, 16, 0, tzinfo=UTC)
 
     def build(ledger):
         coordinator = FullAuditCoordinator(
@@ -108,7 +111,7 @@ def _factory(runner):
                 hard_cap_usd_micros=75_000_000
             ),
             cost_policy=DEFAULT_MODEL_COST_POLICY,
-            clock=lambda: datetime(2026, 8, 29, 16, 0, tzinfo=UTC),
+            clock=lambda: effective_now,
         )
         coordinators.append(coordinator)
         return coordinator
@@ -116,7 +119,7 @@ def _factory(runner):
     return build, coordinators
 
 
-def _invoke(mode: str, runner):
+def _invoke(mode: str, runner, *, now: datetime | None = None):
     from recall.scheduler.compressed_plan import load_compressed_plan
 
     plan = load_compressed_plan(ROOT)
@@ -137,7 +140,8 @@ def _invoke(mode: str, runner):
         ledgers[collection_prefix] = ledger
         return ledger
 
-    full_audit_factory, coordinators = _factory(runner)
+    effective_now = now or plan.by_id("c6").window_start
+    full_audit_factory, coordinators = _factory(runner, now=effective_now)
     result = execute(
         [
             "--smoke-mode",
@@ -148,12 +152,159 @@ def _invoke(mode: str, runner):
             prefix,
         ],
         environment=_environment(plan.sha256),
-        now_factory=lambda: plan.by_id("c6").window_start,
+        now_factory=lambda: effective_now,
         ledger_factory=ledger_factory,
         full_audit_factory=full_audit_factory,
         repo_root=ROOT,
     )
     return result, prefix, ledger_calls, ledgers[prefix], coordinators[0]
+
+
+def test_positive_smoke_uses_actual_start_deadlines_after_historical_window(
+    monkeypatch,
+) -> None:
+    from recall.scheduler.compressed_plan import load_compressed_plan
+    import recall.scheduler.smoke as smoke_module
+
+    plan = load_compressed_plan(ROOT)
+    cycle = plan.by_id("c6")
+    actual_start = cycle.end_to_end_deadline + timedelta(days=1)
+    observed: dict[str, datetime] = {}
+    real_phase = smoke_module.execute_full_audit_phase
+
+    def observe_phase(*args, **kwargs):
+        observed["agent_deadline_at"] = kwargs["agent_deadline_at"]
+        return real_phase(*args, **kwargs)
+
+    monkeypatch.setattr(smoke_module, "execute_full_audit_phase", observe_phase)
+
+    result, _prefix, _calls, ledger, _coordinator = _invoke(
+        "positive",
+        DeterministicFullAuditRunner(),
+        now=actual_start,
+    )
+
+    assert set(result["terminal_states"]) == {"NO_ACTION"}
+    assert observed["agent_deadline_at"] == actual_start + timedelta(
+        seconds=cycle.agent_timeout_seconds
+    )
+    expected_deadline = (
+        actual_start + timedelta(seconds=cycle.execution_timeout_seconds)
+    ).isoformat().replace("+00:00", "Z")
+    for run_id in result["run_ids"]:
+        record = ledger.get_scan_run(run_id)
+        assert record is not None
+        wire = ledger.get_artifact(record.scan_run_artifact_id)
+        assert wire is not None
+        assert wire["scheduled_for"] == cycle.schedule_epoch
+        assert wire["deadline_at"] == expected_deadline
+
+
+def test_negative_smoke_preserves_typed_failure_after_historical_window() -> None:
+    from recall.scheduler.compressed_plan import load_compressed_plan
+
+    cycle = load_compressed_plan(ROOT).by_id("c6")
+    actual_start = cycle.end_to_end_deadline + timedelta(seconds=1)
+    result, *_ = _invoke(
+        "negative",
+        FailingWatcherRunner(),
+        now=actual_start,
+    )
+
+    assert result["terminal_states"] == ["HALTED"]
+    assert result["technical_failure_codes"] == ["agent_schema_invalid"]
+    assert result["policy_decision_count"] == 0
+
+
+@pytest.mark.parametrize("invalid_start", [None, datetime(2026, 8, 31, 0, 0)])
+def test_smoke_missing_or_malformed_actual_start_fails_before_writes(
+    invalid_start,
+) -> None:
+    from recall.scheduler.compressed_plan import load_compressed_plan
+
+    plan = load_compressed_plan(ROOT)
+    prefix = derive_smoke_prefix(
+        source_commit=SOURCE_COMMIT,
+        plan_sha256=plan.sha256,
+        mode="positive",
+        smoke_id=SMOKE_ID,
+    )
+    contract = build_smoke_contract(
+        mode="positive",
+        smoke_id=SMOKE_ID,
+        collection_prefix=prefix,
+        source_commit=SOURCE_COMMIT,
+        plan_sha256=plan.sha256,
+        image_digest=IMAGE_DIGEST,
+        expected_plan_sha256=plan.sha256,
+        expected_image_digest=IMAGE_DIGEST,
+        preparation_bundle_sha256=_bundle_sha(),
+        job_max_retries="0",
+    )
+    ledger = InMemoryLedger()
+
+    with pytest.raises(RuntimeError, match="smoke_deadline_contract_invalid"):
+        execute_isolated_smoke(
+            contract=contract,
+            ledger=ledger,
+            plan=plan,
+            bundle=None,  # type: ignore[arg-type]
+            coordinator=None,  # type: ignore[arg-type]
+            now=invalid_start,  # type: ignore[arg-type]
+        )
+
+    assert all(
+        ledger.read_back_count(name) == 0 for name in ledger.collection_names
+    )
+
+
+def test_smoke_over_budget_deadline_contract_fails_before_writes() -> None:
+    from recall.scheduler.compressed_plan import load_compressed_plan
+
+    plan = load_compressed_plan(ROOT)
+    c6 = plan.by_id("c6")
+    mutated = replace(
+        plan,
+        cycles=tuple(
+            replace(item, execution_timeout_seconds=28_801)
+            if item.cycle_id == "c6"
+            else item
+            for item in plan.cycles
+        ),
+    )
+    prefix = derive_smoke_prefix(
+        source_commit=SOURCE_COMMIT,
+        plan_sha256=plan.sha256,
+        mode="positive",
+        smoke_id=SMOKE_ID,
+    )
+    contract = build_smoke_contract(
+        mode="positive",
+        smoke_id=SMOKE_ID,
+        collection_prefix=prefix,
+        source_commit=SOURCE_COMMIT,
+        plan_sha256=plan.sha256,
+        image_digest=IMAGE_DIGEST,
+        expected_plan_sha256=plan.sha256,
+        expected_image_digest=IMAGE_DIGEST,
+        preparation_bundle_sha256=_bundle_sha(),
+        job_max_retries="0",
+    )
+    ledger = InMemoryLedger()
+
+    with pytest.raises(RuntimeError, match="smoke_deadline_contract_invalid"):
+        execute_isolated_smoke(
+            contract=contract,
+            ledger=ledger,
+            plan=mutated,
+            bundle=None,  # type: ignore[arg-type]
+            coordinator=None,  # type: ignore[arg-type]
+            now=c6.end_to_end_deadline + timedelta(seconds=1),
+        )
+
+    assert all(
+        ledger.read_back_count(name) == 0 for name in ledger.collection_names
+    )
 
 
 def test_positive_smoke_runs_four_cases_through_all_three_roles() -> None:

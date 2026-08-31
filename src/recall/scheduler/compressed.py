@@ -459,8 +459,18 @@ class CompressedCycleScheduler:
         )
 
     def _create_case(
-        self, item: CompressedCohortCase, *, now: datetime
+        self,
+        item: CompressedCohortCase,
+        *,
+        now: datetime,
+        smoke_execution_deadline_at: datetime | None = None,
+        smoke_collection_prefix: str | None = None,
     ) -> BatchCaseResult:
+        deadline_at = self._deadline(
+            now,
+            smoke_execution_deadline_at=smoke_execution_deadline_at,
+            smoke_collection_prefix=smoke_collection_prefix,
+        )
         record = self._ledger.get_watch_case(item.case_id)
         if record is None or record.next_scan_at != self._cycle.schedule_epoch:
             raise RuntimeError("compressed_watch_case_not_due")
@@ -498,7 +508,7 @@ class CompressedCycleScheduler:
                 or existing_artifact.payload.scheduled_for
                 != self._cycle.schedule_epoch
                 or existing_artifact.payload.watch_case_id != item.case_id
-                or existing_artifact.payload.deadline_at != self._deadline(now)
+                or existing_artifact.payload.deadline_at != deadline_at
             ):
                 raise RuntimeError("compressed_existing_scan_run_mismatch")
             return BatchCaseResult(
@@ -525,7 +535,7 @@ class CompressedCycleScheduler:
             triggered_at=now,
             budget_snapshot=BUDGET_SNAPSHOT,
             trace_id=self._trace_id(item.case_id),
-            deadline_at=self._deadline(now),
+            deadline_at=deadline_at,
             now=now,
             execution_profile=(
                 ExecutionProfile.FULL_AUDIT_V1
@@ -557,7 +567,7 @@ class CompressedCycleScheduler:
             self._cycle.schedule_epoch,
             key,
             self._trace_id(item.case_id),
-            self._deadline(now),
+            deadline_at,
             BUDGET_SNAPSHOT,
             self._cycle.execution_profile,
         )
@@ -673,8 +683,50 @@ class CompressedCycleScheduler:
                 expected_write_metrics=parsed.payload.write_metrics,
             )
 
-    def _deadline(self, now: datetime) -> str:
-        del now
+    def _deadline(
+        self,
+        now: datetime,
+        *,
+        smoke_execution_deadline_at: datetime | None = None,
+        smoke_collection_prefix: str | None = None,
+    ) -> str:
+        if (smoke_execution_deadline_at is None) != (
+            smoke_collection_prefix is None
+        ):
+            raise RuntimeError("smoke_execution_deadline_invalid")
+        if smoke_execution_deadline_at is not None:
+            ledger_prefix = getattr(self._ledger, "collection_prefix", None)
+            if (
+                not isinstance(now, datetime)
+                or now.tzinfo is None
+                or now.utcoffset() != timedelta(0)
+                or not isinstance(smoke_execution_deadline_at, datetime)
+                or smoke_execution_deadline_at.tzinfo is None
+                or smoke_execution_deadline_at.utcoffset() != timedelta(0)
+                or not isinstance(smoke_collection_prefix, str)
+                or not smoke_collection_prefix.startswith("dev_recall_smoke_")
+                or (
+                    ledger_prefix is not None
+                    and ledger_prefix != smoke_collection_prefix
+                )
+                or self._owner_release is not None
+                or self._plan.schema_version != "2.8.0"
+                or self._cycle.cycle_id != "c6"
+                or self._cycle.activation != "ACTIVE"
+                or self._cycle.execution_profile != "FULL_AUDIT_V1"
+                or (
+                    self._cycle.execution_timeout_seconds,
+                    self._cycle.write_timeout_seconds,
+                    self._cycle.agent_timeout_seconds,
+                )
+                != (28_800, 1_800, 27_000)
+                or smoke_execution_deadline_at
+                != now + timedelta(seconds=28_800)
+            ):
+                raise RuntimeError("smoke_execution_deadline_invalid")
+            return smoke_execution_deadline_at.isoformat().replace(
+                "+00:00", "Z"
+            )
         return self._effective_deadline().isoformat().replace(
             "+00:00", "Z"
         )
