@@ -40,13 +40,28 @@ export function DemoPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
   const [asked, setAsked] = useState<Set<string>>(new Set());
-  const endRef = useRef<HTMLDivElement | null>(null);
+  const threadRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(0);
 
+  /**
+   * Bring the question that was just asked to the top of the view, so its
+   * answer starts where the reader is looking. Scrolling to the end of the
+   * thread would land them in the middle of a long answer.
+   */
   useEffect(() => {
-    if (turns.length > 0) {
-      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (turns.length === 0) {
+      return;
     }
+    // ':last-of-type' matches by element type, not by class, so the last
+    // question is found by taking the last of all of them.
+    const questions = threadRef.current?.querySelectorAll('.turn.you');
+    const asked = questions?.[questions.length - 1];
+    // Instant, and synchronous. A smooth scroll can be cancelled before it
+    // arrives, and a scroll deferred to an animation frame never runs at all
+    // while the tab is in the background; either way the reader would be left
+    // in the middle of a long answer. The effect runs after the new turn is
+    // in the DOM, so the position it reads is the final one.
+    asked?.scrollIntoView({ behavior: 'auto', block: 'start' });
   }, [turns]);
 
   function ask(question: string, answerId?: string) {
@@ -119,7 +134,7 @@ export function DemoPage() {
           </p>
         </header>
 
-        <div className="thread" role="log" aria-live="polite">
+        <div className="thread" role="log" aria-live="polite" ref={threadRef}>
           {turns.map((turn) =>
             turn.from === 'you' ? (
               <div className="turn you" key={turn.id}>
@@ -140,7 +155,6 @@ export function DemoPage() {
               </div>
             ),
           )}
-          <div ref={endRef} />
         </div>
 
         <div className="suggestions">

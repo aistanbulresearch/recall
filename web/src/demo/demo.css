@@ -62,7 +62,14 @@
 
 .thread { display: flex; flex-direction: column; gap: 26px; }
 
-.turn { display: grid; grid-template-columns: 72px 1fr; gap: 16px; align-items: start; }
+/* A little air above the question when it is scrolled to the top. */
+.turn {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 16px;
+  align-items: start;
+  scroll-margin-top: 24px;
+}
 
 .who {
   font-size: 0.64rem;
