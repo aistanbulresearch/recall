@@ -20,6 +20,7 @@ from recall.agents.in_process_runtime import (
     _effective_request_bytes,
 )
 from recall.agents.provider_pacing import ProviderRateLimiter
+from recall.agents.schemas import AssessmentAgentOutput, EvidenceSnapshotOutput
 from recall.contracts import AgentRole
 
 
@@ -31,7 +32,7 @@ class ToolThenJsonLlm(BaseLlm):
         output = (
             '{"effective_at":"2026-08-27T08:00:00Z",'
             '"observation_ids":[],"coverage_status":"PASS",'
-            '"source_cursors":{"clinvar":"42"},'
+            '"source_cursors":{"synthetic-source":"cursor-001"},'
             '"normalized_facts":{"observation_count":1,"scope":"synthetic"},'
             '"conflicts":[],"snapshot_hash":"' + "a" * 64 + '"}'
         )
@@ -131,7 +132,7 @@ class ToolThenThoughtAndValidFinalLlm(BaseLlm):
         output = (
             '{"effective_at":"2026-08-27T08:00:00Z",'
             '"observation_ids":[],"coverage_status":"PASS",'
-            '"source_cursors":{"clinvar":"42"},'
+            '"source_cursors":{"synthetic-source":"cursor-001"},'
             '"normalized_facts":{"observation_count":1,'
             '"scope":"synthetic"},"conflicts":[],"snapshot_hash":"'
             + "a" * 64
@@ -244,7 +245,7 @@ class RepeatToolUnlessFinalTurnIsLockedLlm(BaseLlm):
             output = (
                 '{"effective_at":"2026-08-27T08:00:00Z",'
                 '"observation_ids":[],"coverage_status":"PASS",'
-                '"source_cursors":{"clinvar":"42"},'
+                '"source_cursors":{"synthetic-source":"cursor-001"},'
                 '"normalized_facts":{"observation_count":1,'
                 '"scope":"synthetic"},"conflicts":[],"snapshot_hash":"'
                 + "a" * 64
@@ -480,7 +481,10 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
         observed.append(
             (stage, tool_context.invocation_id, tool_context.function_call_id)
         )
-        return {"records": [{"source": "synthetic"}]}
+        return {
+            "records": [{"source": "synthetic"}],
+            "source_cursors": {"synthetic-source": "cursor-001"},
+        }
 
     context = RoleExecutionContext(
         case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
@@ -510,6 +514,9 @@ def test_in_process_runner_executes_real_adk_function_tool_and_returns_telemetry
     assert runner.provider_limiter.dispatch_count == 2
     assert result.turns[0].function_call_emitted is True
     assert result.tool_call_ids == result.tool_response_ids
+    assert result.tool_results["evidence_connector"]["source_cursors"] == {
+        "synthetic-source": "cursor-001"
+    }
 
 
 def test_smoke_probe_fails_after_real_watcher_tool_round_trip_without_retry() -> None:
@@ -587,8 +594,12 @@ def test_watcher_tool_exposes_no_model_controlled_stage_and_keeps_local_guard() 
 @pytest.mark.parametrize(
     ("final_text", "error_code"),
     [
-        ("not-json", "agent_schema_invalid"),
-        (None, "agent_response_missing"),
+        ("not-json", "agent_schema_invalid:json_invalid"),
+        (None, "agent_response_missing:response_missing"),
+        (
+            "{}",
+            "agent_schema_invalid:pydantic_invalid:effective_at:missing",
+        ),
     ],
 )
 def test_schema_failure_after_real_tool_round_trip_preserves_runtime_evidence(
@@ -626,6 +637,128 @@ def test_schema_failure_after_real_tool_round_trip_preserves_runtime_evidence(
     assert error.turns[1].function_call_emitted is False
     assert len(error.tool_call_ids) == 1
     assert error.tool_call_ids == error.tool_response_ids
+
+
+def test_provider_visible_watcher_schema_round_trips_exact_synthetic_source() -> None:
+    schema = EvidenceSnapshotOutput.model_json_schema(by_alias=True)
+    source_schema = schema["$defs"]["SourceCursorsOutput"]
+
+    assert "synthetic-source" in source_schema["properties"]
+    parsed = EvidenceSnapshotOutput.model_validate(
+        {
+            "effective_at": "2026-08-31T00:00:00Z",
+            "observation_ids": [],
+            "coverage_status": "PASS",
+            "source_cursors": {"synthetic-source": "cursor-001"},
+            "normalized_facts": {
+                "observation_count": 1,
+                "scope": "synthetic",
+            },
+            "conflicts": [],
+            "snapshot_hash": "a" * 64,
+        }
+    )
+    assert parsed.to_contract_payload()["source_cursors"] == {
+        "synthetic-source": "cursor-001"
+    }
+
+
+def test_schema_failure_detail_never_persists_model_supplied_field_or_value() -> None:
+    payload = {
+        "effective_at": "2026-08-31T00:00:00Z",
+        "observation_ids": [],
+        "coverage_status": "PASS",
+        "source_cursors": {"synthetic-source": "cursor-001"},
+        "normalized_facts": {
+            "observation_count": 1,
+            "scope": "synthetic",
+        },
+        "conflicts": [],
+        "snapshot_hash": "a" * 64,
+        "model-supplied-secret-name": "model-supplied-secret-value",
+    }
+
+    with pytest.raises(RoleExecutionError) as captured:
+        asyncio.run(
+            _runner(ToolThenInvalidFinalLlm(json.dumps(payload))).execute(
+                AgentRole.EVIDENCE_WATCHER,
+                "Call once and return strict JSON.",
+                {"evidence_connector": lambda **_: {"records": []}},
+                RoleExecutionContext(
+                    case_id="728d6e23-5ee4-4bd4-9319-4304f55628f3",
+                    run_id="2c90e154-0c23-5294-ab5c-3f647c150875",
+                    attempt=1,
+                    invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
+                    input_artifact_ids=(),
+                    trace_id="e190f6ac-b726-42ae-ac2b-e4b80638e91c",
+                ),
+            )
+        )
+
+    assert captured.value.code == (
+        "agent_schema_invalid:pydantic_invalid:field:extra_forbidden"
+    )
+    assert "secret" not in captured.value.code
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "evidence_delta": {
+                "candidate_receipt_id": "not-a-uuid",
+                "previous_snapshot_id": None,
+                "current_snapshot_id": "00000000-0000-4000-8000-000000000011",
+                "added_observation_refs": [],
+                "removed_observation_refs": [],
+                "change_items": [],
+                "comparison": {
+                    "classification_changed": "NOT_EVALUATED",
+                    "classification_source_refs": [],
+                },
+                "materiality_proposal": "NO_CANDIDATE",
+                "uncertainties": [],
+                "counter_evidence_refs": [],
+            },
+            "assessment_receipt": {
+                "delta_id": "00000000-0000-4000-8000-000000000012",
+                "material_claims": [],
+                "counter_evidence_set": [],
+                "uncertainty_codes": [],
+                "schema_validation_status": "PASS",
+            },
+        },
+        {
+            "evidence_delta": {
+                "candidate_receipt_id": "00000000-0000-4000-8000-000000000010",
+                "previous_snapshot_id": None,
+                "current_snapshot_id": "00000000-0000-4000-8000-000000000011",
+                "added_observation_refs": [],
+                "removed_observation_refs": [],
+                "change_items": [],
+                "comparison": {
+                    "classification_changed": "NOT_EVALUATED",
+                    "classification_source_refs": [],
+                },
+                "materiality_proposal": "",
+                "uncertainties": [],
+                "counter_evidence_refs": [],
+            },
+            "assessment_receipt": {
+                "delta_id": "00000000-0000-4000-8000-000000000012",
+                "material_claims": [],
+                "counter_evidence_set": [],
+                "uncertainty_codes": [],
+                "schema_validation_status": "PASS",
+            },
+        },
+    ],
+)
+def test_provider_visible_assessor_schema_rejects_downstream_invalid_boundaries(
+    payload,
+) -> None:
+    with pytest.raises(ValueError):
+        AssessmentAgentOutput.model_validate(payload)
 
 
 def test_schema_parser_excludes_explicit_thought_parts_without_normalizing_output() -> None:

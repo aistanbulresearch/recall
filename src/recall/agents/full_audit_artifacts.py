@@ -6,7 +6,14 @@ from hashlib import sha256
 from uuid import UUID, uuid5
 
 from recall.agents.schemas import AssessmentAgentOutput, CitationAuditOutput, EvidenceSnapshotOutput
-from recall.contracts import AgentRole, ArtifactStatus, DataMode, canonical_json_bytes, build_artifact
+from recall.contracts import (
+    AgentRole,
+    ArtifactStatus,
+    ContractError,
+    DataMode,
+    build_artifact,
+    canonical_json_bytes,
+)
 from recall.ledger.producers import PRODUCER_REGISTRY
 
 from .full_audit_models import PreparedRunEvidence, RoleRunResult, TurnTelemetry
@@ -141,6 +148,7 @@ def build_failed_receipt(
     tool_records: tuple[Mapping[str, str], ...] = (),
     tool_call_ids: tuple[str, ...] = (),
     tool_response_ids: tuple[str, ...] = (),
+    schema_failure_detail: str | None = None,
 ) -> dict[str, object]:
     return _agent_receipt(
         case_id=case_id,
@@ -161,6 +169,7 @@ def build_failed_receipt(
         partial_tool_records=tool_records,
         partial_tool_call_ids=tool_call_ids,
         partial_tool_response_ids=tool_response_ids,
+        schema_failure_detail=schema_failure_detail,
     )
 
 
@@ -331,6 +340,13 @@ def build_assessor_artifacts(
     output = result.output
     delta_id = _id(run_id, "evidence-delta")
     no_candidate = candidate["candidate_delta_state"] != "PRESENT"
+    _validate_assessor_output(
+        output,
+        candidate=candidate,
+        snapshot=snapshot,
+        delta_id=delta_id,
+        no_candidate=no_candidate,
+    )
     delta = _artifact(
         "EvidenceDelta", "2.0.0", delta_id, evidence.case_id, run_id,
         "evidence-assessor", evidence.data_mode, result.completed_at,
@@ -365,6 +381,44 @@ def build_assessor_artifacts(
         (delta_id,),
     )
     return delta, assessment, dict(completed_receipt)
+
+
+def _validate_assessor_output(
+    output: AssessmentAgentOutput,
+    *,
+    candidate: Mapping[str, object],
+    snapshot: Mapping[str, object],
+    delta_id: str,
+    no_candidate: bool,
+) -> None:
+    delta = output.evidence_delta
+    receipt = output.assessment_receipt
+    comparison = delta.comparison.model_dump(mode="json")
+    exact_bindings = (
+        delta.candidate_receipt_id == candidate["artifact_id"]
+        and delta.previous_snapshot_id == candidate["previous_snapshot_id"]
+        and delta.current_snapshot_id == snapshot["artifact_id"]
+        and receipt.delta_id == delta_id
+        and delta.removed_observation_refs == []
+        and comparison
+        == {
+            "classification_changed": "NOT_EVALUATED",
+            "classification_source_refs": [],
+        }
+        and delta.counter_evidence_refs == []
+    )
+    no_candidate_bindings = (
+        delta.added_observation_refs == []
+        and delta.change_items == []
+        and delta.materiality_proposal == "NO_CANDIDATE"
+        and receipt.material_claims == []
+        and receipt.counter_evidence_set == []
+    )
+    candidate_bindings = delta.materiality_proposal != "NO_CANDIDATE"
+    if not exact_bindings or (
+        no_candidate and not no_candidate_bindings
+    ) or (not no_candidate and not candidate_bindings):
+        raise ContractError("assessor_output_binding_invalid")
 
 
 def build_auditor_artifacts(
@@ -481,6 +535,7 @@ def _agent_receipt(
     partial_tool_records: tuple[Mapping[str, str], ...] = (),
     partial_tool_call_ids: tuple[str, ...] = (),
     partial_tool_response_ids: tuple[str, ...] = (),
+    schema_failure_detail: str | None = None,
 ) -> dict[str, object]:
     artifact_id = _id(run_id, f"agent:{role.value}:{attempt}:{status}")
     latency = None if completed_at is None else round((completed_at - started_at).total_seconds() * 1000)
@@ -536,6 +591,17 @@ def _agent_receipt(
         },
         dependency_ids,
         status=ArtifactStatus.VALID if status != "FAILED" else ArtifactStatus.INCOMPLETE,
+        warnings=(
+            ()
+            if schema_failure_detail is None
+            else (
+                {
+                    "code": "agent_schema_failure",
+                    "message_key": schema_failure_detail,
+                    "related_artifact_ids": [],
+                },
+            )
+        ),
     )
 
 
@@ -544,6 +610,7 @@ def _artifact(
     identity: str, data_mode: DataMode, now: datetime,
     payload: Mapping[str, object], inputs: Sequence[str] = (),
     *, status: ArtifactStatus = ArtifactStatus.VALID,
+    warnings: Sequence[Mapping[str, object]] = (),
 ) -> dict[str, object]:
     return build_artifact(
         schema_name=schema, schema_version=version, artifact_id=artifact_id,
@@ -552,6 +619,7 @@ def _artifact(
         created_at=_timestamp(now), input_artifact_ids=tuple(sorted(inputs)),
         data_mode=data_mode, status=status, payload=payload,
         authorized_producers=PRODUCER_REGISTRY,
+        warnings=warnings,
     )
 
 

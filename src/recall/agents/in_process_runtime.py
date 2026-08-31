@@ -14,7 +14,7 @@ from google.adk.models import BaseLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, ValidationError
 
 from recall.contracts import AgentRole, ContractError
 
@@ -29,6 +29,7 @@ from .full_audit_models import (
 )
 from .local_tools import LocalToolCallContext
 from .provider_pacing import DEFAULT_PROVIDER_RPM, ProviderRateLimiter
+from .schemas import schema_validation_error_code
 
 
 _TWO_TURN_TOOL_PLAN_ROLES = frozenset(
@@ -263,9 +264,11 @@ def _adk_tools(
         ) -> dict[str, object]:
             """Read the hash-bound prepared evidence for this run."""
 
-            return local["evidence_connector"](
+            result = local["evidence_connector"](
                 stage="prepared", tool_context=_local_context(tool_context)
             )
+            tool_results["evidence_connector"] = dict(result)
+            return result
 
         wrapped["evidence_connector"] = evidence_connector
 
@@ -330,9 +333,9 @@ def _parse_last_output(
         if text:
             try:
                 return output_schema.model_validate_json(text)
-            except ValueError as exc:
-                raise ContractError("agent_schema_invalid") from exc
-    raise ContractError("agent_response_missing")
+            except ValidationError as exc:
+                raise ContractError(schema_validation_error_code(exc)) from exc
+    raise ContractError("agent_response_missing:response_missing")
 
 
 def _tool_event_ids(events: list[object]) -> tuple[tuple[str, ...], tuple[str, ...]]:

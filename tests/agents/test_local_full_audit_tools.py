@@ -61,6 +61,7 @@ def _tools(*, with_binding: bool):
             role_execution_invocation_id="34a66eed-6fa4-5b22-a146-f8e8d2e6070e",
             data_mode=DataMode.CAPTURED_REPLAY,
             evidence_records=(),
+            source_cursors={},
             clock=lambda: NOW,
             citation_sources=cited,
             refetch_fetcher=fetch,
@@ -124,16 +125,19 @@ def test_role_rejects_changed_adk_invocation_before_second_tool_reservation() ->
             ),
             data_mode=DataMode.SYNTHETIC,
             evidence_records=({"source": "synthetic"},),
+            source_cursors={"synthetic-source": "cursor-001"},
             clock=lambda: NOW,
             citation_sources={},
             tool_record_sink=records.append,
         ),
     )
     first_adk_invocation = str(uuid4())
-    tools["evidence_connector"](
+    result = tools["evidence_connector"](
         stage="prepared",
         tool_context=LocalToolCallContext(first_adk_invocation, "call-1"),
     )
+
+    assert result["source_cursors"] == {"synthetic-source": "cursor-001"}
 
     with pytest.raises(RuntimeError, match="adk_invocation_identity_mismatch"):
         tools["evidence_connector"](

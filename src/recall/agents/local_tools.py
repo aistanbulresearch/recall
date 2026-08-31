@@ -34,6 +34,7 @@ class LocalToolInputs:
     role_execution_invocation_id: str
     data_mode: DataMode
     evidence_records: tuple[Mapping[str, object], ...]
+    source_cursors: Mapping[str, str]
     clock: Callable[[], Any]
     citation_sources: Mapping[str, Mapping[str, object]]
     refetch_fetcher: Callable[[str], LiveSourceRecord] | None = None
@@ -137,7 +138,10 @@ def build_local_tools(
                 "evidence_connector",
                 {"stage": stage},
                 tool_context,
-                lambda: {"records": [dict(item) for item in inputs.evidence_records]},
+                lambda: {
+                    "records": [dict(item) for item in inputs.evidence_records],
+                    "source_cursors": dict(sorted(inputs.source_cursors.items())),
+                },
             )
 
         return {"evidence_connector": evidence_connector}

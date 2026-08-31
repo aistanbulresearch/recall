@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 import recall.agents.full_audit as full_audit_module
@@ -117,12 +117,13 @@ class FakeRoleRunner:
                 stage="prepared", tool_context=context.tool_context("watcher-call")
             )
             assert tool_value["records"]
+            tool_results["evidence_connector"] = tool_value
             output = EvidenceSnapshotOutput.model_validate(
                 {
                     "effective_at": "2026-08-27T08:00:00Z",
                     "observation_ids": [],
                     "coverage_status": "PASS",
-                    "source_cursors": {"clinvar": "42"},
+                    "source_cursors": tool_value["source_cursors"],
                     "normalized_facts": {"observation_count": 1, "scope": "synthetic"},
                     "conflicts": [],
                     "snapshot_hash": "a" * 64,
@@ -156,7 +157,9 @@ class FakeRoleRunner:
                         "counter_evidence_refs": [],
                     },
                     "assessment_receipt": {
-                        "delta_id": "00000000-0000-4000-8000-000000000001",
+                        "delta_id": str(
+                            uuid5(UUID(context.run_id), "evidence-delta")
+                        ),
                         "material_claims": [],
                         "counter_evidence_set": [],
                         "uncertainty_codes": [],
@@ -255,7 +258,9 @@ class MaterialClaimToolPlanRunner(FakeRoleRunner):
                             "counter_evidence_refs": [],
                         },
                         "assessment_receipt": {
-                            "delta_id": "00000000-0000-4000-8000-000000000001",
+                            "delta_id": str(
+                                uuid5(UUID(context.run_id), "evidence-delta")
+                            ),
                             "material_claims": ["claim-1"],
                             "counter_evidence_set": [],
                             "uncertainty_codes": [],
@@ -349,11 +354,11 @@ def _full_audit_run() -> tuple[InMemoryLedger, str, PreparedRunEvidence]:
         case_id=CASE_ID,
         now=NOW,
         next_scan_at="2026-08-27T08:00:00Z",
-        source_cursors={"clinvar": "42"},
+        source_cursors={"synthetic-source": "cursor-001"},
     )
     created = controller.create_run(
         watch_case_id=CASE_ID,
-        source_cursors={"clinvar": "42"},
+        source_cursors={"synthetic-source": "cursor-001"},
         schedule_epoch="2026-08-27T08:00:00Z",
         data_mode=DataMode.SYNTHETIC,
         privacy_receipt_id=str(receipt["artifact_id"]),
@@ -379,7 +384,7 @@ def _full_audit_run() -> tuple[InMemoryLedger, str, PreparedRunEvidence]:
     return ledger, created.run_id, PreparedRunEvidence(
         case_id=CASE_ID,
         cloud_bound_payload=cloud_payload,
-        source_cursors={"clinvar": "42"},
+        source_cursors={"synthetic-source": "cursor-001"},
         data_mode=DataMode.SYNTHETIC,
         replay_observations=(),
     )
@@ -674,7 +679,21 @@ def test_role_ledger_read_must_match_exact_controller_supplied_artifact(
     )
 
 
-def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_once() -> None:
+@pytest.mark.parametrize(
+    ("runtime_code", "warning_detail"),
+    [
+        ("agent_response_missing:response_missing", "response_missing"),
+        ("agent_schema_invalid:json_invalid", "json_invalid"),
+        (
+            "agent_schema_invalid:pydantic_invalid:effective_at:missing",
+            "pydantic_invalid:effective_at:missing",
+        ),
+    ],
+)
+def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_once(
+    runtime_code: str,
+    warning_detail: str,
+) -> None:
     ledger, run_id, evidence = _full_audit_run()
     inner = InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000)
 
@@ -705,7 +724,7 @@ def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_onc
                 tool_context=context.tool_context("watcher-call"),
             )
             raise RoleExecutionError(
-                "agent_response_missing",
+                runtime_code,
                 turns=(turn,),
                 tool_call_ids=("watcher-call",),
                 tool_response_ids=("watcher-call",),
@@ -738,6 +757,13 @@ def test_schema_failure_persists_tool_evidence_and_reconciles_reserved_turns_onc
 
     assert outcome.terminal_state == "HALTED"
     assert failed["failure_code"] == "agent_schema_invalid"
+    assert failed["warnings"] == [
+        {
+            "code": "agent_schema_failure",
+            "message_key": warning_detail,
+            "related_artifact_ids": [],
+        }
+    ]
     assert failed["turns"] == [turn.to_wire()]
     assert failed["tool_call_ids"] == ["watcher-call"]
     assert failed["tool_response_ids"] == ["watcher-call"]
@@ -790,6 +816,13 @@ def test_post_assessor_contract_failure_preserves_completed_role_evidence(
 
     assert outcome.terminal_state == "HALTED"
     assert failed["failure_code"] == "agent_schema_invalid"
+    assert failed["warnings"] == [
+        {
+            "code": "agent_schema_failure",
+            "message_key": "artifact_contract:contract_required_field_missing",
+            "related_artifact_ids": [],
+        }
+    ]
     assert failed["turns"]
     assert failed["tool_call_ids"] == ["assessor-call"]
     assert failed["tool_response_ids"] == ["assessor-call"]
@@ -797,6 +830,119 @@ def test_post_assessor_contract_failure_preserves_completed_role_evidence(
         "ledger_read"
     ]
     assert outcome.policy_decision_id is None
+
+
+def test_watcher_cursor_mismatch_halts_without_policy_decision() -> None:
+    ledger, run_id, evidence = _full_audit_run()
+
+    class CursorMismatchRunner(FakeRoleRunner):
+        async def execute(self, role, prompt, tools, context):
+            result = await super().execute(role, prompt, tools, context)
+            if role is not AgentRole.EVIDENCE_WATCHER:
+                return result
+            return replace(
+                result,
+                output=EvidenceSnapshotOutput.model_validate(
+                    {
+                        **result.output.model_dump(mode="json", by_alias=True),
+                        "source_cursors": {"clinvar": "42"},
+                    }
+                ),
+            )
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=CursorMismatchRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["execution_status"] == "FAILED"
+    )
+    assert failed["warnings"] == [
+        {
+            "code": "agent_schema_failure",
+            "message_key": "artifact_contract:watcher_source_cursor_mismatch",
+            "related_artifact_ids": [],
+        }
+    ]
+
+
+@pytest.mark.parametrize("candidate_present", [False, True])
+def test_assessor_contradictory_controller_owned_claims_halt_fail_closed(
+    candidate_present: bool,
+) -> None:
+    ledger, run_id, evidence = _full_audit_run()
+    base_runner = (
+        MaterialClaimToolPlanRunner(("claim-1",))
+        if candidate_present
+        else FakeRoleRunner()
+    )
+    if candidate_present:
+        evidence = _material_claim_evidence(evidence)
+
+    class ContradictoryAssessorRunner:
+        async def execute(self, role, prompt, tools, context):
+            result = await base_runner.execute(role, prompt, tools, context)
+            if role is not AgentRole.EVIDENCE_ASSESSOR:
+                return result
+            wire = result.output.model_dump(mode="json")
+            if candidate_present:
+                wire["evidence_delta"]["current_snapshot_id"] = (
+                    "00000000-0000-4000-8000-000000000099"
+                )
+            else:
+                wire["assessment_receipt"]["material_claims"] = [
+                    "fabricated-no-candidate-claim"
+                ]
+            return replace(
+                result,
+                output=AssessmentAgentOutput.model_validate(wire),
+            )
+
+    coordinator = FullAuditCoordinator(
+        ledger,
+        role_runner=ContradictoryAssessorRunner(),
+        invocation_store=InMemoryGatewayInvocationStore(),
+        cost_ledger=InMemoryModelCostLedger(
+            hard_cap_usd_micros=75_000_000
+        ),
+        cost_policy=DEFAULT_MODEL_COST_POLICY,
+    )
+
+    outcome = asyncio.run(
+        coordinator.execute_run(run_id, evidence=evidence, now=NOW)
+    )
+
+    assert outcome.terminal_state == "HALTED"
+    assert outcome.policy_decision_id is None
+    failed = next(
+        item
+        for item in ledger.list_by_run(run_id)
+        if item["schema_name"] == "AgentExecutionReceipt"
+        and item["agent_role"] == AgentRole.EVIDENCE_ASSESSOR.value
+        and item["execution_status"] == "FAILED"
+    )
+    assert failed["warnings"] == [
+        {
+            "code": "agent_schema_failure",
+            "message_key": "artifact_contract:assessor_output_binding_invalid",
+            "related_artifact_ids": [],
+        }
+    ]
 
 
 def test_deadline_exhausted_after_reservation_reconciles_both_turns_to_zero() -> None:
@@ -1224,7 +1370,7 @@ def test_hash_bound_exact_allele_projection_creates_present_candidate() -> None:
     )
     coordinator = FullAuditCoordinator(
         ledger,
-        role_runner=FakeRoleRunner(),
+        role_runner=MaterialClaimToolPlanRunner(("claim-1",)),
         invocation_store=InMemoryGatewayInvocationStore(),
         cost_ledger=InMemoryModelCostLedger(hard_cap_usd_micros=75_000_000),
         cost_policy=DEFAULT_MODEL_COST_POLICY,

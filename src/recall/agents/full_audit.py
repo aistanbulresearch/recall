@@ -57,6 +57,11 @@ from .full_audit_models import (
     TurnTelemetry,
 )
 from .local_tools import LocalToolInputs, build_local_tools
+from .schemas import (
+    EvidenceSnapshotOutput,
+    safe_contract_code,
+    safe_schema_failure_detail,
+)
 
 
 __all__ = [
@@ -166,7 +171,7 @@ class FullAuditCoordinator:
                         completed_receipt=completed,
                     )
                 except ContractError as exc:
-                    raise self._role_contract_failure(result) from exc
+                    raise self._role_contract_failure(result, exc.code) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -216,7 +221,7 @@ class FullAuditCoordinator:
                         completed_receipt=completed,
                     )
                 except ContractError as exc:
-                    raise self._role_contract_failure(result) from exc
+                    raise self._role_contract_failure(result, exc.code) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -267,7 +272,7 @@ class FullAuditCoordinator:
                         completed_receipt=completed,
                     )
                 except ContractError as exc:
-                    raise self._role_contract_failure(result) from exc
+                    raise self._role_contract_failure(result, exc.code) from exc
                 current = self._ledger.commit_agent_step(
                     run_id,
                     expected_version=current.version,
@@ -448,6 +453,7 @@ class FullAuditCoordinator:
         prompt = self._prompt(
             role,
             input_artifact_ids,
+            run_id=run_id,
             required_refetch_claim_ids=required_refetch_claim_ids,
         )
         validate_request_budget(prompt.encode("utf-8"), self._cost_policy)
@@ -465,6 +471,7 @@ class FullAuditCoordinator:
                 evidence_records=prepared_tool_records(
                     evidence, observed_at=now
                 ),
+                source_cursors=evidence.source_cursors,
                 clock=lambda: now,
                 citation_sources=evidence.citation_sources,
                 refetch_fetcher=evidence.refetch_fetcher,
@@ -583,6 +590,11 @@ class FullAuditCoordinator:
                     tool_call_ids=result.tool_call_ids,
                     tool_response_ids=result.tool_response_ids,
                 )
+            if role is AgentRole.EVIDENCE_WATCHER:
+                self._verify_watcher_source_cursors(
+                    result,
+                    expected_source_cursors=evidence.source_cursors,
+                )
             if required_ledger_artifact_id is not None:
                 self._verify_ledger_read_target(
                     result,
@@ -678,6 +690,7 @@ class FullAuditCoordinator:
                 tool_records=active_tool_records,
                 tool_call_ids=active_tool_call_ids,
                 tool_response_ids=active_tool_response_ids,
+                schema_failure_detail=self._schema_failure_detail(error),
             )
         failure = build_artifact(
             schema_name="FailureReceipt", schema_version="1.0.0",
@@ -836,10 +849,12 @@ class FullAuditCoordinator:
             isinstance(error, RoleExecutionError) and error.code == "agent_timeout"
         ):
             return "agent_timeout"
-        if isinstance(error, RoleExecutionError) and error.code in {
-            "agent_schema_invalid",
-            "agent_response_missing",
-        }:
+        if isinstance(error, RoleExecutionError) and (
+            error.code == "agent_schema_invalid"
+            or error.code.startswith("agent_schema_invalid:")
+            or error.code == "agent_response_missing"
+            or error.code.startswith("agent_response_missing:")
+        ):
             return "agent_schema_invalid"
         if isinstance(error, RoleExecutionError):
             return "controller_failed"
@@ -931,12 +946,19 @@ class FullAuditCoordinator:
         role: AgentRole,
         input_ids: tuple[str, ...],
         *,
+        run_id: str,
         required_refetch_claim_ids: tuple[str, ...] = (),
     ) -> str:
         if role is AgentRole.EVIDENCE_WATCHER:
             return "Call evidence_connector once, then return the strict EvidenceSnapshot output."
         if role is AgentRole.EVIDENCE_ASSESSOR:
-            return f"Call ledger_read for CandidateDeltaReceipt {input_ids[0]}; return strict assessment JSON even when no candidate exists."
+            delta_id = str(uuid5(UUID(run_id), "evidence-delta"))
+            return (
+                "Call ledger_read for CandidateDeltaReceipt "
+                f"{input_ids[0]}; bind current_snapshot_id to {input_ids[1]} "
+                f"and assessment delta_id to {delta_id}; return strict "
+                "assessment JSON even when no candidate exists."
+            )
         claim_ids = json.dumps(
             list(required_refetch_claim_ids), separators=(",", ":")
         )
@@ -1026,12 +1048,56 @@ class FullAuditCoordinator:
             )
 
     @staticmethod
-    def _role_contract_failure(result: RoleRunResult) -> RoleExecutionError:
+    def _verify_watcher_source_cursors(
+        result: RoleRunResult,
+        *,
+        expected_source_cursors: Mapping[str, str],
+    ) -> None:
+        output = result.output
+        tool_result = result.tool_results.get("evidence_connector")
+        output_cursors = (
+            output.source_cursors.model_dump(
+                mode="json", by_alias=True, exclude_none=True
+            )
+            if isinstance(output, EvidenceSnapshotOutput)
+            else None
+        )
+        tool_cursors = (
+            tool_result.get("source_cursors")
+            if isinstance(tool_result, Mapping)
+            else None
+        )
+        expected = dict(sorted(expected_source_cursors.items()))
+        if (
+            set(result.tool_results) != {"evidence_connector"}
+            or output_cursors != expected
+            or tool_cursors != expected
+        ):
+            raise RoleExecutionError(
+                "agent_schema_invalid:artifact_contract:watcher_source_cursor_mismatch",
+                turns=result.turns,
+                http_429_count=result.http_429_count,
+                tool_records=result.tool_records,
+                tool_call_ids=result.tool_call_ids,
+                tool_response_ids=result.tool_response_ids,
+            )
+
+    @staticmethod
+    def _role_contract_failure(
+        result: RoleRunResult, contract_code: str
+    ) -> RoleExecutionError:
         return RoleExecutionError(
-            "agent_schema_invalid",
+            "agent_schema_invalid:artifact_contract:"
+            + safe_contract_code(contract_code),
             turns=result.turns,
             http_429_count=result.http_429_count,
             tool_records=result.tool_records,
             tool_call_ids=result.tool_call_ids,
             tool_response_ids=result.tool_response_ids,
         )
+
+    @staticmethod
+    def _schema_failure_detail(error: Exception) -> str | None:
+        if not isinstance(error, RoleExecutionError):
+            return None
+        return safe_schema_failure_detail(error.code)
