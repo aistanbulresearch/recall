@@ -14,6 +14,7 @@
 
 import gemmaRunManifest from '../data/gemma-run-manifest.json';
 import historicalCase from '../data/historical-case.json';
+import p1Corrected from '../data/p1-corrected-view.json';
 import p1Report from '../data/p1-privacy-report.json';
 import walkthroughCase from '../data/walkthrough-case.json';
 
@@ -97,8 +98,13 @@ export const HERO_CASE_FIELDS: Record<string, StripEntry> = Object.fromEntries(
   ).map(([key, label, path]) => [key, entry(CASE_FILE, hero, key, label, path)]),
 );
 
-const P1_FILE = 'data/p1-privacy-report.json';
-const p1 = p1Report as unknown as Json;
+// Published figures come from the CORRECTED VIEW plus the committed erratum.
+// The raw report is kept only for the fields amendment 001 did not touch, and
+// is never the source of an arm declaration.
+const P1_FILE = 'data/p1-corrected-view.json';
+const P1_RAW_FILE = 'data/p1-privacy-report.json';
+const p1 = p1Corrected as unknown as Json;
+const p1raw = p1Report as unknown as Json;
 
 /**
  * Frozen P1 privacy study. Arm labels travel with the figures: arm B is the
@@ -112,7 +118,9 @@ export const P1_FIELDS: Record<string, StripEntry> = Object.fromEntries(
       ['EV-P1-BASELINE-RECORDS', 'Baseline records', '$.baseline.combined.document_level.records'],
       ['EV-P1-ARM-B-ACCEPTED', 'With Gemma (arm B) accepted', '$.comparison_arm_b.combined.document_level.accepted'],
       ['EV-P1-ARM-B-RECORDS', 'With Gemma (arm B) records', '$.comparison_arm_b.combined.document_level.records'],
-      ['EV-P1-ARM-B-STATUS', 'Arm B declared status', '$.arms.secondary.status'],
+      ['EV-P1-PRIMARY-ARM', 'Primary arm (amendment 001)', '$.arms.primary.arm'],
+      ['EV-P1-PRIMARY-STATUS', 'Primary arm status', '$.arms.primary.status'],
+      ['EV-P1-SECONDARY-ARM', 'Secondary arm (amendment 001)', '$.arms.secondary.arm'],
       ['EV-P1-ESCAPES-BASE', 'Escaped identifiers (baseline)', '$.baseline.combined.document_level.escaped_direct_identifier_surfaces'],
       ['EV-P1-ESCAPES-ARM-B', 'Escaped identifiers (arm B)', '$.comparison_arm_b.combined.document_level.escaped_direct_identifier_surfaces'],
       ['EV-P1-STRUCTURED-ACCEPTED', 'Structured-only egress accepted', '$.structured_only_egress.combined.document_level.accepted'],
@@ -122,6 +130,15 @@ export const P1_FIELDS: Record<string, StripEntry> = Object.fromEntries(
       ['EV-P1-CONTENT-HASH', 'Report content hash', '$.content_hash'],
     ] as const
   ).map(([key, label, path]) => [key, entry(P1_FILE, p1, key, label, path)]),
+);
+
+/** The superseded declaration, kept so the correction can be shown as one. */
+export const P1_SUPERSEDED = entry(
+  P1_RAW_FILE,
+  p1raw,
+  'EV-P1-SUPERSEDED-ARM-STATUS',
+  'Arm status before amendment 001',
+  '$.arms.secondary.status',
 );
 
 const WT_FILE = 'data/walkthrough-case.json';

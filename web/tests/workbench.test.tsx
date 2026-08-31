@@ -15,7 +15,7 @@ import goldenBundle from '../src/bundles/golden.json';
 import haltedBundle from '../src/bundles/halted.json';
 import { buildViewModel } from '../src/viewmodel/builder';
 import type { ArtifactBundle } from '../src/viewmodel/types';
-import { GEMMA_RUN_FIELDS, P1_FIELDS } from '../src/workbench/evidence-files';
+import { GEMMA_RUN_FIELDS, P1_FIELDS, P1_SUPERSEDED } from '../src/workbench/evidence-files';
 import { StripProvider } from '../src/workbench/strip';
 import { HeroCase } from '../src/workbench/views/HeroCase';
 import { PrivacyDesk } from '../src/workbench/views/PrivacyDesk';
@@ -110,8 +110,21 @@ describe('privacy desk evidence chips', () => {
     expect(P1_FIELDS['EV-P1-BASELINE-ACCEPTED'].value).toBe(0);
     expect(P1_FIELDS['EV-P1-BASELINE-RECORDS'].value).toBe(180);
     expect(P1_FIELDS['EV-P1-ARM-B-ACCEPTED'].value).toBe(136);
-    expect(P1_FIELDS['EV-P1-ARM-B-STATUS'].value).toBe('declared secondary, exploratory');
     expect(P1_FIELDS['EV-P1-ESCAPES-ARM-B'].value).toBe(0);
+  });
+
+  it('takes its arm declarations from the corrected view, not the raw report', () => {
+    // Amendment 001 made surface_exact_search the primary arm. The raw report
+    // still says otherwise, and a surface that repeats it publishes a
+    // superseded declaration.
+    expect(P1_FIELDS['EV-P1-PRIMARY-ARM'].value).toBe('surface_exact_search');
+    expect(P1_FIELDS['EV-P1-PRIMARY-STATUS'].value).toBe('primary under amendment 001');
+    expect(P1_FIELDS['EV-P1-SECONDARY-ARM'].value).toBe('model_offsets');
+    for (const field of Object.values(P1_FIELDS)) {
+      expect(field.lineage).toContain('p1-corrected-view.json');
+    }
+    expect(P1_SUPERSEDED.value).toBe('declared secondary, exploratory');
+    expect(P1_SUPERSEDED.lineage).toContain('p1-privacy-report.json');
   });
 
   it('resolves the full-cohort run figures from the committed manifest', () => {
@@ -121,9 +134,14 @@ describe('privacy desk evidence chips', () => {
     expect(String(GEMMA_RUN_FIELDS['EV-GEMMA-COMMIT'].value)).toMatch(/^697aa6eb/);
   });
 
-  it('renders the arm label beside the arm figures', () => {
+  it('renders the corrected arm declarations, and the superseded one as a correction', () => {
     const markup = render(<PrivacyDesk />);
-    expect(markup).toContain('declared secondary, exploratory');
+    expect(markup).toContain('primary under amendment 001');
+    expect(markup).toContain('surface_exact_search');
+    // The old label may appear only inside the sentence that calls it superseded.
+    const supersededIndex = markup.indexOf('declared secondary, exploratory');
+    expect(supersededIndex).toBeGreaterThan(-1);
+    expect(markup.slice(0, supersededIndex)).toContain('The raw manifest still declares');
     expect(markup).toContain('462');
   });
 

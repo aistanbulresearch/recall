@@ -7,7 +7,7 @@
  * from the report itself.
  */
 
-import { GEMMA_RUN_FIELDS, P1_FIELDS } from '../evidence-files';
+import { GEMMA_RUN_FIELDS, P1_FIELDS, P1_SUPERSEDED } from '../evidence-files';
 import { DerivedValue, useStripEntries } from '../strip';
 
 function chip(map: Record<string, { key: string }>, key: string) {
@@ -37,10 +37,15 @@ export function PrivacyDesk() {
           <p className="card-note">
             180 synthetic records. The deterministic-only baseline accepts{' '}
             {chip(P1_FIELDS, 'EV-P1-BASELINE-ACCEPTED')} of{' '}
-            {chip(P1_FIELDS, 'EV-P1-BASELINE-RECORDS')}; with the Gemma residual detector (arm
-            labelled {chip(P1_FIELDS, 'EV-P1-ARM-B-STATUS')}) acceptance rises to{' '}
-            {chip(P1_FIELDS, 'EV-P1-ARM-B-ACCEPTED')} of{' '}
+            {chip(P1_FIELDS, 'EV-P1-BASELINE-RECORDS')}; with the Gemma residual detector
+            acceptance rises to {chip(P1_FIELDS, 'EV-P1-ARM-B-ACCEPTED')} of{' '}
             {chip(P1_FIELDS, 'EV-P1-ARM-B-RECORDS')}.
+          </p>
+          <p className="card-line">
+            arm declarations, as amendment 001 fixed them:{' '}
+            {chip(P1_FIELDS, 'EV-P1-PRIMARY-ARM')} is{' '}
+            {chip(P1_FIELDS, 'EV-P1-PRIMARY-STATUS')}, with{' '}
+            {chip(P1_FIELDS, 'EV-P1-SECONDARY-ARM')} fully reported beside it
           </p>
           <p className="card-line">
             escaped identifier surfaces: baseline {chip(P1_FIELDS, 'EV-P1-ESCAPES-BASE')} · arm B{' '}
@@ -91,9 +96,11 @@ export function PrivacyDesk() {
       </div>
 
       <p className="honesty-footnote">
-        All records are synthetic. The Gemma arm figures carry their preregistration label; the
-        receipt run's signing key lives outside the repository and only its fingerprint appears
-        in evidence.
+        Published figures come from the corrected view and the committed erratum. The raw
+        manifest still declares this arm <DerivedValue entry={P1_SUPERSEDED} />, which amendment
+        001 superseded; it appears here as the correction it is, never as a label. All records
+        are synthetic, and the receipt run's signing key lives outside the repository — only its
+        fingerprint appears in evidence.
       </p>
     </section>
   );

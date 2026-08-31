@@ -10,6 +10,8 @@
 
 import type { ReactNode } from 'react';
 
+import correctedView from '../data/p1-corrected-view.json';
+import gemmaRunManifest from '../data/gemma-run-manifest.json';
 import historicalCase from '../data/historical-case.json';
 import {
   cohort,
@@ -27,6 +29,31 @@ const governance = cohort.governance_checks;
 const gate = cohort.tool_and_gateway;
 const funnel = roleFunnel();
 const decided = Object.values(governance.policy_outcomes_seen).reduce((a, b) => a + b, 0);
+
+/**
+ * The frozen privacy study, read from the CORRECTED VIEW. Amendment 001 made
+ * `surface_exact_search` the primary arm; the raw report still carries the
+ * superseded declaration, so anything published must come from here plus the
+ * committed erratum.
+ */
+const p1 = correctedView as unknown as {
+  arms: Record<string, { arm: string; status: string }>;
+  baseline: { combined: { document_level: Record<string, number> } };
+  comparison_arm_b: { combined: { document_level: Record<string, number> } };
+  structured_only_egress: { combined: { document_level: Record<string, number> } };
+  frozen_test_run_id: string;
+  record_count: number;
+};
+
+const gemmaRun = gemmaRunManifest as unknown as {
+  receipt_count: number;
+  elapsed_minutes: number;
+  receipts_sha256: string;
+  notes_sha256: string;
+  verifier_lock_fingerprint_sha256: string;
+  code_source_commit: string;
+  locus: Record<string, string>;
+};
 
 const hero = historicalCase as unknown as {
   dates: Record<string, string>;
@@ -355,9 +382,9 @@ export const ANSWERS: Answer[] = [
           reported rather than filled in with an invented hash.
         </p>
         <p className="quiet">
-          Separately, a frozen 462-case measurement at an earlier commit put the whole portfolio
-          through the privacy gate with the Gemma leg live. It is a historical measurement, never
-          re-run, and it is labelled as one wherever it appears.
+          A local Gemma proposes the residual spans the deterministic layer misses, and a frozen
+          study measures exactly what that adds. Ask <b>what the local model actually adds</b>
+          for the figures and their provenance.
         </p>
       </>
     ),
@@ -834,6 +861,67 @@ export const ANSWERS: Answer[] = [
       </>
     ),
     more: { href: '#/story#how', label: 'The full architecture, drawn' },
+  },
+  {
+    id: 'gemma',
+    label: 'What does the local model actually add?',
+    keywords: [
+      'gemma',
+      'local model',
+      'small model',
+      'on-device',
+      'frozen',
+      'measurement',
+      'study',
+      'redaction',
+      'residual',
+      'what does the local model',
+      'why two models',
+    ],
+    body: (
+      <>
+        <p>
+          Deterministic detectors alone are safe but blunt. On the frozen study of{' '}
+          <b>{p1.record_count}</b> synthetic records, the deterministic-only baseline let{' '}
+          <b>{p1.baseline.combined.document_level.accepted}</b> records through the egress gate —
+          everything else was quarantined as possibly still carrying an identifier.
+        </p>
+        <p>
+          With a <b>local Gemma</b> proposing the residual spans the deterministic layer missed,
+          and deterministic adjudication deciding what to do with those proposals,{' '}
+          <b>{p1.comparison_arm_b.combined.document_level.accepted}</b> of {p1.record_count}{' '}
+          records became releasable — with{' '}
+          <b>{p1.comparison_arm_b.combined.document_level.escaped_direct_identifier_surfaces}</b>{' '}
+          escaped direct identifiers. The model widens what can be shared; it never decides what
+          is safe.
+        </p>
+        <p className="quiet">
+          Arm labels as amendment 001 fixed them: <code>{p1.arms.primary.arm}</code> is{' '}
+          {p1.arms.primary.status}, <code>{p1.arms.secondary.arm}</code> is{' '}
+          {p1.arms.secondary.status}. Figures come from the corrected view and the committed
+          erratum, not from the raw manifest, whose arm declarations were superseded.
+        </p>
+        <p>
+          Separately, the whole portfolio — <b>{gemmaRun.receipt_count} cases</b> — was put
+          through the real privacy gate with the Gemma leg live on a private endpoint, producing
+          a signed receipt for every case in {Math.round(gemmaRun.elapsed_minutes)} minutes. Each
+          receipt declares where it ran: <code>{gemmaRun.locus.execution_locus}</code> /{' '}
+          <code>{gemmaRun.locus.transport_class}</code> /{' '}
+          <code>{gemmaRun.locus.endpoint_class}</code>.
+        </p>
+        <p className="quiet">
+          That receipt run is a <b>historical frozen measurement</b>, executed once at commit{' '}
+          <code>{gemmaRun.code_source_commit.slice(0, 8)}</code> — not the current product commit{' '}
+          <code>{execution.deployed.source_commit.slice(0, 8)}</code>. It is never re-run: the
+          preregistration binds it to a single execution, so a new run would be a new experiment
+          rather than a confirmation. It has been revalidated read-only against the current
+          contract — {gemmaRun.receipt_count} of {gemmaRun.receipt_count} receipts parsed and
+          signature-verified, zero writes, original bytes unchanged — and its{' '}
+          {gemmaRun.receipt_count} cases are a different population from the {p1.record_count}{' '}
+          study records. The two are never combined.
+        </p>
+      </>
+    ),
   },
 ];
 
