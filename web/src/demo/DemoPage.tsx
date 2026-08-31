@@ -25,7 +25,11 @@ interface Turn {
   more?: { href: string; label: string };
 }
 
-const OPENERS = ANSWERS.slice(0, 5);
+/** The five a jury reaches for first: what, why, what ran, what broke, what is new. */
+const OPENER_IDS = ['about', 'why', 'run', 'failure', 'innovation'];
+const OPENERS = OPENER_IDS.map((id) => ANSWERS.find((answer) => answer.id === id)!).filter(
+  Boolean,
+);
 
 export function DemoPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -59,7 +63,7 @@ export function DemoPage() {
               </p>
               <p className="quiet">Here is everything the artifacts do cover:</p>
               <p className="codes">
-                {ANSWERS.map((option) => (
+                {ANSWERS.slice(0, 8).map((option) => (
                   <button
                     key={option.id}
                     type="button"

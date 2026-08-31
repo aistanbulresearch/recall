@@ -5,8 +5,8 @@
       "capability": "Agent Registry",
       "mechanism": "Approved agent definitions with revisions and capability bindings; the resolution mode travels as a first-class contract field, and the catalog is digest-addressed.",
       "badge": "SOURCE VERIFIED",
-      "evidence": "src/recall/platform/registry.py — CapabilityBinding, catalog_digest, resolution_mode",
-      "limit": "No live registry console capture is attached, so nothing here is claimed as deployed."
+      "evidence": "a resolution receipt for every one of the 456 cases, each recording resolution_mode PINNED_FALLBACK with validation_status PASS",
+      "limit": "In this run the endpoints were pinned, not catalogued, and the registry recorded that on every case rather than presenting a pinned endpoint as catalogued. Catalogue-resolved discovery is proven in the source and the receipt contract, not in this execution."
     },
     {
       "capability": "Agent Runtime",

@@ -158,3 +158,87 @@ describe('answer layout cannot collapse its own content', () => {
     expect(demoCss).toMatch(/\.demo \{[^}]*font-family: var\(--mono\)/);
   });
 });
+
+describe('the questions a jury actually asks', () => {
+  /**
+   * Measured, not assumed. An interface that refuses most plausible questions
+   * reads as broken rather than disciplined, so the routing is held to a
+   * corpus of questions a judge would realistically type. Every entry must
+   * reach an answer; a miss is a coverage defect, not a matter of taste.
+   */
+  const CORPUS = [
+    'what is recall',
+    'tell me about this project',
+    'what technology did you use',
+    'is this running on google cloud',
+    'which google cloud services',
+    'do you use gemini',
+    'what model powers this',
+    'how does the agent registry work',
+    'how would another team discover these agents',
+    'can another department reuse this',
+    'how does it remember between scans',
+    'what is persistent state',
+    'does it use a memory bank',
+    'how do the agents get their permissions',
+    'what stops an agent doing something it should not',
+    'is there a gateway',
+    'how do you observe what happened',
+    'can I see traces',
+    'what is innovative here',
+    'why is this different from a chatbot',
+    'how does this scale to a hospital',
+    'what happens next time it runs',
+    'can I see the code',
+    'how can I verify this myself',
+    'who is the user',
+    'is this safe for patients',
+    'what about hallucinations',
+    'show me the architecture',
+    'how long did it take',
+    'what happened when something failed',
+    'how much did it cost',
+    'what leaves the laboratory',
+    'what cannot you prove',
+    'show me one case',
+    'who are the agents',
+    'what did the run do',
+    'why does this matter',
+    'is there an audit trail',
+    'how are tool calls authorized',
+  ];
+
+  it('answers every question in the corpus', () => {
+    const misses = CORPUS.filter((question) => match(question) === null);
+    expect(misses, `unanswered: ${misses.join(' | ')}`).toEqual([]);
+  });
+
+  it('covers each rubric capability with at least one answer', () => {
+    for (const id of [
+      'stack',
+      'registry',
+      'memory',
+      'identity',
+      'observability',
+      'governance',
+      'innovation',
+      'scale',
+      'verify',
+      'architecture',
+      'privacy',
+      'authority',
+      'failure',
+      'limits',
+    ]) {
+      expect(byId(id), `no answer for ${id}`).not.toBeNull();
+    }
+  });
+
+  it('tells the truth about registry resolution in this run', () => {
+    const registry = renderToStaticMarkup(<>{byId('registry')!.body}</>);
+    // Every resolution in this execution recorded PINNED_FALLBACK. The page
+    // must not present a pinned endpoint as a catalogued one.
+    expect(registry).toContain('PINNED_FALLBACK');
+    expect(registry).toContain('not claimed as catalogue-resolved in this run');
+  });
+});

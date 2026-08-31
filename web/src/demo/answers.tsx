@@ -74,6 +74,39 @@ const sampleHalted = halted[0];
 
 export const ANSWERS: Answer[] = [
   {
+    id: 'about',
+    label: 'What is Recall?',
+    keywords: [
+      'what is recall',
+      'what is this',
+      'about',
+      'tell me about',
+      'explain the project',
+      'overview',
+      'introduce',
+    ],
+    body: (
+      <>
+        <p>
+          Recall watches closed genomic cases after the appointment ends. When a genetic result
+          is filed as <b>uncertain</b>, nobody is assigned to re-read it — and the evidence that
+          would settle it arrives years later, in a public database, with no connection to the
+          chart it should change.
+        </p>
+        <p>
+          A fleet of agents with separated duties keeps looking: one finds new public evidence, a
+          second judges whether it is material for that case, a third independently re-opens
+          every source and verifies the citations. None of them decides. A deterministic policy
+          gate reads their signed receipts and rules, and only a human specialist may act.
+        </p>
+        <p>
+          Everything on this page comes from one real execution of that fleet on Google Cloud:{' '}
+          {cases.length} cases, {hours(execution.duration_seconds)}, unattended.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'run',
     label: 'What happened in the run?',
     keywords: ['the run', 'execution', 'overall', 'summary', 'how many cases', 'what happened in the run'],
@@ -218,7 +251,14 @@ export const ANSWERS: Answer[] = [
   {
     id: 'governance',
     label: 'What can an auditor actually check?',
-    keywords: ['auditor can check', 'verify', 'governance', 'authorization', 'trace', 'audit trail', 'what can i check'],
+    keywords: [
+      'auditor can check',
+      'governance',
+      'audit trail',
+      'what can i check',
+      'what can an auditor',
+      'counted from',
+    ],
     body: (
       <>
         <p>Everything below is counted from the run’s stored artifacts, not from a log line:</p>
@@ -264,7 +304,19 @@ export const ANSWERS: Answer[] = [
   {
     id: 'why',
     label: 'Why does any of this matter?',
-    keywords: ['why', 'matter', 'problem', 'patient', 'clinic', 'purpose', 'vus', 'uncertain significance'],
+    keywords: [
+      'why',
+      'matter',
+      'problem',
+      'patient',
+      'clinic',
+      'purpose',
+      'vus',
+      'uncertain significance',
+      'who is the user',
+      'who benefits',
+      'who is it for',
+    ],
     body: (
       <>
         <p>
@@ -408,6 +460,380 @@ export const ANSWERS: Answer[] = [
       </>
     ),
     more: { href: '#/run', label: 'Browse all 456' },
+  },
+  {
+    id: 'stack',
+    label: 'What is it built on?',
+    keywords: [
+      'built on',
+      'technology',
+      'tech stack',
+      'stack',
+      'google cloud',
+      'gcp',
+      'gemini',
+      'vertex',
+      'cloud run',
+      'firestore',
+      'adk',
+      'what model',
+      'which services',
+      'infrastructure',
+    ],
+    body: (
+      <>
+        <p>Google Cloud carries the critical path, not a side path:</p>
+        <ul>
+          <li>
+            <b>Cloud Run Job</b> runs the cohort as one long-lived execution — this one for{' '}
+            {hours(execution.duration_seconds)} — started by a scheduler, not by a person.
+          </li>
+          <li>
+            <b>Firestore</b> is the authoritative ledger: the durable watch case, every
+            independent scan run, and an append-only artifact trail the agents cannot rewrite.
+          </li>
+          <li>
+            <b>{String(cohort.runtime.runtime_class)}</b> — the agent runtime executes in process
+            inside that job, with {String(cohort.runtime.concurrency)} cases in flight.
+          </li>
+          <li>
+            <b>{String(cohort.runtime.model_id)}</b> through{' '}
+            <b>{String(cohort.runtime.endpoint_class)}</b> for the reasoning roles, under the
+            execution profile <code>{String(cohort.runtime.execution_profile)}</code>.
+          </li>
+          <li>
+            A <b>local Gemma</b> handles residual-span detection at the privacy boundary, so note
+            text never has to leave the laboratory to be screened.
+          </li>
+        </ul>
+        <p className="quiet">
+          Median agent latency in this run was {Math.round(cohort.latency_ms.p50 / 1000)}s, p95{' '}
+          {Math.round(cohort.latency_ms.p95 / 1000)}s.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'registry',
+    label: 'How would another team find and reuse these agents?',
+    keywords: [
+      'registry',
+      'discover',
+      'discovery',
+      'another team',
+      'another department',
+      'reuse',
+      'catalog',
+      'catalogue',
+      'adopt',
+      'consumer',
+    ],
+    body: (
+      <>
+        <p>
+          A consuming team asks for a <b>capability</b>, not a URL. Resolution returns the binding
+          together with the mode it was found by — <code>REGISTERED</code> when the agent reached
+          the catalog through <code>agents.create</code>, <code>MANUAL_SERVICE</code> when it was
+          registered as a service, and <code>PINNED_FALLBACK</code> when an endpoint was pinned
+          outside the catalog. The catalog record is digest-addressed, so a changed catalog is
+          detectable, and a capability with no entry is recorded as unresolved rather than
+          quietly substituted.
+        </p>
+        <p>
+          This run produced a resolution receipt for every one of its {cases.length} cases, and
+          all of them record <code>PINNED_FALLBACK</code> with{' '}
+          <code>validation_status: PASS</code>.
+        </p>
+        <p className="quiet">
+          That is the honest reading: in this execution the endpoints were pinned, not catalogued
+          — and the registry said so on every case rather than presenting a pinned endpoint as a
+          catalogued one. Cross-department discovery is proven as a mechanism in the source and
+          in the receipt contract; it is not claimed as catalogue-resolved in this run.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'memory',
+    label: 'How does it remember between scans?',
+    keywords: [
+      'remember',
+      'memory',
+      'persistent',
+      'persistence',
+      'between scans',
+      'next time',
+      'long-running',
+      'long running',
+      'watchcase',
+      'memory bank',
+      'keeps state',
+    ],
+    body: (
+      <>
+        <p>
+          Two lifetimes, deliberately separated. A <b>watch case</b> is durable and outlives any
+          single scan; a <b>scan run</b> is bounded and has its own terminal state. This execution
+          carried <b>{cohort.watch_cases_in_ledger}</b> watch cases and <b>{cases.length}</b> scan
+          runs — one bounded attempt per durable case.
+        </p>
+        <p>
+          Continuity lives in Firestore, not in a model's context window: source cursors, the last
+          verified snapshot, pending observations and the case's own state. A scan that halts
+          leaves the case intact and scannable again; nothing about the next scan depends on what
+          a model happened to still have in memory.
+        </p>
+        <p className="quiet">
+          A managed Memory Bank is deliberately not part of this. The architecture admits only
+          non-authoritative operational context there, and no such runtime is deployed or claimed
+          — Firestore is the authority.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'identity',
+    label: 'What stops an agent doing something it should not?',
+    keywords: [
+      'permission',
+      'identity',
+      'iam',
+      'service account',
+      'stops an agent',
+      'not allowed',
+      'privilege',
+      'least privilege',
+      'gateway',
+      'authoriz',
+      'guardrail',
+    ],
+    body: (
+      <>
+        <p>Four boundaries, none of which is a prompt instruction:</p>
+        <ul>
+          <li>
+            Each role runs under its <b>own service identity</b> with a role-scoped capability.
+          </li>
+          <li>
+            The agents hold <b>no write access to the ledger at all</b> — they cannot record their
+            own conclusions.
+          </li>
+          <li>
+            Every tool call passes an authorization gate that emits a receipt. Without a receipt
+            there is no backend authority. This run: {String(gate.tool_call_ids)} calls,{' '}
+            {String(gate.tool_authorization_receipts)} receipts,{' '}
+            {governance.tool_calls_without_authorization} unauthorized.
+          </li>
+          <li>
+            The agent that proposes is never the agent that verifies, and neither can end a case —
+            only the deterministic gate can.
+          </li>
+        </ul>
+        <p className="quiet">
+          Account names, project identifiers and endpoint ids are deliberately not published on
+          this page.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'observability',
+    label: 'If something goes wrong, can you reconstruct it?',
+    keywords: [
+      'observab',
+      'observe',
+      'observing',
+      'trace',
+      'tracing',
+      'reconstruct',
+      'debug',
+      'incident',
+      'logs',
+      'telemetry',
+      'monitoring',
+      'root cause',
+    ],
+    body: (
+      <>
+        <p>
+          Yes, per case. This run recorded <b>{governance.distinct_trace_ids}</b> trace chains —
+          one for each case — with <b>{governance.runs_with_more_than_one_trace}</b> mismatches and{' '}
+          <b>{governance.agent_receipts_without_trace}</b> untraced agent receipts.
+        </p>
+        <p>
+          For any single case you can recover which roles started and finished, what each tool
+          call was authorized to do, the artifacts produced with their schema, producer and
+          content hash, the gate's outcome and reason codes, and — where it applies — the failure
+          receipt with the stage it names. That is why the eight timeouts are a story rather than
+          a mystery.
+        </p>
+        <p className="quiet">
+          {cohort.rate_limiting.http_429_count} rate-limit responses were absorbed during the run,
+          and {cohort.rate_limiting.cases_failed_by_rate_limiting} cases failed because of one.
+          Retries and failures are counted separately on purpose.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'innovation',
+    label: 'What is actually new here?',
+    keywords: [
+      'innovat',
+      'new here',
+      'different',
+      'novel',
+      'unique',
+      'chatbot',
+      'what makes',
+      'special',
+      'why not just',
+    ],
+    body: (
+      <>
+        <p>Not the model, and not the prompt. Three things:</p>
+        <ul>
+          <li>
+            <b>The authority boundary is architecture, not instruction.</b> Agents cannot write
+            the ledger, cannot authorize their own tools, and cannot end a case. That holds even
+            if a model behaves badly, because it is enforced by identity and by a deterministic
+            gate rather than by asking nicely.
+          </li>
+          <li>
+            <b>Refusal is a first-class outcome with its own types.</b> ABSTAIN means the proof
+            was incomplete; HALTED means the machinery could not be trusted. They are never
+            collapsed into one another, and neither can produce an action. This run used both.
+          </li>
+          <li>
+            <b>Nothing is claimed that an artifact does not carry.</b> Every figure on this page
+            resolves to a stored artifact with a content hash, including the uncomfortable ones —
+            eight technical terminals, a manifest that reads INCOMPLETE, and a cost that says it
+            was never verified against billing.
+          </li>
+        </ul>
+        <p>
+          The fleet is also unattended: a scheduler starts it, it runs for hours, and no human is
+          in the loop until a case is worth a specialist's time.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'scale',
+    label: 'Does this scale?',
+    keywords: [
+      'scale',
+      'scaling',
+      'hospital',
+      'bigger',
+      'thousands',
+      'throughput',
+      'production',
+      'how fast',
+      'how long did it take',
+      'duration',
+    ],
+    body: (
+      <>
+        <p>
+          What is measured: {cases.length} cases in {hours(execution.duration_seconds)} at a
+          concurrency of {String(cohort.runtime.concurrency)}, for a projected $
+          {(Number(cohort.cost.projected_usd_micros) / 1_000_000).toFixed(2)} — about{' '}
+          {((Number(cohort.cost.projected_usd_micros) / 1_000_000 / cases.length) * 100).toFixed(1)}{' '}
+          cents per case. Median agent latency {Math.round(cohort.latency_ms.p50 / 1000)}s.
+        </p>
+        <p>
+          The shape of the work scales sideways: cases are independent, each has its own bounded
+          scan and its own trace, and the ledger is append-only. Concurrency is a setting rather
+          than a rewrite.
+        </p>
+        <p className="quiet">
+          What is not measured: behaviour at a hospital's real volume, cost at that volume, or
+          rate limits under heavier concurrency. This run is one cohort of {cases.length}{' '}
+          synthetic cases, and nothing here is a throughput promise.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'verify',
+    label: 'How can I check any of this myself?',
+    keywords: [
+      'verify',
+      'check it myself',
+      'prove',
+      'proof',
+      'see the code',
+      'source code',
+      'repository',
+      'repo',
+      'open source',
+      'hash',
+      'reproduce',
+    ],
+    body: (
+      <>
+        <p>
+          Every figure on this page comes from a committed export of the run, and every artifact
+          in it carries its own <b>content hash</b>. The export lives beside the code, so the
+          hashes can be recomputed from the bytes rather than taken on trust.
+        </p>
+        <p>
+          The export also records how it was produced: the deployed source commit
+          (<code>{execution.deployed.source_commit.slice(0, 12)}</code>), the image digest, the
+          parser used to read the artifacts, and the fact that it performed zero writes. The run's
+          recovery prefix was re-derived from an immutable launch receipt rather than discovered
+          by scanning, and the Cloud Run execution was identified by exclusion from that receipt's
+          own baseline — not by taking the most recent one.
+        </p>
+        <p className="quiet">
+          Identifiers in the export are deterministic non-reversible aliases; the hashes are real.
+          The repository and the recorded Cloud Console walkthrough are linked from the
+          submission.
+        </p>
+      </>
+    ),
+    more: { href: '#/run', label: "See the run's binding and hashes" },
+  },
+  {
+    id: 'architecture',
+    label: 'Show me the architecture',
+    keywords: [
+      'architecture',
+      'diagram',
+      'design',
+      'how is it built',
+      'components',
+      'system design',
+      'topology',
+    ],
+    body: (
+      <>
+        <p>Two trust boundaries and a person:</p>
+        <ul>
+          <li>
+            <b>Inside the laboratory:</b> synthetic institutional notes, deterministic detectors,
+            a local Gemma proposing residual spans, deterministic adjudication and redaction, a
+            structured-only egress gate, and a signed privacy receipt. The note text does not
+            cross this line.
+          </li>
+          <li>
+            <b>Inside Google Cloud:</b> the scheduler and the Cloud Run Job, the deterministic
+            controller, registry resolution, the three agent roles, the tool gateway with its
+            receipts, the Firestore ledger, the deterministic policy gate, and tracing.
+          </li>
+          <li>
+            <b>The human:</b> a simulated review task, a specialist surface, and the final
+            decision — which is never the system's.
+          </li>
+        </ul>
+        <p>
+          Models live inside the cloud boundary and may only propose. Deterministic code holds
+          every decision.
+        </p>
+      </>
+    ),
+    more: { href: '#/story#how', label: 'The full architecture, drawn' },
   },
 ];
 
