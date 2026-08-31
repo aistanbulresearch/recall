@@ -149,6 +149,9 @@ class InMemoryTerminalMixin:
             )
         )
 
+    def list_review_tasks_all(self) -> tuple[ReviewTaskRecord, ...]:
+        return tuple(sorted(self._review_tasks.values(), key=lambda task: task.task_id))
+
     def mark_task_delivered(self, task_id: str) -> ReviewTaskRecord:
         with self._lock:
             current = self._review_tasks.get(task_id)

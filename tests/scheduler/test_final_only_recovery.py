@@ -9,11 +9,18 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 import pytest
 
-from recall.contracts import content_hash, parse_artifact
+from recall.contracts import (
+    ArtifactStatus,
+    ContractError,
+    DataMode,
+    build_artifact,
+    content_hash,
+    parse_artifact,
+)
 from recall.contracts.enums import ScanRunState, WatchCaseState
 from recall.controller.hashes import scan_idempotency_key
 from recall.ledger.memory import InMemoryLedger
-from recall.ledger.models import COLLECTION_NAMES
+from recall.ledger.models import COLLECTION_NAMES, ReviewTaskRecord
 from recall.ledger.producers import PRODUCER_REGISTRY
 from recall.scheduler.compressed import CompressedCycleScheduler
 from recall.scheduler.compressed_batch_receipt import (
@@ -69,6 +76,33 @@ CURRENT_IMAGE_DIGEST = "sha256:" + "e" * 64
 BASELINE_CANCELLED_SNAPSHOT_SHA256 = (
     "5e9b1f7795da8ce7ec357d34c6f02d151bbc95945abfea2793d00c59258d5abe"
 )
+LEGACY_CANCELLED_STATES = (
+    (ScanRunState.CREATED, 417),
+    (ScanRunState.HALTED, 14),
+    (ScanRunState.NO_ACTION, 23),
+    (ScanRunState.AUDITING, 1),
+    (ScanRunState.WATCHING, 1),
+)
+LIVE_CHAINED_CANCELLED_STATES = (
+    (ScanRunState.CREATED, 260),
+    (ScanRunState.HALTED, 66),
+    (ScanRunState.NO_ACTION, 128),
+    (ScanRunState.WATCHING, 1),
+    (ScanRunState.ASSESSING, 1),
+)
+ALL_STATE_CANCELLED_STATES = (
+    (ScanRunState.CREATED, 446),
+    (ScanRunState.QUEUED, 1),
+    (ScanRunState.ROUTING, 1),
+    (ScanRunState.WATCHING, 1),
+    (ScanRunState.ASSESSING, 1),
+    (ScanRunState.AUDITING, 1),
+    (ScanRunState.POLICY_EVALUATION, 1),
+    (ScanRunState.NO_ACTION, 1),
+    (ScanRunState.ABSTAIN, 1),
+    (ScanRunState.REVIEW_REQUIRED, 1),
+    (ScanRunState.HALTED, 1),
+)
 
 
 class _BulkReadCountingLedger(InMemoryLedger):
@@ -77,6 +111,7 @@ class _BulkReadCountingLedger(InMemoryLedger):
         self.read_calls = {
             "list_watch_cases": 0,
             "list_scan_runs": 0,
+            "list_review_tasks_all": 0,
             "get_artifacts": 0,
             "get_watch_case": 0,
             "get_scan_run": 0,
@@ -90,6 +125,10 @@ class _BulkReadCountingLedger(InMemoryLedger):
     def list_scan_runs(self):
         self.read_calls["list_scan_runs"] += 1
         return tuple(self._scan_runs.values())
+
+    def list_review_tasks_all(self):
+        self.read_calls["list_review_tasks_all"] += 1
+        return tuple(self._review_tasks.values())
 
     def get_artifacts(self, artifact_ids):
         self.read_calls["get_artifacts"] += 1
@@ -163,7 +202,191 @@ def _write_metrics(cycle, count: int) -> dict[str, object]:
     }
 
 
-def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) -> None:
+def _policy_facts(state: ScanRunState) -> dict[str, str]:
+    candidate = "ABSENT" if state is ScanRunState.NO_ACTION else "PRESENT"
+    pass_state = "NOT_EVALUATED" if candidate == "ABSENT" else "PASS"
+    return {
+        "privacy_accepted": "PASS",
+        "registry_resolution_valid": "PASS",
+        "route_valid": "PASS",
+        "tool_authorization_complete": "PASS",
+        "source_retrieval_complete": "PASS",
+        "source_schema_valid": "PASS",
+        "data_mode_valid": "PASS",
+        "snapshot_integrity_valid": "PASS",
+        "assessment_valid": pass_state,
+        "citation_audit_complete": pass_state,
+        "all_material_claims_verified": pass_state,
+        "counter_evidence_complete": pass_state,
+        "candidate_delta_state": candidate,
+        "unresolved_conflict_state": "ABSENT",
+        "budget_or_loop_failure_state": "ABSENT",
+        "existing_open_task_state": "ABSENT",
+    }
+
+
+def _append_terminal_closure(
+    ledger: InMemoryLedger,
+    *,
+    run,
+    watch,
+    initial_source_cursors: dict[str, str],
+    evidence_data_mode: DataMode,
+    now,
+) -> None:
+    created_at = now.isoformat().replace("+00:00", "Z")
+    if run.state is ScanRunState.HALTED:
+        failure_id = run.failure_receipt_ids[0]
+        ledger.append_artifact(
+            build_artifact(
+                schema_name="FailureReceipt",
+                schema_version="1.0.0",
+                artifact_id=failure_id,
+                case_id=watch.watch_case_id,
+                run_id=run.run_id,
+                producer={
+                    "component": "full-audit-controller",
+                    "version": "1.0.0",
+                    "identity": "controller-failure-recorder",
+                },
+                created_at=created_at,
+                input_artifact_ids=(run.scan_run_artifact_id,),
+                data_mode=evidence_data_mode,
+                status=ArtifactStatus.REJECTED,
+                payload={
+                    "failure_code": "controller_failed",
+                    "stage": "UNKNOWN",
+                    "retryable": False,
+                    "attempt": 1,
+                    "budget_state": "WITHIN_LIMIT",
+                    "details": {},
+                    "related_artifact_ids": [run.scan_run_artifact_id],
+                    "safe_terminal": "HALTED",
+                    "operator_action": "inspect_agent_execution_receipts",
+                },
+                authorized_producers=PRODUCER_REGISTRY,
+            )
+        )
+        return
+    if run.state not in {
+        ScanRunState.NO_ACTION,
+        ScanRunState.ABSTAIN,
+        ScanRunState.REVIEW_REQUIRED,
+    }:
+        return
+    policy_id = str(run.terminal_policy_decision_id)
+    ledger.append_artifact(
+        build_artifact(
+            schema_name="PolicyDecision",
+            schema_version="2.0.0",
+            artifact_id=policy_id,
+            case_id=watch.watch_case_id,
+            run_id=run.run_id,
+            producer={
+                "component": "deterministic-policy-gate",
+                "version": "1.0.1",
+                "identity": "policy-gate",
+            },
+            created_at=created_at,
+            input_artifact_ids=(run.scan_run_artifact_id,),
+            data_mode=DataMode.SYNTHETIC,
+            status=ArtifactStatus.VALID,
+            payload={
+                "policy_version": "1.0.1",
+                "input_facts": _policy_facts(run.state),
+                "outcome": run.state.value,
+                "reason_codes": [f"test_{run.state.value.lower()}"],
+                "missing_prerequisites": [],
+                "review_trigger": run.state is ScanRunState.REVIEW_REQUIRED,
+                "existing_task_id": None,
+            },
+            authorized_producers=PRODUCER_REGISTRY,
+        )
+    )
+    if run.state in {ScanRunState.NO_ACTION, ScanRunState.REVIEW_REQUIRED}:
+        ledger.append_artifact(
+            build_artifact(
+                schema_name="EvidenceSnapshot",
+                schema_version="1.0.0",
+                artifact_id=str(watch.last_verified_snapshot_id),
+                case_id=watch.watch_case_id,
+                run_id=run.run_id,
+                producer={
+                    "component": "evidence-watcher",
+                    "version": "0.1.0",
+                    "identity": "evidence-watcher",
+                },
+                created_at=created_at,
+                input_artifact_ids=(),
+                data_mode=evidence_data_mode,
+                status=ArtifactStatus.VALID,
+                payload={
+                    "effective_at": created_at,
+                    "observation_ids": [],
+                    "coverage_status": "PASS",
+                    "source_cursors": initial_source_cursors,
+                    "normalized_facts": {"observation_count": 1},
+                    "conflicts": [],
+                    "snapshot_hash": "b" * 64,
+                },
+                authorized_producers=PRODUCER_REGISTRY,
+            )
+        )
+    if run.state is ScanRunState.REVIEW_REQUIRED:
+        task_id = str(watch.open_review_task_id)
+        audit_id = str(uuid5(UUID(run.run_id), "citation-audit"))
+        claim_id = str(uuid5(UUID(run.run_id), "claim"))
+        task = build_artifact(
+            schema_name="ReviewTask",
+            schema_version="1.0.0",
+            artifact_id=task_id,
+            case_id=watch.watch_case_id,
+            run_id=run.run_id,
+            producer={
+                "component": "controller-outbox",
+                "version": "0.1.0",
+                "identity": "controller",
+            },
+            created_at=created_at,
+            input_artifact_ids=tuple(sorted((audit_id, policy_id))),
+            data_mode=DataMode.SYNTHETIC,
+            status=ArtifactStatus.VALID,
+            payload={
+                "watch_case_id": watch.watch_case_id,
+                "trigger_decision_id": policy_id,
+                "state": "OPEN",
+                "priority_band": "STANDARD",
+                "claim_ids": [claim_id],
+                "audit_receipt_id": audit_id,
+                "simulation": True,
+                "deduplication_key": "d" * 64,
+            },
+            authorized_producers=PRODUCER_REGISTRY,
+        )
+        ledger.append_artifact(task)
+        ledger._review_tasks[task_id] = ReviewTaskRecord(
+            task_id=task_id,
+            run_id=run.run_id,
+            watch_case_id=watch.watch_case_id,
+            policy_decision_id=policy_id,
+            deduplication_key="d" * 64,
+            artifact_id=task_id,
+            state="OPEN",
+            delivery_state="PENDING",
+            created_at=now,
+        )
+
+
+def _mark_cancelled_execution(
+    ledger,
+    outcomes,
+    *,
+    plan,
+    cycle,
+    actual_start,
+    state_counts=LEGACY_CANCELLED_STATES,
+    lifecycle_faithful: bool = False,
+) -> None:
     persist_or_reconcile_batch_execution(
         ledger=ledger,
         plan=plan,
@@ -171,23 +394,46 @@ def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) ->
         outcomes=outcomes,
         write_metrics=_write_metrics(cycle, len(outcomes)),
     )
-    states = (
-        (ScanRunState.CREATED, 417),
-        (ScanRunState.HALTED, 14),
-        (ScanRunState.NO_ACTION, 23),
-        (ScanRunState.AUDITING, 1),
-        (ScanRunState.WATCHING, 1),
-    )
+    version_by_state = {
+        ScanRunState.CREATED: 1,
+        ScanRunState.QUEUED: 2,
+        ScanRunState.ROUTING: 3,
+        ScanRunState.WATCHING: 4,
+        ScanRunState.ASSESSING: 5,
+        ScanRunState.AUDITING: 6,
+        ScanRunState.POLICY_EVALUATION: 7,
+        ScanRunState.NO_ACTION: 8,
+        ScanRunState.ABSTAIN: 8,
+        ScanRunState.REVIEW_REQUIRED: 8,
+        ScanRunState.HALTED: 5,
+    }
+    leased_states = {
+        ScanRunState.ROUTING,
+        ScanRunState.WATCHING,
+        ScanRunState.ASSESSING,
+        ScanRunState.AUDITING,
+        ScanRunState.POLICY_EVALUATION,
+        ScanRunState.NO_ACTION,
+        ScanRunState.ABSTAIN,
+        ScanRunState.REVIEW_REQUIRED,
+        ScanRunState.HALTED,
+    }
     offset = 0
-    for state, count in states:
+    for state, count in state_counts:
         for outcome in outcomes[offset : offset + count]:
             current = ledger._scan_runs[outcome.run_record.run_id]
             ledger._scan_runs[outcome.run_record.run_id] = replace(
                 current,
                 state=state,
+                version=(version_by_state[state] if lifecycle_faithful else current.version),
                 terminal_policy_decision_id=(
                     str(uuid5(NAMESPACE_URL, f"policy:{current.run_id}"))
-                    if state is ScanRunState.NO_ACTION
+                    if state
+                    in {
+                        ScanRunState.NO_ACTION,
+                        ScanRunState.ABSTAIN,
+                        ScanRunState.REVIEW_REQUIRED,
+                    }
                     else None
                 ),
                 failure_receipt_ids=(
@@ -195,10 +441,22 @@ def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) ->
                     if state is ScanRunState.HALTED
                     else ()
                 ),
-                lease_epoch=(1 if state in {ScanRunState.AUDITING, ScanRunState.WATCHING} else 0),
+                lease_epoch=(
+                    1
+                    if lifecycle_faithful and state in leased_states
+                    else (
+                        1
+                        if state in {ScanRunState.AUDITING, ScanRunState.WATCHING}
+                        else 0
+                    )
+                ),
                 lease_expires_at=(
                     actual_start + timedelta(minutes=15)
-                    if state in {ScanRunState.AUDITING, ScanRunState.WATCHING}
+                    if (
+                        state in leased_states
+                        if lifecycle_faithful
+                        else state in {ScanRunState.AUDITING, ScanRunState.WATCHING}
+                    )
                     else None
                 ),
             )
@@ -213,13 +471,19 @@ def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) ->
                     updated_at=actual_start + timedelta(seconds=1),
                 )
             elif state is ScanRunState.NO_ACTION:
-                initial_cursor = dict(watch.source_cursors)["synthetic-source"]
                 ledger._watch_cases[outcome.case.case_id] = replace(
                     watch,
                     state=WatchCaseState.ACTIVE,
                     version=watch.version + 1,
                     source_cursors=(
-                        ("synthetic-source", f"{initial_cursor}:verified"),
+                        watch.source_cursors
+                        if lifecycle_faithful
+                        else (
+                            (
+                                "synthetic-source",
+                                f"{dict(watch.source_cursors)['synthetic-source']}:verified",
+                            ),
+                        )
                     ),
                     last_verified_snapshot_id=str(
                         uuid5(NAMESPACE_URL, f"snapshot:{outcome.case.case_id}")
@@ -228,7 +492,82 @@ def _mark_cancelled_execution(ledger, outcomes, *, plan, cycle, actual_start) ->
                     attention_reason_codes=(),
                     updated_at=actual_start + timedelta(seconds=1),
                 )
+            elif state is ScanRunState.ABSTAIN:
+                ledger._watch_cases[outcome.case.case_id] = replace(
+                    watch,
+                    state=WatchCaseState.ACTIVE,
+                    version=watch.version + 1,
+                    pending_observation_hashes=(),
+                    open_review_task_id=None,
+                    attention_reason_codes=("policy_abstain",),
+                    updated_at=actual_start + timedelta(seconds=1),
+                )
+            elif state is ScanRunState.REVIEW_REQUIRED:
+                ledger._watch_cases[outcome.case.case_id] = replace(
+                    watch,
+                    state=WatchCaseState.AWAITING_HUMAN,
+                    version=watch.version + 1,
+                    last_verified_snapshot_id=str(
+                        uuid5(NAMESPACE_URL, f"snapshot:{outcome.case.case_id}")
+                    ),
+                    pending_observation_hashes=(),
+                    open_review_task_id=str(
+                        uuid5(NAMESPACE_URL, f"task:{outcome.case.case_id}")
+                    ),
+                    attention_reason_codes=(),
+                    next_scan_at=None,
+                    updated_at=actual_start + timedelta(seconds=1),
+                )
+            if lifecycle_faithful:
+                _append_terminal_closure(
+                    ledger,
+                    run=ledger._scan_runs[outcome.run_record.run_id],
+                    watch=ledger._watch_cases[outcome.case.case_id],
+                    initial_source_cursors=dict(watch.source_cursors),
+                    evidence_data_mode=(
+                        DataMode.CAPTURED_REPLAY
+                        if outcome.case.vcv is not None
+                        else DataMode.SYNTHETIC
+                    ),
+                    now=actual_start + timedelta(seconds=1),
+                )
         offset += count
+    assert offset == len(outcomes)
+
+
+def _place_replay_outcomes_in_terminal_states(outcomes):
+    replay = sorted(
+        (item for item in outcomes if item.case.vcv is not None),
+        key=lambda item: item.case.case_id,
+    )
+    assert len(replay) == 3
+    positions: dict[ScanRunState, int] = {}
+    offset = 0
+    for state, count in ALL_STATE_CANCELLED_STATES:
+        if state in {
+            ScanRunState.NO_ACTION,
+            ScanRunState.REVIEW_REQUIRED,
+            ScanRunState.HALTED,
+        }:
+            assert count == 1
+            positions[state] = offset
+        offset += count
+    arranged = [None] * len(outcomes)
+    for state, outcome in zip(
+        (
+            ScanRunState.NO_ACTION,
+            ScanRunState.REVIEW_REQUIRED,
+            ScanRunState.HALTED,
+        ),
+        replay,
+        strict=True,
+    ):
+        arranged[positions[state]] = outcome
+    remaining = iter(item for item in outcomes if item not in replay)
+    for index, item in enumerate(arranged):
+        if item is None:
+            arranged[index] = next(remaining)
+    return tuple(arranged)
 
 
 def _cancelled_source_ledger():
@@ -275,7 +614,12 @@ def recovery_source():
     return _cancelled_source_ledger()
 
 
-def _cancelled_first_recovery_ledger():
+def _cancelled_first_recovery_ledger(
+    *,
+    state_counts=LEGACY_CANCELLED_STATES,
+    lifecycle_faithful: bool = False,
+    replay_terminal_closure: bool = False,
+):
     plan, bundle, cycle, base, _base_outcomes, started = _cancelled_source_ledger()
     base_snapshot = build_final_execution_recovery_snapshot(
         base,
@@ -322,19 +666,48 @@ def _cancelled_first_recovery_ledger():
         scheduler._create_case(item, now=recovery_start)
         for item in cases_for_cycle(cycle)
     )
+    if replay_terminal_closure:
+        outcomes = _place_replay_outcomes_in_terminal_states(outcomes)
     _mark_cancelled_execution(
         first,
         outcomes,
         plan=plan,
         cycle=cycle,
         actual_start=recovery_start,
+        state_counts=state_counts,
+        lifecycle_faithful=lifecycle_faithful,
     )
     return plan, bundle, cycle, first, first_recovery, recovery_start
 
 
 @pytest.fixture(scope="module")
 def chained_recovery_source():
-    return _cancelled_first_recovery_ledger()
+    return _cancelled_first_recovery_ledger(lifecycle_faithful=True)
+
+
+@pytest.fixture(scope="module")
+def live_chained_recovery_source():
+    return _cancelled_first_recovery_ledger(
+        state_counts=LIVE_CHAINED_CANCELLED_STATES,
+        lifecycle_faithful=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def all_state_chained_recovery_source():
+    return _cancelled_first_recovery_ledger(
+        state_counts=ALL_STATE_CANCELLED_STATES,
+        lifecycle_faithful=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def replay_terminal_chained_recovery_source():
+    return _cancelled_first_recovery_ledger(
+        state_counts=ALL_STATE_CANCELLED_STATES,
+        lifecycle_faithful=True,
+        replay_terminal_closure=True,
+    )
 
 
 def test_recovery_snapshot_uses_bounded_bulk_reads_and_preserves_bytes(
@@ -360,6 +733,7 @@ def test_recovery_snapshot_uses_bounded_bulk_reads_and_preserves_bytes(
     assert counting.read_calls == {
         "list_watch_cases": 1,
         "list_scan_runs": 1,
+        "list_review_tasks_all": 0,
         "get_artifacts": 1,
         "get_watch_case": 0,
         "get_scan_run": 0,
@@ -463,6 +837,967 @@ def test_second_generation_snapshot_binds_verified_prior_scope_and_receipt(
     assert prior_receipt_id in receipt.input_artifact_ids
     assert target.read_back_count("watch_cases") == 456
     assert target.read_back_count("scan_runs") == 0
+
+    wrong_shape = deepcopy(target.get_artifact(installed.recovery_receipt_id))
+    wrong_shape["previous_state_counts"] = {
+        state.value: dict(LEGACY_CANCELLED_STATES).get(state, 0)
+        for state in (
+            ScanRunState.AUDITING,
+            ScanRunState.CREATED,
+            ScanRunState.HALTED,
+            ScanRunState.NO_ACTION,
+            ScanRunState.WATCHING,
+        )
+    }
+    wrong_shape["content_hash"] = content_hash(wrong_shape)
+    with pytest.raises(ContractError, match="previous_state_counts"):
+        parse_artifact(wrong_shape, authorized_producers=PRODUCER_REGISTRY)
+
+
+def test_second_generation_snapshot_accepts_exact_live_cancelled_distribution(
+    live_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, _first_recovery, _started = (
+        live_chained_recovery_source
+    )
+
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+
+    assert snapshot.state_counts == {
+        state.value: dict(LIVE_CHAINED_CANCELLED_STATES).get(state, 0)
+        for state in ScanRunState
+    }
+    assert sum(snapshot.state_counts.values()) == 456
+
+
+def test_live_cancelled_distribution_round_trips_recovery_receipt(
+    live_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, _first_recovery, started = (
+        live_chained_recovery_source
+    )
+    prior_receipt_hash = _prior_recovery_receipt_hash(previous)
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=prior_receipt_hash,
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=prior_receipt_hash,
+    )
+    target = InMemoryLedger(
+        privacy_receipt_verifier=CompressedPreparationVerifier(bundle)
+    )
+
+    installed = install_final_only_recovery(
+        previous_ledger=previous,
+        target_ledger=target,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        recovery=recovery,
+        source_commit="6" * 40,
+        image_digest="sha256:" + "7" * 64,
+        cost_snapshot=CostSnapshot(1_500, 1_100),
+        now=started + timedelta(hours=1),
+    )
+    receipt = parse_artifact(
+        target.get_artifact(installed.recovery_receipt_id),
+        authorized_producers=PRODUCER_REGISTRY,
+    )
+
+    assert dict(receipt.payload.previous_state_counts) == dict(
+        snapshot.state_counts
+    )
+    assert set(receipt.payload.previous_state_counts) == {
+        state.value for state in ScanRunState
+    }
+    assert target.read_back_count("watch_cases") == 456
+    assert target.read_back_count("scan_runs") == 0
+
+
+def test_second_generation_snapshot_accepts_all_reachable_cancelled_states(
+    all_state_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, _first_recovery, _started = (
+        all_state_chained_recovery_source
+    )
+
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+
+    assert set(snapshot.state_counts) == {state.value for state in ScanRunState}
+    assert snapshot.state_counts[ScanRunState.CREATED.value] == 446
+    assert all(
+        snapshot.state_counts[state.value] == 1
+        for state in ScanRunState
+        if state is not ScanRunState.CREATED
+    )
+
+
+def test_second_generation_accepts_replay_terminal_evidence_modes(
+    replay_terminal_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, previous, _first_recovery, _started = (
+        replay_terminal_chained_recovery_source
+    )
+
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    vcv_by_case = {
+        item.case_id: item.vcv for item in cases_for_cycle(cycle)
+    }
+    observed: set[ScanRunState] = set()
+    for run in previous._scan_runs.values():
+        case_id = str(previous._artifacts[run.scan_run_artifact_id]["case_id"])
+        if vcv_by_case[case_id] is None:
+            continue
+        artifact_id = (
+            run.failure_receipt_ids[0]
+            if run.state is ScanRunState.HALTED
+            else str(previous._watch_cases[case_id].last_verified_snapshot_id)
+        )
+        artifact = parse_artifact(
+            previous._artifacts[artifact_id],
+            authorized_producers=PRODUCER_REGISTRY,
+        )
+        assert artifact.data_mode is DataMode.CAPTURED_REPLAY
+        observed.add(run.state)
+
+    assert observed == {
+        ScanRunState.NO_ACTION,
+        ScanRunState.REVIEW_REQUIRED,
+        ScanRunState.HALTED,
+    }
+    assert sum(snapshot.state_counts.values()) == 456
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        ScanRunState.NO_ACTION,
+        ScanRunState.REVIEW_REQUIRED,
+        ScanRunState.HALTED,
+    ],
+)
+def test_second_generation_rejects_wrong_replay_terminal_evidence_mode(
+    replay_terminal_chained_recovery_source,
+    state: ScanRunState,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    run = next(item for item in previous._scan_runs.values() if item.state is state)
+    case_id = str(previous._artifacts[run.scan_run_artifact_id]["case_id"])
+    assert next(
+        item.vcv for item in cases_for_cycle(cycle) if item.case_id == case_id
+    ) is not None
+    artifact_id = (
+        run.failure_receipt_ids[0]
+        if state is ScanRunState.HALTED
+        else str(previous._watch_cases[case_id].last_verified_snapshot_id)
+    )
+    wire = deepcopy(previous._artifacts[artifact_id])
+    wire["data_mode"] = DataMode.SYNTHETIC.value
+    wire["content_hash"] = content_hash(wire)
+    previous._artifacts[artifact_id] = wire
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_terminal_binding_invalid",
+    )
+
+
+def _rewrite_replay_halt_as_workflow_controller_failure(
+    ledger: InMemoryLedger,
+    *,
+    data_mode: DataMode,
+) -> None:
+    run = next(
+        item for item in ledger._scan_runs.values() if item.state is ScanRunState.HALTED
+    )
+    ledger._scan_runs[run.run_id] = replace(run, version=8)
+    failure_id = run.failure_receipt_ids[0]
+    wire = deepcopy(ledger._artifacts[failure_id])
+    wire["producer"] = {
+        "component": "workflow-controller",
+        "version": "0.1.0",
+        "identity": "controller-failure-recorder",
+    }
+    wire["data_mode"] = data_mode.value
+    wire["stage"] = "POLICY_EVALUATION"
+    wire["content_hash"] = content_hash(wire)
+    ledger._artifacts[failure_id] = wire
+
+
+def _rewrite_replay_halt_as_full_audit_failure(
+    ledger: InMemoryLedger,
+    *,
+    stage: str,
+    version: int,
+) -> None:
+    run = next(
+        item for item in ledger._scan_runs.values() if item.state is ScanRunState.HALTED
+    )
+    ledger._scan_runs[run.run_id] = replace(run, version=version)
+    failure_id = run.failure_receipt_ids[0]
+    wire = deepcopy(ledger._artifacts[failure_id])
+    wire["stage"] = stage
+    wire["content_hash"] = content_hash(wire)
+    ledger._artifacts[failure_id] = wire
+
+
+def test_second_generation_accepts_replay_policy_stage_halt_as_synthetic(
+    replay_terminal_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, _started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    _rewrite_replay_halt_as_workflow_controller_failure(
+        previous,
+        data_mode=DataMode.SYNTHETIC,
+    )
+
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+
+    assert snapshot.state_counts[ScanRunState.HALTED.value] == 1
+
+
+def test_second_generation_rejects_replay_policy_halt_with_replay_mode(
+    replay_terminal_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    _rewrite_replay_halt_as_workflow_controller_failure(
+        previous,
+        data_mode=DataMode.CAPTURED_REPLAY,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_terminal_binding_invalid",
+    )
+
+
+@pytest.mark.parametrize("version", [5, 6, 7])
+def test_second_generation_rejects_workflow_policy_halt_before_version_8(
+    replay_terminal_chained_recovery_source,
+    version: int,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    _rewrite_replay_halt_as_workflow_controller_failure(
+        previous,
+        data_mode=DataMode.SYNTHETIC,
+    )
+    run = next(
+        item for item in previous._scan_runs.values() if item.state is ScanRunState.HALTED
+    )
+    previous._scan_runs[run.run_id] = replace(run, version=version)
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_terminal_binding_invalid",
+    )
+
+
+@pytest.mark.parametrize(
+    ("stage", "version"),
+    [
+        ("EVIDENCE_WATCHER", 6),
+        ("EVIDENCE_ASSESSOR", 7),
+        ("CITATION_AUDITOR", 8),
+    ],
+)
+def test_second_generation_accepts_full_audit_halt_stage_version_closure(
+    replay_terminal_chained_recovery_source,
+    stage: str,
+    version: int,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, _started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    _rewrite_replay_halt_as_full_audit_failure(
+        previous,
+        stage=stage,
+        version=version,
+    )
+
+    snapshot = build_final_execution_recovery_snapshot(
+        previous,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+
+    assert snapshot.state_counts[ScanRunState.HALTED.value] == 1
+
+
+@pytest.mark.parametrize(
+    ("stage", "version"),
+    [
+        ("UNKNOWN", 6),
+        ("UNKNOWN", 7),
+        ("UNKNOWN", 8),
+        ("EVIDENCE_WATCHER", 7),
+        ("EVIDENCE_ASSESSOR", 5),
+        ("CITATION_AUDITOR", 6),
+    ],
+)
+def test_second_generation_rejects_full_audit_halt_stage_version_drift(
+    replay_terminal_chained_recovery_source,
+    stage: str,
+    version: int,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        replay_terminal_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    _rewrite_replay_halt_as_full_audit_failure(
+        previous,
+        stage=stage,
+        version=version,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_terminal_binding_invalid",
+    )
+
+
+def test_second_generation_uses_one_bounded_review_task_enumeration(
+    all_state_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, _started = (
+        all_state_chained_recovery_source
+    )
+    counting = _BulkReadCountingLedger()
+    counting._privacy_receipt_verifier = source._privacy_receipt_verifier
+    counting._artifacts = deepcopy(source._artifacts)
+    counting._watch_cases = deepcopy(source._watch_cases)
+    counting._scan_runs = deepcopy(source._scan_runs)
+    counting._scan_run_events = deepcopy(source._scan_run_events)
+    counting._review_tasks = deepcopy(source._review_tasks)
+
+    build_final_execution_recovery_snapshot(
+        counting,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+
+    assert counting.read_calls == {
+        "list_watch_cases": 1,
+        "list_scan_runs": 1,
+        "list_review_tasks_all": 1,
+        "get_artifacts": 1,
+        "get_watch_case": 0,
+        "get_scan_run": 0,
+        "get_artifact": 1,
+    }
+
+
+def test_second_generation_assessing_illegal_pointer_is_zero_write(
+    live_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        live_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    assessing = next(
+        run for run in previous._scan_runs.values()
+        if run.state is ScanRunState.ASSESSING
+    )
+    case_id = str(previous._artifacts[assessing.scan_run_artifact_id]["case_id"])
+    previous._watch_cases[case_id] = replace(
+        previous._watch_cases[case_id],
+        next_scan_at=None,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_watch_pointer_invalid",
+    )
+
+
+def test_second_generation_state_distribution_drift_is_zero_write(
+    live_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        live_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    created = next(
+        run for run in previous._scan_runs.values()
+        if run.state is ScanRunState.CREATED
+    )
+    previous._scan_runs[created.run_id] = replace(
+        created,
+        state=ScanRunState.QUEUED,
+        version=2,
+    )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_snapshot_drift",
+    )
+
+
+@pytest.mark.parametrize("state", tuple(ScanRunState))
+def test_second_generation_rejects_illegal_pointer_for_every_lifecycle_state(
+    all_state_chained_recovery_source,
+    state: ScanRunState,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        all_state_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    run = next(item for item in previous._scan_runs.values() if item.state is state)
+    case_id = str(previous._artifacts[run.scan_run_artifact_id]["case_id"])
+    watch = previous._watch_cases[case_id]
+    if state is ScanRunState.CREATED:
+        previous._scan_runs[run.run_id] = replace(run, version=0)
+    elif state is ScanRunState.QUEUED:
+        previous._scan_runs[run.run_id] = replace(
+            run,
+            lease_epoch=1,
+            lease_expires_at=started + timedelta(minutes=15),
+        )
+    elif state is ScanRunState.ROUTING:
+        previous._scan_runs[run.run_id] = replace(
+            run,
+            lease_epoch=0,
+            lease_expires_at=None,
+        )
+    elif state is ScanRunState.WATCHING:
+        previous._watch_cases[case_id] = replace(
+            watch,
+            last_verified_snapshot_id=str(
+                uuid5(NAMESPACE_URL, f"invalid:{case_id}")
+            ),
+        )
+    elif state is ScanRunState.ASSESSING:
+        previous._watch_cases[case_id] = replace(watch, next_scan_at=None)
+    elif state is ScanRunState.AUDITING:
+        previous._scan_runs[run.run_id] = replace(
+            run,
+            terminal_policy_decision_id=str(
+                uuid5(NAMESPACE_URL, f"invalid-policy:{run.run_id}")
+            ),
+        )
+    elif state is ScanRunState.POLICY_EVALUATION:
+        previous._scan_runs[run.run_id] = replace(
+            run,
+            failure_receipt_ids=(
+                str(uuid5(NAMESPACE_URL, f"invalid-failure:{run.run_id}")),
+            ),
+        )
+    elif state is ScanRunState.NO_ACTION:
+        previous._watch_cases[case_id] = replace(
+            watch,
+            source_cursors=(("synthetic-source", "wrong-cursor"),),
+        )
+    elif state is ScanRunState.ABSTAIN:
+        previous._watch_cases[case_id] = replace(
+            watch,
+            attention_reason_codes=(),
+        )
+    elif state is ScanRunState.REVIEW_REQUIRED:
+        previous._watch_cases[case_id] = replace(
+            watch,
+            open_review_task_id=None,
+        )
+    else:
+        previous._scan_runs[run.run_id] = replace(run, failure_receipt_ids=())
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason=(
+            "final_recovery_previous_terminal_binding_invalid"
+            if state is ScanRunState.REVIEW_REQUIRED
+            else "final_recovery_previous_watch_pointer_invalid"
+        ),
+    )
+
+
+def test_second_generation_rejects_dangling_terminal_artifact_pointers(
+    all_state_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, _started = (
+        all_state_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    terminal = next(
+        run
+        for run in previous._scan_runs.values()
+        if run.state is ScanRunState.NO_ACTION
+    )
+    previous._artifacts.pop(str(terminal.terminal_policy_decision_id))
+
+    with pytest.raises(
+        RuntimeError, match="final_recovery_previous_terminal_binding_invalid"
+    ):
+        build_final_execution_recovery_snapshot(
+            previous,
+            plan=plan,
+            cycle=cycle,
+            bundle=bundle,
+            previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+            previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+            previous_recovery_receipt_hash=_prior_recovery_receipt_hash(previous),
+            previous_source_commit=CURRENT_SOURCE_COMMIT,
+            previous_image_digest=CURRENT_IMAGE_DIGEST,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "policy_substitution",
+        "failure_code_drift",
+        "snapshot_cursor_drift",
+        "review_task_missing",
+        "review_task_extra",
+        "review_task_duplicate",
+        "review_task_cross_run",
+        "review_task_state_drift",
+    ],
+)
+def test_second_generation_terminal_closure_drift_is_zero_write(
+    all_state_chained_recovery_source,
+    mutation: str,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        all_state_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    runs = {run.state: run for run in previous._scan_runs.values()}
+    review_run = runs[ScanRunState.REVIEW_REQUIRED]
+    review_case = next(
+        case
+        for case in previous._watch_cases.values()
+        if case.open_review_task_id is not None
+    )
+    task_id = str(review_case.open_review_task_id)
+    if mutation == "policy_substitution":
+        no_action = runs[ScanRunState.NO_ACTION]
+        previous._scan_runs[no_action.run_id] = replace(
+            no_action,
+            terminal_policy_decision_id=review_run.terminal_policy_decision_id,
+        )
+    elif mutation == "failure_code_drift":
+        halted = runs[ScanRunState.HALTED]
+        failure_id = halted.failure_receipt_ids[0]
+        wire = deepcopy(previous._artifacts[failure_id])
+        wire["failure_code"] = "ledger_integrity_failed"
+        wire["content_hash"] = content_hash(wire)
+        previous._artifacts[failure_id] = wire
+    elif mutation == "snapshot_cursor_drift":
+        snapshot_id = str(review_case.last_verified_snapshot_id)
+        wire = deepcopy(previous._artifacts[snapshot_id])
+        wire["source_cursors"] = {"synthetic-source": "drifted"}
+        wire["content_hash"] = content_hash(wire)
+        previous._artifacts[snapshot_id] = wire
+    elif mutation == "review_task_missing":
+        previous._review_tasks.pop(task_id)
+    elif mutation == "review_task_extra":
+        extra_id = str(uuid5(NAMESPACE_URL, "extra-review-task"))
+        previous._review_tasks[extra_id] = replace(
+            previous._review_tasks[task_id],
+            task_id=extra_id,
+            artifact_id=extra_id,
+        )
+    elif mutation == "review_task_duplicate":
+        task = previous._review_tasks[task_id]
+        previous.list_review_tasks_all = lambda: (task, task)
+    elif mutation == "review_task_cross_run":
+        previous._review_tasks[task_id] = replace(
+            previous._review_tasks[task_id], run_id=str(uuid5(NAMESPACE_URL, "wrong-run"))
+        )
+    else:
+        previous._review_tasks[task_id] = replace(
+            previous._review_tasks[task_id], state="CLOSED"
+        )
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_terminal_binding_invalid",
+    )
+
+
+def test_second_generation_terminal_artifact_bytes_are_snapshot_bound(
+    all_state_chained_recovery_source,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        all_state_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    no_action = next(
+        run
+        for run in previous._scan_runs.values()
+        if run.state is ScanRunState.NO_ACTION
+    )
+    policy_id = str(no_action.terminal_policy_decision_id)
+    wire = deepcopy(previous._artifacts[policy_id])
+    wire["reason_codes"] = ["same_outcome_different_reason"]
+    wire["content_hash"] = content_hash(wire)
+    previous._artifacts[policy_id] = wire
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_snapshot_drift",
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "mutation"),
+    [
+        (ScanRunState.CREATED, "repeated_state"),
+        (ScanRunState.WATCHING, "lease_takeover"),
+        (ScanRunState.POLICY_EVALUATION, "prelease_shortcut"),
+        (ScanRunState.NO_ACTION, "terminal_shortcut"),
+        (ScanRunState.HALTED, "post_terminal_version"),
+        (ScanRunState.HALTED, "preownership_halt"),
+        (ScanRunState.HALTED, "routing_halt"),
+        (ScanRunState.WATCHING, "expired_lease_boundary"),
+    ],
+)
+def test_second_generation_rejects_non_full_audit_run_pointer_shortcuts(
+    all_state_chained_recovery_source,
+    state: ScanRunState,
+    mutation: str,
+) -> None:
+    plan, bundle, cycle, source, _first_recovery, started = (
+        all_state_chained_recovery_source
+    )
+    previous = _clone_ledger(source)
+    snapshot = build_final_execution_recovery_snapshot(
+        source,
+        plan=plan,
+        cycle=cycle,
+        bundle=bundle,
+        previous_execution_id=SECOND_PREVIOUS_EXECUTION_ID,
+        previous_recovery_attempt_id=RECOVERY_ATTEMPT_ID,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+        previous_source_commit=CURRENT_SOURCE_COMMIT,
+        previous_image_digest=CURRENT_IMAGE_DIGEST,
+    )
+    run = next(item for item in previous._scan_runs.values() if item.state is state)
+    if mutation == "repeated_state":
+        changed = replace(
+            run,
+            version=2,
+            last_repeated_state_hash="a" * 64,
+            repeated_state_count=1,
+        )
+    elif mutation == "lease_takeover":
+        changed = replace(run, version=5, lease_epoch=2)
+    elif mutation == "prelease_shortcut":
+        changed = replace(
+            run,
+            version=3,
+            lease_epoch=0,
+            lease_expires_at=None,
+        )
+    elif mutation == "terminal_shortcut":
+        changed = replace(
+            run,
+            version=4,
+            lease_epoch=0,
+            lease_expires_at=None,
+        )
+    elif mutation == "preownership_halt":
+        changed = replace(
+            run,
+            version=2,
+            lease_epoch=0,
+            lease_expires_at=None,
+        )
+    elif mutation == "routing_halt":
+        changed = replace(run, version=4)
+    elif mutation == "expired_lease_boundary":
+        changed = replace(run, lease_expires_at=run.updated_at)
+    else:
+        changed = replace(run, version=9)
+    previous._scan_runs[run.run_id] = changed
+    recovery = _second_recovery(
+        plan,
+        cycle,
+        snapshot,
+        previous_recovery_receipt_hash=_prior_recovery_receipt_hash(source),
+    )
+
+    _reject_recovery(
+        old=previous,
+        plan=plan,
+        bundle=bundle,
+        cycle=cycle,
+        recovery=recovery,
+        started=started,
+        reason="final_recovery_previous_watch_pointer_invalid",
+    )
 
 
 @pytest.mark.parametrize(
@@ -746,6 +2081,15 @@ def test_recovery_install_is_exact_456_and_binds_receipt_cost_and_snapshot(
     assert target.read_back_count("scan_run_events") == 0
     assert target.read_back_count("review_tasks") == 0
     verify_prepared_cycle(target, bundle, plan, cycle)
+
+    wrong_shape = deepcopy(target.get_artifact(result.recovery_receipt_id))
+    wrong_shape["previous_state_counts"] = {
+        state.value: dict(LEGACY_CANCELLED_STATES).get(state, 0)
+        for state in ScanRunState
+    }
+    wrong_shape["content_hash"] = content_hash(wrong_shape)
+    with pytest.raises(ContractError, match="previous_state_counts"):
+        parse_artifact(wrong_shape, authorized_producers=PRODUCER_REGISTRY)
 
 
 def test_previous_snapshot_drift_fails_before_any_target_write(recovery_source) -> None:

@@ -207,10 +207,24 @@ class FirestoreTerminalMixin:
         )
         return tuple(
             sorted(
-                (ReviewTaskRecord.from_wire(snapshot.to_dict()) for snapshot in query.stream()),
+                (
+                    ReviewTaskRecord.from_wire(snapshot.to_dict())
+                    for snapshot in query.stream()
+                ),
                 key=lambda task: task.task_id,
             )
         )
+
+    def list_review_tasks_all(self) -> tuple[ReviewTaskRecord, ...]:
+        values = []
+        for snapshot in self._collection("review_tasks").stream():
+            record = ReviewTaskRecord.from_wire(snapshot.to_dict())
+            if str(snapshot.id) != record.task_id:
+                raise ContractError(
+                    "ledger_integrity_failed", "review_task_document_id"
+                )
+            values.append(record)
+        return tuple(sorted(values, key=lambda task: task.task_id))
 
     def mark_task_delivered(self, task_id: str) -> ReviewTaskRecord:
         reference = self._collection("review_tasks").document(task_id)

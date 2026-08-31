@@ -16,8 +16,16 @@ from recall.contracts import (
     parse_artifact,
 )
 from recall.contracts.enums import ScanRunState, WatchCaseState
+from recall.contracts.payloads.final_recovery import (
+    FINAL_RECOVERY_CANCELLED_STATE_FIELDS,
+)
 from recall.controller.hashes import scan_idempotency_key
-from recall.ledger.models import COLLECTION_NAMES, ScanRunRecord, WatchCaseRecord
+from recall.ledger.models import (
+    COLLECTION_NAMES,
+    ReviewTaskRecord,
+    ScanRunRecord,
+    WatchCaseRecord,
+)
 from recall.ledger.port import LedgerPort
 from recall.ledger.producers import PRODUCER_REGISTRY
 
@@ -125,7 +133,16 @@ def _require_runtime_watch_closure(
     *,
     initial_source_cursors: Mapping[str, str],
     schedule_epoch: str,
+    canonical_cancelled_state: bool = False,
 ) -> None:
+    if canonical_cancelled_state:
+        _require_canonical_runtime_closure(
+            watch,
+            run,
+            initial_source_cursors=initial_source_cursors,
+            schedule_epoch=schedule_epoch,
+        )
+        return
     if run.state in {
         ScanRunState.CREATED,
         ScanRunState.WATCHING,
@@ -169,6 +186,310 @@ def _require_runtime_watch_closure(
         valid = False
     if not valid:
         raise RuntimeError("final_recovery_previous_watch_pointer_invalid")
+
+
+def _require_canonical_runtime_closure(
+    watch: WatchCaseRecord,
+    run: ScanRunRecord,
+    *,
+    initial_source_cursors: Mapping[str, str],
+    schedule_epoch: str,
+) -> None:
+    exact_versions = {
+        ScanRunState.CREATED: 1,
+        ScanRunState.QUEUED: 2,
+        ScanRunState.ROUTING: 3,
+        ScanRunState.WATCHING: 4,
+        ScanRunState.ASSESSING: 5,
+        ScanRunState.AUDITING: 6,
+        ScanRunState.POLICY_EVALUATION: 7,
+        ScanRunState.NO_ACTION: 8,
+        ScanRunState.ABSTAIN: 8,
+        ScanRunState.REVIEW_REQUIRED: 8,
+    }
+    prelease_states = {ScanRunState.CREATED, ScanRunState.QUEUED}
+    leased_states = {
+        ScanRunState.ROUTING,
+        ScanRunState.WATCHING,
+        ScanRunState.ASSESSING,
+        ScanRunState.AUDITING,
+        ScanRunState.POLICY_EVALUATION,
+        ScanRunState.NO_ACTION,
+        ScanRunState.ABSTAIN,
+        ScanRunState.REVIEW_REQUIRED,
+    }
+    halted_leased = (
+        run.state is ScanRunState.HALTED
+        and run.version in {5, 6, 7, 8}
+        and run.lease_epoch == 1
+        and run.lease_expires_at is not None
+        and run.updated_at < run.lease_expires_at
+    )
+    run_pointer_valid = (
+        run.repeated_state_count == 0
+        and run.last_repeated_state_hash is None
+        and (
+            (
+                run.state in prelease_states
+                and run.version == exact_versions[run.state]
+                and run.lease_epoch == 0
+                and run.lease_expires_at is None
+            )
+            or (
+                run.state in leased_states
+                and run.version == exact_versions[run.state]
+                and run.lease_epoch == 1
+                and run.lease_expires_at is not None
+                and run.updated_at < run.lease_expires_at
+            )
+            or halted_leased
+        )
+    )
+    initial_watch = (
+        watch.state is WatchCaseState.ACTIVE
+        and watch.version == 1
+        and dict(watch.source_cursors) == dict(initial_source_cursors)
+        and watch.last_verified_snapshot_id is None
+        and not watch.pending_observation_hashes
+        and watch.open_review_task_id is None
+        and not watch.attention_reason_codes
+        and watch.next_scan_at == schedule_epoch
+    )
+    if run.state in {
+        ScanRunState.CREATED,
+        ScanRunState.QUEUED,
+        ScanRunState.ROUTING,
+        ScanRunState.WATCHING,
+        ScanRunState.ASSESSING,
+        ScanRunState.AUDITING,
+        ScanRunState.POLICY_EVALUATION,
+    }:
+        valid = (
+            initial_watch
+            and run.terminal_policy_decision_id is None
+            and not run.failure_receipt_ids
+        )
+    elif run.state is ScanRunState.HALTED:
+        valid = (
+            watch.state is WatchCaseState.ATTENTION_REQUIRED
+            and watch.version == 2
+            and dict(watch.source_cursors) == dict(initial_source_cursors)
+            and watch.last_verified_snapshot_id is None
+            and not watch.pending_observation_hashes
+            and watch.open_review_task_id is None
+            and bool(watch.attention_reason_codes)
+            and watch.next_scan_at is None
+            and run.terminal_policy_decision_id is None
+            and len(run.failure_receipt_ids) == 1
+        )
+    elif run.state is ScanRunState.NO_ACTION:
+        valid = (
+            watch.state is WatchCaseState.ACTIVE
+            and watch.version == 2
+            and dict(watch.source_cursors) == dict(initial_source_cursors)
+            and watch.last_verified_snapshot_id is not None
+            and not watch.pending_observation_hashes
+            and watch.open_review_task_id is None
+            and not watch.attention_reason_codes
+            and watch.next_scan_at == schedule_epoch
+            and run.terminal_policy_decision_id is not None
+            and not run.failure_receipt_ids
+        )
+    elif run.state is ScanRunState.ABSTAIN:
+        valid = (
+            watch.state is WatchCaseState.ACTIVE
+            and watch.version == 2
+            and dict(watch.source_cursors) == dict(initial_source_cursors)
+            and watch.last_verified_snapshot_id is None
+            and not watch.pending_observation_hashes
+            and watch.open_review_task_id is None
+            and bool(watch.attention_reason_codes)
+            and watch.next_scan_at == schedule_epoch
+            and run.terminal_policy_decision_id is not None
+            and not run.failure_receipt_ids
+        )
+    elif run.state is ScanRunState.REVIEW_REQUIRED:
+        valid = (
+            watch.state is WatchCaseState.AWAITING_HUMAN
+            and watch.version == 2
+            and dict(watch.source_cursors) == dict(initial_source_cursors)
+            and watch.last_verified_snapshot_id is not None
+            and not watch.pending_observation_hashes
+            and watch.open_review_task_id is not None
+            and not watch.attention_reason_codes
+            and watch.next_scan_at is None
+            and run.terminal_policy_decision_id is not None
+            and not run.failure_receipt_ids
+        )
+    else:  # pragma: no cover - enum exhaustiveness guard
+        valid = False
+    if not run_pointer_valid or not valid:
+        raise RuntimeError("final_recovery_previous_watch_pointer_invalid")
+
+
+def _require_terminal_artifact_closure(
+    *,
+    watch: WatchCaseRecord,
+    run: ScanRunRecord,
+    artifacts: Mapping[str, Mapping[str, object]],
+    review_tasks: Mapping[str, ReviewTaskRecord],
+    initial_source_cursors: Mapping[str, str],
+    expected_evidence_mode: DataMode,
+) -> tuple[tuple[Mapping[str, object], ...], Mapping[str, object] | None]:
+    terminal_states = {
+        ScanRunState.NO_ACTION,
+        ScanRunState.ABSTAIN,
+        ScanRunState.REVIEW_REQUIRED,
+        ScanRunState.HALTED,
+    }
+    if run.state not in terminal_states:
+        return (), None
+    terminal_rows: list[Mapping[str, object]] = []
+
+    def bind(artifact) -> None:
+        terminal_rows.append(
+            {
+                "artifact_id": artifact.artifact_id,
+                "schema_name": artifact.schema_name,
+                "content_hash": artifact.content_hash,
+                "run_id": artifact.run_id,
+                "case_id": artifact.case_id,
+            }
+        )
+
+    try:
+        if run.state is ScanRunState.HALTED:
+            failure_id = run.failure_receipt_ids[0]
+            failure = parse_artifact(
+                artifacts[failure_id], authorized_producers=PRODUCER_REGISTRY
+            )
+            full_audit_stage_versions = {
+                "UNKNOWN": {5},
+                "EVIDENCE_WATCHER": {5, 6},
+                "EVIDENCE_ASSESSOR": {6, 7},
+                "CITATION_AUDITOR": {7, 8},
+            }
+            full_audit_failure = (
+                failure.producer.component == "full-audit-controller"
+                and failure.producer.version == "1.0.0"
+                and failure.producer.identity == "controller-failure-recorder"
+                and failure.data_mode is expected_evidence_mode
+                and run.version
+                in full_audit_stage_versions.get(failure.payload.stage, set())
+                and failure.payload.failure_code.value
+                in {"controller_failed", "ledger_integrity_failed"}
+            )
+            workflow_controller_failure = (
+                failure.producer.component == "workflow-controller"
+                and failure.producer.version == "0.1.0"
+                and failure.producer.identity == "controller-failure-recorder"
+                and failure.data_mode is DataMode.SYNTHETIC
+                and failure.payload.stage == "POLICY_EVALUATION"
+                and run.version == 8
+                and failure.payload.failure_code.value
+                in {
+                    "controller_failed",
+                    "ledger_integrity_failed",
+                    "policy_unavailable",
+                }
+            )
+            valid = (
+                failure.schema_name == "FailureReceipt"
+                and failure.schema_version == "1.0.0"
+                and failure.artifact_id == failure_id
+                and failure.run_id == run.run_id
+                and failure.case_id == watch.watch_case_id
+                and failure.status is ArtifactStatus.REJECTED
+                and (full_audit_failure or workflow_controller_failure)
+                and failure.input_artifact_ids == (run.scan_run_artifact_id,)
+                and failure.payload.safe_terminal.value == "HALTED"
+                and failure.payload.failure_code.value
+                in watch.attention_reason_codes
+            )
+            if not valid:
+                raise RuntimeError
+            bind(failure)
+            return tuple(terminal_rows), None
+
+        policy_id = run.terminal_policy_decision_id
+        policy = parse_artifact(
+            artifacts[str(policy_id)], authorized_producers=PRODUCER_REGISTRY
+        )
+        valid = (
+            policy.schema_name == "PolicyDecision"
+            and policy.schema_version == "2.0.0"
+            and policy.artifact_id == policy_id
+            and policy.run_id == run.run_id
+            and policy.case_id == watch.watch_case_id
+            and policy.status is ArtifactStatus.VALID
+            and policy.data_mode is DataMode.SYNTHETIC
+            and policy.input_artifact_ids == (run.scan_run_artifact_id,)
+            and policy.payload.outcome.value == run.state.value
+        )
+        if not valid:
+            raise RuntimeError
+        bind(policy)
+
+        if run.state in {ScanRunState.NO_ACTION, ScanRunState.REVIEW_REQUIRED}:
+            snapshot_id = watch.last_verified_snapshot_id
+            snapshot = parse_artifact(
+                artifacts[str(snapshot_id)], authorized_producers=PRODUCER_REGISTRY
+            )
+            valid = (
+                snapshot.schema_name == "EvidenceSnapshot"
+                and snapshot.schema_version == "1.0.0"
+                and snapshot.artifact_id == snapshot_id
+                and snapshot.run_id == run.run_id
+                and snapshot.case_id == watch.watch_case_id
+                and snapshot.status is ArtifactStatus.VALID
+                and snapshot.data_mode is expected_evidence_mode
+                and dict(snapshot.payload.source_cursors)
+                == dict(initial_source_cursors)
+                and dict(watch.source_cursors) == dict(initial_source_cursors)
+            )
+            if not valid:
+                raise RuntimeError
+            bind(snapshot)
+
+        if run.state is not ScanRunState.REVIEW_REQUIRED:
+            return tuple(terminal_rows), None
+        task_id = watch.open_review_task_id
+        task = parse_artifact(
+            artifacts[str(task_id)], authorized_producers=PRODUCER_REGISTRY
+        )
+        record = review_tasks[str(task_id)]
+        valid = (
+            task.schema_name == "ReviewTask"
+            and task.schema_version == "1.0.0"
+            and task.artifact_id == task_id
+            and task.run_id == run.run_id
+            and task.case_id == watch.watch_case_id
+            and task.status is ArtifactStatus.VALID
+            and task.data_mode is DataMode.SYNTHETIC
+            and policy_id in task.input_artifact_ids
+            and task.payload.watch_case_id == watch.watch_case_id
+            and task.payload.trigger_decision_id == policy_id
+            and task.payload.state.value == "OPEN"
+            and record.task_id == task_id
+            and record.artifact_id == task_id
+            and record.run_id == run.run_id
+            and record.watch_case_id == watch.watch_case_id
+            and record.policy_decision_id == policy_id
+            and record.deduplication_key == task.payload.deduplication_key
+            and record.state == "OPEN"
+            and record.delivery_state in {"PENDING", "DELIVERED"}
+            and _timestamp(record.created_at) == task.created_at
+        )
+        if not valid:
+            raise RuntimeError
+        bind(task)
+        record_wire = record.to_wire()
+        record_wire["created_at"] = _timestamp(record.created_at)
+        return tuple(terminal_rows), record_wire
+    except (ContractError, KeyError, IndexError, RuntimeError) as exc:
+        raise RuntimeError(
+            "final_recovery_previous_terminal_binding_invalid"
+        ) from exc
 
 
 def recovery_collection_prefix(
@@ -375,6 +696,8 @@ def build_final_execution_recovery_snapshot(
     watch_rows: list[Mapping[str, object]] = []
     preparation_rows: list[Mapping[str, object]] = []
     scan_ids = []
+    review_task_rows: list[Mapping[str, object]] = []
+    terminal_artifact_rows: list[Mapping[str, object]] = []
     states: Counter[str] = Counter()
     expected_cases = cases_for_cycle(cycle)
     prior_recovery = _verified_prior_recovery_binding(
@@ -442,6 +765,22 @@ def build_final_execution_recovery_snapshot(
         uuid5(UUID(tick_run_id(plan, cycle)), "batch-execution-receipt")
     )
     artifact_ids = {manifest_id, mode_id, batch_id}
+    review_records = (
+        () if prior_recovery is None else tuple(ledger.list_review_tasks_all())
+    )
+    review_by_id = {item.task_id: item for item in review_records}
+    expected_review_ids = {
+        watch_by_case[item.case_id].open_review_task_id
+        for item in expected_cases
+        if run_by_id[identities[item.case_id][2]].state
+        is ScanRunState.REVIEW_REQUIRED
+    }
+    if prior_recovery is not None and (
+        None in expected_review_ids
+        or len(review_by_id) != len(review_records)
+        or set(review_by_id) != expected_review_ids
+    ):
+        raise RuntimeError("final_recovery_previous_terminal_binding_invalid")
     for item in expected_cases:
         prepared = prepared_by_case[item.case_id]
         artifact_ids.add(str(prepared.watch_case["artifact_id"]))
@@ -450,6 +789,15 @@ def build_final_execution_recovery_snapshot(
         if run.scan_run_artifact_id is None:
             raise RuntimeError("final_recovery_previous_run_set_invalid")
         artifact_ids.add(run.scan_run_artifact_id)
+        if prior_recovery is not None:
+            if run.terminal_policy_decision_id is not None:
+                artifact_ids.add(run.terminal_policy_decision_id)
+            artifact_ids.update(run.failure_receipt_ids)
+            watch = watch_by_case[item.case_id]
+            if watch.last_verified_snapshot_id is not None:
+                artifact_ids.add(watch.last_verified_snapshot_id)
+            if watch.open_review_task_id is not None:
+                artifact_ids.add(watch.open_review_task_id)
     artifacts = ledger.get_artifacts(tuple(sorted(artifact_ids)))
 
     for item in expected_cases:
@@ -530,7 +878,24 @@ def build_final_execution_recovery_snapshot(
             run,
             initial_source_cursors=initial_source_cursors,
             schedule_epoch=cycle.schedule_epoch,
+            canonical_cancelled_state=prior_recovery is not None,
         )
+        if prior_recovery is not None:
+            terminal_rows, review_row = _require_terminal_artifact_closure(
+                watch=watch,
+                run=run,
+                artifacts=artifacts,
+                review_tasks=review_by_id,
+                initial_source_cursors=initial_source_cursors,
+                expected_evidence_mode=(
+                    DataMode.CAPTURED_REPLAY
+                    if item.vcv is not None
+                    else DataMode.SYNTHETIC
+                ),
+            )
+            terminal_artifact_rows.extend(terminal_rows)
+            if review_row is not None:
+                review_task_rows.append(review_row)
         expected_runs.append(run_id)
         scan_ids.append(run.scan_run_artifact_id)
         states[run.state.value] += 1
@@ -550,9 +915,22 @@ def build_final_execution_recovery_snapshot(
                 **_run_pointer_row(run),
             }
         )
-    observed_states = dict(sorted(states.items()))
-    if observed_states != EXPECTED_CANCELLED_STATE_COUNTS:
-        raise RuntimeError("final_recovery_previous_state_counts_invalid")
+    raw_observed_states = dict(sorted(states.items()))
+    if prior_recovery is None:
+        if raw_observed_states != EXPECTED_CANCELLED_STATE_COUNTS:
+            raise RuntimeError("final_recovery_previous_state_counts_invalid")
+        observed_states = raw_observed_states
+    else:
+        if (
+            set(raw_observed_states)
+            - set(FINAL_RECOVERY_CANCELLED_STATE_FIELDS)
+            or sum(raw_observed_states.values()) != len(expected_cases)
+        ):
+            raise RuntimeError("final_recovery_previous_state_counts_invalid")
+        observed_states = {
+            state: raw_observed_states.get(state, 0)
+            for state in FINAL_RECOVERY_CANCELLED_STATE_FIELDS
+        }
     if artifacts.get(manifest_id) is not None or artifacts.get(mode_id) is not None:
         raise RuntimeError("final_recovery_previous_manifest_present")
     batch_wire = artifacts.get(batch_id)
@@ -573,6 +951,7 @@ def build_final_execution_recovery_snapshot(
     loaded_counts = {
         "watch_cases": len(watch_records),
         "scan_runs": len(run_records),
+        "review_tasks": len(review_records),
     }
     collection_counts = {
         name: (
@@ -607,6 +986,13 @@ def build_final_execution_recovery_snapshot(
     }
     if prior_recovery is not None:
         snapshot_wire["previous_recovery_receipt"] = dict(prior_recovery)
+        snapshot_wire["review_tasks"] = sorted(
+            review_task_rows, key=lambda item: str(item["task_id"])
+        )
+        snapshot_wire["terminal_artifacts"] = sorted(
+            terminal_artifact_rows,
+            key=lambda item: str(item["artifact_id"]),
+        )
     return FinalExecutionRecoverySnapshot(
         snapshot_sha256=hashlib.sha256(
             canonical_json_bytes(snapshot_wire)
@@ -861,7 +1247,10 @@ def _verify_receipt(
     wire = ledger.get_artifact(_receipt_id(recovery))
     if wire is None:
         raise RuntimeError("final_recovery_receipt_missing")
-    parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    try:
+        parsed = parse_artifact(wire, authorized_producers=PRODUCER_REGISTRY)
+    except ContractError as exc:
+        raise RuntimeError("final_recovery_receipt_binding_invalid") from exc
     payload = parsed.payload
     expected_inputs = tuple(sorted(_recovery_receipt_inputs(snapshot)))
     if (

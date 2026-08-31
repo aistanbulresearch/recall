@@ -7,7 +7,7 @@ import pytest
 from recall.contracts import ContractError
 from recall.contracts.enums import ScanRunState, WatchCaseState
 from recall.ledger.firestore import FirestoreLedger
-from recall.ledger.models import ScanRunRecord, WatchCaseRecord
+from recall.ledger.models import ReviewTaskRecord, ScanRunRecord, WatchCaseRecord
 
 
 class _Snapshot:
@@ -34,6 +34,9 @@ class _Collection:
         self.stream_calls += 1
         return iter(self._snapshots)
 
+    def where(self, *, filter):
+        return self
+
     def document(self, document_id: str) -> _Reference:
         return _Reference(document_id)
 
@@ -44,12 +47,14 @@ class _Client:
         *,
         watch: tuple[_Snapshot, ...] = (),
         runs: tuple[_Snapshot, ...] = (),
+        review_tasks: tuple[_Snapshot, ...] = (),
         artifacts: dict[str, dict[str, object]] | None = None,
     ) -> None:
         self.collections = {
             "watch_cases": _Collection(watch),
             "scan_runs": _Collection(runs),
             "artifacts": _Collection(()),
+            "review_tasks": _Collection(review_tasks),
         }
         self.artifacts = artifacts or {}
         self.get_all_calls: list[tuple[str, ...]] = []
@@ -102,6 +107,20 @@ def _run_record(run_id: str) -> ScanRunRecord:
     )
 
 
+def _review_task(task_id: str) -> ReviewTaskRecord:
+    return ReviewTaskRecord(
+        task_id=task_id,
+        run_id="run-a",
+        watch_case_id="case-a",
+        policy_decision_id="policy-a",
+        deduplication_key="d" * 64,
+        artifact_id=task_id,
+        state="OPEN",
+        delivery_state="PENDING",
+        created_at=datetime(2026, 8, 31, tzinfo=UTC),
+    )
+
+
 def test_firestore_bulk_pointer_enumeration_is_one_stream_per_collection() -> None:
     watch = _watch_record("case-b")
     run = _run_record("run-b")
@@ -115,6 +134,39 @@ def test_firestore_bulk_pointer_enumeration_is_one_stream_per_collection() -> No
     assert ledger.list_scan_runs() == (run,)
     assert client.collections["watch_cases"].stream_calls == 1
     assert client.collections["scan_runs"].stream_calls == 1
+
+
+def test_firestore_bulk_review_task_enumeration_is_one_stream() -> None:
+    task = _review_task("task-a")
+    client = _Client(
+        review_tasks=(_Snapshot(task.task_id, task.to_wire()),),
+    )
+    ledger = FirestoreLedger(client)
+
+    assert ledger.list_review_tasks_all() == (task,)
+    assert client.collections["review_tasks"].stream_calls == 1
+
+
+def test_firestore_run_scoped_review_task_enumeration_remains_available() -> None:
+    task = _review_task("task-a")
+    client = _Client(
+        review_tasks=(_Snapshot(task.task_id, task.to_wire()),),
+    )
+    ledger = FirestoreLedger(client)
+
+    assert ledger.list_review_tasks("run-a") == (task,)
+    assert client.collections["review_tasks"].stream_calls == 1
+
+
+def test_firestore_bulk_review_task_rejects_document_identity_drift() -> None:
+    task = _review_task("task-a")
+    client = _Client(
+        review_tasks=(_Snapshot("wrong-task", task.to_wire()),),
+    )
+    ledger = FirestoreLedger(client)
+
+    with pytest.raises(ContractError, match="review_task_document_id"):
+        ledger.list_review_tasks_all()
 
 
 def test_firestore_bulk_artifact_reads_are_chunked_not_per_document() -> None:

@@ -12,8 +12,29 @@ from ..validation import SHA256, non_empty_string, require_exact_fields, uuid_va
 
 _SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _IMAGE_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-_STATE_FIELDS = frozenset(
-    {"CREATED", "HALTED", "NO_ACTION", "AUDITING", "WATCHING"}
+_LEGACY_STATE_COUNTS = {
+    "AUDITING": 1,
+    "CREATED": 417,
+    "HALTED": 14,
+    "NO_ACTION": 23,
+    "WATCHING": 1,
+}
+FINAL_RECOVERY_CANCELLED_STATE_FIELDS = tuple(
+    sorted(
+        {
+            "ABSTAIN",
+            "ASSESSING",
+            "AUDITING",
+            "CREATED",
+            "HALTED",
+            "NO_ACTION",
+            "POLICY_EVALUATION",
+            "QUEUED",
+            "REVIEW_REQUIRED",
+            "ROUTING",
+            "WATCHING",
+        }
+    )
 )
 
 
@@ -114,15 +135,36 @@ def parse_final_execution_recovery_receipt_payload(
     states = value["previous_state_counts"]
     if not isinstance(states, Mapping):
         raise ContractError("contract_type_invalid", "previous_state_counts")
-    require_exact_fields(states, _STATE_FIELDS, "previous_state_counts")
-    state_counts = {key: _integer(states[key], key) for key in sorted(states)}
-    if state_counts != {
-        "AUDITING": 1,
-        "CREATED": 417,
-        "HALTED": 14,
-        "NO_ACTION": 23,
-        "WATCHING": 1,
-    }:
+    state_fields = frozenset(states)
+    if state_fields == frozenset(_LEGACY_STATE_COUNTS):
+        require_exact_fields(
+            states, frozenset(_LEGACY_STATE_COUNTS), "previous_state_counts"
+        )
+        state_counts = {
+            key: _integer(states[key], key) for key in sorted(states)
+        }
+        valid_state_counts = (
+            previous_prefix.startswith("dev_recall_m2_compressed_")
+            and state_counts == _LEGACY_STATE_COUNTS
+        )
+    elif state_fields == frozenset(FINAL_RECOVERY_CANCELLED_STATE_FIELDS):
+        require_exact_fields(
+            states,
+            frozenset(FINAL_RECOVERY_CANCELLED_STATE_FIELDS),
+            "previous_state_counts",
+        )
+        state_counts = {
+            key: _integer(states[key], key)
+            for key in FINAL_RECOVERY_CANCELLED_STATE_FIELDS
+        }
+        valid_state_counts = (
+            previous_prefix.startswith("dev_recall_final_")
+            and sum(state_counts.values()) == 456
+        )
+    else:
+        state_counts = {}
+        valid_state_counts = False
+    if not valid_state_counts:
         raise ContractError("contract_value_invalid", "previous_state_counts")
     target_count = _integer(value["target_case_count"], "target_case_count")
     cap = _integer(value["hard_cap_usd_micros"], "hard_cap_usd_micros")
