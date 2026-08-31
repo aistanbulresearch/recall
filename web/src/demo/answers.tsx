@@ -37,14 +37,35 @@ const decided = Object.values(governance.policy_outcomes_seen).reduce((a, b) => 
  * superseded declaration, so anything published must come from here plus the
  * committed erratum.
  */
+interface StudyArm {
+  combined: {
+    document_level: Record<string, number>;
+    per_class?: Record<string, Record<string, number>>;
+  };
+}
+
 const p1 = correctedView as unknown as {
   arms: Record<string, { arm: string; status: string }>;
-  baseline: { combined: { document_level: Record<string, number> } };
-  comparison_arm_b: { combined: { document_level: Record<string, number> } };
-  structured_only_egress: { combined: { document_level: Record<string, number> } };
+  baseline: StudyArm;
+  comparison_arm_a: StudyArm;
+  comparison_arm_b: StudyArm;
+  structured_only_egress: StudyArm;
   frozen_test_run_id: string;
   record_count: number;
 };
+
+/** Span totals for one arm, summed from its own per-class table. */
+function armTotals(arm: StudyArm): { truePositives: number; falsePositives: number } {
+  const classes = Object.values(arm.combined.per_class ?? {});
+  return {
+    truePositives: classes.reduce((sum, row) => sum + (row.true_positive ?? 0), 0),
+    falsePositives: classes.reduce((sum, row) => sum + (row.false_positive ?? 0), 0),
+  };
+}
+
+const spansBaseline = armTotals(p1.baseline);
+const spansModelPlaced = armTotals(p1.comparison_arm_a);
+const spansCodePlaced = armTotals(p1.comparison_arm_b);
 
 const fit = categoryFit as unknown as {
   capabilities: {
@@ -755,13 +776,10 @@ export const ANSWERS: Answer[] = [
     keywords: [
       'innovat',
       'new here',
-      'different',
       'novel',
       'unique',
-      'chatbot',
       'what makes',
       'special',
-      'why not just',
     ],
     body: (
       <>
@@ -1162,6 +1180,75 @@ export const ANSWERS: Answer[] = [
       </>
     ),
     more: { href: '#/story', label: 'The case this replays, with its dates and sources' },
+  },
+  {
+    id: 'different',
+    group: 'Start here',
+    label: 'How is this different from a cron job with an LLM?',
+    keywords: [
+      'cron',
+      'different from',
+      'why not just',
+      'compare',
+      'comparison',
+      'alternative',
+      'chatbot',
+      'rag',
+      'pipeline',
+      'existing tools',
+      'already exists',
+      'off the shelf',
+    ],
+    body: (
+      <>
+        <p>
+          A scheduled job with a model attached can tell you that something new exists. It
+          cannot tell you whether that something is enough to reopen a particular closed
+          decision, and when it is not enough it cannot say why. Recall's output is that
+          judgement, with a reason code attached, and the judgement is not the model's to make.
+        </p>
+        <p>
+          The distance shows up in what each design does with a doubtful answer. A retrieval
+          pipeline answers when asked. A chat assistant answers whatever it is asked. This fleet
+          ran unattended for {hours(execution.duration_seconds)} and said nothing at all about{' '}
+          {counts.NO_ACTION} of its {cases.length} cases, refused {counts.ABSTAIN} where the
+          evidence would not verify, and stopped {counts.HALTED} where its own machinery could
+          not be trusted. Silence and refusal are outputs here, not failures to produce one.
+        </p>
+        <p>The architecture also departs from three obvious choices, each recorded as a decision:</p>
+        <ul className="checks">
+          <li>
+            <b>One long-lived agent session</b> holding the case in context. Rejected: crash
+            recovery, cost and auditability all become ambiguous. Instead a durable case object
+            outlives every scan, and each scan is a bounded run with its own terminal state.
+          </li>
+          <li>
+            <b>Model memory as the system of record.</b> Rejected: an append-only ledger the
+            agents cannot write is the authority, and continuity lives in cursors and verified
+            snapshots rather than in a context window.
+          </li>
+          <li>
+            <b>Letting the model place its own findings.</b> Rejected on measurement, not
+            taste. In the frozen study, when the model supplied its own character offsets it
+            added <b>{spansModelPlaced.truePositives - spansBaseline.truePositives}</b> true
+            positives and{' '}
+            <b>{spansModelPlaced.falsePositives - spansBaseline.falsePositives}</b> false
+            positives, and {p1.comparison_arm_a.combined.document_level.accepted} of{' '}
+            {p1.record_count} records were releasable. When the same model proposed the text and
+            deterministic exact search placed it, true positives rose by{' '}
+            <b>{spansCodePlaced.truePositives - spansBaseline.truePositives}</b> and false
+            positives by {spansCodePlaced.falsePositives - spansBaseline.falsePositives}, and{' '}
+            {p1.comparison_arm_b.combined.document_level.accepted} of {p1.record_count} became
+            releasable. The model recognises; the code locates.
+          </li>
+        </ul>
+        <p>
+          That last one is the whole design in miniature. The difference is not how capable the
+          model is. It is what the system is allowed to do with what the model says.
+        </p>
+      </>
+    ),
+    more: { href: '#/story#how', label: 'The boundary, drawn' },
   },
 ];
 

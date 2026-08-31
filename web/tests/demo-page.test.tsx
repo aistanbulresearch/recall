@@ -92,6 +92,8 @@ describe('questions route to the answer they name', () => {
     expect(match('what is a vus')?.id).toBe('genetics');
     expect(match('what does uncertain significance mean')?.id).toBe('genetics');
     expect(match('how do you map to the rubric')?.id).toBe('capabilities');
+    expect(match('how is this different from a cron job')?.id).toBe('different');
+    expect(match('why not just use a chatbot')?.id).toBe('different');
   });
 
   it('refuses rather than guessing when nothing matches', () => {
@@ -235,6 +237,10 @@ describe('the questions a jury actually asks', () => {
     'why is governance the point',
     'how do you map to the rubric',
     'which category capabilities do you meet',
+    'how is this different from a cron job',
+    'why not just use a chatbot',
+    'is this just a rag pipeline',
+    'what about off the shelf tools',
   ];
 
   it('answers every question in the corpus', () => {
@@ -297,5 +303,22 @@ describe('the rubric mapping and the governance argument', () => {
     for (const answer of ANSWERS) {
       expect(groups.has(answer.group), `${answer.id}: ${answer.group}`).toBe(true);
     }
+  });
+});
+
+describe('the comparison with existing approaches', () => {
+  it('states each rejected alternative, and measures the one that was measured', () => {
+    const markup = renderToStaticMarkup(<>{byId('different')!.body}</>);
+    expect(markup).toContain('One long-lived agent session');
+    expect(markup).toContain('Model memory as the system of record');
+    expect(markup).toContain('Letting the model place its own findings');
+    expect(markup).toContain('Rejected on measurement, not');
+    // The arm deltas are computed from the study file, never typed.
+    expect(markup).toContain('The model recognises; the code locates');
+  });
+
+  it('does not present silence as a failure to answer', () => {
+    const markup = renderToStaticMarkup(<>{byId('different')!.body}</>);
+    expect(markup).toContain('Silence and refusal are outputs here');
   });
 });
