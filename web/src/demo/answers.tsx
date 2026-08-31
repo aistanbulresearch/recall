@@ -308,11 +308,11 @@ export const ANSWERS: Answer[] = [
     label: 'What can an auditor actually check?',
     keywords: [
       'auditor can check',
-      'governance',
       'audit trail',
       'what can i check',
       'what can an auditor',
       'counted from',
+      'can i inspect',
     ],
     body: (
       <>
@@ -364,14 +364,11 @@ export const ANSWERS: Answer[] = [
       'why',
       'matter',
       'problem',
-      'patient',
-      'clinic',
       'purpose',
-      'vus',
-      'uncertain significance',
       'who is the user',
       'who benefits',
       'who is it for',
+      'why should anyone care',
     ],
     body: (
       <>
@@ -449,7 +446,18 @@ export const ANSWERS: Answer[] = [
     id: 'limits',
     group: 'The limits',
     label: 'What can’t you prove?',
-    keywords: ['limit', 'cannot prove', "can't prove", 'weakness', 'not proven', 'caveat', 'what is missing'],
+    keywords: [
+      'limit',
+      'cannot prove',
+      "can't prove",
+      'weakness',
+      'not proven',
+      'caveat',
+      'what is missing',
+      'safe for patients',
+      'is it clinical',
+      'regulat',
+    ],
     body: (
       <>
         <p>The things this demo deliberately does not claim:</p>
@@ -1072,6 +1080,88 @@ export const ANSWERS: Answer[] = [
       </>
     ),
     more: { href: '#/run', label: 'The auditor’s table for this run' },
+  },
+  {
+    id: 'genetics',
+    group: 'Start here',
+    label: 'What is an uncertain genetic result, and who does it affect?',
+    keywords: [
+      'vus',
+      'variant',
+      'uncertain significance',
+      'uncertain result',
+      'genetic test',
+      'genetics',
+      'genomic',
+      'brca',
+      'what does uncertain mean',
+      'biology',
+      'dna',
+      'cancer',
+      'family history',
+      'patient',
+      'affect a patient',
+    ],
+    body: (
+      <>
+        <p>
+          Someone with a strong family history of cancer is tested. The laboratory reads the
+          relevant genes and compares them with the reference. Differences are normal: everyone
+          carries thousands of them, and almost all are harmless. The laboratory's job is to say
+          which kind this one is.
+        </p>
+        <p>There are three possible answers, and only two of them are answers:</p>
+        <ul className="checks">
+          <li>
+            <b>Pathogenic.</b> This change explains the risk. Screening can be intensified,
+            prevention can be discussed, and the rest of the family can be tested for the same
+            change.
+          </li>
+          <li>
+            <b>Benign.</b> This change is not the cause. It is set aside and the search continues
+            elsewhere.
+          </li>
+          <li>
+            <b>Uncertain,</b> a <b>variant of uncertain significance</b>. The evidence available
+            today does not support either answer.
+          </li>
+        </ul>
+        <p>
+          The third one is the problem, and its cost is easy to miss because nothing dramatic
+          happens. The finding cannot guide screening. It cannot justify preventive surgery. It
+          cannot be used to test a sister or a daughter, so a whole family stays in the same
+          uncertainty. It is neither a warning nor an all clear: it is an open question, filed
+          into a chart.
+        </p>
+        <p>
+          The clinician does the right thing. They explain that the finding cannot be acted on,
+          they manage the patient on family history instead, and they say the sentence every
+          genetics clinic says: <i>this may be reclassified as more evidence accumulates</i>.
+        </p>
+        <p>
+          It usually can be. Evidence does accumulate, in laboratories on other continents, in
+          functional studies, in public data deposits and in publications, and eventually it
+          reaches the public variant databases that clinics read. But it arrives years later, in
+          a different system, with no connection to the chart it should change. Re-contact
+          practice varies between laboratories, and no standing process re-reads every closed
+          case on a clinic's behalf.
+        </p>
+        <p>
+          So the person this is about is not only the patient. It is the clinical genetics
+          specialist holding a backlog of cases that were correct to leave open, each one a
+          question only they remember. Their hardest work is not reading a variant; it is
+          remembering, for years, that a question is still open, with no system remembering
+          alongside them.
+        </p>
+        <p className="quiet">
+          Recall does not classify variants and does not change any clinical record. It watches
+          the public evidence, verifies what it finds against the captured sources, and raises a
+          case for a specialist when, and only when, the evidence has been independently
+          audited. The decision stays with the human.
+        </p>
+      </>
+    ),
+    more: { href: '#/story', label: 'The case this replays, with its dates and sources' },
   },
 ];
 

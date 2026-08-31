@@ -89,6 +89,9 @@ describe('questions route to the answer they name', () => {
     expect(match('how much did the cohort cost')?.id).toBe('cost');
     expect(match('what leaves the laboratory')?.id).toBe('privacy');
     expect(match('why does this matter to a patient')?.id).toBe('why');
+    expect(match('what is a vus')?.id).toBe('genetics');
+    expect(match('what does uncertain significance mean')?.id).toBe('genetics');
+    expect(match('how do you map to the rubric')?.id).toBe('capabilities');
   });
 
   it('refuses rather than guessing when nothing matches', () => {
@@ -223,6 +226,15 @@ describe('the questions a jury actually asks', () => {
     'why does this matter',
     'is there an audit trail',
     'how are tool calls authorized',
+    'what is a vus',
+    'what does uncertain significance mean',
+    'explain the genetics',
+    'what is a variant',
+    'how does this affect a patient',
+    'is this safe for patients',
+    'why is governance the point',
+    'how do you map to the rubric',
+    'which category capabilities do you meet',
   ];
 
   it('answers every question in the corpus', () => {
