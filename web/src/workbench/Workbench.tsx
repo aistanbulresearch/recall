@@ -22,6 +22,7 @@ import haltedBundle from '../bundles/halted.json';
 import { buildViewModel } from '../viewmodel/builder';
 import type { ArtifactBundle } from '../viewmodel/types';
 
+import { RunSurface } from '../run/RunSurface';
 import { EvidenceStrip, StripProvider } from './strip';
 import { Walkthrough } from './views/Walkthrough';
 import { Worklist } from './views/Worklist';
@@ -68,7 +69,8 @@ function parseRoute(hash: string): string[] {
 }
 
 const NAV = [
-  { path: '', label: 'Worklist' },
+  { path: '', label: 'The run' },
+  { path: 'worklist', label: 'Worklist' },
   { path: 'walkthrough', label: 'Walkthrough' },
   { path: 'cohort', label: 'Cohort ledger' },
   { path: 'privacy', label: 'Privacy desk' },
@@ -109,11 +111,13 @@ export function Workbench() {
     view = <Dossier scenarios={SCENARIOS} models={models} />;
   } else if (head === 'walkthrough') {
     view = <Walkthrough />;
-  } else {
+  } else if (head === 'worklist') {
     view = <Worklist scenarios={SCENARIOS} models={models} />;
+  } else {
+    view = <RunSurface />;
   }
 
-  const activeNav = head === 'case' ? '' : head;
+  const activeNav = head === 'case' ? 'worklist' : head;
 
   return (
     <StripProvider>

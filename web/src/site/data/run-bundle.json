@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "status": "PENDING",
+  "note": "The cohort execution has not yet delivered its terminal evidence export. Nothing is shown here until the manifest, the per-case index and the receipts exist; no figure on this surface is estimated, projected or carried over from an earlier run.",
+  "provenance": {
+    "export_source": "terminal evidence export from the Director / L1 platform chain",
+    "exported_at": ""
+  }
+}
